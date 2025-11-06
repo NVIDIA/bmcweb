@@ -232,7 +232,7 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& chassisID, Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("checkChassisId enter");
-    const std::array<const char*, 2> interfaces = {
+    const std::array<std::string_view, 2> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
@@ -270,11 +270,8 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     };
 
     // Get the Chassis Collection
-    dbus::utility::async_method_call(
-        respHandler, "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+    dbus::utility::getSubTreePaths("/xyz/openbmc_project/inventory", 0,
+                                   interfaces, respHandler);
     BMCWEB_LOG_DEBUG("checkChassisId exit");
 }
 

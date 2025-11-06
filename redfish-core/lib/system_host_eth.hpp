@@ -333,12 +333,13 @@ inline void handleNetworkAdapterEthInterface(
 
 template <typename CallbackFunc>
 void getEthernetIfaceListHost(CallbackFunc&& callback,
-                              const std::vector<const char*>& interfaces)
+                              const std::vector<std::string_view>& interfaces)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/network/host0", 0, interfaces,
         [callback{std::forward<CallbackFunc>(callback)}](
             const boost::system::error_code& ec,
-            const std::vector<std::string>& objects) {
+            const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -362,11 +363,7 @@ void getEthernetIfaceListHost(CallbackFunc&& callback,
             // Invoke callback with success and the list of Ethernet interface
             // IDs
             callback(true, std::move(ifaceList));
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/network/host0", 0, interfaces);
+        });
 }
 
 template <typename CallbackFunc>

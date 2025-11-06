@@ -53,13 +53,15 @@ inline void getInterfaceStatus(
                 return;
             }
 
-            constexpr const std::array<const char*, 1> inventoryForEthernet = {
-                "xyz.openbmc_project.Inventory.Item.Ethernet"};
+            constexpr const std::array<std::string_view, 1>
+                inventoryForEthernet = {
+                    "xyz.openbmc_project.Inventory.Item.Ethernet"};
 
             nlohmann::json& jsonResponse = asyncResp->res.jsonValue;
             auto health = std::make_shared<HealthPopulate>(asyncResp);
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/", int32_t(0), inventoryForEthernet,
                 [health](const boost::system::error_code& ec1,
                          const std::vector<std::string>& resp) {
                     if (ec1)
@@ -68,11 +70,7 @@ inline void getInterfaceStatus(
                         return;
                     }
                     health->inventory = resp;
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/",
-                int32_t(0), inventoryForEthernet);
+                });
             health->populate();
             if (nicEnabled)
             {

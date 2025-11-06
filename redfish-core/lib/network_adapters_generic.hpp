@@ -56,7 +56,7 @@ void getValidNetworkAdapterPath(
                   networkInterface) != chassisIntfList.end())
     {
         // networkInterface at the same chassis objPath
-        const std::array<const char*, 1> interfaces = {
+        const std::array<std::string_view, 1> interfaces = {
             "xyz.openbmc_project.Inventory.Item.NetworkInterface"};
 
         auto respHandler =
@@ -97,11 +97,8 @@ void getValidNetworkAdapterPath(
             };
 
         // Get the NetworkAdatper Collection
-        dbus::utility::async_method_call(
-            respHandler, "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0, interfaces);
+        dbus::utility::getSubTreePaths("/xyz/openbmc_project/inventory", 0,
+                                       interfaces, respHandler);
     }
     else
     {
@@ -171,7 +168,10 @@ inline void doNetworkAdaptersCollectionGeneric(
                   networkInterface) != chassisIntfList.end())
     {
         // networkInterface at the same chassis objPath
-        dbus::utility::async_method_call(
+        dbus::utility::getSubTreePaths(
+            "/xyz/openbmc_project/inventory/", 0,
+            std::array<std::string_view, 1>{
+                "xyz.openbmc_project.Inventory.Item.NetworkInterface"},
             [chassisId, asyncResp](
                 const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -211,13 +211,7 @@ inline void doNetworkAdaptersCollectionGeneric(
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     members.size();
                 return;
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory/", 0,
-            std::array<std::string, 1>{
-                "xyz.openbmc_project.Inventory.Item.NetworkInterface"});
+            });
     }
 
     // get network adapter on chassis by association

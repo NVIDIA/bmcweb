@@ -494,7 +494,11 @@ template <typename Handler>
 inline void getProcessor(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& processorId, Handler&& handler)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 2>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "xyz.openbmc_project.Inventory.Item.Cpu"},
         [processorId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -529,21 +533,19 @@ inline void getProcessor(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+        });
 }
 
 template <typename Handler>
 inline void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                        const std::string& chassisId, Handler&& handler)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 3>{
+            "xyz.openbmc_project.Inventory.Item.Board",
+            "xyz.openbmc_project.Inventory.Item.Chassis",
+            "xyz.openbmc_project.Inventory.Item.Component"},
         [chassisId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -576,15 +578,7 @@ inline void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
                 chassisId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Board",
-            "xyz.openbmc_project.Inventory.Item.Chassis",
-            "xyz.openbmc_project.Inventory.Item.Component"});
+        });
 }
 
 inline void getChassisErrorInjectionData(
@@ -662,7 +656,10 @@ inline void getNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                               const std::string& networkAdapterId,
                               Handler&& handler)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory/", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.NetworkInterface"},
         [chassisId, networkAdapterId, aResp,
          handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
@@ -700,13 +697,7 @@ inline void getNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
                 networkAdapterId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory/", 0,
-        std::array<std::string, 1>{
-            "xyz.openbmc_project.Inventory.Item.NetworkInterface"});
+        });
 }
 
 inline void getNetworkAdapterErrorInjectionData(
@@ -749,7 +740,10 @@ inline void getSwitch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                       const std::string& fabricId, const std::string& switchId,
                       Handler&& handler)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory/", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.NvSwitch"},
         [fabricId, switchId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -785,13 +779,7 @@ inline void getSwitch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
                 switchId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory/", 0,
-        std::array<std::string, 1>{
-            "xyz.openbmc_project.Inventory.Item.NvSwitch"});
+        });
 }
 
 inline void getSwitchErrorInjectionData(
@@ -883,7 +871,12 @@ inline void getActivateCapableErrorTypes(
     {
         return;
     }
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 3>{
+            "xyz.openbmc_project.Inventory.Item.Board",
+            "xyz.openbmc_project.Inventory.Item.Chassis",
+            "xyz.openbmc_project.Inventory.Item.Component"},
         [chassisId,
          aResp](const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -900,6 +893,7 @@ inline void getActivateCapableErrorTypes(
                 errorTypes.emplace_back(
                     path.substr(path.find_last_of('/') + 1));
             }
+<<<<<<< HEAD
             handler(errorTypes);
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -985,6 +979,13 @@ inline void postChassisErrorInjectionData(
                            activateErrorInjectionPayload(aResp, errorPath);
                        });
                });
+=======
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaErrorInjection.v1_2_0.NvidiaErrorInjection",
+                chassisId);
+        });
+>>>>>>> GetSubtreePaths
 }
 
 inline void requestRoutesErrorInjection(App& app)

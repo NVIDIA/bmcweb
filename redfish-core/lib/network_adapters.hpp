@@ -31,11 +31,12 @@ namespace redfish
 
 inline void getNetworkAdapterCollectionMembers(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& collectionPath,
-    const bool& isNDF, const std::vector<const char*>& interfaces,
+    const bool& isNDF, const std::vector<std::string_view>& interfaces,
     const char* subtree = "/xyz/openbmc_project/inventory")
 {
     BMCWEB_LOG_DEBUG("Get collection members for: {}", collectionPath);
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        subtree, 0, interfaces,
         [collectionPath, isNDF, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -92,11 +93,7 @@ inline void getNetworkAdapterCollectionMembers(
                 members.push_back(std::move(member));
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", subtree, 0,
-        interfaces);
+        });
 }
 
 inline void doNetworkAdaptersCollection(
@@ -116,7 +113,10 @@ inline void doNetworkAdaptersCollection(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters", chassisId);
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/network/", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Network.EthernetInterface"},
         [chassisId, asyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -159,13 +159,7 @@ inline void doNetworkAdaptersCollection(
                     BMCWEB_PLATFORM_NETWORK_ADAPTER);
                 members.push_back(std::move(member));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/network/", 0,
-        std::array<std::string, 1>{
-            "xyz.openbmc_project.Network.EthernetInterface"});
+        });
 }
 
 inline void doNetworkAdapter(

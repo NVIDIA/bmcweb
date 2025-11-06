@@ -636,10 +636,11 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
             }
 
-            dbus::utility::async_method_call(
-                [asyncResp, objPath,
-                 dbusProperties](const boost::system::error_code& ecLambda2,
-                                 std::vector<std::string>& resp) {
+            dbus::utility::getSubTreePaths(
+                objPath, 1, std::array<std::string_view, 0>{},
+                [asyncResp, objPath, dbusProperties](
+                    const boost::system::error_code& ecLambda2,
+                    const dbus::utility::MapperGetSubTreePathsResponse& resp) {
                     if (ecLambda2)
                     {
                         BMCWEB_LOG_ERROR("errno = {}, \"{}\"", ecLambda2,
@@ -647,7 +648,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return; // no links found for this pcie slot
                     }
 
-                    for (auto& linkPash : resp)
+                    for (const auto& linkPash : resp)
                     {
                         if (linkPash == (objPath + "/processor_link"))
                         {
@@ -674,11 +675,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                     // No link found
                     updatePCIeSlotsNoLinks(asyncResp, dbusProperties);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", objPath,
-                1, std::array<const char*, 0>{});
+                });
         });
 }
 

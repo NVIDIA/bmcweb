@@ -144,7 +144,9 @@ inline void handleSecureBootDatabaseCollectionGet(
         "#SecureBootDatabaseCollection.SecureBootDatabaseCollection";
     aResp->res.jsonValue["Name"] = "UEFI SecureBoot Database Collection";
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/secureBootDatabase/", 0,
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Certs.Install"},
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
@@ -194,12 +196,7 @@ inline void handleSecureBootDatabaseCollectionGet(
                 members.push_back(std::move(member));
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/secureBootDatabase/", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Certs.Install"});
+        });
 }
 
 inline void handleSecureBootDatabaseGet(
@@ -246,7 +243,10 @@ inline void handleSecureBootDatabaseGet(
 
         // Add "ResetAllKeysToDefault" type if and only if we have PKDefault
         // certificate
-        dbus::utility::async_method_call(
+        dbus::utility::getSubTreePaths(
+            "/xyz/openbmc_project/secureBootDatabase/PKDefault/certs", 0,
+            std::array<std::string_view, 1>{
+                "xyz.openbmc_project.Certs.Certificate"},
             [aResp](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -264,13 +264,7 @@ inline void handleSecureBootDatabaseGet(
                                   ["ResetKeysType@Redfish.AllowableValues"] = {
                         "ResetAllKeysToDefault", "DeleteAllKeys"};
                 }
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/secureBootDatabase/PKDefault/certs", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Certs.Certificate"});
+            });
     }
 }
 

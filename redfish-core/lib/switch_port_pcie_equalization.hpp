@@ -268,7 +268,10 @@ inline void requestRoutesPCIeEqualization(App& app)
                     return;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::getSubTreePaths(
+                    "/xyz/openbmc_project/inventory", 0,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory.Item.Fabric"},
                     [asyncResp{asyncResp}, fabricId, switchId,
                      portId](const boost::system::error_code ec,
                              const std::vector<std::string>& objects) {
@@ -461,13 +464,7 @@ inline void requestRoutesPCIeEqualization(App& app)
                         // Return an error
                         messages::resourceNotFound(
                             asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Fabric"});
+                    });
             });
 
     BMCWEB_ROUTE(
@@ -609,7 +606,10 @@ inline void requestRoutesPCIeEqualization(App& app)
                 BMCWEB_LOG_ERROR("Missing property TxAmplitude, TxPreset");
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
                 [asyncResp{asyncResp}, fabricId, switchId, portId,
                  portEqualizationData](
                     const boost::system::error_code ec,
@@ -783,13 +783,7 @@ inline void requestRoutesPCIeEqualization(App& app)
                     // Return an error
                     messages::resourceNotFound(
                         asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+                });
         });
 }
 } // namespace redfish

@@ -509,7 +509,10 @@ inline void handleGetProfilesCollection(
     }
     BMCWEB_LOG_DEBUG("Start get profile Collection");
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        profilePath, 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Profiles.Statuses"},
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec)
@@ -539,11 +542,7 @@ inline void handleGetProfilesCollection(
                 BMCWEB_LOG_DEBUG("Profile: {}", profileNumber);
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", profilePath, 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Profiles.Statuses"});
+        });
     aResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles",
         BMCWEB_REDFISH_SYSTEM_URI_NAME);

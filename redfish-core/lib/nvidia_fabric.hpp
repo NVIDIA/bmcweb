@@ -65,7 +65,10 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTreePaths(
+                    "/xyz/openbmc_project/inventory", 0,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory.Item.Fabric"},
                     [asyncResp, fabricId, switchId,
                      histogramId](const boost::system::error_code ec,
                                   const std::vector<std::string>& objects) {
@@ -246,13 +249,7 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                         // Return an error
                         messages::resourceNotFound(
                             asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Fabric"});
+                    });
             });
 }
 
@@ -274,7 +271,10 @@ inline void requestRoutesSwitchHistogram(App& app)
                 return;
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
                 [asyncResp, fabricId, switchId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -359,13 +359,7 @@ inline void requestRoutesSwitchHistogram(App& app)
                     // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
                         asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+                });
         });
 }
 
@@ -389,7 +383,10 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                 return;
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
                 [asyncResp, fabricId,
                  switchId](const boost::system::error_code ec,
                            const std::vector<std::string>& objects) {
@@ -469,13 +466,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                     // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
                         asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+                });
         });
 }
 
@@ -502,7 +493,10 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                 return;
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
                 [asyncResp, fabricId, switchId, portId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -751,13 +745,7 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                     // error
                     messages::resourceNotFound(
                         asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+                });
         });
 }
 
@@ -779,7 +767,10 @@ inline void requestRoutesSwitchPortHistogram(App& app)
 
                 dbus::
                     utility::
-                        async_method_call(
+                        getSubTreePaths(
+                            "/xyz/openbmc_project/inventory", 0,
+                            std::array<std::string_view, 1>{
+                                "xyz.openbmc_project.Inventory.Item.Fabric"},
                             [asyncResp, fabricId, switchId, portId,
                              histogramId](
                                 const boost::system::error_code ec,
@@ -970,14 +961,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                                 messages::resourceNotFound(
                                     asyncResp->res, "#Fabric.v1_2_0.Fabric",
                                     fabricId);
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper",
-                            "GetSubTreePaths", "/xyz/openbmc_project/inventory",
-                            0,
-                            std::array<const char*, 1>{
-                                "xyz.openbmc_project.Inventory.Item.Fabric"});
+                            });
             });
 }
 
@@ -1001,7 +985,10 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTreePaths(
+                    "/xyz/openbmc_project/inventory", 0,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory.Item.Fabric"},
                     [asyncResp, fabricId, switchId,
                      portId](const boost::system::error_code ec,
                              const std::vector<std::string>& objects) {
@@ -1188,13 +1175,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                         // error
                         messages::resourceNotFound(
                             asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Fabric"});
+                    });
             });
 }
 

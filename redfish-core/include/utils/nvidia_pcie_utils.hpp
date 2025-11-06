@@ -798,54 +798,54 @@ inline void getPCIeDeviceList(
     const std::string& name, const std::string& path = pciePath,
     const std::string& chassisId = std::string())
 {
-    auto getPCIeMapCallback = [asyncResp{asyncResp}, name, chassisId](
-                                  const boost::system::error_code& ec,
-                                  std::vector<std::string>& pcieDevicePaths) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("no PCIe device paths found ec: ", ec.message());
-            // Not an error, system just doesn't have PCIe info
-            return;
-        }
-        nlohmann::json& pcieDeviceList = asyncResp->res.jsonValue[name];
-        pcieDeviceList = nlohmann::json::array();
-        for (const std::string& pcieDevicePath : pcieDevicePaths)
-        {
-            size_t devStart = pcieDevicePath.rfind('/');
-            if (devStart == std::string::npos)
+    dbus::utility::getSubTreePaths(
+        std::string(path) + "/", 1, std::array<std::string_view, 0>{},
+        [asyncResp{asyncResp}, name,
+         chassisId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        pcieDevicePaths) {
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_DEBUG("no PCIe device paths found ec: ",
+                                 ec.message());
+                // Not an error, system just doesn't have PCIe info
+                return;
             }
+            nlohmann::json& pcieDeviceList = asyncResp->res.jsonValue[name];
+            pcieDeviceList = nlohmann::json::array();
+            for (const std::string& pcieDevicePath : pcieDevicePaths)
+            {
+                size_t devStart = pcieDevicePath.rfind('/');
+                if (devStart == std::string::npos)
+                {
+                    continue;
+                }
 
-            std::string devName = pcieDevicePath.substr(devStart + 1);
-            if (devName.empty())
-            {
-                continue;
+                std::string devName = pcieDevicePath.substr(devStart + 1);
+                if (devName.empty())
+                {
+                    continue;
+                }
+                if (!chassisId.empty())
+                {
+                    pcieDeviceList.push_back(
+                        {{"@odata.id", std::string("/redfish/v1/Chassis/")
+                                           .append(chassisId)
+                                           .append("/PCIeDevices/")
+                                           .append(devName)}});
+                }
+                else
+                {
+                    pcieDeviceList.push_back(
+                        {{"@odata.id",
+                          "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/PCIeDevices/" + devName}});
+                }
             }
-            if (!chassisId.empty())
-            {
-                pcieDeviceList.push_back(
-                    {{"@odata.id", std::string("/redfish/v1/Chassis/")
-                                       .append(chassisId)
-                                       .append("/PCIeDevices/")
-                                       .append(devName)}});
-            }
-            else
-            {
-                pcieDeviceList.push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/PCIeDevices/" + devName}});
-            }
-        }
-        asyncResp->res.jsonValue[name + "@odata.count"] = pcieDeviceList.size();
-    };
-    dbus::utility::async_method_call(
-        std::move(getPCIeMapCallback), "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        std::string(path) + "/", 1, std::array<std::string, 0>());
+            asyncResp->res.jsonValue[name + "@odata.count"] =
+                pcieDeviceList.size();
+        });
 }
 
 inline void getAerErrorStatusOem(
@@ -950,7 +950,10 @@ inline void postClearAerErrorStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& device)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Chassis"},
         [asyncResp, chassisId,
          device](const boost::system::error_code& ec,
                  const std::vector<std::string>& chassisPaths) {
@@ -1029,13 +1032,7 @@ inline void postClearAerErrorStatus(
             }
             messages::resourceNotFound(asyncResp->res,
                                        "#Chassis.v1_15_0.Chassis", chassisId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Inventory.Item.Chassis"});
+        });
 };
 
 inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -1189,10 +1186,14 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
             {
                 return;
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Chassis"},
                 [asyncResp, chassisId,
                  device](const boost::system::error_code& ec,
-                         const std::vector<std::string>& chassisPaths) {
+                         const dbus::utility::MapperGetSubTreePathsResponse&
+                             chassisPaths) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
@@ -1284,13 +1285,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                     }
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Chassis"});
+                });
         });
 }
 
@@ -1310,7 +1305,10 @@ inline void requestRoutesChassisPCIeFunction(App& app)
             {
                 return;
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Chassis"},
                 [asyncResp, chassisId, device,
                  function](const boost::system::error_code& ec,
                            const std::vector<std::string>& chassisPaths) {
@@ -1391,13 +1389,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                     }
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Chassis"});
+                });
         });
     // Todo Telemetry team - Need to migrate downstream code to this function
     // BMCWEB_ROUTE(
@@ -1524,7 +1516,10 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
             {
                 return;
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Chassis"},
                 [asyncResp,
                  chassisId](const boost::system::error_code& ec,
                             const std::vector<std::string>& chassisPaths) {
@@ -1559,13 +1554,7 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
                     }
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Chassis"});
+                });
         });
 }
 
@@ -1583,7 +1572,10 @@ inline void requestRoutesChassisPCIeDevice(App& app)
             {
                 return;
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Chassis"},
                 [asyncResp, chassisId,
                  device](const boost::system::error_code& ecOuter,
                          const std::vector<std::string>& chassisPaths) {
@@ -1788,13 +1780,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                     }
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Chassis"});
+                });
         });
 }
 

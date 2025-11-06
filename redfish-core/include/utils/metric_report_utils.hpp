@@ -801,9 +801,13 @@ constexpr const char* metricReportUri =
 inline void addMetricReportMembers(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
-        [asyncResp](boost::system::error_code& ec,
-                    const std::vector<std::string>& metricPaths) mutable {
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Sensor.Aggregation"},
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        metricPaths) mutable {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
@@ -884,12 +888,7 @@ inline void addMetricReportMembers(
                 }
             }
             asyncResp->res.jsonValue["Members@odata.count"] = addMembers.size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
+        });
 }
 
 inline void getSensorMap(
@@ -1015,7 +1014,7 @@ inline void getPlatformMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const uint64_t& requestTimestamp = 0)
 {
-    const std::array<const char*, 1> interfaces = {
+    const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Chassis"};
     auto respHandler = [asyncResp, requestTimestamp, chassisId](
                            const boost::system::error_code& ec,
@@ -1061,11 +1060,8 @@ inline void getPlatformMetrics(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
     };
     // Get the Chassis Collection
-    dbus::utility::async_method_call(
-        respHandler, "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+    dbus::utility::getSubTreePaths("/xyz/openbmc_project/inventory", 0,
+                                   interfaces, respHandler);
 }
 
 // This function populate the metric report for devices but not excludes the

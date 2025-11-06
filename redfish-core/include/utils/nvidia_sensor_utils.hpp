@@ -633,7 +633,7 @@ inline void handleSensorGetAfterSetup(
         void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
              const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
 {
-    const std::array<const char*, 1> chassisInterface = {
+    constexpr std::array<std::string_view, 1> chassisInterface = {
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     auto chassisHandler = [asyncResp, chassisId, sensorId,
@@ -669,11 +669,8 @@ inline void handleSensorGetAfterSetup(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
     };
 
-    dbus::utility::async_method_call(
-        chassisHandler, "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0, chassisInterface);
+    dbus::utility::getSubTreePaths("/xyz/openbmc_project/inventory", 0,
+                                   chassisInterface, chassisHandler);
 }
 
 inline void handleSensorPatchAfterSetup(
