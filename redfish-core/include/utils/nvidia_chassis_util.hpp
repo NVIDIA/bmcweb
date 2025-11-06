@@ -474,7 +474,7 @@ inline void getChassisNetworkAdapterProtocolBridgeForDevices(
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
         "xyz.openbmc_project.Association", "endpoints",
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::string>& resp) {
             if (ec)
             {

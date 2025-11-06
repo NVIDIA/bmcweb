@@ -256,7 +256,7 @@ inline void handleBootOptionCollectionPost(
         req.session->username,
         [newBootOptionReference, newBootOptionEnabled, optBootOptionDescription,
          optBootOptionDisplayName, optBootOptionUefiDevicePath,
-         aResp](const boost::system::error_code ec, const bool isBios) {
+         aResp](const boost::system::error_code& ec, const bool isBios) {
             if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);

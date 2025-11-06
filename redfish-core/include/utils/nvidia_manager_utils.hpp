@@ -69,7 +69,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Get manager service Telemetry state.");
     dbus::utility::getAllProperties(
         connectionName, path, "xyz.openbmc_project.State.FeatureReady",
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {

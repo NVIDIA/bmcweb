@@ -878,7 +878,7 @@ inline void getActivateCapableErrorTypes(
             "xyz.openbmc_project.Inventory.Item.Chassis",
             "xyz.openbmc_project.Inventory.Item.Component"},
         [chassisId,
-         aResp](const boost::system::error_code ec,
+         aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {
