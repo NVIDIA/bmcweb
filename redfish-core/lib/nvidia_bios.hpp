@@ -216,9 +216,12 @@ inline void handleClearNonVolatileVariablesSubtree(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/control", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.State.Decorator.SecureState"},
         [aResp, secure, requestToClear,
-         clearSubtree](boost::system::error_code& ec,
+         clearSubtree](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -229,22 +232,19 @@ inline void handleClearNonVolatileVariablesSubtree(
 
             handleClearSecureStateSubtree(aResp, secure, requestToClear,
                                           clearSubtree, subtree);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/control", 0,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.State.Decorator.SecureState"});
+        });
 }
 
 inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const SecureSelector secure,
                            const bool requestToClear)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/control", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"},
         [aResp, secure, requestToClear](
-            boost::system::error_code& ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -255,13 +255,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             handleClearNonVolatileVariablesSubtree(aResp, secure,
                                                    requestToClear, subtree);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/control", 0,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"});
+        });
 
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
@@ -2459,9 +2453,12 @@ inline void handleBiosChangePasswordPost(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.BIOSConfig.Password"},
         [asyncResp, passwordName, oldPassword,
-         newPassword](boost::system::error_code& ec,
+         newPassword](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec || subtree.size() != 1)
             {
@@ -2480,8 +2477,8 @@ inline void handleBiosChangePasswordPost(
             const auto& [service, interfaces] = services[0];
 
             dbus::utility::async_method_call(
-                [asyncResp](boost::system::error_code& ec1,
-                            sdbusplus::message_t& msg) {
+                [asyncResp](const boost::system::error_code& ec1,
+                            const sdbusplus::message_t& msg) {
                     if (ec1)
                     {
                         const auto* const error = msg.get_error();
@@ -2507,12 +2504,7 @@ inline void handleBiosChangePasswordPost(
                 },
                 service, path, "xyz.openbmc_project.BIOSConfig.Password",
                 "ChangePassword", passwordName, oldPassword, newPassword);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.BIOSConfig.Password"});
+        });
 }
 
 inline void requestRoutesBiosChangePassword(App& app)

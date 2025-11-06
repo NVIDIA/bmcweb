@@ -605,7 +605,11 @@ inline static void getRelatedItemsStorageController(
 
                 sdbusplus::message::object_path path(object);
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::getSubTree(
+                    object, int32_t(0),
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory."
+                        "Item.StorageController"},
                     [aResp, objPath,
                      path](const boost::system::error_code& errCodeController,
                            const dbus::utility::MapperGetSubTreeResponse&
@@ -638,13 +642,7 @@ inline static void getRelatedItemsStorageController(
                         }
 
                         relatedItemCount = relatedItem.size();
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", object,
-                    int32_t(0),
-                    std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
-                                               "Item.StorageController"});
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -918,7 +916,9 @@ inline static void getRelatedItemsOthers(
     aResp->res.jsonValue["RelatedItem"] = nlohmann::json::array();
     aResp->res.jsonValue["RelatedItem@odata.count"] = 0;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        inventoryPathIn, 0,
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
         [aResp, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -972,11 +972,7 @@ inline static void getRelatedItemsOthers(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", inventoryPathIn, 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+        });
 }
 
 /**
@@ -1164,18 +1160,15 @@ inline void extendUpdateServiceGet(
         "/xyz/openbmc_project/software/pldm",
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Update"});
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        "/au/com/codeconstruct/mctp1/networks/1/endpoints/", 0,
+        std::array<std::string_view, 1>{"xyz.openbmc_project.MCTP.Endpoint"},
         [getUpdateStatus](
-            boost::system::error_code& ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             getUpdateStatus->mctp_serviceStatus = !(ec || subtree.empty());
             return;
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/au/com/codeconstruct/mctp1/networks/1/endpoints/", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.MCTP.Endpoint"});
+        });
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
@@ -1219,7 +1212,9 @@ inline void updateOemActionComputeDigest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& swId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        "/com/Nvidia/ComputeHash", static_cast<int32_t>(0),
+        std::array<std::string_view, 1>{std::string_view(hashComputeInterface)},
         [asyncResp, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1249,12 +1244,7 @@ inline void updateOemActionComputeDigest(
                 }
             }
             return;
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/com/Nvidia/ComputeHash", static_cast<int32_t>(0),
-        std::array<const char*, 1>{hashComputeInterface.c_str()});
+        });
 }
 
 /**
@@ -1460,7 +1450,9 @@ inline void handlePostComputeDigest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& swId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        "/com/Nvidia/ComputeHash", static_cast<int32_t>(0),
+        std::array<std::string_view, 1>{std::string_view(hashComputeInterface)},
         [&req, asyncResp, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1488,12 +1480,7 @@ inline void handlePostComputeDigest(
             messages::resourceNotFound(
                 asyncResp->res, "NvidiaSoftwareInventory.ComputeDigest", swId);
             return;
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/com/Nvidia/ComputeHash", static_cast<int32_t>(0),
-        std::array<const char*, 1>{hashComputeInterface.c_str()});
+        });
 }
 
 /**
@@ -2550,7 +2537,14 @@ inline void handleCommitImageActionInfoGet(
     asyncResp->res.jsonValue["Name"] = "CommitImage Action Info";
     asyncResp->res.jsonValue["Id"] = "CommitImageActionInfo";
 
-    crow::connections::systemBus->async_method_call(
+    // Note that only firmware levels associated with a device
+    // are stored under /xyz/openbmc_project/software therefore
+    // to ensure only real FirmwareInventory items are returned,
+    // this full object path must be used here as input to
+    // mapper
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/software", static_cast<int32_t>(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
         [asyncResp{asyncResp}, &req](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -2569,17 +2563,7 @@ inline void handleCommitImageActionInfoGet(
                 RedfishAggregator::getSatelliteConfigs(std::bind_front(
                     forwardCommitImageActionInfo, std::ref(req), asyncResp));
             }
-        },
-        // Note that only firmware levels associated with a device
-        // are stored under /xyz/openbmc_project/software therefore
-        // to ensure only real FirmwareInventory items are returned,
-        // this full object path must be used here as input to
-        // mapper
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/software", static_cast<int32_t>(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+        });
 }
 
 inline void handleCommitImageActionInfoPost(
@@ -2671,7 +2655,9 @@ inline void handleUpdateServiceSoftwareInventoryGet(
     std::string searchPath = "/xyz/openbmc_project/inventory_software/";
     std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        searchPath, static_cast<int32_t>(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
         [asyncResp, swId, searchPath](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -2792,12 +2778,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
             messages::resourceNotFound(
                 asyncResp->res, "SoftwareInventory.v1_4_0.SoftwareInventory",
                 *swId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", searchPath,
-        static_cast<int32_t>(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+        });
 }
 
 inline void tryInventoryPatchAfterGetSubTree(
@@ -2882,7 +2863,14 @@ inline void handleUpdateServiceSoftwareInventoryCollectionGet(
         "/redfish/v1/UpdateService/SoftwareInventory";
     asyncResp->res.jsonValue["Name"] = "Software Inventory Collection";
 
-    crow::connections::systemBus->async_method_call(
+    // Note that only firmware levels associated with a device
+    // are stored under /xyz/openbmc_project/inventory_software
+    // therefore to ensure only real SoftwareInventory items are
+    // returned, this full object path must be used here as input to
+    // mapper
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory_software", static_cast<int32_t>(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
         [asyncResp](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -2921,17 +2909,7 @@ inline void handleUpdateServiceSoftwareInventoryCollectionGet(
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     members.size();
             }
-        },
-        // Note that only firmware levels associated with a device
-        // are stored under /xyz/openbmc_project/inventory_software
-        // therefore to ensure only real SoftwareInventory items are
-        // returned, this full object path must be used here as input to
-        // mapper
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory_software", static_cast<int32_t>(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+        });
 }
 
 inline void handleUpdateServicePatch(

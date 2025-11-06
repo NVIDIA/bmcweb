@@ -142,9 +142,12 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 {
     BMCWEB_LOG_DEBUG("Get available switch on fabric resources.");
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Fabric"},
         [resp, fabricId, switchId, handler = std::forward<Handler>(handler)](
-            boost::system::error_code& ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
@@ -224,13 +227,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             {
                 messages::resourceNotFound(resp->res, "Fabric", fabricId);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<std::string_view, 1>{
-            "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 /**
