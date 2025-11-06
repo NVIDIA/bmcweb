@@ -415,7 +415,7 @@ inline void processSensorServices(
     const uint64_t& sensingInterval = 0, const uint64_t& requestTimestamp = 0)
 {
     // Sensor interface implemented by sensor services
-    const std::array<const char*, 1> sensorInterface = {
+    const std::array<std::string_view, 1> sensorInterface = {
         "xyz.openbmc_project.Sensor.Value"};
 
     // Get all sensors on the system
@@ -457,11 +457,8 @@ inline void processSensorServices(
                                      requestTimestamp);
         }
     };
-    dbus::utility::async_method_call(
-        getAllSensors, "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/sensors", 2, sensorInterface);
+    dbus::utility::getSubTree("/xyz/openbmc_project/sensors", 2,
+                              sensorInterface, getAllSensors);
 }
 
 } // namespace nvidia_thermal_metrics_utils

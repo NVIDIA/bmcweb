@@ -126,7 +126,8 @@ inline void checkTPMComponentsAndAddLink(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp,
          chassisID](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -136,11 +137,7 @@ inline void checkTPMComponentsAndAddLink(
                     boost::urls::format(
                         "/redfish/v1/Chassis/{}/TrustedComponents", chassisID);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", *validChassisPath,
-        static_cast<int32_t>(0), trustedComponentInterfaces);
+        });
 }
 
 /**
@@ -253,7 +250,8 @@ inline void handleTpmComponentsCollectionGet(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp, chassisID,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -281,11 +279,7 @@ inline void handleTpmComponentsCollectionGet(
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     memberArray.size();
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", *validChassisPath,
-        static_cast<int32_t>(0), trustedComponentInterfaces);
+        });
 }
 
 /**
@@ -308,7 +302,8 @@ inline void updateTPMCollection(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp, chassisID, validChassisPath,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -345,11 +340,7 @@ inline void updateTPMCollection(
                 messages::resourceNotFound(asyncResp->res, "TrustedComponent",
                                            chassisID);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", *validChassisPath,
-        static_cast<int32_t>(0), trustedComponentInterfaces);
+        });
 }
 
 /**
@@ -788,7 +779,9 @@ inline void handleTpmComponentGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTree(
+                *validChassisPath, static_cast<int32_t>(0),
+                trustedComponentInterfaces,
                 [asyncResp, chassisID, componentID](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -841,12 +834,7 @@ inline void handleTpmComponentGet(
 
                     messages::resourceNotFound(asyncResp->res,
                                                "TrustedComponent", componentID);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                *validChassisPath, static_cast<int32_t>(0),
-                trustedComponentInterfaces);
+                });
         });
 }
 

@@ -21,7 +21,9 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     std::string istIface = "xyz.openbmc_project.Control.Mode";
     // Async method call to get mode settings dbus object and service
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/mode/", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Control.Mode"},
         [aResp,
          istIface](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -74,12 +76,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
                     json["Oem"]["Nvidia"]["ISTModeEnabled"] = istModeEnabled;
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/mode/", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Control.Mode"});
+        });
 }
 
 inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -89,7 +86,9 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     auto reqPayload = std::make_shared<task::Payload>(req);
 
     // Async method call to get phosphor settings dbus object path and service
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/mode/", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Control.Mode"},
         [aResp, reqIstModeEnabled, istIface,
          reqPayload](const boost::system::error_code& ec,
                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -378,12 +377,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                                                  setParam);
                                                                          });
                              });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/mode/", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Control.Mode"});
+        });
 }
 
 } // namespace ist_mode_utils

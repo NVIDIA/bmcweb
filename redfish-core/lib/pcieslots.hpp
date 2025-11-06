@@ -697,14 +697,15 @@ inline void requestPcieSlotsRoutes(App& app)
             {
                 return;
             }
-            const std::array<const char*, 1> interface = {
+            const std::array<std::string_view, 1> interface = {
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
             // Get chassis collection
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, interface,
                 [asyncResp, chassisId(std::string(chassisId))](
                     const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
-                    const std::array<const char*, 1> pcieslotIntf = {
+                    const std::array<std::string_view, 1> pcieslotIntf = {
                         "xyz.openbmc_project.Inventory.Item.PCIeSlot"};
                     if (ec)
                     {
@@ -736,7 +737,8 @@ inline void requestPcieSlotsRoutes(App& app)
                         asyncResp->res.jsonValue["Slots"] =
                             nlohmann::json::array();
                         // Get chassis pcieSlots
-                        dbus::utility::async_method_call(
+                        dbus::utility::getSubTree(
+                            path + "/", 0, pcieslotIntf,
                             [asyncResp, chassisId(std::string(chassisId))](
                                 const boost::system::error_code& ec1,
                                 const dbus::utility::GetSubTreeType&
@@ -768,21 +770,13 @@ inline void requestPcieSlotsRoutes(App& app)
                                     updatePCIeSlots(asyncResp, connectionName,
                                                     pcieslot, chassisId);
                                 }
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                            path + "/", 0, pcieslotIntf);
+                            });
                         return;
                     }
                     // Couldn't find an object with that name. return an error
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0, interface);
+                });
         });
 }
 

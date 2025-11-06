@@ -141,7 +141,10 @@ inline void populateFirmwareInformation(
                 functionalFwIds.push_back(leaf);
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/software", static_cast<int32_t>(0),
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Software.Version"},
                 [aResp, fwVersionPurpose, activeVersionPropName,
                  populateLinkToImages, functionalFwIds](
                     const boost::system::error_code& ec2,
@@ -303,13 +306,7 @@ inline void populateFirmwareInformation(
                                 }
                             });
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/software", static_cast<int32_t>(0),
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Software.Version"});
+                });
         });
 }
 

@@ -3968,7 +3968,10 @@ inline void handleComputerSystemGet(
             aRsp->res.jsonValue["Links"]["Chassis"] = std::move(chassisArray);
         });
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Inventory."
+                                        "Item.ManagementService"},
         [asyncResp](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -4039,13 +4042,7 @@ inline void handleComputerSystemGet(
                 BMCWEB_LOG_ERROR(
                     "Could not find interface xyz.openbmc_project.Inventory.Item.ManagementService");
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
-                                   "Item.ManagementService"});
+        });
 
     getSystemLocationIndicatorActive(asyncResp);
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed

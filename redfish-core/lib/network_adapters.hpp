@@ -490,10 +490,11 @@ inline void handleGet(App& app, const crow::Request& req,
     {
         return;
     }
-    const std::array<const char*, 1> interfaces = {
+    const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Network.EthernetInterface"};
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/network/", 0, interfaces,
         [asyncResp, chassisId, id,
          isNDF](const boost::system::error_code& ec,
                 const dbus::utility::GetSubTreeType& subtree) {
@@ -541,11 +542,7 @@ inline void handleGet(App& app, const crow::Request& req,
                 asyncResp->res,
                 "#NetworkDeviceFunction.v1_9_0.NetworkDeviceFunction",
                 chassisId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/network/", 0, interfaces);
+        });
 }
 
 inline void handleNDFGet(App& app, const crow::Request& req,

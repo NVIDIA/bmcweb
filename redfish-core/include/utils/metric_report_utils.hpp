@@ -1349,16 +1349,13 @@ inline void getPlatforMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& metricId, const uint64_t& requestTimestamp = 0)
 {
-    using MapperServiceMapType =
-        std::vector<std::pair<std::string, std::vector<std::string>>>;
-
-    // Map of object paths to MapperServiceMaps
-    using MapperGetSubTreeResponse =
-        std::vector<std::pair<std::string, MapperServiceMapType>>;
-    dbus::utility::async_method_call(
-        [asyncResp, metricId,
-         requestTimestamp](boost::system::error_code& ec,
-                           const MapperGetSubTreeResponse& subtree) mutable {
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Sensor.Aggregation"},
+        [asyncResp, metricId, requestTimestamp](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
@@ -1401,12 +1398,7 @@ inline void getPlatforMetrics(
                 messages::resourceNotFound(asyncResp->res, "MetricReport",
                                            metricId);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
+        });
 }
 
 } // namespace telemetry

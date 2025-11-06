@@ -249,7 +249,9 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     const std::string sensorName(BMCWEB_PLATFORM_POWER_CONTROL_SENSOR_NAME);
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/sensors", 0,
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Sensor.Value"},
         [asyncResp, sensorName, chassisID](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -343,12 +345,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/sensors", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Value"});
+        });
 }
 
 inline void getControlSettings(

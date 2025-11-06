@@ -299,7 +299,10 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get SecureBoot parameters");
 
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/bios_config", int32_t(0),
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.BIOSConfig.SecureBoot"},
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -320,13 +323,7 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             aResp->res.jsonValue["SecureBoot"]["@odata.id"] =
                 "/redfish/v1/Systems/" +
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/SecureBoot";
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/bios_config", int32_t(0),
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.BIOSConfig.SecureBoot"});
+        });
 
     BMCWEB_LOG_DEBUG("EXIT: Get SecureBoot parameters");
 }

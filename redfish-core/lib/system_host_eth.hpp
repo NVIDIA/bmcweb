@@ -367,12 +367,12 @@ void getEthernetIfaceListHost(CallbackFunc&& callback,
 }
 
 template <typename CallbackFunc>
-void getEthernetIfaceService(
-    const std::string& ethifaceId, CallbackFunc&& callback,
-    const std::vector<const char*>& interfaces = {
-        "xyz.openbmc_project.Network.EthernetInterface"})
+void getEthernetIfaceService(const std::string& ethifaceId,
+                             CallbackFunc&& callback,
+                             const std::span<const std::string_view> interfaces)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/network/host0", 0, interfaces,
         [ethifaceId{std::string{ethifaceId}},
          callback{std::forward<CallbackFunc>(callback)}](
             const boost::system::error_code& ec,
@@ -402,17 +402,13 @@ void getEthernetIfaceService(
             }
             BMCWEB_LOG_ERROR("Service for ETH Iface {} not found", ethifaceId);
             callback(false, ""); // Invoke callback with failure
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/network/host0", 0, interfaces);
+        });
 }
 
 template <typename CallbackFunc>
 void getEthernetIfaceDataHost(
     const std::string& ethifaceId, CallbackFunc&& callback,
-    const std::vector<const char*>& interfaces = {
+    const std::vector<std::string_view>& interfaces = {
         "xyz.openbmc_project.Network.EthernetInterface"})
 {
     // First, call getEthernetIfaceService to get the serviceName

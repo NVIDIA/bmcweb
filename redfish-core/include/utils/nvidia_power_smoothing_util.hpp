@@ -36,13 +36,15 @@ inline void getPowerSmoothingPresetProfileParameters(
     const std::string& processorId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
-        [processorId, asyncResp](
-            const boost::system::error_code ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 3>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"},
+        [processorId,
+         asyncResp](const boost::system::error_code ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -78,15 +80,7 @@ inline void getPowerSmoothingPresetProfileParameters(
                     });
                 return;
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 } // namespace nvidia_power_smoothing_utils
 } // namespace redfish

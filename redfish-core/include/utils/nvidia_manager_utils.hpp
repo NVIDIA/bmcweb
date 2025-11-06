@@ -134,7 +134,10 @@ inline void getOemReadyState(
     const std::string& bmcId)
 {
     // call to get telemtery Ready status
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.State."
+                                        "FeatureReady"},
         [asyncResp, bmcId](
             const boost::system::error_code ec,
             const std::vector<std::pair<
@@ -178,12 +181,7 @@ inline void getOemReadyState(
             }
             BMCWEB_LOG_ERROR(
                 "Could not find interface xyz.openbmc_project.State.FeatureReady");
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.State."
-                                   "FeatureReady"});
+        });
 }
 
 template <typename Callback>

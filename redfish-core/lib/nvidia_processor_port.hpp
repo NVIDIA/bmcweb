@@ -555,7 +555,11 @@ inline void requestRoutesProcessorPort(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 2>{
+                    "xyz.openbmc_project.Inventory.Item.Cpu",
+                    "xyz.openbmc_project.Inventory.Item.Accelerator"},
                 [processorId, port,
                  asyncResp](const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
@@ -600,14 +604,7 @@ inline void requestRoutesProcessorPort(App& app)
                     messages::resourceNotFound(asyncResp->res,
                                                "#Processor.v1_20_0.Processor",
                                                processorId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 2>{
-                    "xyz.openbmc_project.Inventory.Item.Cpu",
-                    "xyz.openbmc_project.Inventory.Item.Accelerator"});
+                });
         });
 }
 

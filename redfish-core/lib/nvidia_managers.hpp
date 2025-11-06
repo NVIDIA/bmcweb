@@ -614,7 +614,11 @@ inline void getLinkManagerForSwitches(
             {
                 sdbusplus::message::object_path path(fabric);
                 std::string fabricId = path.filename();
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTree(
+                    fabric, 0,
+                    std::array<std::string_view, 2>{
+                        "xyz.openbmc_project.Inventory.Item.NvSwitch",
+                        "xyz.openbmc_project.Inventory.Item.Switch"},
                     [asyncResp, fabric,
                      fabricId](const boost::system::error_code& ec2,
                                const dbus::utility::GetSubTreeType& subtree) {
@@ -640,13 +644,7 @@ inline void getLinkManagerForSwitches(
 
                             tempArray.push_back({{"@odata.id", managerUri}});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", fabric, 0,
-                    std::array<const char*, 2>{
-                        "xyz.openbmc_project.Inventory.Item.NvSwitch",
-                        "xyz.openbmc_project.Inventory.Item.Switch"});
+                    });
             }
         });
 }
@@ -654,7 +652,10 @@ inline void getLinkManagerForSwitches(
 inline void getFencingPrivilege(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/", int32_t(0),
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.GpuOobRecovery.Server"},
         [asyncResp](const boost::system::error_code& ec,
                     const MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -710,12 +711,7 @@ inline void getFencingPrivilege(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", int32_t(0),
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.GpuOobRecovery.Server"});
+        });
 }
 
 inline void patchFencingPrivilege(
@@ -1088,7 +1084,10 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", int32_t(0),
+                    std::array<std::string_view, 1>{
+                        "com.nvidia.Protocol.SMBPBI.Raw"},
                     [asyncResp, targetType, targetId, opCodeRaw, arg1Raw,
                      arg2Raw, dataInRaw,
                      extDataInRaw](const boost::system::error_code& ec,
@@ -1115,13 +1114,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                                 targetId, opCodeRaw, arg1Raw, arg2Raw,
                                 dataInRaw, extDataInRaw);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", int32_t(0),
-                    std::array<const char*, 1>{
-                        "com.nvidia.Protocol.SMBPBI.Raw"});
+                    });
             });
 }
 
@@ -1184,7 +1177,10 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", int32_t(0),
+                    std::array<std::string_view, 1>{
+                        "com.nvidia.Protocol.SMBPBI.Raw"},
                     [asyncResp, targetType, targetId, argRaw, asyncDataInRaw,
                      requestedDataOutBytes](
                         const boost::system::error_code& ec,
@@ -1211,13 +1207,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                                 targetId, argRaw, asyncDataInRaw,
                                 requestedDataOutBytes);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", int32_t(0),
-                    std::array<const char*, 1>{
-                        "com.nvidia.Protocol.SMBPBI.Raw"});
+                    });
             });
 }
 
@@ -1226,7 +1216,10 @@ inline void handleGenericManager(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Inventory."
+                                        "Item.ManagementService"},
         [asyncResp, managerId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1317,13 +1310,7 @@ inline void handleGenericManager(
             }
             messages::resourceNotFound(asyncResp->res,
                                        "#Manager.v1_15_0.Manager", managerId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
-                                   "Item.ManagementService"});
+        });
 }
 
 inline void extendManagerPatchOEM(
@@ -1346,7 +1333,10 @@ inline void extendManagerPatchOEM(
         {
             if (privilege)
             {
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTree(
+                    "/", int32_t(0),
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.GpuOobRecovery.Server"},
                     [asyncResp,
                      privilege](const boost::system::error_code& ec,
                                 const MapperGetSubTreeResponse& subtree) {
@@ -1370,13 +1360,7 @@ inline void extendManagerPatchOEM(
                             patchFencingPrivilege(asyncResp, *privilege,
                                                   serviceName, objectPath);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
-                    int32_t(0),
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.GpuOobRecovery.Server"});
+                    });
             }
         }
         if constexpr (BMCWEB_TLS_AUTH_OPT_IN)
@@ -1464,7 +1448,10 @@ inline void extendManagerGet(
         getIsCommandShellEnable(asyncResp);
     }
     // Get Managers Chassis ID
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", int32_t(0),
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Inventory."
+                                        "Item.ManagementService"},
         [asyncResp, managerId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1548,13 +1535,7 @@ inline void extendManagerGet(
                 BMCWEB_LOG_ERROR(
                     "Could not find interface xyz.openbmc_project.Inventory.Item.ManagementService");
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", int32_t(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
-                                   "Item.ManagementService"});
+        });
 }
 
 inline void extendManagerOEM(

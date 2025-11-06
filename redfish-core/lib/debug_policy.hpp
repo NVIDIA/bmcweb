@@ -171,7 +171,10 @@ inline void findDebugInterface(
     const findDebugInterfaceCallback& dbgCallback)
 {
     // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-    auto respHandler =
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/control", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Control.Processor.RemoteDebug"},
         [asyncResp,
          dbgCallback](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -201,14 +204,7 @@ inline void findDebugInterface(
                 }
             }
             dbgCallback(asyncResp, "", "");
-        };
-    dbus::utility::async_method_call(
-        respHandler, "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/control", 0,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Control.Processor.RemoteDebug"});
+        });
 }
 
 inline void handleDebugPolicyGet(

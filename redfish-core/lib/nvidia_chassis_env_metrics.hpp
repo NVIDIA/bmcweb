@@ -62,10 +62,11 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
                 return;
             }
 
-            const std::array<const char*, 1> interfaces = {
+            const std::array<std::string_view, 1> interfaces = {
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
 
-            dbus::utility::async_method_call(
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, interfaces,
                 [asyncResp,
                  chassisId](const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
@@ -123,11 +124,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
                     }
                     messages::resourceNotFound(
                         asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0, interfaces);
+                });
         });
 }
 } // namespace redfish

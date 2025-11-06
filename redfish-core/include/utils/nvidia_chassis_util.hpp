@@ -1852,10 +1852,11 @@ inline void getNetworkAdapters(
         return;
     }
 
-    const std::array<const char*, 1> networkInterfaces = {
+    const std::array<std::string_view, 1> networkInterfaces = {
         "xyz.openbmc_project.Inventory.Item.NetworkInterface"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        objPath, 0, networkInterfaces,
         [asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code& ec,
             const dbus::utility::GetSubTreeType& subtree) {
@@ -1871,11 +1872,7 @@ inline void getNetworkAdapters(
             asyncResp->res.jsonValue["NetworkAdapters"] = {
                 {"@odata.id",
                  "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters"}};
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", objPath, 0,
-        networkInterfaces);
+        });
 }
 
 /**
@@ -3560,10 +3557,11 @@ inline void handleAuxPowerResetAction(
 template <typename CallbackFunc>
 inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
 {
-    const std::array<const char*, 1> interfaces = {
+    const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [chassisID, callback](const boost::system::error_code& ec,
                               const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
@@ -3657,11 +3655,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
                     }
                     callback(false, false);
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+        });
 }
 
 inline void getChassisManufacturer(

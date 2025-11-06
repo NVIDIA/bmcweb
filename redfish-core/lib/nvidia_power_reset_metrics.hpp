@@ -205,13 +205,13 @@ inline void getProcessorResetMetricsData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator"},
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -266,13 +266,7 @@ inline void getProcessorResetMetricsData(
             // Object not found
             messages::resourceNotFound(aResp->res,
                                        "#Processor not found: ", processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator"});
+        });
 }
 
 inline void requestRoutesProcessorResetMetrics(App& app)

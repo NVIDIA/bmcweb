@@ -202,7 +202,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                 if (json_util::readJson(*powerLimit, asyncResp->res, "SetPoint",
                                         setPoint))
                 {
-                    const std::array<const char*, 2> interfacesList = {
+                    const std::array<std::string_view, 2> interfacesList = {
                         "xyz.openbmc_project.Inventory.Item.Cpu",
                         "xyz.openbmc_project.Inventory.Item.Accelerator"};
 
@@ -212,7 +212,8 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                         persistency = *powerLimitPersistency;
                     }
 
-                    dbus::utility::async_method_call(
+                    dbus::utility::getSubTree(
+                        "/xyz/openbmc_project/inventory", 0, interfacesList,
                         [asyncResp, processorId, setPoint, persistency](
                             const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
@@ -305,11 +306,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                             messages::resourceNotFound(
                                 asyncResp->res, "#Processor.v1_20_0.Processor",
                                 processorId);
-                        },
-                        "xyz.openbmc_project.ObjectMapper",
-                        "/xyz/openbmc_project/object_mapper",
-                        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                        "/xyz/openbmc_project/inventory", 0, interfacesList);
+                        });
                 }
             }
         });
@@ -367,10 +364,11 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                     return;
                 }
 
-                const std::array<const char*, 1> interfaces = {
+                const std::array<std::string_view, 1> interfaces = {
                     "com.nvidia.Common.ClearPowerCap"};
 
-                dbus::utility::async_method_call(
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
                     [asyncResp, processorId](
                         const boost::system::error_code& ec,
                         const dbus::utility::GetSubTreeType& subtree) {
@@ -424,11 +422,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                         messages::resourceNotFound(
                             asyncResp->res, "#Processor.v1_20_0.Processor",
                             processorId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", 0, interfaces);
+                    });
             });
 }
 
