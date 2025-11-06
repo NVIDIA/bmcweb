@@ -121,7 +121,7 @@ inline void populateRedfishSELEntry(
     const std::vector<std::pair<std::string, std::string>>* additionalData =
         nullptr;
 
-    for (auto& propertyMap : resp)
+    for (const auto& propertyMap : resp)
     {
         if (propertyMap.first == "Id")
         {
@@ -501,7 +501,7 @@ inline void deleteDbusSELEntry(
             const std::vector<std::pair<std::string, std::string>>*
                 additionalData = nullptr;
 
-            for (auto& propertyMap : resp)
+            for (const auto& propertyMap : resp)
             {
                 if (propertyMap.first == "Id")
                 {

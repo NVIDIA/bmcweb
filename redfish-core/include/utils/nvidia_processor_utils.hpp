@@ -1054,7 +1054,7 @@ inline void getClearablePcieCounters(
     const std::string& interface)
 {
     dbus::utility::getAllProperties(
-        service, objPath, interface.c_str(),
+        service, objPath, interface,
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
