@@ -94,15 +94,24 @@ inline void getShmemPlatformMetrics(
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
                 BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
-            for (const auto& e : values)
+        }
+
+        for (const auto& e : values)
+        {
+            nlohmann::json& metricValue = thisMetric["MetricValue"];
+            metricValue = (e.sensorValue == "nan")
+                              ? nlohmann::json(nullptr)
+                              : nlohmann::json(e.sensorValue);
+            thisMetric["Timestamp"] = e.timestampStr;
+            thisMetric["MetricProperty"] = e.metricProperty;
+
+            if (metricId == PLATFORMMETRICSID)
             {
-                thisMetric["MetricValue"] = e.sensorValue;
-                thisMetric["Timestamp"] = e.timestampStr;
-                thisMetric["MetricProperty"] = e.metricProperty;
                 thisMetric["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
                 thisMetric["Oem"]["Nvidia"]["MetricValueStale"] = true;
-                if (requestTimestamp != 0 && thisMetric["MetricValue"] != "nan")
+
+                if (requestTimestamp != 0 && !metricValue.is_null())
                 {
                     int64_t freshness =
                         static_cast<int64_t>(requestTimestamp - e.timestamp);
@@ -113,18 +122,8 @@ inline void getShmemPlatformMetrics(
                     // enable this line for sensor age calculation
                     // thisMetric["Oem"]["Nvidia"]["FreshnessInms"] = freshness;
                 }
-                resArray.push_back(thisMetric);
             }
-        }
-        else
-        {
-            for (const auto& e : values)
-            {
-                thisMetric["MetricValue"] = e.sensorValue;
-                thisMetric["Timestamp"] = e.timestampStr;
-                thisMetric["MetricProperty"] = e.metricProperty;
-                resArray.push_back(thisMetric);
-            }
+            resArray.push_back(thisMetric);
         }
 #endif
     }
