@@ -99,9 +99,14 @@ inline void getShmemPlatformMetrics(
         for (const auto& e : values)
         {
             nlohmann::json& metricValue = thisMetric["MetricValue"];
-            metricValue = (e.sensorValue == "nan")
-                              ? nlohmann::json(nullptr)
-                              : nlohmann::json(e.sensorValue);
+            if (e.sensorValue == "nan")
+            {
+                metricValue = nullptr;
+            }
+            else
+            {
+                metricValue = e.sensorValue;
+            }
             thisMetric["Timestamp"] = e.timestampStr;
             thisMetric["MetricProperty"] = e.metricProperty;
 
