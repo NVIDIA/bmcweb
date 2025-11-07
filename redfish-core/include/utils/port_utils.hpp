@@ -316,7 +316,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPort.v1_3_0.NvidiaPCIePort";
+                    "#NvidiaPort.v1_4_0.NvidiaPCIePort";
             }
             for (const auto& property : properties)
             {
@@ -364,6 +364,36 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             return;
                         }
                         asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
+                            *value;
+                    }
+                    else if (propertyName == "TargetSpeed")
+                    {
+                        const double* value =
+                            std::get_if<double>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG("Null value returned "
+                                             "for TargetSpeed");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["TargetSpeedGbps"] =
+                            *value;
+                    }
+                    else if (propertyName == "FCTimeoutErrors")
+                    {
+                        const double* value =
+                            std::get_if<double>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG("Null value returned "
+                                             "for FCTimeoutErrors");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["FCTimeoutErrors"] =
                             *value;
                     }
                 }

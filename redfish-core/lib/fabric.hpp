@@ -4067,6 +4067,8 @@ inline void getFabricsPortMetricsData(
             const double* nakSentCount = nullptr;
             const double* nakReceivedCount = nullptr;
             const double* unsupportedRequestCount = nullptr;
+            const double* badTLPCount = nullptr;
+            const double* receiverErrorCount = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), properties, "TXBytes",
@@ -4104,7 +4106,9 @@ inline void getFabricsPortMetricsData(
                 l0ToRecoveryCount, "ReplayCount", replayCount,
                 "ReplayRolloverCount", replayRolloverCount, "NAKSentCount",
                 nakSentCount, "NAKReceivedCount", nakReceivedCount,
-                "UnsupportedRequestCount", unsupportedRequestCount);
+                "UnsupportedRequestCount", unsupportedRequestCount,
+                "BadTLPCount", badTLPCount, "ReceiverErrorCount",
+                receiverErrorCount);
 
             if (!success)
             {
@@ -4408,6 +4412,11 @@ inline void getFabricsPortMetricsData(
             }
 
             // Handle PCIe Error counts
+            if (receiverErrorCount != nullptr)
+            {
+                asyncResp->res.jsonValue["RXErrors"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*receiverErrorCount);
+            }
             if (ceCount != nullptr)
             {
                 asyncResp->res
@@ -4455,6 +4464,11 @@ inline void getFabricsPortMetricsData(
                     .jsonValue["PCIeErrors"]["UnsupportedRequestCount"] =
                     nvidia::nsm_utils::tryConvertToInt64(
                         *unsupportedRequestCount);
+            }
+            if (badTLPCount != nullptr)
+            {
+                asyncResp->res.jsonValue["PCIeErrors"]["BadTLPCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*badTLPCount);
             }
         });
 }
