@@ -2,169 +2,82 @@
 
 ## Motivation
 
-- Upstream NVIDIA’s bmcweb contributions to the OpenBMC bmcweb repository
-- Simplify upstream sync and reduce merge conflicts
-- Upstream NVIDIA OEM code to the OpenBMC repository
+Keep NVIDIA contributions to bmcweb maintainable, sharable to partners, and
+reusable to future products. What follows are intended to be guidelines, not
+rules, and good judgement should _always_ prevail over following a guildelines
+to the letter. The goal of this is to ship products. this repository is one tool
+of many to accomplish that goal.
 
-The following guidelines apply when adding schema functionality that does not
-exist in the upstream bmcweb repository. These apply to schemas and properties
-defined by DMTF as well as NVIDIA-specific OEM schemas.
+If there are questions on the specific applications of these guildelines, please
+reach out to the bmcweb Nvidia maintainers and they will clarify intent.
 
-## Schema Enhancement
+## Creating Additional schemas
 
-1. Create a separate file named `nvidia_<schema>.hpp` to contain newly added
+1. Follow the Nvidia Redfish schema pack guidelines[1] to create a new schema,
+   or modification to the schema, including mockup changes. Ensure that the
+   schema is merged ahead of primary development to reduce rework.
+2. Run scripts/update*nvidia_schemas.py. This will pull the merged changes from
+   #1 and incorporate them into bmcweb. Push this schema change into an MR ahead
+   of code. Note, this script \_may* pull in schema changes unrelated to yours,
+   this is expected.
+3. Create a new file, following the pattern
+   `redfish-core/lib/nvidia_<schema_name>.hpp`. Ensure that schema_name is
+   synced with the schema being extended.
+4. Add a single line callback to extend the existing route handlers to call the
+   NVIDIA callbacks.
+5. Ensure that DMTF-compliant code is kept separate from NVIDIA OEM code
+   additions through the use of more files. This separation helps distinguish
+   potential DMTF schema enhancements that can be upstreamed versus OEM/ODM
    code.
-2. Extend the existing route handlers to call the NVIDIA extension handlers.
-3. Separate DMTF-compliant code additions from NVIDIA OEM code additions. This
-   separation helps distinguish potential DMTF schema enhancements that can be
-   upstreamed versus OEM/ODM code.
 
-Extending GET/PATCH handlers
+Examples of extension handlers.
+
+redfish-core/lib/managers.hpp
 
 ```cpp
-BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
-    .privileges(redfish::privileges::getManager)
-    .methods(
-        boost::beast::http::verb::
-            get)([&app,
-                  uuid](const crow::Request& req,
+void handleManagersGet(App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& managerId) {
 
-                        // upstream code
-
-                        // NVIDIA extension
-                        extendManagerGet(req, asyncResp, managerId);
-                        }
-```
-
-```cpp
-BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
-    .privileges(redfish::privileges::patchManager)
-    .methods(boost::beast::http::verb::patch)(
-        [&app](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& managerId) {
-
-                // upstream code
-
-                 // NVIDIA extension
-                extendManagerPatch(req, asyncResp, managerId);
-                }
-
-```
-
-OEM/ODM code
-
-```cpp
-inline void
-    extendManagerGet(const crow::Request& /*req*/,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& managerId)
-{
-    // DMTF code
-
-
-    // OEM Code
-
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        extendManagerOEMGet(req, asyncResp, managerId);
-    }
+   // Ensure that nvidia extensions are a single line change to existing code
+   nvidiaManagerGet(req, asyncResp, managerId);
 }
-
 ```
 
-1. As much as possible keep all the new routes handlers in
-   `nvidia_<schema>.hpp`. The only exception can be too much functional
-   dependency with the util codes used by the original handler.
-2. If the schmea does not exist in upstream then it can be still added with
-   nvidia file prefix. This helps us identify later in the upstream merge if the
-   code is added by nvidia vs upstream.
-3. Create [gerrit](https://gerrit.openbmc.org/q/project:openbmc%252Fbmcweb) MR
-   for the code enhanced. Follow up with community to get the MR merged
-   upstream.
-4. Once Upstream MR is merged, ensure downstream code is aligned by migrating
+redfish-core/lib/nvidia_managers.hpp
+
+```cpp
+   void nvidiaManagerGet(....){
+      // Ensure that this is before any Nvidia OEM extension.
+      if (!BMCWEB_NVIDIA_OEM_PROPERTIES){
+         return;
+      }
+      // Nvidia specific implementation
+   }
+```
+
+1. Unless immediately being sent upstream, keep new route handlers in separate
+   files, with the convention `redfish-core/lib/nvidia_<schema>.hpp`. Exceptions
+   may be made on a case by case basis.
+2. Create [gerrit](https://gerrit.openbmc.org) MR for the code enhanced. Follow
+   up with community to get the MR merged upstream.
+3. Once Upstream MR is merged, ensure downstream code is aligned by migrating
    code back to original schema from `nvidia_<schema>.hpp` file.
+4. Downstream changes up to 3 lines can be kept in the same file. This is
+   intentionally very small to ensure rebases can be performed in the future.
 
-If the downstream has additional handling which is more than 5 lines then, it
-can be added in new function at end of the file if there are not much issue in
-passing the arguments to new function like managerid or asyncResp etc. if it is
-dependent on local file data like static variables
-
-```cpp
-inline void
-    ManagerGet(const crow::Request& /*req*/,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& managerId)
-{
-   // Upstream code
-
-   nvidiaManagerIdHandle(asyncResp, managerId);
-}
-
-// At the end of the file
-void nvidiaManagerIdHandle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& managerId)
-{
-
-}
-
-```
-
-If the downstream has additional handling of more than five lines and it depends
-on class member data, add a new function within the same class when creating a
-free function is not a good option.
-
-```cpp
-class ConnectionInfo
-{
-   void shutdownConn(bool retry)
-   {
-      nvidiaShutdown(retry);
-   }
-
-   void nvidiaShutdown(bool retry)
-   {
-      // NVIDIA handling
-   }
-}
-
-```
-
-If the downstream implementation is different from the upstream implementation,
-it can be placed in a new namespace.
-
-```cpp
-// Downstream implementation in new namespace example
-namespace persistent_data::nvidia
-{
-   class Config
-   {
-
-   }
-}
-```
-
-If the upstream code is not used and downstream has its own implementation, the
-upstream code can be gated behind a Meson option macro to disable it.
-
-```text
-upstream-<featurename>-unused-code
-
-```
+Nvidia specific Redfish implementations should be placed in the redfish::nvidia
+c++ namespace.
 
 ## Testing
 
-1. For non-trivial cases extend the UT for the newly added schema support. File
-   name `nvidia_<schema>_test.cpp`.
-2. Ensure DMTF service validator passes.
-3. Ensure Nvidia service[^1] validator passes.
-4. If the changes are expected to impact performance then ensure nvidia
-   performance tests[^2] are covered.
+1. Nvidia functions shall include unit tests with target 80% coverage.
+2. Ensure DMTF service validator passes on target platform.
+3. Consider running performance tests [2].
 
 ## Footnote
 
-[^1]:
-    [RF Perf Tests](https://gitlab-master.nvidia.com/dgx/bmc/openbmc-test-automation/-/blob/develop/resiliency_tests/README.md?ref_type=heads#performance-test)
-
-[^2]: Nvidia Service Validator
+[1]:
+  https://gitlab-master.nvidia.com/dgx/redfish/-/blob/develop/README.md?ref_type=heads
+[2]:
+  https://gitlab-master.nvidia.com/dgx/bmc/openbmc-test-automation/-/blob/develop/resiliency_tests/README.md?ref_type=heads#performance-test
