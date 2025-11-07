@@ -86,28 +86,6 @@ inline void
    upstream.
 4. Once Upstream MR is merged, ensure downstream code is aligned by migrating
    code back to original schema from `nvidia_<schema>.hpp` file.
-5. Downstream changes up to 5 lines can be kept in the same file but with
-   comment saying Downstream changes.
-
-   example
-
-```cpp
-inline void
-    ManagerGet(const crow::Request& /*req*/,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& managerId)
-{
-   // Upstream code
-
-   // Nvidia ManagerGet start
-
-     Downstream bug fix
-
-   // Nvidia ManagerGet end
-
-}
-
-```
 
 If the downstream has additional handling which is more than 5 lines then, it
 can be added in new function at end of the file if there are not much issue in
