@@ -55,7 +55,7 @@ class evtEntry final :
     evtEntry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t id,
              uint64_t timestamp, Level severity, std::string&& msg,
              std::string&& resolution,
-             std::unordered_map<std::string, std::string>&& additionalData);
+             std::vector<std::pair<std::string, std::string>>&& additionalData);
 
     /** @brief Destructor */
     ~evtEntry() override;

@@ -338,7 +338,7 @@ inline void parseAdditionalDataForCPER(
  */
 inline bool parseCperData(
     const nlohmann::json& evt,
-    std::unordered_map<std::string, std::string>& additionalData)
+    std::vector<std::pair<std::string, std::string>>& additionalData)
 {
     auto cperIt = evt.find("CPER");
     if (cperIt == evt.end())
@@ -357,13 +357,13 @@ inline bool parseCperData(
         return false;
     }
     msg = notifType->get<std::string>();
-    additionalData["notificationType"] = msg;
+    additionalData.emplace_back("notificationType", msg);
 
     // Parse SectionType if present
     if (auto sectionType = cper.find("SectionType"); sectionType != cper.end())
     {
         msg = sectionType->get<std::string>();
-        additionalData["sectionType"] = msg;
+        additionalData.emplace_back("sectionType", msg);
     }
 
     // Parse OEM data
@@ -384,7 +384,7 @@ inline bool parseCperData(
         }
     }
     cperJson["sections"] = nlohmann::json::array({std::move(cperSection)});
-    additionalData["jsonDiagnosticData"] = cperJson.dump();
+    additionalData.emplace_back("jsonDiagnosticData", cperJson.dump());
 
     std::string severityStr;
     if (auto sevIt = evt.find("Severity"); sevIt != evt.end())
@@ -397,7 +397,7 @@ inline bool parseCperData(
 
     if (auto it = severityMap.find(severityStr); it != severityMap.end())
     {
-        additionalData["cperSeverityCode"] = it->second;
+        additionalData.emplace_back("cperSeverityCode", it->second);
     }
     return true;
 }

@@ -12,7 +12,7 @@ evtEntry::evtEntry(
     sdbusplus::bus::bus& bus, const std::string& path, uint32_t idErr,
     uint64_t timestampErr, Level severityErr, std::string&& msg,
     std::string&& resolutionErr,
-    std::unordered_map<std::string, std::string>&& additionalDataErr) :
+    std::vector<std::pair<std::string, std::string>>&& additionalDataErr) :
     EntryIfaces(bus, path.c_str(), EntryIfaces::action::defer_emit)
 {
     id(idErr, true);

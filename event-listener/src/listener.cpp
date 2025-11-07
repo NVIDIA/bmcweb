@@ -49,7 +49,7 @@ constexpr uint8_t maxSessionNum = 4;
 inline void extractField(
     const nlohmann::json& evt, const std::string& field,
     const std::string& prefix,
-    std::unordered_map<std::string, std::string>& additionalData)
+    std::vector<std::pair<std::string, std::string>>& additionalData)
 {
     if (auto it = evt.find(field); it != evt.end())
     {
@@ -59,7 +59,7 @@ inline void extractField(
             lg2::error("Failed to get string value from CPER data");
             return;
         }
-        additionalData[prefix] = *msg;
+        additionalData.emplace_back(prefix, *msg);
     }
 };
 
@@ -94,7 +94,7 @@ class redfishEventMgr
         int64_t timestamp = 0;
         Level severity = Level::Informational;
         std::string msg;
-        std::unordered_map<std::string, std::string> additionalData;
+        std::vector<std::pair<std::string, std::string>> additionalData;
         std::string aData;
         std::string resolution;
         std::string path = entryNameIn + "/" + std::to_string(evtIndex);
@@ -128,7 +128,7 @@ class redfishEventMgr
                 {
                     msg = ooc.get<std::string>();
                 }
-                additionalData["REDFISH_ORIGIN_OF_CONDITION"] = msg;
+                additionalData.emplace_back("REDFISH_ORIGIN_OF_CONDITION", msg);
             }
 
             if (auto argsIt = evt.find("MessageArgs"); argsIt != evt.end())
@@ -144,13 +144,14 @@ class redfishEventMgr
                     argStr += arg.get<std::string>();
                     first = false;
                 }
-                additionalData["REDFISH_MESSAGE_ARGS"] = argStr;
+                additionalData.emplace_back("REDFISH_MESSAGE_ARGS", argStr);
             }
 
             if (auto logIt = evt.find("LogEntry"); logIt != evt.end())
             {
-                additionalData["REDFISH_LOGENTRY"] =
-                    (*logIt)["@odata.id"].get<std::string>();
+                additionalData.emplace_back(
+                    "REDFISH_LOGENTRY",
+                    (*logIt)["@odata.id"].get<std::string>());
             }
 
             if (auto sevIt = evt.find("MessageSeverity"); sevIt != evt.end())
