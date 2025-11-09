@@ -2208,7 +2208,6 @@ inline void handleChassisGetAllProperties(
     const std::string* model = nullptr;
     const std::string* sparePartNumber = nullptr;
 
-    const std::string* sku = nullptr;
     const std::string* uuid = nullptr;
     const std::string* locationCode = nullptr;
     const std::string* locationType = nullptr;
@@ -2228,7 +2227,7 @@ inline void handleChassisGetAllProperties(
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
         partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "Model", model, "SparePartNumber", sparePartNumber, "SKU", sku, "UUID",
+        "Model", model, "SparePartNumber", sparePartNumber, "UUID",
         uuid, "LocationCode", locationCode, "LocationType", locationType,
         "PrettyName", prettyName, "Type", type, "Height", height, "Width",
         width, "Depth", depth, "MinPowerWatts", minPowerWatts, "MaxPowerWatts",
@@ -2270,10 +2269,6 @@ inline void handleChassisGetAllProperties(
         asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
     }
 
-    if (sku != nullptr && !sku->empty())
-    {
-        asyncResp->res.jsonValue["SKU"] = *sku;
-    }
     if (uuid != nullptr)
     {
         if (!(uuid->empty()))
@@ -3764,7 +3759,7 @@ inline void getChassisSKU(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Decorator.Asset", "SKU",
+        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& chassisSKU) {
             if (ec)

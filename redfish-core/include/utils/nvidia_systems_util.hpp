@@ -39,15 +39,6 @@ inline void populateFromEntityManger(
             for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
-                if (propertyName == "SKU")
-                {
-                    const std::string* sku =
-                        std::get_if<std::string>(&property.second);
-                    if (sku != nullptr)
-                    {
-                        aResp->res.jsonValue["SKU"] = *sku;
-                    }
-                }
                 if (propertyName == "SerialNumber")
                 {
                     const std::string* serialNumber =
@@ -79,6 +70,19 @@ inline void populateFromEntityManger(
         },
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code& ec,
+                const std::variant<std::string>& sku) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error for "
+                                 "Trying to get SKU");
+                return;
+            }
+            aResp->res.jsonValue["SKU"] = *std::get_if<std::string>(&sku);
+        },
+        entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
+        "Get", "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU");
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& uuid) {

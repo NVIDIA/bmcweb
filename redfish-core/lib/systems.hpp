@@ -4223,7 +4223,7 @@ inline void handleComputerSystemPatch(
                                     "299 - \"IndicatorLED is deprecated. Use "
                                     "LocationIndicatorActive instead.\"");
     }
-    if constexpr (BMCWEB_HOST_OS_FEATURES) 
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         if (powerRestorePolicy)
         {
@@ -4276,7 +4276,7 @@ inline void handleComputerSystemPatch(
             if (sku)
             {
                 setEntityMangerProperty(
-                    asyncResp, "xyz.openbmc_project.Inventory.Decorator.Asset",
+                    asyncResp, "xyz.openbmc_project.Inventory.Decorator.SKU",
                     "SKU", *sku);
             }
             if (uuid)
