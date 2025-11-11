@@ -236,80 +236,112 @@ inline void processSensorsValue(
     }
 }
 
+inline void getAllChassisSensors(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& chassisId,
+    const ManagedObjectsVectorType& managedObjectsResp,
+    const uint64_t& sensingInterval, const uint64_t& requestTimestamp,
+    const std::string& metricsType, const boost::system::error_code& ec,
+    const std::variant<std::vector<std::string>>& variantEndpoints)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG(
+            "getAllChassisSensors DBUS error on chassis path{}: {}", objectPath,
+            ec);
+        return;
+    }
+    const std::vector<std::string>* sensorPaths =
+        std::get_if<std::vector<std::string>>(&(variantEndpoints));
+    if (sensorPaths == nullptr)
+    {
+        BMCWEB_LOG_ERROR("getAllChassisSensors empty sensors list");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // Process sensor readings
+    processSensorsValue(asyncResp, *sensorPaths, chassisId, managedObjectsResp,
+                        metricsType, sensingInterval, requestTimestamp);
+}
+
+inline void getChassisHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ManagedObjectsVectorType& managedObjectsResp,
+    const std::string& chassisPath, const std::string& metricsType,
+    const uint64_t& sensingInterval, const uint64_t& requestTimestamp,
+    const std::vector<std::string>& allChassisPaths,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& chassisLinks)
+{
+    std::vector<std::string> chassisPaths;
+    if (ec)
+    {
+        // no chassis links = no failures
+        BMCWEB_LOG_DEBUG(
+            "Proceed with chassisPath even if no chassis is found");
+    }
+    // Add parent chassis to the list
+    chassisPaths.emplace_back(chassisPath);
+    // Add underneath chassis paths
+    for (const std::string& path : chassisLinks)
+    {
+        auto it =
+            std::find(allChassisPaths.begin(), allChassisPaths.end(), path);
+        if (it == allChassisPaths.end())
+        {
+            continue;
+        }
+        chassisPaths.emplace_back(path);
+    }
+    // Sort the chassis for sensors paths
+    std::ranges::sort(chassisPaths, AlphanumLess<std::string>());
+
+    // Process all sensors to all chassis
+    for (const std::string& objectPath : chassisPaths)
+    {
+        // Get the chassis path for respective sensors
+        sdbusplus::message::object_path path(objectPath);
+        const std::string chassisId = path.filename();
+        dbus::utility::getAssociationEndPoints(
+            objectPath + "/all_sensors",
+            std::bind_front(getAllChassisSensors, asyncResp, objectPath,
+                            chassisId, managedObjectsResp, sensingInterval,
+                            requestTimestamp, metricsType));
+    }
+}
+
 inline void processChassisSensors(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const ManagedObjectsVectorType& managedObjectsResp,
     const std::string& chassisPath, const std::string& metricsType,
     const uint64_t& sensingInterval = 0, const uint64_t& requestTimestamp = 0)
 {
-    auto getAllChassisHandler = [asyncResp, chassisPath, managedObjectsResp,
-                                 sensingInterval, requestTimestamp,
-                                 metricsType](
-                                    const boost::system::error_code& ec,
-                                    std::variant<std::vector<std::string>>&
-                                        chassisLinks) {
-        std::vector<std::string> chassisPaths;
-        if (ec)
-        {
-            // no chassis links = no failures
-        }
-        // Add parent chassis to the list
-        chassisPaths.emplace_back(chassisPath);
-        // Add underneath chassis paths
-        std::vector<std::string>* chassisData =
-            std::get_if<std::vector<std::string>>(&chassisLinks);
-        if (chassisData != nullptr)
-        {
-            for (const std::string& path : *chassisData)
+    auto getAllChassisHandler =
+        [asyncResp, chassisPath, managedObjectsResp, sensingInterval,
+         requestTimestamp,
+         metricsType](const boost::system::error_code& ec,
+                      std::variant<std::vector<std::string>>& chassisPaths) {
+            if (ec)
             {
-                chassisPaths.emplace_back(path);
+                // no chassis links = no failures
             }
-        }
-        // Sort the chassis for sensors paths
-        std::sort(chassisPaths.begin(), chassisPaths.end());
-
-        // Process all sensors to all chassis
-        for (const std::string& objectPath : chassisPaths)
-        {
-            // Get the chassis path for respective sensors
-            sdbusplus::message::object_path path(objectPath);
-            const std::string& chassisId = path.filename();
-
-            auto getAllChassisSensors = [asyncResp, chassisId,
-                                         managedObjectsResp, sensingInterval,
-                                         requestTimestamp, objectPath,
-                                         metricsType](
-                                            const boost::system::error_code&
-                                                ec1,
-                                            const std::variant<
-                                                std::vector<std::string>>&
-                                                variantEndpoints) {
-                if (ec1)
-                {
-                    BMCWEB_LOG_DEBUG(
-                        "getAllChassisSensors DBUS error on chassis path{}: {}",
-                        objectPath, ec1);
-                    return;
-                }
-                const std::vector<std::string>* sensorPaths =
-                    std::get_if<std::vector<std::string>>(&(variantEndpoints));
-                if (sensorPaths == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("getAllChassisSensors empty sensors list");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                // Process sensor readings
-                processSensorsValue(asyncResp, *sensorPaths, chassisId,
-                                    managedObjectsResp, metricsType,
-                                    sensingInterval, requestTimestamp);
-            };
-            crow::connections::systemBus->async_method_call(
-                getAllChassisSensors, "xyz.openbmc_project.ObjectMapper",
-                objectPath + "/all_sensors", "org.freedesktop.DBus.Properties",
-                "Get", "xyz.openbmc_project.Association", "endpoints");
-        }
-    };
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&chassisPaths);
+            std::vector<std::string> allChassisPaths;
+            if (data != nullptr)
+            {
+                allChassisPaths = *data;
+            }
+            std::string inventoryPath = "/xyz/openbmc_project/inventory";
+            std::array<std::string_view, 1> interfaces{
+                "xyz.openbmc_project.Inventory.Item.Chassis"};
+            dbus::utility::getSubTreePaths(
+                inventoryPath, 0, interfaces,
+                std::bind_front(&getChassisHandler, asyncResp,
+                                managedObjectsResp, chassisPath, metricsType,
+                                sensingInterval, requestTimestamp,
+                                allChassisPaths));
+        };
     // Get all chassis
     crow::connections::systemBus->async_method_call(
         getAllChassisHandler, "xyz.openbmc_project.ObjectMapper",

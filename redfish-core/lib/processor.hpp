@@ -996,7 +996,7 @@ inline void getProcessorData(
 
     // Nvidia Added Code Start
     redfish::nvidia_processor::populateNvidiaProcessorPostData(
-        asyncResp, processorId, objectPath, serviceMap);
+        asyncResp, processorId, objectPath, serviceMap, deviceType);
     // Nvidia Added Code End
 }
 

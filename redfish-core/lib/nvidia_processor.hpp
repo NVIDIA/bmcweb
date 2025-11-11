@@ -608,104 +608,13 @@ inline void getPowerBreakThrottleData(
                         return;
                     }
                     json["Oem"]["Nvidia"]["PowerBreakPerformanceState"] =
-                        redfish::dbus_utils::toPerformanceStateType(*state);
+                        redfish::dbus_utils::toPowerBreakPerformanceState(
+                            *state);
                 }
             }
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.ProcessorPerformance");
-}
-
-inline void getPowerBreakThrottle(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath, const std::string& deviceType)
-{
-    BMCWEB_LOG_DEBUG("Get processor module link");
-    crow::connections::systemBus->async_method_call(
-        [aResp, objPath, deviceType,
-         service](const boost::system::error_code& ec,
-                  std::variant<std::vector<std::string>>& resp) {
-            if (ec)
-            {
-                return; // no chassis = no failures
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
-            {
-                // Processor must have single parent chassis
-                return;
-            }
-
-            const std::string& chassisPath = data->front();
-
-            BMCWEB_LOG_DEBUG("Get processor module state sensors");
-            crow::connections::systemBus->async_method_call(
-                [aResp, service, deviceType, chassisPath](
-                    const boost::system::error_code& getEndpointsError,
-                    std::variant<std::vector<std::string>>& resp1) {
-                    if (getEndpointsError)
-                    {
-                        // no state sensors attached.
-                        return;
-                    }
-                    std::vector<std::string>* data1 =
-                        std::get_if<std::vector<std::string>>(&resp1);
-                    if (data1 == nullptr)
-                    {
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    for (const std::string& sensorpath : *data1)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "proc module state sensor object path {}",
-                            sensorpath);
-
-                        const std::array<const char*, 1> sensorinterfaces = {
-                            "xyz.openbmc_project.State.ProcessorPerformance"};
-                        // process sensor reading
-                        crow::connections::systemBus->async_method_call(
-                            [aResp, sensorpath, deviceType](
-                                const boost::system::error_code& getObjectError,
-                                const std::vector<std::pair<
-                                    std::string, std::vector<std::string>>>&
-                                    object) {
-                                if (getObjectError)
-                                {
-                                    // the path does not implement any state
-                                    // interfaces.
-                                    return;
-                                }
-
-                                for (const auto& [service1, interfaces] :
-                                     object)
-                                {
-                                    if (std::find(
-                                            interfaces.begin(),
-                                            interfaces.end(),
-                                            "xyz.openbmc_project.State.ProcessorPerformance") !=
-                                        interfaces.end())
-                                    {
-                                        getPowerBreakThrottleData(
-                                            aResp, service1, sensorpath,
-                                            deviceType);
-                                    }
-                                }
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetObject",
-                            sensorpath, sensorinterfaces);
-                    }
-                },
-                "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_states",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        "com.nvidia.ProcessorPowerBreak");
 }
 
 /**
@@ -933,8 +842,17 @@ inline void getParentChassisPCIeDeviceLink(
  */
 inline void getProcessorChassisLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
-    const std::string& service)
+    const std::string& service, const std::string& deviceType)
 {
+    sdbusplus::message::object_path associationPath;
+    if (deviceType == "xyz.openbmc_project.Inventory.Item.Cpu")
+    {
+        associationPath = objPath + "/chassis";
+    }
+    else
+    {
+        associationPath = objPath + "/parent_chassis";
+    }
     BMCWEB_LOG_DEBUG("Get parent chassis link");
     crow::connections::systemBus->async_method_call(
         [aResp, objPath,
@@ -1006,7 +924,7 @@ inline void getProcessorChassisLink(
                 "org.freedesktop.DBus.Properties", "Get",
                 "xyz.openbmc_project.Association", "endpoints");
         },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "xyz.openbmc_project.ObjectMapper", associationPath,
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
@@ -2928,10 +2846,11 @@ inline void getStateSensorMetric(
             {
                 BMCWEB_LOG_DEBUG("State Sensor Object Path {}", sensorPath);
 
-                const std::array<const char*, 3> sensorInterfaces = {
+                const std::array<const char*, 4> sensorInterfaces = {
                     "xyz.openbmc_project.State.Decorator.PowerSystemInputs",
                     "xyz.openbmc_project.State.ProcessorPerformance",
-                    "com.nvidia.MemorySpareChannel"};
+                    "com.nvidia.MemorySpareChannel",
+                    "com.nvidia.ProcessorPowerBreak"};
                 // Process sensor reading
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorPath, deviceType](
@@ -2970,6 +2889,13 @@ inline void getStateSensorMetric(
                                 getMemorySpareChannelPresenceData(
                                     aResp, serviceName, sensorPath, deviceType);
                             }
+                            if (std::find(interfaces.begin(), interfaces.end(),
+                                          "com.nvidia.ProcessorPowerBreak") !=
+                                interfaces.end())
+                            {
+                                getPowerBreakThrottleData(
+                                    aResp, serviceName, sensorPath, deviceType);
+                            }
                         }
                     },
                     "xyz.openbmc_project.ObjectMapper",
@@ -2977,8 +2903,6 @@ inline void getStateSensorMetric(
                     "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
                     sensorInterfaces);
             }
-
-            getPowerBreakThrottle(aResp, service, objPath, deviceType);
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
         "org.freedesktop.DBus.Properties", "Get",
@@ -3937,7 +3861,8 @@ inline void handleNvidiaProcessorInterface(
 inline void populateNvidiaProcessorPostData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, const std::string& objectPath,
-    const dbus::utility::MapperServiceMap& serviceMap)
+    const dbus::utility::MapperServiceMap& serviceMap,
+    const std::string& deviceType)
 {
     getComponentFirmwareVersion(asyncResp, objectPath);
     redfish::nvidia_processor_utils::getOperatingSpeedRange(
@@ -3969,7 +3894,7 @@ inline void populateNvidiaProcessorPostData(
 
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        getProcessorChassisLink(asyncResp, objectPath, serviceName);
+        getProcessorChassisLink(asyncResp, objectPath, serviceName, deviceType);
     }
 
     getProcessorSystemPCIeInterface(asyncResp, objectPath);
