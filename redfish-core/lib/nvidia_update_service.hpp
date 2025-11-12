@@ -393,6 +393,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
         {
             std::string rfMessage;
             std::string resolution;
+            std::string severity;
             std::string messageNamespace;
             std::vector<std::string> rfArgs;
             for (auto& propertyMap : interface.second)
@@ -432,6 +433,15 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                         resolution = *value;
                     }
                 }
+                else if (propertyMap.first == "Severity")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&propertyMap.second);
+                    if (value != nullptr)
+                    {
+                        severity = translateSeverityDbusToRedfish(*value);
+                    }
+                }
             }
             /* we need to have found the id, data, this image needs to
                correspond to the image we are working with right now and the
@@ -447,6 +457,10 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                 if (!resolution.empty())
                 {
                     msgObj["Resolution"] = resolution;
+                }
+                if (!severity.empty())
+                {
+                    msgObj["MessageSeverity"] = severity;
                 }
                 messages.emplace_back(std::move(msgObj));
             }
