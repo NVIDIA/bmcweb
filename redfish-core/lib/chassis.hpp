@@ -876,6 +876,14 @@ inline void handleChassisGetSubTree(
             // Nvidia: added code start
             redfish::nvidia_chassis_utils::populateChassisLinksOemAndStatus(
                 asyncResp, objPath, path, interfaces2, chassisId);
+
+            // Always check for SKU (either direct or via associated_SKU)
+            redfish::nvidia_chassis_utils::getChassisSKU(asyncResp,
+                                                         connectionName, path);
+
+            // Check and add OEM Nvidia SKU if UpdateSKU interface exists
+            redfish::nvidia_chassis_utils::checkAndAddOemSKU(asyncResp,
+                                                             chassisId, path);
             // Nvidia: added code end
         }
         isFoundChassisObject = true;
@@ -900,10 +908,11 @@ inline void handleChassisGet(
         return;
     }
 
-    constexpr std::array<std::string_view, 3> interfaces = {
+    constexpr std::array<std::string_view, 4> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis",
-        "xyz.openbmc_project.Inventory.Item.Component"};
+        "xyz.openbmc_project.Inventory.Item.Component",
+        "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
 
     // Nvidia modified parameter from  chassisInterfaces to interfaces
     dbus::utility::getSubTree(
@@ -943,6 +952,7 @@ inline void handleChassisPatch(
     std::optional<double> workloadFactor;
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
+    std::optional<std::string> oemSKU;
     // Nvidia: added parameters end
 
     if (chassisId.empty())
@@ -969,7 +979,7 @@ inline void handleChassisPatch(
             redfish::nvidia_chassis_utils::parseOemNvidiaPatchPayload(
                 asyncResp, oemJsonObj, partNumber, serialNumber,
                 hardwareWriteProtectEnable, cpuClockFrequency, workloadFactor,
-                temperature);
+                temperature, oemSKU);
         }
     }
     // Nvidia added code end
@@ -982,14 +992,14 @@ inline void handleChassisPatch(
     }
     // Nvidia added captured parameters  indicatorLed, partNumber,
     // serialNumber, cpuClockFrequency, workloadFactor,temperature,
-    // hardwareWriteProtectEnable
+    // hardwareWriteProtectEnable, oemSKU
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-         temperature, hardwareWriteProtectEnable](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+         temperature, hardwareWriteProtectEnable,
+         oemSKU](const boost::system::error_code& ec,
+                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -1067,6 +1077,13 @@ inline void handleChassisPatch(
                     asyncResp, chassisId, path, hardwareWriteProtectEnable,
                     partNumber, serialNumber, cpuClockFrequency, workloadFactor,
                     temperature);
+
+                if (oemSKU)
+                {
+                    redfish::nvidia_chassis_utils::
+                        checkForwardAssociationAndUpdateSKU(asyncResp, path,
+                                                            *oemSKU);
+                }
                 // Nvidia: added code end
 
                 return;

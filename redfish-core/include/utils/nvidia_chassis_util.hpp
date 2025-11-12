@@ -22,6 +22,7 @@
 #include "utils/conditions_utils.hpp"
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
@@ -2227,8 +2228,8 @@ inline void handleChassisGetAllProperties(
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
         partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "Model", model, "SparePartNumber", sparePartNumber, "UUID",
-        uuid, "LocationCode", locationCode, "LocationType", locationType,
+        "Model", model, "SparePartNumber", sparePartNumber, "UUID", uuid,
+        "LocationCode", locationCode, "LocationType", locationType,
         "PrettyName", prettyName, "Type", type, "Height", height, "Width",
         width, "Depth", depth, "MinPowerWatts", minPowerWatts, "MaxPowerWatts",
         maxPowerWatts, "AssetTag", assetTag, "WriteProtected", writeProtected,
@@ -3442,7 +3443,8 @@ inline void parseOemNvidiaPatchPayload(
     std::optional<std::string>& serialNumber,
     std::optional<bool>& hardwareWriteProtectEnable,
     std::optional<double>& cpuClockFrequency,
-    std::optional<double>& workloadFactor, std::optional<double>& temperature)
+    std::optional<double>& workloadFactor, std::optional<double>& temperature,
+    std::optional<std::string>& oemSKU)
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
@@ -3458,7 +3460,7 @@ inline void parseOemNvidiaPatchPayload(
                     *nvidiaJsonObj, asyncResp->res, "PartNumber", partNumber,
                     "SerialNumber", serialNumber, "StaticPowerHint",
                     staticPowerHintJsonObj, "HardwareWriteProtectEnable",
-                    hardwareWriteProtectEnable);
+                    hardwareWriteProtectEnable, "SKU", oemSKU);
 
                 if (staticPowerHintJsonObj)
                 {
@@ -3753,24 +3755,121 @@ inline void getChassisManufacturer(
         });
 }
 
+/**
+ * @brief Read SKU property from associated object and set in response
+ */
+inline void readSKUFromAssociatedObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& associatedPath)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, service, associatedPath,
+        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
+        [asyncResp, associatedPath](const boost::system::error_code& ec,
+                                    const std::string& sku) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to read SKU from {}", associatedPath);
+                return;
+            }
+            if (!sku.empty())
+            {
+                BMCWEB_LOG_DEBUG("Setting SKU from associated object {}: {}",
+                                 associatedPath, sku);
+                asyncResp->res.jsonValue["SKU"] = sku;
+            }
+        });
+}
+
+/**
+ * @brief Find service for associated object and read SKU
+ */
+inline void getAssociatedObjectService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& associatedPath)
+{
+    dbus::utility::getDbusObject(
+        associatedPath,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Decorator.SKU"},
+        [asyncResp,
+         associatedPath](const boost::system::error_code& ec,
+                         const dbus::utility::MapperGetObject& objMap) {
+            if (ec || objMap.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "SKU interface not found on associated object {}",
+                    associatedPath);
+                return;
+            }
+
+            const std::string& service = objMap.begin()->first;
+            readSKUFromAssociatedObject(asyncResp, service, associatedPath);
+        });
+}
+
+/**
+ * @brief Check for backward association and read SKU from associated object
+ */
+inline void checkAssociatedSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", path + "/associated_SKU",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, path](const boost::system::error_code& ec,
+                          const std::vector<std::string>& endpoints) {
+            if (ec || endpoints.empty())
+            {
+                BMCWEB_LOG_DEBUG("No associated_SKU for {}, SKU not available",
+                                 path);
+                return;
+            }
+
+            std::string associatedPath = endpoints[0];
+            BMCWEB_LOG_DEBUG("Found associated_SKU for {}, reading SKU from {}",
+                             path, associatedPath);
+            getAssociatedObjectService(asyncResp, associatedPath);
+        });
+}
+
 inline void getChassisSKU(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& connectionName,
                           const std::string& path)
 {
+    // Extract chassis name from path for checking if it's an IRoT chassis
+    sdbusplus::message::object_path objPath(path);
+    std::string chassisName = objPath.filename();
+
+    // Don't show SKU for IRoT chassis - they provide SKU to other chassis
+    if (chassisName.find("IRoT") != std::string::npos)
+    {
+        BMCWEB_LOG_DEBUG("Skipping SKU for IRoT chassis: {}", path);
+        return;
+    }
+
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& chassisSKU) {
+        [asyncResp, path](const boost::system::error_code& ec,
+                          const std::string& chassisSKU) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error for chassisSKU");
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_DEBUG(
+                    "DBUS response error for SKU on {}: {} - checking backward association",
+                    path, ec.message());
+                checkAssociatedSKU(asyncResp, path);
                 return;
             }
             if (!chassisSKU.empty())
             {
+                BMCWEB_LOG_DEBUG("Setting SKU for {}: {}", path, chassisSKU);
                 asyncResp->res.jsonValue["SKU"] = chassisSKU;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("SKU property is empty for {}", path);
             }
         });
 }
@@ -3794,6 +3893,253 @@ inline void getChassisSerialNumber(
             {
                 asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
             }
+        });
+}
+
+/**
+ * @brief Get chassis OEM Nvidia SKU property
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       connectionName    Connection name for D-Bus.
+ * @param[in]       path        Chassis D-Bus path.
+ *
+ * @return None.
+ */
+inline void getChassisOemNvidiaSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
+        [asyncResp,
+         path](const boost::system::error_code& ec, const std::string& sku) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for OEM Nvidia SKU");
+                return;
+            }
+            if (!sku.empty())
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["SKU"] = sku;
+            }
+        });
+}
+
+/**
+ * @brief Check if associated chassis has Async.Set interface and read OEM SKU
+ * if available
+ */
+inline void checkAsyncSetAndReadSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& associatedChassisPath)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "com.nvidia.Async.Set"};
+
+    dbus::utility::getDbusObject(
+        associatedChassisPath, interfaces,
+        [asyncResp,
+         associatedChassisPath](const boost::system::error_code& ec,
+                                const dbus::utility::MapperGetObject& objMap) {
+            if (ec || objMap.empty())
+            {
+                BMCWEB_LOG_DEBUG("Async.Set interface not found on {}",
+                                 associatedChassisPath);
+                return;
+            }
+
+            // Associated chassis has Async.Set, add OEM SKU to main chassis
+            const std::string& serviceName = objMap.begin()->first;
+            BMCWEB_LOG_DEBUG("Found Async.Set on {}, adding OEM SKU to chassis",
+                             associatedChassisPath);
+            // Read SKU from the associated chassis
+            getChassisOemNvidiaSKU(asyncResp, serviceName,
+                                   associatedChassisPath);
+        });
+}
+
+/**
+ * @brief Check backward association for associated chassis and read OEM SKU
+ */
+inline void checkBackwardAssociationForOemSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/associated_SKU",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisPath](const boost::system::error_code& ec,
+                                 const std::vector<std::string>& endpoints) {
+            if (ec || endpoints.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "No associated_SKU backward association for {}, no OEM SKU",
+                    chassisPath);
+                return;
+            }
+
+            // Found backward association to associated chassis
+            std::string associatedChassisPath = endpoints[0];
+            BMCWEB_LOG_DEBUG(
+                "Following associated_SKU backward association from {} to {}",
+                chassisPath, associatedChassisPath);
+
+            checkAsyncSetAndReadSKU(asyncResp, associatedChassisPath);
+        });
+}
+
+/**
+ * @brief Check for Async.Set interface via backward association and add OEM SKU
+ *        Follows associated_SKU backward association to find chassis with
+ * Async.Set
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       chassisId    Chassis ID.
+ * @param[in]       chassisPath  Chassis D-Bus path.
+ *
+ * @return None.
+ */
+inline void checkAndAddOemSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& chassisId,
+    const std::string& chassisPath)
+{
+    if constexpr (!BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        return;
+    }
+
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/inventory_SKU",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisPath](const boost::system::error_code& ec,
+                                 const std::vector<std::string>& endpoints) {
+            if (!ec && !endpoints.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Chassis {} has inventory_SKU forward association, skipping OEM SKU",
+                    chassisPath);
+                return;
+            }
+            // Check backward association for OEM SKU
+            checkBackwardAssociationForOemSKU(asyncResp, chassisPath);
+        });
+}
+
+/**
+ * @brief Update chassis SKU using Async.Set pattern
+ *
+ * @param[in,out]   asyncResp      Async HTTP response.
+ * @param[in]       service        D-Bus service name.
+ * @param[in]       chassisPath    Chassis D-Bus path.
+ * @param[in]       newSKU         New SKU value to set.
+ *
+ * @return None.
+ */
+inline void updateChassisSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& chassisPath,
+    const std::string& newSKU)
+{
+    nvidia_async_operation_utils::patch<
+        nvidia_async_operation_utils::PatchGenericCallback>(
+        asyncResp, service, chassisPath,
+        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU", newSKU, true);
+}
+
+/**
+ * @brief Find Async.Set service and update SKU on associated chassis
+ */
+inline void findAsyncSetAndUpdateSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& associatedChassisPath, const std::string& skuValue)
+{
+    dbus::utility::getDbusObject(
+        associatedChassisPath,
+        std::array<std::string_view, 1>{"com.nvidia.Async.Set"},
+        [asyncResp, associatedChassisPath,
+         skuValue](const boost::system::error_code& ec,
+                   const dbus::utility::MapperGetObject& objMap) {
+            if (ec || objMap.empty())
+            {
+                BMCWEB_LOG_ERROR("Failed to find Async.Set on {}",
+                                 associatedChassisPath);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            const std::string& service = objMap.begin()->first;
+            BMCWEB_LOG_DEBUG("Calling Async.Set on {} to update SKU",
+                             associatedChassisPath);
+            // Call Async.Set to update SKU on the associated chassis
+            // (main chassis reads it via associated_SKU)
+            updateChassisSKU(asyncResp, service, associatedChassisPath,
+                             skuValue);
+        });
+}
+
+/**
+ * @brief Check backward association and update SKU on associated chassis
+ */
+inline void checkBackwardAssociationAndUpdateSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const std::string& skuValue)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/associated_SKU",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisPath,
+         skuValue](const boost::system::error_code& ec,
+                   const std::vector<std::string>& endpoints) {
+            if (ec || endpoints.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "PATCH: No associated_SKU for {}, cannot update SKU",
+                    chassisPath);
+                messages::propertyNotWritable(asyncResp->res, "Oem/Nvidia/SKU");
+                return;
+            }
+
+            // Found associated chassis via backward association
+            std::string associatedChassisPath = endpoints[0];
+            BMCWEB_LOG_DEBUG("PATCH: Following associated_SKU from {} to {}",
+                             chassisPath, associatedChassisPath);
+
+            findAsyncSetAndUpdateSKU(asyncResp, associatedChassisPath,
+                                     skuValue);
+        });
+}
+
+/**
+ * @brief Check if chassis has forward association and route SKU PATCH
+ * appropriately
+ */
+inline void checkForwardAssociationAndUpdateSKU(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const std::string& skuValue)
+{
+    // Check if this chassis has forward inventory_SKU association
+    // Such chassis should NOT accept SKU PATCH directly
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/inventory_SKU",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisPath,
+         skuValue](const boost::system::error_code& ec,
+                   const std::vector<std::string>& endpoints) {
+            if (!ec && !endpoints.empty())
+            {
+                // This chassis has forward association, reject SKU PATCH
+                BMCWEB_LOG_ERROR(
+                    "PATCH: Chassis {} has forward association, SKU not patchable here",
+                    chassisPath);
+                messages::propertyNotWritable(asyncResp->res, "Oem/Nvidia/SKU");
+                return;
+            }
+
+            // No forward association, check for backward association
+            checkBackwardAssociationAndUpdateSKU(asyncResp, chassisPath,
+                                                 skuValue);
         });
 }
 
