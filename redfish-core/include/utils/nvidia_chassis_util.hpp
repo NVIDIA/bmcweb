@@ -44,6 +44,57 @@ struct trayTopology
 };
 #pragma pack()
 
+inline void populateChassisLinksContains(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                             const std::vector<std::string>& chassisPaths,
+                             const dbus::utility::MapperGetSubTreePathsResponse& response)
+{
+    nlohmann::json::array_t linksArray;
+    boost::container::flat_set<std::string> chassisNames;
+    for (const std::string& chassisPath : chassisPaths)
+    {
+        // Check if chassisPath exists in the response
+        if (std::find(response.begin(), response.end(), chassisPath) ==
+            response.end())
+        {
+            continue;
+        }
+
+        sdbusplus::message::object_path objectPath(chassisPath);
+        std::string chassisName = objectPath.filename();
+        if (chassisName.empty())
+        {
+            messages::internalError(aResp->res);
+            return;
+        }
+        chassisNames.emplace(std::move(chassisName));
+    }
+    for (const auto& chassisName : chassisNames)
+    {
+        nlohmann::json::object_t link;
+        link["@odata.id"] = boost::urls::format("/redfish/v1/Chassis/{}", chassisName);
+        linksArray.emplace_back(std::move(link));
+    }
+    aResp->res.jsonValue["Links"]["Contains"] = std::move(linksArray);
+}
+inline void
+    fillChassisLinksContains(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                             const std::vector<std::string>& chassisPaths)
+{
+    constexpr std::array<std::string_view, 2> interfaces{
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [aResp, chassisPaths](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& response) {
+        if (ec)
+        {
+            return;
+        }
+        populateChassisLinksContains(aResp, chassisPaths, response);
+    });
+}
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -56,7 +107,7 @@ inline void
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec2,
+        [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
         if (ec2)
         {
@@ -68,25 +119,7 @@ inline void
         {
             return;
         }
-        nlohmann::json& linksArray = aResp->res.jsonValue["Links"]["Contains"];
-        linksArray = nlohmann::json::array();
-        boost::container::flat_set<std::string> chassisNames;
-        for (const std::string& chassisPath : *data)
-        {
-            sdbusplus::message::object_path objectPath(chassisPath);
-            std::string chassisName = objectPath.filename();
-            if (chassisName.empty())
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-            chassisNames.emplace(std::move(chassisName));
-        }
-        for (const auto& chassisName : chassisNames)
-        {
-            linksArray.push_back(
-                {{"@odata.id", "/redfish/v1/Chassis/" + chassisName}});
-        }
+        fillChassisLinksContains(aResp, *data);
     },
         "xyz.openbmc_project.ObjectMapper", objPath + "/all_chassis",
         "org.freedesktop.DBus.Properties", "Get",
