@@ -87,7 +87,7 @@ inline void getChassisAssociatedEndpoint(
          callback](const bool& status, const std::string& ep) {
             if (!status)
             {
-                BMCWEB_LOG_ERROR(
+                BMCWEB_LOG_DEBUG(
                     "No associated_chassis endpoint found for chassis: {}",
                     chassisID);
                 callback("", false);
@@ -1119,7 +1119,7 @@ inline void isComponentEnabled(
 
     const std::string& endpointComponent =
         std::filesystem::path(endpoint).filename().string();
-    BMCWEB_LOG_ERROR("endpointComponent: {}", endpointComponent);
+    BMCWEB_LOG_DEBUG("endpointComponent: {}", endpointComponent);
     if (endpointComponent.empty())
     {
         BMCWEB_LOG_ERROR("Invalid endpoint format: {}", endpoint);
