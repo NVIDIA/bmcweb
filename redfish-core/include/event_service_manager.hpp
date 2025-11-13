@@ -17,6 +17,7 @@
 #include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
+#include "redfish_aggregator.hpp"
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
 #include "utils/nvidia_time_utils.hpp"
@@ -32,6 +33,7 @@
 #include <boost/url/url_view_base.hpp>
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
@@ -49,6 +51,7 @@
 
 namespace redfish
 {
+
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
@@ -68,6 +71,55 @@ class EventServiceManager
         subscriptionsMap;
 
     uint64_t eventId{1};
+    bool eventIdDirty = false; // Track if eventId changed since last persist
+    std::unique_ptr<boost::asio::steady_timer> persistTimer;
+
+    // Persist configuration - save every 5 minutes if changed
+    static constexpr std::chrono::minutes persistIntervalMins{5};
+
+    // Increment eventId (marks dirty for periodic persist)
+    uint64_t getNextEventId()
+    {
+        eventId++;
+        eventIdDirty = true; // Mark for periodic persist
+        return eventId;
+    }
+
+    // Persist eventId to storage if it has changed
+    void persistEventIdIfDirty()
+    {
+        if (eventIdDirty)
+        {
+            persistent_data::getConfig().eventServiceEventId = eventId;
+            persistent_data::getConfig().writeData();
+            eventIdDirty = false;
+            BMCWEB_LOG_DEBUG("Persisted eventId to storage: {}", eventId);
+        }
+    }
+
+    // Schedule periodic persist timer (every 5 minutes)
+    void schedulePersistTimer()
+    {
+        if (!persistTimer)
+        {
+            return;
+        }
+        persistTimer->expires_after(persistIntervalMins);
+        persistTimer->async_wait([this](const boost::system::error_code& ec) {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                return;
+            }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("EventService persist timer error: {}",
+                                 ec.message());
+                return;
+            }
+            persistEventIdIfDirty();
+            schedulePersistTimer(); // Reschedule
+        });
+    }
 
     struct Event
     {
@@ -83,12 +135,28 @@ class EventServiceManager
     EventServiceManager& operator=(const EventServiceManager&) = delete;
     EventServiceManager(EventServiceManager&&) = delete;
     EventServiceManager& operator=(EventServiceManager&&) = delete;
-    ~EventServiceManager() = default;
+
+    ~EventServiceManager()
+    {
+        // Save any pending changes on shutdown
+        persistEventIdIfDirty();
+        if (persistTimer)
+        {
+            persistTimer->cancel();
+        }
+    }
 
     explicit EventServiceManager()
     {
+        // Initialize persist timer
+        persistTimer =
+            std::make_unique<boost::asio::steady_timer>(getIoContext());
+
         // Load config from persist store.
         initConfig();
+
+        // Start periodic persist timer
+        schedulePersistTimer();
     }
 
     static EventServiceManager& getInstance()
@@ -106,6 +174,12 @@ class EventServiceManager
         serviceEnabled = eventServiceConfig.enabled;
         retryAttempts = eventServiceConfig.retryAttempts;
         retryTimeoutInterval = eventServiceConfig.retryTimeoutInterval;
+
+        // Restore eventId from persistent storage for Last-Event-Id support
+        eventId = persistent_data::getConfig().eventServiceEventId;
+        BMCWEB_LOG_DEBUG("Restored eventId from persistent storage: {}",
+                         eventId);
+        // Note: eventId will be persisted on next periodic timer if it changes
 
         for (const auto& it : persistent_data::EventServiceStore::getInstance()
                                   .subscriptionsConfigMap)
@@ -144,8 +218,13 @@ class EventServiceManager
         }
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            redfish::SubscribeSatBmc::getInstance().createSubscribeTimer();
+            // SSE aggregator callback for handling satellite events
+            RedfishAggregator::getInstance().setSatelliteEventCallback(
+                [](const std::string& eventJson, uint64_t satEventId) {
+                    getInstance().handleSatelliteEvent(eventJson, satEventId);
+                });
 
+            redfish::SubscribeSatBmc::getInstance().createSubscribeTimer();
             if (getNumberOfSubscriptions() > 0)
             {
                 // start RF event listener and subscribe HMC eventService.
@@ -409,42 +488,71 @@ class EventServiceManager
 
         if (!lastEventId.empty())
         {
-            BMCWEB_LOG_INFO("Attempting to find message for last id {}",
+            BMCWEB_LOG_INFO("Attempting to find events after id {}",
                             lastEventId);
-            boost::circular_buffer<Event>::iterator lastEvent =
-                std::ranges::find_if(
-                    messages, [&lastEventId](const Event& event) {
-                        return std::to_string(event.id) == lastEventId;
-                    });
-            // Can't find a matching ID
-            if (lastEvent == messages.end())
-            {
-                nlohmann::json msg = messages::eventBufferExceeded();
 
+            // Parse lastEventId
+            uint64_t requestedId = 0;
+            std::string_view idView(lastEventId);
+            auto result =
+                std::from_chars(idView.begin(), idView.end(), requestedId);
+
+            if (result.ec != std::errc{})
+            {
+                BMCWEB_LOG_WARNING("Invalid Last-Event-Id format: {}",
+                                   lastEventId);
+            }
+            else if (messages.empty())
+            {
+                BMCWEB_LOG_INFO("Buffer is empty, no events to replay");
+            }
+            else if (requestedId >= messages.back().id)
+            {
+                // Client already has the latest event, nothing to replay
+                BMCWEB_LOG_INFO(
+                    "Client is up to date (requested {} >= latest {})",
+                    requestedId, messages.back().id);
+            }
+            else if (requestedId < messages.front().id - 1)
+            {
+                // Requested ID is too old, events have been evicted
+                BMCWEB_LOG_INFO(
+                    "Event {} too old, buffer starts at {} - sending EventBufferExceeded",
+                    requestedId, messages.front().id);
+                nlohmann::json msg = messages::eventBufferExceeded();
                 std::string strMsg = msg.dump(
                     2, ' ', true, nlohmann::json::error_handler_t::replace);
-                eventId++;
-                subValue->sendEventToSubscriber(eventId, std::move(strMsg));
+                subValue->sendEventToSubscriber(getNextEventId(),
+                                                std::move(strMsg));
             }
             else
             {
-                // Skip the last event the user already has
-                lastEvent++;
+                // Find first event with ID > requestedId and replay from there
+                auto firstEvent = std::ranges::find_if(
+                    messages, [requestedId](const Event& event) {
+                        return event.id > requestedId;
+                    });
 
-                for (boost::circular_buffer<Event>::const_iterator event =
-                         lastEvent;
-                     event != messages.end(); event++)
+                if (firstEvent != messages.end())
                 {
-                    std::string strMsg =
-                        nlohmann::json(event->message)
-                            .dump(2, ' ', true,
-                                  nlohmann::json::error_handler_t::replace);
+                    BMCWEB_LOG_INFO("Replaying {} events starting from id {}",
+                                    std::distance(firstEvent, messages.end()),
+                                    firstEvent->id);
 
-                    subValue->sendEventToSubscriber(event->id,
-                                                    std::move(strMsg));
+                    for (auto event = firstEvent; event != messages.end();
+                         ++event)
+                    {
+                        std::string strMsg =
+                            nlohmann::json(event->message)
+                                .dump(2, ' ', true,
+                                      nlohmann::json::error_handler_t::replace);
+                        subValue->sendEventToSubscriber(event->id,
+                                                        std::move(strMsg));
+                    }
                 }
             }
         }
+        BMCWEB_LOG_INFO("addSSESubscription: returning id={}", id);
         return id;
     }
 
@@ -537,14 +645,11 @@ class EventServiceManager
     {
         nlohmann::json::object_t logEntryJson;
 
-        logEntryJson["EventId"] = std::to_string(eventId);
-
         if (testEvent.eventGroupId)
         {
             logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
         }
-        eventId++;
-        logEntryJson["EventId"] = std::to_string(eventId);
+        logEntryJson["EventId"] = std::to_string(getNextEventId());
 
         if (testEvent.eventTimestamp)
         {
@@ -617,11 +722,11 @@ class EventServiceManager
         const std::vector<EventLogObjectsType>& eventRecords)
     {
         EventServiceManager& mgr = EventServiceManager::getInstance();
-        mgr.eventId++;
+        uint64_t currentEventId = mgr.getNextEventId();
         for (const auto& it : mgr.subscriptionsMap)
         {
             Subscription& entry = *it.second;
-            entry.filterAndSendEventLogs(mgr.eventId, eventRecords);
+            entry.filterAndSendEventLogs(currentEventId, eventRecords);
         }
     }
 
@@ -629,20 +734,44 @@ class EventServiceManager
         const std::string& reportId, const telemetry::TimestampReadings& var)
     {
         EventServiceManager& mgr = EventServiceManager::getInstance();
-        mgr.eventId++;
+        uint64_t currentEventId = mgr.getNextEventId();
 
         for (const auto& it : mgr.subscriptionsMap)
         {
             Subscription& entry = *it.second;
-            entry.filterAndSendReports(mgr.eventId, reportId, var);
+            entry.filterAndSendReports(currentEventId, reportId, var);
+        }
+    }
+
+    void handleSatelliteEvent(const std::string& eventJson, uint64_t satEventId)
+    {
+        nlohmann::json parsedEvent =
+            nlohmann::json::parse(eventJson, nullptr, false);
+        if (!parsedEvent.is_discarded() && parsedEvent.is_object())
+        {
+            nlohmann::json::object_t* msgObj =
+                parsedEvent.get_ptr<nlohmann::json::object_t*>();
+            if (msgObj != nullptr)
+            {
+                messages.push_back(Event(satEventId, *msgObj));
+            }
+        }
+
+        for (const auto& [subId, subPtr] : subscriptionsMap)
+        {
+            if (subPtr->userSub->subscriptionType == subscriptionTypeSSE)
+            {
+                subPtr->sendEventToSubscriber(satEventId,
+                                              std::string(eventJson));
+            }
         }
     }
 
     void sendEvent(nlohmann::json::object_t eventMessage,
                    std::string_view origin, std::string_view resourceType)
     {
-        eventId++;
-        eventMessage["EventId"] = eventId;
+        uint64_t currentEventId = getNextEventId();
+        eventMessage["EventId"] = currentEventId;
 
         eventMessage["EventTimestamp"] =
             redfish::time_utils::getDateTimeOffsetNow().first;
@@ -716,7 +845,7 @@ class EventServiceManager
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEventToSubscriber(eventId, std::move(strMsg));
         }
-        eventId++; // increament the eventId
+        getNextEventId(); // increment and persist for next event
     }
 
     /**
@@ -741,7 +870,7 @@ class EventServiceManager
     {
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            // OOC Path in HMC events is already converted to Redfish path.
+            // OOC Path in SatMC events is already converted to Redfish path.
             if (path.starts_with("/redfish/v1/"))
             {
                 std::string oocPath(path);

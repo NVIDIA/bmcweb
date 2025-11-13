@@ -221,6 +221,39 @@ class ConfigFile
                                             std::move(*newSub)));
                         }
                     }
+                    else if (item.first == "event_service_event_id")
+                    {
+                        const uint64_t* value =
+                            item.second.get_ptr<const uint64_t*>();
+                        if (value != nullptr)
+                        {
+                            eventServiceEventId = *value;
+                            BMCWEB_LOG_DEBUG(
+                                "Restored EventService eventId: {}",
+                                eventServiceEventId);
+                        }
+                    }
+                    else if (item.first == "sse_aggregator_last_event_ids")
+                    {
+                        const nlohmann::json::object_t* eventIdsObj =
+                            item.second
+                                .get_ptr<const nlohmann::json::object_t*>();
+                        if (eventIdsObj != nullptr)
+                        {
+                            for (const auto& [host, eventId] : *eventIdsObj)
+                            {
+                                const std::string* idStr =
+                                    eventId.get_ptr<const std::string*>();
+                                if (idStr != nullptr)
+                                {
+                                    sseAggregatorLastEventIds[host] = *idStr;
+                                }
+                            }
+                            BMCWEB_LOG_DEBUG(
+                                "Restored {} SSE aggregator lastEventIds",
+                                sseAggregatorLastEventIds.size());
+                        }
+                    }
                     else
                     {
                         // Do nothing in the case of extra fields.  We may have
@@ -317,6 +350,13 @@ class ConfigFile
         data["revision"] = jsonRevision;
         data["timeout"] = SessionStore::getInstance().getTimeoutInSeconds();
 
+        // SSE Event IDs for Last-Event-Id support
+        data["event_service_event_id"] = eventServiceEventId;
+        if (!sseAggregatorLastEventIds.empty())
+        {
+            data["sse_aggregator_last_event_ids"] = sseAggregatorLastEventIds;
+        }
+
         nlohmann::json& sessions = data["sessions"];
         sessions = nlohmann::json::array();
         for (const auto& p : SessionStore::getInstance().authTokens)
@@ -402,6 +442,11 @@ class ConfigFile
 
     std::string systemUuid;
     std::string serviceIdentification;
+
+    // SSE Event IDs for Last-Event-Id support across restarts
+    uint64_t eventServiceEventId = 1; // Local event counter
+    // Map of satellite host -> last event ID (supports multiple satellites)
+    std::unordered_map<std::string, std::string> sseAggregatorLastEventIds;
 };
 
 inline ConfigFile& getConfig()

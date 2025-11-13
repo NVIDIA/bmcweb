@@ -4,6 +4,7 @@
 
 #include "aggregation_utils.hpp"
 #include "async_resp.hpp"
+#include "bmcweb_aggregation_sse.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "http_client.hpp"
@@ -482,6 +483,7 @@ class RedfishAggregator
 {
   private:
     crow::HttpClient client;
+    SseEventAggregator sseAggregator;
 
     // Dummy callback used by the Constructor so that it can report the number
     // of satellite configs when the class is first created
@@ -982,10 +984,29 @@ class RedfishAggregator
 
   public:
     explicit RedfishAggregator() :
-        client(getIoContext(),
-               std::make_shared<crow::ConnectionPolicy>(getAggregationPolicy()))
+        client(getIoContext(), std::make_shared<crow::ConnectionPolicy>(
+                                   getAggregationPolicy())),
+        sseAggregator(getIoContext())
     {
-        getSatelliteConfigs(constructorCallback);
+        // Get satellite configs and initialize SSE aggregator when ready
+        getSatelliteConfigs([this](const boost::system::error_code& ec,
+                                   const std::unordered_map<std::string,
+                                                            boost::urls::url>&
+                                       satelliteInfo) {
+            constructorCallback(ec, satelliteInfo);
+
+            // Initialize SSE aggregator after configs are loaded
+            if (!ec && !satelliteInfo.empty())
+            {
+                BMCWEB_LOG_INFO("Starting SSE Event Aggregator");
+                sseAggregator.start(satelliteInfo);
+            }
+            else
+            {
+                BMCWEB_LOG_WARNING(
+                    "SSE Event Aggregator not started - no satellite configuration available");
+            }
+        });
     }
     RedfishAggregator(const RedfishAggregator&) = delete;
     RedfishAggregator& operator=(const RedfishAggregator&) = delete;
@@ -1058,6 +1079,11 @@ class RedfishAggregator
                 handler(ec, satelliteInfo);
                 cachedSatInfo = satelliteInfo;
             });
+    }
+
+    void setSatelliteEventCallback(SatelliteEventCallback callback)
+    {
+        sseAggregator.setSatelliteEventCallback(std::move(callback));
     }
 
     // Processes the response returned by a satellite BMC and loads its
