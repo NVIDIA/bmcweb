@@ -63,138 +63,250 @@ using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
 } // namespace erot
 
 /**
- * @brief Retrieve the certificate and append to the response
- * message
- *
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] objectPath  Path of the D-Bus service object
+ * @brief Populate the certificate collection members for a specific Chassis
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - ID of the chassis to match against SPDM objects
+ * @param ec - Error code
+ * @param objects - Managed objects
  * @return None
  */
-static void getChassisCertificate(
+static void getChassisCertificateCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& objects)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        return;
+    }
+
+    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    if (!members.is_array())
+    {
+        members = nlohmann::json::array();
+    }
+
+    // Iterate over all the objects and add the certificate URL to the response.
+    for (const auto& object : objects)
+    {
+        sdbusplus::message::object_path objPath(object.first);
+
+        // Check if the SPDM object filename matches the Chassis ID
+        // Example: /xyz/openbmc_project/SPDM/IRoT_CX7_1 matches IRoT_CX7_1
+        if (objPath.filename() == chassisID)
+        {
+            std::string certUrl =
+                "/redfish/v1/Chassis/" + chassisID + "/Certificates/CertChain";
+            members.push_back({{"@odata.id", certUrl}});
+            break;
+        }
+    }
+
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+}
+
+/**
+ * @brief Find the certificate association of the SPDM managed objects
+ * @param req - Shared pointer to object holding request data
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param object - Object holding the associations
+ * @param objectPath - Path of the object
+ * @param certificateID - Certificate ID
+ * @param ec - Error code
+ * @param resp - Response object
+ * @return None
+ */
+static void checkAssociationEndpointsForMatch(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objectPath, const std::string& certificateID)
+    const std::pair<sdbusplus::message::object_path,
+                    dbus::utility::DBusInterfacesMap>& object,
+    const std::string& objectPath, const std::string& certificateID,
+    const boost::system::error_code& ec,
+    std::variant<std::vector<std::string>>& resp)
 {
-    // 1) Get all the measurement object
-    // 2) Measurement object have the association to the inventory object
-    // 3) Check this is the inventory object which we are interested
-    // 4) If yes, Get the certificate object from the measurement object
-    // NOTE: EROT chassis will be having only one certificate at any momment of
-    // time.
-    crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, objectPath,
-         certificateID](const boost::system::error_code ec,
-                        const dbus::utility::ManagedObjectType& objects) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            for (const auto& object : objects)
-            {
-                crow::connections::systemBus->async_method_call(
-                    [&req, asyncResp, object, objectPath, certificateID](
-                        const boost::system::error_code ec1,
-                        std::variant<std::vector<std::string>>& resp) {
-                        if (ec1)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Didn't find the inventory object");
-                            return; // should have associoated inventory object.
-                        }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            // Object must have associated inventory object.
-                            return;
-                        }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Response error={} for object={} in checkAssociationEndpointsForMatch",
+            ec, objectPath);
+        return;
+    }
 
-                        const std::string& associatedInventoryPath =
-                            data->front();
-                        if (objectPath == associatedInventoryPath)
-                        {
-                            // Certificates is of collection of slot and it's
-                            // associated certificate.
-                            // Slot is the index of the slot which has to be
-                            // used by the SPDM.
-                            const uint8_t* slot = nullptr;
-                            const erot::SPDMCertificates* certs = nullptr;
-                            for (const auto& interface : object.second)
-                            {
-                                if (interface.first == erot::spdmResponderIntf)
-                                {
-                                    // rest of the properties are string.
-                                    for (const auto& property :
-                                         interface.second)
-                                    {
-                                        if (property.first == "Certificate")
-                                        {
-                                            certs = std::get_if<
-                                                erot::SPDMCertificates>(
-                                                &property.second);
-                                        }
-                                        if (property.first == "Slot")
-                                        {
-                                            slot = std::get_if<uint8_t>(
-                                                &property.second);
-                                            if (slot)
-                                            {
-                                                BMCWEB_LOG_DEBUG("Slot ID:{}",
-                                                                 *slot);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            // Get the desired certificated and convert it into
-                            // PEM.
-                            auto chassisID = std::filesystem::path(objectPath)
-                                                 .filename()
-                                                 .string();
-                            if (slot)
-                            {
-                                asyncResp->res.jsonValue = {
-                                    {"@odata.id", req.url()},
-                                    {"@odata.type",
-                                     "#Certificate.v1_5_0.Certificate"},
-                                    {"Id", certificateID},
-                                    {"Name", chassisID + " Certificate Chain"},
-                                    {"CertificateType", "PEMchain"},
-                                    {"CertificateUsageTypes",
-                                     nlohmann::json::array({"Device"})},
-                                    {"SPDM", {{"SlotId", *slot}}},
-                                };
-                            }
+    std::vector<std::string>* data =
+        std::get_if<std::vector<std::string>>(&resp);
+    if (data == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "No associated inventory object found for object={} in checkAssociationEndpointsForMatch",
+            objectPath);
+        return;
+    }
 
-                            if (certs && slot && !certs->empty())
-                            {
-                                auto it = std::find_if(
-                                    (*certs).begin(), (*certs).end(),
-                                    [slot](
-                                        const std::tuple<uint8_t, std::string>&
-                                            cert) {
-                                        return std::get<0>(cert) == (*slot);
-                                    });
-                                if (it != (*certs).end())
-                                {
-                                    BMCWEB_LOG_DEBUG("Found certificate");
-                                }
-                                std::string certStr = std::get<1>(*it);
-                                asyncResp->res.jsonValue["CertificateString"] =
-                                    certStr;
-                            }
+    const std::string& associatedInventoryPath = data->front();
+    if (objectPath == associatedInventoryPath)
+    {
+        // Certificates is of collection of slot and it's
+        // associated certificate.
+        // Slot is the index of the slot which has to be
+        // used by the SPDM.
+        const uint8_t* slot = nullptr;
+        const erot::SPDMCertificates* certs = nullptr;
+        for (const auto& interface : object.second)
+        {
+            if (interface.first == erot::spdmResponderIntf)
+            {
+                for (const auto& property : interface.second)
+                {
+                    if (property.first == "Certificate")
+                    {
+                        certs = std::get_if<erot::SPDMCertificates>(
+                            &property.second);
+                    }
+                    if (property.first == "Slot")
+                    {
+                        slot = std::get_if<uint8_t>(&property.second);
+                        if (slot != nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("Slot ID:{}", *slot);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    std::string(object.first) + "/inventory_object",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    }
+                }
             }
-        },
-        erot::spdmServiceName, erot::spdmObjectPath,
-        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+        }
+
+        // Get the desired certificated and convert it into PEM.
+        auto chassisID = std::filesystem::path(objectPath).filename().string();
+        if (slot != nullptr)
+        {
+            asyncResp->res.jsonValue = {
+                {"@odata.id", req.url()},
+                {"@odata.type", "#Certificate.v1_5_0.Certificate"},
+                {"Id", certificateID},
+                {"Name", chassisID + " Certificate Chain"},
+                {"CertificateType", "PEMchain"},
+                {"CertificateUsageTypes", nlohmann::json::array({"Device"})},
+                {"SPDM", {{"SlotId", *slot}}},
+            };
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("No slot found");
+            messages::resourceNotFound(
+                asyncResp->res, "#Certificate.v1_5_0.Certificate", chassisID);
+            return;
+        }
+
+        // If the certificate is found, add it to the response.
+        if (certs != nullptr && !certs->empty())
+        {
+            auto it = std::find_if(
+                (*certs).begin(), (*certs).end(),
+                [slot](const std::tuple<uint8_t, std::string>& cert) {
+                    return std::get<0>(cert) == (*slot);
+                });
+            if (it != (*certs).end())
+            {
+                BMCWEB_LOG_DEBUG("Found certificate");
+            }
+            std::string certStr = std::get<1>(*it);
+            asyncResp->res.jsonValue["CertificateString"] = certStr;
+        }
+    }
+}
+
+/**
+ * @brief Retrieve the SPDM managed objects and collect the certificate
+ * @param req - Shared pointer to object holding request data
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param objectPath - Path of the object
+ * @param certificateID - Optional certificate ID
+ * @param ec - Error code
+ * @param objects - Managed objects
+ * @return None
+ */
+static void getChassisCertificateInstanceHandler(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& certificateID,
+    const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& objects)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (objects.empty())
+    {
+        BMCWEB_LOG_ERROR("No objects found");
+        messages::resourceNotFound(
+            asyncResp->res, "#Certificate.v1_5_0.Certificate", certificateID);
+        return;
+    }
+
+    for (const auto& object : objects)
+    {
+        const std::string assocPath =
+            std::string(object.first) + "/inventory_object";
+        auto cb =
+            std::bind_front(checkAssociationEndpointsForMatch, std::cref(req),
+                            asyncResp, object, objectPath, certificateID);
+        dbus::utility::findAssociations(assocPath, cb);
+    }
+}
+
+/**
+ * @brief Get the certificate instance from the chassis
+ * @param req - Shared pointer to object holding request data
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - ID of the chassis
+ * @param certificateID - Certificate ID
+ * @param ec - Error code
+ * @param subtree - Subtree response
+ * @return None
+ */
+static void getChassisCertificateInstance(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& certificateID,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("D-Bus response error on GetSubTree {}", ec);
+        return;
+    }
+
+    for (const auto& object : subtree)
+    {
+        const std::string& path = object.first;
+        const auto& connectionNames = object.second;
+
+        sdbusplus::message::object_path objectPath(path);
+        if (objectPath.filename() != chassisID)
+        {
+            continue;
+        }
+
+        if (connectionNames.empty())
+        {
+            BMCWEB_LOG_ERROR("Got 0 Connection names");
+            continue;
+        }
+
+        dbus::utility::getManagedObjects(
+            erot::spdmServiceName,
+            sdbusplus::message::object_path(erot::spdmObjectPath),
+            std::bind_front(getChassisCertificateInstanceHandler,
+                            std::cref(req), asyncResp, objectPath,
+                            certificateID));
+        break;
+    }
 }
 
 /* This function implements the OEM property under
@@ -573,70 +685,31 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                         if (!isEROT)
                         {
                             BMCWEB_LOG_DEBUG("Not a EROT chassis");
-                            messages::internalError(asyncResp->res);
+                            messages::resourceNotFound(
+                                asyncResp->res, "Certificate", chassisID);
                             return;
                         }
+
                         if (certificateID != "CertChain")
                         {
-                            BMCWEB_LOG_DEBUG("Not a valid Certificate ID");
-                            messages::internalError(asyncResp->res);
+                            BMCWEB_LOG_ERROR("No objects found");
+                            messages::resourceNotFound(
+                                asyncResp->res, "Certificate", certificateID);
                             return;
                         }
-                        BMCWEB_LOG_DEBUG("URL={}", req.url());
 
-                        // Get the correct objpath based on DBus interface
-                        const std::array<const char*, 2> interfaces = {
+                        BMCWEB_LOG_DEBUG("URL={}", req.url());
+                        constexpr std::array<std::string_view, 2> interfaces = {
                             "xyz.openbmc_project.Inventory.Item.Chassis",
                             "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-                        crow::connections::systemBus->async_method_call(
-                            [&req, asyncResp, chassisID(std::string(chassisID)),
-                             certificateID](
-                                const boost::system::error_code ec,
-                                const dbus::utility::GetSubTreeType& subtree) {
-                                if (ec)
-                                {
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                // Iterate over all retrieved ObjectPaths.
-                                for (const std::pair<
-                                         std::string,
-                                         std::vector<std::pair<
-                                             std::string,
-                                             std::vector<std::string>>>>&
-                                         object : subtree)
-                                {
-                                    const std::string& path = object.first;
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
-                                        connectionNames = object.second;
-
-                                    sdbusplus::message::object_path objectPath(
-                                        path);
-                                    if (objectPath.filename() != chassisID)
-                                    {
-                                        continue;
-                                    }
-
-                                    if (connectionNames.empty())
-                                    {
-                                        BMCWEB_LOG_ERROR(
-                                            "Got 0 Connection names");
-                                        continue;
-                                    }
-
-                                    getChassisCertificate(req, asyncResp,
-                                                          objectPath,
-                                                          certificateID);
-                                    break;
-                                }
-                            },
-
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                            "/xyz/openbmc_project/inventory", 0, interfaces);
+                        // Get the subtree of the inventory object and find the
+                        // chassis object
+                        dbus::utility::getSubTree(
+                            "/xyz/openbmc_project/inventory", 0, interfaces,
+                            std::bind_front(getChassisCertificateInstance,
+                                            std::cref(req), asyncResp,
+                                            chassisID, certificateID));
                     });
             });
 
@@ -653,6 +726,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                 {
                     return;
                 }
+
                 std::string url =
                     "/redfish/v1/Chassis/" + chassisID + "/Certificates";
                 asyncResp->res.jsonValue = {
@@ -661,12 +735,27 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                      "#CertificateCollection.CertificateCollection"},
                     {"Name", "Certificates Collection"}};
 
-                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-                members = nlohmann::json::array();
-                members.push_back({{"@odata.id", url + "/CertChain"}});
+                redfish::nvidia_chassis_utils::isEROTChassis(
+                    chassisID,
+                    [&req, asyncResp,
+                     chassisID](bool isEROT, [[maybe_unused]] bool isCpuEROT) {
+                        if (!isEROT)
+                        {
+                            BMCWEB_LOG_DEBUG("Not a EROT chassis");
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "CertificateCollection",
+                                                       chassisID);
+                            return;
+                        }
 
-                asyncResp->res.jsonValue["Members@odata.count"] =
-                    members.size();
+                        BMCWEB_LOG_DEBUG("URL={}", req.url());
+                        dbus::utility::getManagedObjects(
+                            erot::spdmServiceName,
+                            sdbusplus::message::object_path(
+                                erot::spdmObjectPath),
+                            std::bind_front(getChassisCertificateCollection,
+                                            asyncResp, chassisID));
+                    });
             });
 }
 
