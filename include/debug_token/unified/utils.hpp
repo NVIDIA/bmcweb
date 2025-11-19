@@ -123,6 +123,20 @@ inline uint32_t getTokenTypeAsUint32(const std::string& tokenType)
 }
 
 /**
+ * @brief Gets the list of allowable individual token types (excluding special
+ * erase types)
+ *
+ * Returns token types that can be used for individual token operations,
+ * excluding None and the special erase-all types.
+ *
+ * @return std::vector<std::string> List of allowable token type strings
+ */
+inline std::vector<std::string> getAllowableTokenTypes()
+{
+    return {"DebugFirmwareUnlock", "OTPDumpEnable", "RAS"};
+}
+
+/**
  * @brief Converts TokenStatus to JSON format. Used in aggregate token status
  *
  * @param status The NSM token status to convert

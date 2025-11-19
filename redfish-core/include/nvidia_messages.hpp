@@ -127,11 +127,27 @@ inline nlohmann::json debugTokenEraseFailed(std::string_view arg1,
         redfish::registries::NvidiaUpdate::Index::debugTokenEraseFailed, args);
 }
 
+inline nlohmann::json debugTokenEraseSuccess(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::debugTokenEraseSuccess, args);
+}
+
+inline nlohmann::json debugTokenInstallationFailed(std::string_view arg1,
+                                                   std::string_view arg2)
+{
+    std::array<std::string_view, 2> args{arg1, arg2};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::debugTokenInstallationFailed,
+        args);
+}
+
 inline nlohmann::json dotActionResponseError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::NvidiaUpdate::Index::dotActionResponseError, args);
+        redfish::registries::NvidiaUpdate::Index::dOTActionResponseError, args);
 }
 
 inline void dotActionResponseError(crow::Response& res, std::string_view arg1)
@@ -144,7 +160,7 @@ inline nlohmann::json dotMctpStatusError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::NvidiaUpdate::Index::dotMCTPStatusError, args);
+        redfish::registries::NvidiaUpdate::Index::dOTMCTPStatusError, args);
 }
 
 inline void dotMctpStatusError(crow::Response& res, std::string_view arg1)

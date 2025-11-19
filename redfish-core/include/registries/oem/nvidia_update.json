@@ -104,7 +104,7 @@
             "Resolution": "None.",
             "Severity": "OK"
         },
-        "DotActionResponseError": {
+        "DOTActionResponseError": {
             "Description": "Indicates that an error occured for the requested DOT command.",
             "Message": "Requested DOT action has resulted in error of type '%1'.",
             "MessageSeverity": "Warning",
@@ -113,7 +113,7 @@
             "Resolution": "None.",
             "Severity": "Warning"
         },
-        "DotMCTPStatusError": {
+        "DOTMCTPStatusError": {
             "Description": "Indicates that an MCTP error occured for the requested DOT command.",
             "Message": "Requested DOT action has resulted in MCTP error of type '%1'.",
             "MessageSeverity": "Warning",
@@ -138,6 +138,24 @@
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
             "Resolution": "Check the header value and expected value and resubmit the request again.",
+            "Severity": "Critical"
+        },
+        "DebugTokenEraseSuccess": {
+            "Description": "Signifies the successful completion of debug token erase.",
+            "Message": "The operation to erase a debug token for device '%1' has been successfully completed.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "DebugTokenInstallationFailed": {
+            "Description": "Indicates that debug token installation operation has failed for the device.",
+            "Message": "The operation to install a debug token for device '%1' has failed with error '%2'",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 2,
+            "ParamTypes": ["string", "string"],
+            "Resolution": "None.",
             "Severity": "Critical"
         }
     },

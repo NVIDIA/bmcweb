@@ -67,6 +67,30 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "DOTActionResponseError",
+        {
+            "Indicates that an error occured for the requested DOT command.",
+            "Requested DOT action has resulted in error of type '%1'.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "DOTMCTPStatusError",
+        {
+            "Indicates that an MCTP error occured for the requested DOT command.",
+            "Requested DOT action has resulted in MCTP error of type '%1'.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "DebugTokenAlreadyInstalled",
         {
             "Indicates that the device has a token already installed and cannot finish current request.",
@@ -84,6 +108,31 @@ static constexpr std::array registry =
             "Indicates that debug token erase operation has failed for the device.",
             "The operation to erase a debug token for device '%1' has failed with error '%2'",
             "OK",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "DebugTokenEraseSuccess",
+        {
+            "Signifies the successful completion of debug token erase.",
+            "The operation to erase a debug token for device '%1' has been successfully completed.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "DebugTokenInstallationFailed",
+        {
+            "Indicates that debug token installation operation has failed for the device.",
+            "The operation to install a debug token for device '%1' has failed with error '%2'",
+            "Critical",
             2,
             {
                 "string",
@@ -133,30 +182,6 @@ static constexpr std::array registry =
             "Indicates that the device does not support debug token functionality.",
             "Device '%1' does not support debug token functionality.",
             "OK",
-            1,
-            {
-                "string",
-            },
-            "None.",
-        }},
-    MessageEntry{
-        "DotActionResponseError",
-        {
-            "Indicates that an error occured for the requested DOT command.",
-            "Requested DOT action has resulted in error of type '%1'.",
-            "Warning",
-            1,
-            {
-                "string",
-            },
-            "None.",
-        }},
-    MessageEntry{
-        "DotMCTPStatusError",
-        {
-            "Indicates that an MCTP error occured for the requested DOT command.",
-            "Requested DOT action has resulted in MCTP error of type '%1'.",
-            "Warning",
             1,
             {
                 "string",
@@ -233,19 +258,21 @@ enum class Index
 {
     actionParameterNotSupported = 0,
     componentUpdateSkipped = 1,
-    debugTokenAlreadyInstalled = 2,
-    debugTokenEraseFailed = 3,
-    debugTokenInstallationSuccess = 4,
-    debugTokenRequestSuccess = 5,
-    debugTokenStatusSuccess = 6,
-    debugTokenUnsupported = 7,
-    dotActionResponseError = 8,
-    dotMCTPStatusError = 9,
-    firmwareNotInRecovery = 10,
-    headerValueInvalid = 11,
-    recoveryStarted = 12,
-    recoverySuccessful = 13,
-    stageSuccessful = 14,
+    dOTActionResponseError = 2,
+    dOTMCTPStatusError = 3,
+    debugTokenAlreadyInstalled = 4,
+    debugTokenEraseFailed = 5,
+    debugTokenEraseSuccess = 6,
+    debugTokenInstallationFailed = 7,
+    debugTokenInstallationSuccess = 8,
+    debugTokenRequestSuccess = 9,
+    debugTokenStatusSuccess = 10,
+    debugTokenUnsupported = 11,
+    firmwareNotInRecovery = 12,
+    headerValueInvalid = 13,
+    recoveryStarted = 14,
+    recoverySuccessful = 15,
+    stageSuccessful = 16,
 };
 }; // struct nvidia_update
 

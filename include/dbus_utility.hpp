@@ -102,6 +102,9 @@ using MapperGetSubTreePathsResponse = std::vector<std::string>;
 
 using MapperEndPoints = std::vector<std::string>;
 
+using AssociationsType =
+    std::vector<std::tuple<std::string, std::string, std::string>>;
+
 void escapePathForDbus(std::string& path);
 
 void logError(const boost::system::error_code& ec);

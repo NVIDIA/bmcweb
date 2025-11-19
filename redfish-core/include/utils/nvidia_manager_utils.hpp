@@ -22,6 +22,7 @@
 #include "generated/enums/nvidia_manager.hpp"
 #include "logging.hpp"
 #include "nsm_cmd_support.hpp"
+#include "nvidia_unified_debug_token_manager.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
@@ -540,8 +541,8 @@ inline void debugTokenManagementGetHandler(
         return;
     }
     asyncResp->res.jsonValue["@odata.type"] =
-        "#NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement";
-    asyncResp->res.jsonValue["@odata.id"] = boost_swap_impl::format(
+        "#NvidiaDebugTokenManagement.v1_1_0.NvidiaDebugTokenManagement";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     asyncResp->res.jsonValue["Id"] = "DebugTokenManagement";
     std::string name = managerId;
@@ -555,6 +556,9 @@ inline void debugTokenManagementGetHandler(
         }
         asyncResp->res.jsonValue["AutomaticTokenErased"] = *erasePolicy;
     });
+
+    debug_token_manager_util::populateTrustedComponentsLinks(asyncResp);
+    debug_token_manager_util::updateAggregateAPIProps(asyncResp, managerId);
 }
 
 /**
@@ -604,6 +608,8 @@ inline void requestRoutesDebugTokenManagement(App& app)
         .privileges(redfish::privileges::patchManager)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(debugTokenManagementPatchHandler, std::ref(app)));
+
+    debug_token_manager_util::requestRoutesDebugTokenManagementActions(app);
 }
 
 /**
