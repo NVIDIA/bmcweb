@@ -1835,12 +1835,12 @@
             "Resolution": "None.",
             "Severity": "Critical"
         },
-        "ServiceRestartReason": {
+        "ServiceRestart": {
             "Description": "Indicates Service restarted.",
-            "Message": "Service %1 restarted due to reason %2.",
+            "Message": "System detected restart of service %1.",
             "MessageSeverity": "Critical",
-            "NumberOfArgs": 2,
-            "ParamTypes": ["string", "string"],
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "Critical"
         }

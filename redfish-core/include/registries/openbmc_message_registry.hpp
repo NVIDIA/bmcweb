@@ -2366,14 +2366,13 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
-        "ServiceRestartReason",
+        "ServiceRestart",
         {
             "Indicates Service restarted.",
-            "Service %1 restarted due to reason %2.",
+            "System detected restart of service %1.",
             "Critical",
-            2,
+            1,
             {
-                "string",
                 "string",
             },
             "None.",
@@ -2795,7 +2794,7 @@ enum class Index
     sensorThresholdWarningLowGoingHigh = 189,
     sensorThresholdWarningLowGoingLow = 190,
     serviceFailure = 191,
-    serviceRestartReason = 192,
+    serviceRestart = 192,
     serviceStarted = 193,
     sparingRedundancyDegraded = 194,
     sparingRedundancyFull = 195,
