@@ -24,6 +24,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
+#include <utils/nvidia_utils.hpp>
 
 #include <memory>
 #include <string>
@@ -334,7 +335,7 @@ inline void addOEMPCIePortProperties(
                 return;
             }
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["FCTimeoutErrors"] =
-                *value;
+                nvidia::nsm_utils::tryConvertToInt64(*value);
             addNvidiaType = true;
         }
     }
