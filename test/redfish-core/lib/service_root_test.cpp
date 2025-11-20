@@ -108,7 +108,7 @@ void assertServiceRootGet(crow::Response& res)
         json["ProtocolFeaturesSupported"]["DeepOperations"]["DeepPATCH"]);
     EXPECT_EQ(json["ProtocolFeaturesSupported"]["DeepOperations"].size(), 2);
 
-    size_t expectedSize = 24;
+    size_t expectedSize = 23;
 
     // handle ServiceIdentification when empty
     if (json.contains("ServiceIdentification"))
@@ -120,6 +120,12 @@ void assertServiceRootGet(crow::Response& res)
     {
         EXPECT_EQ(json["AggregationService"]["@odata.id"],
                   "/redfish/v1/AggregationService");
+        expectedSize++;
+    }
+
+    if (BMCWEB_REDFISH_CABLES)
+    {
+        EXPECT_EQ(json["Cables"]["@odata.id"], "/redfish/v1/Cables");
         expectedSize++;
     }
 

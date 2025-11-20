@@ -795,6 +795,12 @@ option(
     description: 'disabled feature specific to host aux power.',
 )
 option(
+    'redfish-cables',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables Redfish Cables and CableCollection routes.',
+)
+option(
     'redfish-system-faultlog-dump-log',
     type: 'feature',
     value: 'disabled',

@@ -125,6 +125,7 @@ feature_options = [
     'redfish-allow-deprecated-power-thermal',
     'redfish-allow-simple-update',
     'redfish-bmc-journal',
+    'redfish-cables',
     'redfish-cpu-log',
     'redfish-dbus-event',
     'redfish-dbus-log',

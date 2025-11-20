@@ -154,9 +154,12 @@ RedfishService::RedfishService(App& app)
     requestRoutesStorageControllerCollection(app);
     requestRoutesStorageController(app);
     requestRoutesDrive(app);
-    requestRoutesCable(app);
-    requestRoutesCableCollection(app);
-    requestRoutesCableAssembly(app);
+    if constexpr (BMCWEB_REDFISH_CABLES)
+    {
+	    requestRoutesCable(app);
+	    requestRoutesCableCollection(app);
+	    requestRoutesCableAssembly(app);
+    }
 
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);
