@@ -621,10 +621,6 @@ inline void handleDOTUnlockActionInfo(
     }
 
     nlohmann::json::array_t parameters;
-    parameters.push_back({{"DataType", "Object"},
-                          {"ObjectDataType", "#NvidiaDOT.v1_0_0.KeyStructure"},
-                          {"Name", "LAKKey"},
-                          {"Required", true}});
     parameters.push_back(
         {{"DataType", "Object"},
          {"ObjectDataType", "#NvidiaDOT.v1_0_0.SignatureStructure"},
