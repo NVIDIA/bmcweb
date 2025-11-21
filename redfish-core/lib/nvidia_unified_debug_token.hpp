@@ -156,8 +156,8 @@ static void tokenStatusCallback(
         resJson["@odata.id"] = std::format(
             "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DebugTokens/{}",
             chassisId, componentId, tokenId);
-        resJson["@odata.type"] = "#NvidiaDebugToken.v1_1_0.NvidiaDebugToken";
-        resJson["Id"] = tokenId;
+        resJson["@odata.type"] = "#NvidiaDebugToken.v1_2_0.NvidiaDebugToken";
+        resJson["Id"] = std::to_string(tokenId);
         resJson["Name"] =
             std::format("{} TrustedComponents {} Oem Nvidia DebugTokens {}",
                         chassisId, componentId, tokenId);
