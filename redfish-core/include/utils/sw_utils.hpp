@@ -124,14 +124,23 @@ inline void afterGetProperties(
         return;
     }
 
-    if (version == nullptr || version->empty())
+    if (version == nullptr)
     {
+        BMCWEB_LOG_ERROR(
+            "Version property doesn't exist for Software Object {}", swId);
         messages::internalError(asyncResp->res);
         return;
     }
+    if (version->empty())
+    {
+        BMCWEB_LOG_ERROR("Version is empty for Software Image ID: {}", swId);
+    }
+
     if (swInvPurpose == nullptr || *swInvPurpose != swVersionPurpose)
     {
-        // Not purpose we're looking for
+        // Purpose isn't in use today, we don't care for now
+        BMCWEB_LOG_INFO("Purpose property invalid for Software Object {}",
+                        swId);
         return;
     }
 
