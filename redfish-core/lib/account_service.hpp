@@ -950,8 +950,6 @@ inline void handleAuthMethodsPatch(
         authMethodsConfig);
     // Save configuration immediately
     persistent_data::getConfig().writeData();
-
-    messages::success(asyncResp->res);
 }
 
 /**
