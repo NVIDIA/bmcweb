@@ -164,7 +164,7 @@ inline void tokenStatusToJson(const TokenStatus& status, uint32_t tokenIndex,
     j["TokenInstalled"] = status.installation;
     j["TokenType"] = getTokenTypeAsString(
         std::get<0>(status.tokenTypesSubtypes[tokenIndex]));
-    j["TokenSubtype"] = getTokenSubtypeAsString(
+    j["TokenSubType"] = getTokenSubtypeAsString(
         std::get<1>(status.tokenTypesSubtypes[tokenIndex]));
 }
 
