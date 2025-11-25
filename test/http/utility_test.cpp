@@ -3,6 +3,9 @@
 
 #include "utility.hpp"
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url.hpp>
@@ -12,6 +15,7 @@
 #include <algorithm>
 #include <ctime>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -22,6 +26,7 @@ namespace crow::utility
 namespace
 {
 
+using ::boost::asio::ip::make_address;
 using ::crow::utility::getParameterTag;
 
 TEST(Utility, Base64DecodeAuthString)
@@ -194,6 +199,58 @@ TEST(AppendUrlFromPieces, PiecesAreAppendedViaDelimiters)
     appendUrlPieces(url, "/", "bad&string");
     EXPECT_EQ(std::string_view(url.data(), url.size()),
               "/redfish/v1/foo/bar/%2F/bad&string");
+}
+
+TEST(GetClientIpAddress, ValidTcpSocket)
+{
+    boost::asio::io_context io;
+    boost::asio::ip::tcp::acceptor acceptor(
+        io, boost::asio::ip::tcp::endpoint(make_address("127.0.0.1"), 0));
+
+    boost::asio::ip::tcp::socket clientSocket(io);
+    boost::asio::ip::tcp::socket serverSocket(io);
+
+    auto endpoint = acceptor.local_endpoint();
+
+    clientSocket.connect(endpoint);
+    acceptor.accept(serverSocket);
+
+    boost::asio::ip::address ipAddr;
+    getClientIpAddress(serverSocket, ipAddr);
+
+    EXPECT_EQ(ipAddr.to_string(), "127.0.0.1");
+}
+
+TEST(GetClientIpAddress, ClosedSocket)
+{
+    boost::asio::io_context io;
+    boost::asio::ip::tcp::socket socket(io);
+
+    boost::asio::ip::address ipAddr;
+    getClientIpAddress(socket, ipAddr);
+
+    EXPECT_TRUE(ipAddr.is_unspecified());
+}
+
+TEST(GetClientIpAddress, IPv6Socket)
+{
+    boost::asio::io_context io;
+    boost::asio::ip::tcp::acceptor acceptor(
+        io, boost::asio::ip::tcp::endpoint(make_address("::1"), 0));
+
+    boost::asio::ip::tcp::socket clientSocket(io);
+    boost::asio::ip::tcp::socket serverSocket(io);
+
+    auto endpoint = acceptor.local_endpoint();
+
+    clientSocket.connect(endpoint);
+    acceptor.accept(serverSocket);
+
+    boost::asio::ip::address ipAddr;
+    getClientIpAddress(serverSocket, ipAddr);
+
+    EXPECT_TRUE(ipAddr.is_v6());
+    EXPECT_EQ(ipAddr.to_string(), "::1");
 }
 
 } // namespace
