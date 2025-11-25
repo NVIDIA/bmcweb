@@ -533,20 +533,7 @@ class Connection :
 
     void readClientIp()
     {
-        boost::system::error_code ec;
-
-        boost::asio::ip::tcp::endpoint endpoint =
-            boost::beast::get_lowest_layer(adaptor).remote_endpoint(ec);
-
-        if (ec)
-        {
-            // If remote endpoint fails keep going. "ClientOriginIPAddress"
-            // will be empty.
-            BMCWEB_LOG_ERROR("Failed to get the client's IP Address. ec : {}",
-                             ec);
-            return;
-        }
-        ip = endpoint.address();
+        utility::getClientIpAddress(adaptor, ip);
     }
 
     void disableAuth()

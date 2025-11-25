@@ -4,8 +4,14 @@
 
 #include "bmcweb_config.h"
 
+#include "logging.hpp"
+
 #include <sys/types.h>
 
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core/stream_traits.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/url/segments_view.hpp>
 #include <boost/url/url.hpp>
 #include <boost/url/url_view_base.hpp>
@@ -21,6 +27,7 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -508,6 +515,23 @@ inline void setPortDefaults(boost::urls::url& url)
     {
         url.set_port_number(162);
     }
+}
+
+template <typename Adaptor>
+inline void getClientIpAddress(Adaptor& adaptor, boost::asio::ip::address& ip)
+{
+    boost::system::error_code ec;
+    boost::asio::ip::tcp::endpoint endpoint =
+        boost::beast::get_lowest_layer(adaptor).remote_endpoint(ec);
+
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get the client's IP Address. ec : {}",
+                         ec.message());
+        return;
+    }
+
+    ip = endpoint.address();
 }
 
 } // namespace utility

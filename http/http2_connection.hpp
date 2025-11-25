@@ -12,6 +12,7 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "utility.hpp"
 
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nghttp2_adapters.hpp"
@@ -85,6 +86,7 @@ class HTTP2Connection :
             BMCWEB_LOG_ERROR("send_server_connection_header failed");
             return;
         }
+        readClientIp();
         doRead();
     }
 
@@ -105,6 +107,7 @@ class HTTP2Connection :
             BMCWEB_LOG_ERROR("send_server_connection_header failed");
             return;
         }
+        readClientIp();
         doRead();
     }
 
@@ -301,6 +304,7 @@ class HTTP2Connection :
         using boost::beast::http::field;
         it->second.accept = thisReq.getHeaderValue(field::accept);
         it->second.acceptEnc = thisReq.getHeaderValue(field::accept_encoding);
+        thisReq.ipAddress = ip;
 
         BMCWEB_LOG_DEBUG("Handling {} \"{}\"", logPtr(&thisReq),
                          thisReq.url().encoded_path());
@@ -321,7 +325,7 @@ class HTTP2Connection :
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
             thisReq.session = crow::authentication::authenticate(
-                {}, asyncResp->res, thisReq.method(), thisReq.req, mtlsSession);
+                ip, asyncResp->res, thisReq.method(), thisReq.req, mtlsSession);
             if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
                                                      thisReq.method()) &&
                 thisReq.session == nullptr)
@@ -672,6 +676,11 @@ class HTTP2Connection :
         }
     }
 
+    void readClientIp()
+    {
+        utility::getClientIpAddress(adaptor, ip);
+    }
+
     // A mapping from http2 stream ID to Stream Data
     std::map<int32_t, Http2StreamData> streams;
     // Add the 9 octets for the frame header so we can unpack one full
@@ -685,6 +694,9 @@ class HTTP2Connection :
     nghttp2_session ngSession;
 
     Handler* handler;
+
+    boost::asio::ip::address ip;
+
     std::function<std::string()>& getCachedDateStr;
 
     std::shared_ptr<persistent_data::UserSession> mtlsSession;
