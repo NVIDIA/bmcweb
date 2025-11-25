@@ -87,6 +87,12 @@ enum class LastResetReason{
     WDT_SPDM,
 };
 
+enum class FailoverPolicy{
+    Invalid,
+    NoFailover,
+    AutomaticFailover,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Invalid, "Invalid"},
     {BackgroundCopyStatus::Pending, "Pending"},
@@ -165,6 +171,12 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LastResetReason, {
     {LastResetReason::WDT_Flash, "WDT_Flash"},
     {LastResetReason::WDT_Logger, "WDT_Logger"},
     {LastResetReason::WDT_SPDM, "WDT_SPDM"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(FailoverPolicy, {
+    {FailoverPolicy::Invalid, "Invalid"},
+    {FailoverPolicy::NoFailover, "NoFailover"},
+    {FailoverPolicy::AutomaticFailover, "AutomaticFailover"},
 });
 
 }

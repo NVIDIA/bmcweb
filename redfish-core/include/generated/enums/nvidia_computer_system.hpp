@@ -15,12 +15,24 @@ enum class CapabilityStatus{
     Unknown,
 };
 
+enum class ResetBiosType{
+    Invalid,
+    SecureReset,
+    NonSecureReset,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
     {CapabilityStatus::Disabled, "Disabled"},
     {CapabilityStatus::Offline, "Offline"},
     {CapabilityStatus::Unknown, "Unknown"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ResetBiosType, {
+    {ResetBiosType::Invalid, "Invalid"},
+    {ResetBiosType::SecureReset, "SecureReset"},
+    {ResetBiosType::NonSecureReset, "NonSecureReset"},
 });
 
 }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaDebugTokenManagement   v1.0.0                             -->
+<!--# Redfish OEM Schema:  NvidiaDebugTokenManagement   v1.1.0                             -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -20,6 +20,9 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/TrustedComponent_v1.xml">
+    <edmx:Include Namespace="TrustedComponent"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugTokenManagement">
@@ -49,6 +52,384 @@
           </Collection>
         </Annotation>
       </EntityType>
+      <EnumType Name="EraseType">
+        <Member Name="EraseAll">
+          <Annotation Term="OData.Description" String="Erase all installed tokens from the endpoint device."/>
+        </Member>
+        <Member Name="EraseAllAndRatchetCounterIncreased">
+          <Annotation Term="OData.Description" String="Erase all installed tokens and increment the ratchet counter."/>
+        </Member>
+        <Member Name="TokenType">
+          <Annotation Term="OData.Description" String="Erase installed tokens based on the specific token type provided in the TokenType parameter."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="TokenType">
+        <Member Name="FRC">
+          <Annotation Term="OData.Description" String="FRC token."/>
+        </Member>
+        <Member Name="CRCS">
+          <Annotation Term="OData.Description" String="CRCS token."/>
+        </Member>
+        <Member Name="CRDT">
+          <Annotation Term="OData.Description" String="CRDT token."/>
+        </Member>
+        <Member Name="DebugFirmwareRunning">
+          <Annotation Term="OData.Description" String="Debug firmware is running."/>
+        </Member>
+        <Member Name="DebugFirmwareUnlock">
+          <Annotation Term="OData.Description" String="Debug firmware unlock token. This token provide authorization to flash a debug signed firmware on a production hardware."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="OTPDumpEnable">
+          <Annotation Term="OData.Description" String="OTP dump enable token."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="JtagUnlock">
+          <Annotation Term="OData.Description" String="JTAG unlock token. This token provides authorization to unlock the JTAG interface."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="HardwareUnlock">
+          <Annotation Term="OData.Description" String="Hardware unlock token. This token provides authorization to lower the hardware enforced protections like lowering PLMs or overriding registers."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="RuntimeDebugUnlock">
+          <Annotation Term="OData.Description" String="Runtime debug unlock token. This token provides authorization to enable debug features at runtime using production firmware."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="FeatureUnlock">
+          <Annotation Term="OData.Description" String="Feature unlock token."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="MTDT">
+          <Annotation Term="OData.Description" String="MTDT token."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="CcplexArmJtagDebugCont">
+          <Annotation Term="OData.Description" String="CcplexArmJtagDebugCont token. This token allows ARM JTAG unlock to maintain compatibility with existing customer tools."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="NVJtagControl">
+          <Annotation Term="OData.Description" String="NVJtagControl token. This token enables DFT debug access in NVJTAG operations."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="DiagnosticBoot">
+          <Annotation Term="OData.Description" String="Diagnostic boot token."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="BpmpFirmwareDebugFS">
+          <Annotation Term="OData.Description" String="BpmpFirmwareDebugFS token. This token enables DebugFS support."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
+      <EnumType Name="TokenSubType">
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Member Name="VBIOS">
+          <Annotation Term="OData.Description" String="VBIOS token subtype."/>
+        </Member>
+        <Member Name="FSPRT">
+          <Annotation Term="OData.Description" String="FSPRT token subtype."/>
+        </Member>
+        <Member Name="OOBHubRT">
+          <Annotation Term="OData.Description" String="OOBHubRT token subtype."/>
+        </Member>
+        <Member Name="NetIR">
+          <Annotation Term="OData.Description" String="NetIR token subtype."/>
+        </Member>
+        <Member Name="PCIe">
+          <Annotation Term="OData.Description" String="PCIe token subtype."/>
+        </Member>
+        <Member Name="FBFALCON">
+          <Annotation Term="OData.Description" String="FBFALCON token subtype."/>
+        </Member>
+        <Member Name="CTCHBI">
+          <Annotation Term="OData.Description" String="CTCHBI token subtype."/>
+        </Member>
+        <Member Name="BuildInfo">
+          <Annotation Term="OData.Description" String="BuildInfo token subtype."/>
+        </Member>
+        <Member Name="DataTables">
+          <Annotation Term="OData.Description" String="DataTables token subtype."/>
+        </Member>
+        <Member Name="PreltssmDevinit">
+          <Annotation Term="OData.Description" String="PreltssmDevinit token subtype."/>
+        </Member>
+        <Member Name="PostltssmDevinit">
+          <Annotation Term="OData.Description" String="PostltssmDevinit token subtype."/>
+        </Member>
+        <Member Name="PrimaryImage">
+          <Annotation Term="OData.Description" String="PrimaryImage token subtype."/>
+        </Member>
+        <Member Name="UEFIx86">
+          <Annotation Term="OData.Description" String="UEFIx86 token subtype."/>
+        </Member>
+        <Member Name="UEFIArm">
+          <Annotation Term="OData.Description" String="UEFIArm token subtype."/>
+        </Member>
+        <Member Name="Duck">
+          <Annotation Term="OData.Description" String="Duck token subtype."/>
+        </Member>
+        <Member Name="InforomRO">
+          <Annotation Term="OData.Description" String="InforomRO token subtype."/>
+        </Member>
+        <Member Name="DevInit">
+          <Annotation Term="OData.Description" String="DevInit token subtype."/>
+        </Member>
+        <Member Name="ExtensionImage">
+          <Annotation Term="OData.Description" String="ExtensionImage token subtype."/>
+        </Member>
+        <Member Name="MSE">
+          <Annotation Term="OData.Description" String="MSE token subtype."/>
+        </Member>
+        <Member Name="RomDirectory">
+          <Annotation Term="OData.Description" String="RomDirectory token subtype."/>
+        </Member>
+        <Member Name="GspRm">
+          <Annotation Term="OData.Description" String="GspRm token subtype."/>
+        </Member>
+        <Member Name="MemQual">
+          <Annotation Term="OData.Description" String="MemQual token subtype."/>
+        </Member>
+        <Member Name="GlobalFunctionalDebug">
+          <Annotation Term="OData.Description" String="GlobalFunctionalDebug token subtype."/>
+        </Member>
+        <Member Name="SpeedoKappaIddq">
+          <Annotation Term="OData.Description" String="SpeedoKappaIddq token subtype."/>
+        </Member>
+        <Member Name="ECCEnable">
+          <Annotation Term="OData.Description" String="ECCEnable token subtype."/>
+        </Member>
+        <Member Name="ReducedGlobalFunctionalDebug">
+          <Annotation Term="OData.Description" String="ReducedGlobalFunctionalDebug token subtype."/>
+        </Member>
+        <Member Name="SsgDebug">
+          <Annotation Term="OData.Description" String="SsgDebug token subtype."/>
+        </Member>
+        <Member Name="InbandRecovery">
+          <Annotation Term="OData.Description" String="InbandRecovery token subtype."/>
+        </Member>
+        <Member Name="ArchFunctionalTests">
+          <Annotation Term="OData.Description" String="ArchFunctionalTests token subtype."/>
+        </Member>
+        <Member Name="ECCUnlock">
+          <Annotation Term="OData.Description" String="ECCUnlock token subtype."/>
+        </Member>
+        <Member Name="SsgHost2Jtag">
+          <Annotation Term="OData.Description" String="SsgHost2Jtag token subtype."/>
+        </Member>
+        <Member Name="Bar0DecouplerUnlock">
+          <Annotation Term="OData.Description" String="Bar0DecouplerUnlock token subtype."/>
+        </Member>
+        <Member Name="I2ccAccess">
+          <Annotation Term="OData.Description" String="I2ccAccess token subtype."/>
+        </Member>
+        <Member Name="ECCPoisonDisable">
+          <Annotation Term="OData.Description" String="ECCPoisonDisable token subtype."/>
+        </Member>
+        <Member Name="NvlinkGlobalHulk">
+          <Annotation Term="OData.Description" String="NvlinkGlobalHulk token subtype."/>
+        </Member>
+        <Member Name="XbarDebug">
+          <Annotation Term="OData.Description" String="XbarDebug token subtype."/>
+        </Member>
+        <Member Name="LowerRomProtection">
+          <Annotation Term="OData.Description" String="LowerRomProtection token subtype."/>
+        </Member>
+        <Member Name="RecreateInforomRW">
+          <Annotation Term="OData.Description" String="RecreateInforomRW token subtype."/>
+        </Member>
+        <Member Name="PrcKnobEn">
+          <Annotation Term="OData.Description" String="PrcKnobEn token subtype."/>
+        </Member>
+        <Member Name="SMSpeedSelectThrottle">
+          <Annotation Term="OData.Description" String="SMSpeedSelectThrottle token subtype."/>
+        </Member>
+        <Member Name="MSETrexTrafficEn">
+          <Annotation Term="OData.Description" String="MSETrexTrafficEn token subtype."/>
+        </Member>
+        <Member Name="NvlinkErrorInjectionEnable">
+          <Annotation Term="OData.Description" String="NvlinkErrorInjectionEnable token subtype."/>
+        </Member>
+        <Member Name="NvlinkDebugApiEnable">
+          <Annotation Term="OData.Description" String="NvlinkDebugApiEnable token subtype."/>
+        </Member>
+        <Member Name="NetIRUnitTestEnable">
+          <Annotation Term="OData.Description" String="NetIRUnitTestEnable token subtype."/>
+        </Member>
+        <Member Name="NvlinkMissionDebugGmt">
+          <Annotation Term="OData.Description" String="NvlinkMissionDebugGmt token subtype."/>
+        </Member>
+        <Member Name="PxucDebugApiEnable">
+          <Annotation Term="OData.Description" String="PxucDebugApiEnable token subtype."/>
+        </Member>
+        <Member Name="PxucErrorInjectionEnable">
+          <Annotation Term="OData.Description" String="PxucErrorInjectionEnable token subtype."/>
+        </Member>
+        <Member Name="PxucMissionDebugGmt">
+          <Annotation Term="OData.Description" String="PxucMissionDebugGmt token subtype."/>
+        </Member>
+        <Member Name="OOBHub">
+          <Annotation Term="OData.Description" String="OOBHub token subtype."/>
+        </Member>
+        <Member Name="RAS">
+          <Annotation Term="OData.Description" String="RAS token subtype."/>
+        </Member>
+        <Member Name="Pcore">
+          <Annotation Term="OData.Description" String="Pcore token subtype."/>
+        </Member>
+        <Member Name="PscFirmware">
+          <Annotation Term="OData.Description" String="PscFirmware token subtype."/>
+        </Member>
+        <Member Name="MB1">
+          <Annotation Term="OData.Description" String="MB1 token subtype."/>
+        </Member>
+        <Member Name="MB2">
+          <Annotation Term="OData.Description" String="MB2 token subtype."/>
+        </Member>
+        <Member Name="BpmpFirmware">
+          <Annotation Term="OData.Description" String="BpmpFirmware token subtype."/>
+        </Member>
+        <Member Name="BpmpIst">
+          <Annotation Term="OData.Description" String="BpmpIst token subtype."/>
+        </Member>
+        <Member Name="BpmpDiag">
+          <Annotation Term="OData.Description" String="BpmpDiag token subtype."/>
+        </Member>
+        <Member Name="MSEQ">
+          <Annotation Term="OData.Description" String="MSEQ token subtype."/>
+        </Member>
+        <Member Name="C2C">
+          <Annotation Term="OData.Description" String="C2C token subtype."/>
+        </Member>
+        <Member Name="ATF">
+          <Annotation Term="OData.Description" String="ATF token subtype."/>
+        </Member>
+        <Member Name="RMM">
+          <Annotation Term="OData.Description" String="RMM token subtype."/>
+        </Member>
+        <Member Name="ArmJtagKnobs">
+          <Annotation Term="OData.Description" String="ArmJtagKnobs token subtype."/>
+        </Member>
+        <Member Name="ArmJtagToggleKnobs">
+          <Annotation Term="OData.Description" String="ArmJtagToggleKnobs token subtype."/>
+        </Member>
+        <Member Name="DftAccessAllowed">
+          <Annotation Term="OData.Description" String="DftAccessAllowed token subtype."/>
+        </Member>
+        <Member Name="BpmpDiagnosticBoot">
+          <Annotation Term="OData.Description" String="BpmpDiagnosticBoot token subtype."/>
+        </Member>
+        <Member Name="CPUDiagnosticBoot">
+          <Annotation Term="OData.Description" String="CPUDiagnosticBoot token subtype."/>
+        </Member>
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="No applicable token subtype for the token type."/>
+        </Member>
+      </EnumType>
+      <Action Name="EraseToken" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to erase debug tokens from the endpoint devices."/>
+        <Annotation Term="OData.LongDescription" String="This action shall erase debug tokens from the endpoint devices, as facilitated by the associated trusted components."/>
+        <Parameter Name="NvidiaDebugTokenManagement" Type="NvidiaDebugTokenManagement.v1_0_0.Actions"/>
+        <Parameter Name="EraseType" Type="NvidiaDebugTokenManagement.EraseType" Nullable="false">
+          <Annotation Term="OData.Description" String="Erase type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the erase type used to erase all installed tokens from the endpoint device."/>
+        </Parameter>
+        <Parameter Name="TokenType" Type="NvidiaDebugTokenManagement.TokenType" Nullable="false">
+          <Annotation Term="OData.Description" String="Token type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the token type used to erase installed tokens of the specified token type."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugTokenManagement.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -68,6 +449,30 @@
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugTokenManagement.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDebugTokenManagement" BaseType="NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement">
+        <Property Name="InstallTokenPushURI" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The URI used to perform a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by the associated trusted components."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a URI for performing a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by the associated trusted components. No parameters are allowed for this operation."/>
+        </Property>
+        <Property Name="Links" Type="NvidiaDebugTokenManagement.v1_1_0.Links" Nullable="false">
+          <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Links" BaseType="Resource.Links">
+        <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
+        <Annotation Term="OData.LongDescription" String="This Redfish Specification-described type shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
+        <NavigationProperty Name="TrustedComponents" Type="Collection(TrustedComponent.TrustedComponent)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to the trusted components that are associated with this debug token management."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `TrustedComponent` that are associated with this debug token management."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>

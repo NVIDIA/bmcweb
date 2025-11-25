@@ -7,14 +7,6 @@ namespace nvidia_ro_t_image_slot
 {
 // clang-format off
 
-enum class SigningType{
-    Invalid,
-    Debug,
-    Production,
-    External,
-    DOT,
-};
-
 enum class BuildType{
     Invalid,
     Release,
@@ -30,15 +22,18 @@ enum class FirmwareState{
     WriteInProgress,
     Inactive,
     FailedAuthentication,
+    ImageCopyPending,
+    ImageCopyInProgress,
+    ImageCopyFailed,
 };
 
-NLOHMANN_JSON_SERIALIZE_ENUM(SigningType, {
-    {SigningType::Invalid, "Invalid"},
-    {SigningType::Debug, "Debug"},
-    {SigningType::Production, "Production"},
-    {SigningType::External, "External"},
-    {SigningType::DOT, "DOT"},
-});
+enum class SigningType{
+    Invalid,
+    Debug,
+    Production,
+    External,
+    DOT,
+};
 
 NLOHMANN_JSON_SERIALIZE_ENUM(BuildType, {
     {BuildType::Invalid, "Invalid"},
@@ -55,6 +50,17 @@ NLOHMANN_JSON_SERIALIZE_ENUM(FirmwareState, {
     {FirmwareState::WriteInProgress, "WriteInProgress"},
     {FirmwareState::Inactive, "Inactive"},
     {FirmwareState::FailedAuthentication, "FailedAuthentication"},
+    {FirmwareState::ImageCopyPending, "ImageCopyPending"},
+    {FirmwareState::ImageCopyInProgress, "ImageCopyInProgress"},
+    {FirmwareState::ImageCopyFailed, "ImageCopyFailed"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(SigningType, {
+    {SigningType::Invalid, "Invalid"},
+    {SigningType::Debug, "Debug"},
+    {SigningType::Production, "Production"},
+    {SigningType::External, "External"},
+    {SigningType::DOT, "DOT"},
 });
 
 }

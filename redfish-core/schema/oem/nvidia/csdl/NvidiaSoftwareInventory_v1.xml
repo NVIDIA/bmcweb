@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaSoftwareInventory  v1.2.0                                 -->
+<!--# Redfish OEM Schema:  NvidiaSoftwareInventory  v1.3.0                                 -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -112,48 +112,21 @@
           <Annotation Term="OData.Description" String="Firmware comparison number."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the numeric value for the firmware version that is used for version comparison."/>
         </Property>
-        <Property Name="BuildType" Type="NvidiaSoftwareInventory.v1_2_0.BuildType">
+        <Property Name="BuildType" Type="NvidiaRoTImageSlot.BuildType">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The type of firmware with respect to behavior and instrumentation."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the type of firmware with respect to behavior and instrumentation."/>
         </Property>
-        <Property Name="FirmwareState" Type="NvidiaSoftwareInventory.v1_2_0.FirmwareState">
+        <Property Name="FirmwareState" Type="NvidiaRoTImageSlot.FirmwareState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Firmware state."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the current state of the firmware."/>
         </Property>
       </ComplexType>
-      <EnumType Name="BuildType">
-        <Member Name="Release">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for release use."/>
-        </Member>
-        <Member Name="Development">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for development use."/>
-        </Member>
-      </EnumType>
-      <EnumType Name="FirmwareState">
-        <Member Name="Unknown">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is in an unknown state."/>
-        </Member>
-        <Member Name="Activated">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is activated."/>
-        </Member>
-        <Member Name="PendingActivation">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is pending activation."/>
-        </Member>
-        <Member Name="Staged">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is staged but not yet activated."/>
-        </Member>
-        <Member Name="WriteInProgress">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is writing in progress."/>
-        </Member>
-        <Member Name="Inactive">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is inactive."/>
-        </Member>
-        <Member Name="FailedAuthentication">
-          <Annotation Term="OData.Description" String="This value indicates the authentication of the firmware is failed."/>
-        </Member>
-      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSoftwareInventory.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSoftwareInventory" BaseType="NvidiaSoftwareInventory.v1_2_0.NvidiaSoftwareInventory"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

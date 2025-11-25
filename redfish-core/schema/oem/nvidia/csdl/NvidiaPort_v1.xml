@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPort  v1.2.0                                              -->
+<!--# Redfish OEM Schema:  NvidiaPort  v1.3.0                                              -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -22,6 +22,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
     <edmx:Include Namespace="NvidiaHistogramCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPCIeEqualization_v1.xml">
+    <edmx:Include Namespace="NvidiaPCIeEqualization"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort">
@@ -96,6 +99,33 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort">
+        <NavigationProperty Name="PCIeEqualization" Type="NvidiaPCIeEqualization.NvidiaPCIeEqualization" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the PCIe equalization resource associated with this PCIe port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPCIeEqualization."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.v1_3_0.NvidiaPCIePort">
+        <Property Name="TargetSpeedGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The requested link speed configured via the PCIe link control register."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the requested link speed configured via the PCIe link control register."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="FCTimeoutErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of Flow Control Credit timeouts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of Flow Control Credit timeouts, indicating a link-level problem that typically triggers link recovery."/>
+        </Property>
       </ComplexType>
     </Schema>
   </edmx:DataServices>

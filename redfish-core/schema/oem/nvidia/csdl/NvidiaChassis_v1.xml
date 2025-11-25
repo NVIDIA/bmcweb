@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.11.0                                          -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.12.0                                          -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -95,6 +95,32 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="SetRecoveryMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the device into recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set the device into recovery mode."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_12_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="SetCPURecoveryMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets all CPUs within the chassis into recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set all CPUs within the chassis into recovery mode."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_12_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -803,6 +829,36 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_11_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_10_0.NvidiaSMAChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_12_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_0.NvidiaChassis">
+        <Property Name="SKU" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The SKU of the chassis that partners can configure."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SKU of the chassis that partners are allowed to configure."/>
+        </Property>
+        <Property Name="HostManagementNetworkAccess" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether host management network access is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host management network access is enabled, where a value `true` shall indicate that host management network access is active."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_7_0.NvidiaRoTChassis">
+        <Property Name="FailoverPolicy" Type="NvidiaChassis.v1_12_0.FailoverPolicy">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The current failover policy."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current failover policy."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="FailoverPolicy">
+        <Member Name="NoFailover">
+          <Annotation Term="OData.Description" String="No failover."/>
+        </Member>
+        <Member Name="AutomaticFailover">
+          <Annotation Term="OData.Description" String="Automatic failover."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

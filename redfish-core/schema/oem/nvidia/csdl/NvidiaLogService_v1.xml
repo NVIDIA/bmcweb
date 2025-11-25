@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaLogService  v1.3.0                                        -->
+<!--# Redfish OEM Schema:  NvidiaLogService  v1.4.0                                        -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -75,6 +75,16 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The identifier for the first entry of this LogService resource since boot."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the identifier for the first entry of this LogService resource since boot."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaLogService" BaseType="NvidiaLogService.v1_3_0.NvidiaLogService">
+        <Property Name="ApiMetricsEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of enabling API metrics."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate enabled API metrics. If `true`, the command collector will start. If `false`, the command log files will not be continuously logged."/>
         </Property>
       </ComplexType>
     </Schema>

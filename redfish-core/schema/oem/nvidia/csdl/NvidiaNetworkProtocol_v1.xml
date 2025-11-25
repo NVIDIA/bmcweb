@@ -144,7 +144,7 @@
           <Annotation Term="OData.Description" String="The RFC format used for syslog messages sent to the server."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate the RFC format used for syslog messages (RFC3164 or RFC5424). The default is RFC3164."/>
         </Property>
-      </ComplexType>
+      </ComplexType>     
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

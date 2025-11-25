@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaNetworkAdapter  v1.0.0                                    -->
+<!--# Redfish OEM Schema:  NvidiaNetworkAdapter  v1.1.0                                    -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -24,9 +24,26 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
     <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/NetworkAdapter_v1.xml">
+    <edmx:Include Namespace="NetworkAdapter"/>
+    <edmx:Include Namespace="NetworkAdapter.v1_0_0"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Action Name="SetRecoveryMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the device into recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set the device into recovery mode."/>
+        <Parameter Name="NetworkAdapter" Type="NetworkAdapter.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -38,6 +55,30 @@
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="NvidiaNetworkAdapter.v1_0_0.NvidiaNetworkAdapter">
+        <Property Name="ProtectionOption" Type="NvidiaNetworkAdapter.v1_1_0.ProtectionOption">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The protection option for the network adapter."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the protection option for the network adapter, indicating whether firmware updates and configuration changes are prevented."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ProtectionOption">
+        <Member Name="NoProtection">
+          <Annotation Term="OData.Description" String="No protection."/>
+        </Member>
+        <Member Name="PreventAll">
+          <Annotation Term="OData.Description" String="Prevents host firmware update and configuration changes."/>
+        </Member>
+        <Member Name="PreventHostFirmwareUpdates">
+          <Annotation Term="OData.Description" String="Prevents only host firmware updates."/>
+        </Member>
+        <Member Name="PreventHostConfigurations">
+          <Annotation Term="OData.Description" String="Prevents only host configuration changes."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

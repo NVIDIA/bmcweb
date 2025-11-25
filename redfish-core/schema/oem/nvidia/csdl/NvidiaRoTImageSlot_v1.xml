@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaRoTImageSlot  v1.0.0                                      -->
+<!--# Redfish OEM Schema:  NvidiaRoTImageSlot  v1.1.0                                      -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -49,6 +49,86 @@
           </Collection>
         </Annotation>
       </EntityType>
+      <EnumType Name="BuildType">
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Member Name="Release">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for release use."/>
+        </Member>
+        <Member Name="Development">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for development use."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="FirmwareState">
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is in an unknown state."/>
+        </Member>
+        <Member Name="Activated">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is activated."/>
+        </Member>
+        <Member Name="PendingActivation">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is pending activation."/>
+        </Member>
+        <Member Name="Staged">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is staged but not yet activated."/>
+        </Member>
+        <Member Name="WriteInProgress">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is writing in progress."/>
+        </Member>
+        <Member Name="Inactive">
+          <Annotation Term="OData.Description" String="This value indicates the firmware is inactive."/>
+        </Member>
+        <Member Name="FailedAuthentication">
+          <Annotation Term="OData.Description" String="This value indicates the authentication of the firmware is failed."/>
+        </Member>
+        <Member Name="ImageCopyPending">
+          <Annotation Term="OData.Description" String="This value indicates that an image copy operation is pending."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="ImageCopyInProgress">
+          <Annotation Term="OData.Description" String="This value indicates that an image copy operation is currently in progress."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="ImageCopyFailed">
+          <Annotation Term="OData.Description" String="This value indicates that the image copy operation failed."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTImageSlot.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -68,12 +148,12 @@
           <Annotation Term="OData.Description" String="Firmware comparison number."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the numeric value for the firmware version that is used for version comparison."/>
         </Property>
-        <Property Name="BuildType" Type="NvidiaRoTImageSlot.v1_0_0.BuildType">
+        <Property Name="BuildType" Type="NvidiaRoTImageSlot.BuildType">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The type of firmware with respect to behavior and instrumentation."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the type of firmware with respect to behavior and instrumentation."/>
         </Property>
-        <Property Name="FirmwareState" Type="NvidiaRoTImageSlot.v1_0_0.FirmwareState">
+        <Property Name="FirmwareState" Type="NvidiaRoTImageSlot.FirmwareState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Firmware state."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the current state of the firmware image."/>
@@ -123,37 +203,10 @@
           <Annotation Term="OData.Description" String="A key not defined in the hardware or fuse that is only valid when DOT is enabled and DOT CAK installed."/>
         </Member>
       </EnumType>
-      <EnumType Name="BuildType">
-        <Member Name="Release">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for release use."/>
-        </Member>
-        <Member Name="Development">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is intended for development use."/>
-        </Member>
-      </EnumType>
-      <EnumType Name="FirmwareState">
-        <Member Name="Unknown">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is in an unknown state."/>
-        </Member>
-        <Member Name="Activated">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is activated."/>
-        </Member>
-        <Member Name="PendingActivation">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is pending activation."/>
-        </Member>
-        <Member Name="Staged">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is staged but not yet activated."/>
-        </Member>
-        <Member Name="WriteInProgress">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is writing in progress."/>
-        </Member>
-        <Member Name="Inactive">
-          <Annotation Term="OData.Description" String="This value indicates the firmware is inactive."/>
-        </Member>
-        <Member Name="FailedAuthentication">
-          <Annotation Term="OData.Description" String="This value indicates the authentication of the firmware is failed."/>
-        </Member>
-      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTImageSlot.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaRoTImageSlot" BaseType="NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

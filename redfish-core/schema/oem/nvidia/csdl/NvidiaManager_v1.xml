@@ -130,6 +130,18 @@
           <Annotation Term="OData.Description" String="Data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
         </Parameter>
+        <Parameter Name="MsgFormatVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="Message format version number."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the message format version number as defined in the NVIDIA System Management (NSM) API Base Specification. If this parameter is not provided, the default message version number is `1`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_8_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
+        </Parameter>
         <ReturnType Type="NvidiaManager.v1_3_0.NSMRawCommandResponse" Nullable="false"/>
       </Action>
       <Action Name="SWErrorInjection" IsBound="true">
@@ -195,6 +207,47 @@
               <PropertyValue Property="Version" String="v1_4_0"/>
             </Record>
           </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="RASRawCommand" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to invoke a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Annotation Term="OData.LongDescription" String="This action shall invoke a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="CommandType" Type="NvidiaManager.v1_8_0.RASRawCommandType" Nullable="false">
+            <Annotation Term="OData.Description" String="Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="CommandOpCode" Type="NvidiaManager.v1_8_0.RASRawCommandOpCode" Nullable="false">
+          <Annotation Term="OData.Description" String="Command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Bus" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Bus number of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the bus number of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Address" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Slave Address of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the slave address of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Offset" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Access offset of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the access offset of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="DataSizeBytes" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Data size of the request payload in bytes defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the data size of the request payload in bytes defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Data" Type="Collection(Edm.Int64)">
+            <Annotation Term="OData.Description" String="Data field of the request payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the data field of the request payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+            <Collection>
+                <Record>
+                    <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                    <PropertyValue Property="Version" String="v1_8_0"/>
+                </Record>
+            </Collection>
         </Annotation>
       </Action>
     </Schema>
@@ -522,6 +575,60 @@
           <Annotation Term="OData.Description" String="Before the host is fully provisioned or booted (pre-POST), only allowlist commands passing channel mask validation are accepted. After POST, all IPMI commands on SSIF are not accepted."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_7_0.NvidiaManager"/>
+      <EnumType Name="RASRawCommandType">
+        <Member Name="I2C">
+          <Annotation Term="OData.Description" String="I2C raw command."/>
+          <Annotation Term="OData.LongDescription" String="Command Type 0: I2C raw command."/>
+        </Member>
+        <Member Name="I3C">
+          <Annotation Term="OData.Description" String="I3C raw command."/>
+          <Annotation Term="OData.LongDescription" String="Command Type 1: I3C raw command."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="RASRawCommandOpCode">
+        <Member Name="Write">
+          <Annotation Term="OData.Description" String="Write operation."/>
+          <Annotation Term="OData.LongDescription" String="Command Operation Code 0: write operation."/>
+        </Member>
+        <Member Name="Read">
+          <Annotation Term="OData.Description" String="Read operation."/>
+          <Annotation Term="OData.LongDescription" String="Command Operation Code 1: read operation."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="RASRawCommandResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        <Annotation Term="OData.Description" String="The response from a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Property Name="CommandType" Type="NvidiaManager.v1_8_0.RASRawCommandType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="NVIDIA Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVIDIA Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CommandOpCode" Type="NvidiaManager.v1_8_0.RASRawCommandOpCode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Command operation code (0:write, 1:read) defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CompletionCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Completion code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the completion code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="Data" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Data field of the response payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the data field of the response payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

@@ -7,14 +7,6 @@ namespace nvidia_debug_token
 {
 // clang-format off
 
-enum class TokenType{
-    Invalid,
-    FRC,
-    CRCS,
-    CRDT,
-    DebugFirmwareRunning,
-};
-
 enum class TokenStatus{
     Invalid,
     Failed,
@@ -35,14 +27,6 @@ enum class AdditionalInfo{
     QueryDebugSessionFailed,
     DebugSessionActive,
 };
-
-NLOHMANN_JSON_SERIALIZE_ENUM(TokenType, {
-    {TokenType::Invalid, "Invalid"},
-    {TokenType::FRC, "FRC"},
-    {TokenType::CRCS, "CRCS"},
-    {TokenType::CRDT, "CRDT"},
-    {TokenType::DebugFirmwareRunning, "DebugFirmwareRunning"},
-});
 
 NLOHMANN_JSON_SERIALIZE_ENUM(TokenStatus, {
     {TokenStatus::Invalid, "Invalid"},

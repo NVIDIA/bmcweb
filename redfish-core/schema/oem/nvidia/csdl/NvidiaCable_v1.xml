@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish OEM Schema:  NvidiaCable  v0.7.0                                                -->
+<!--#                                                                                      -->
+<!--# Copyright 2021-2025 NVIDIA.                                                          -->
+<!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
+<!--################################################################################       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Cable_v1.xml">
+    <edmx:Include Namespace="Cable"/>
+    <edmx:Include Namespace="Cable.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaCable">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaCable.v0_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaCBC">
+        <Property Name="RevisionId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="TODO"/>
+          <Annotation Term="OData.LongDescription" String="TODO"/>
+        </Property>
+        <Property Name="ChassisPhysicalSlotNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="TODO"/>
+          <Annotation Term="OData.LongDescription" String="TODO"/>
+        </Property>
+        <Property Name="ComputeTrayIndex" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="TODO"/>
+          <Annotation Term="OData.LongDescription" String="TODO"/>
+        </Property>
+        <Property Name="TopologyId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="TODO"/>
+          <Annotation Term="OData.LongDescription" String="TODO"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

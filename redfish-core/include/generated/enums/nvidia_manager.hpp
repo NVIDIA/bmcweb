@@ -63,6 +63,18 @@ enum class RestrictionMode{
     ProvisionedHostDisabled,
 };
 
+enum class RASRawCommandType{
+    Invalid,
+    I2C,
+    I3C,
+};
+
+enum class RASRawCommandOpCode{
+    Invalid,
+    Write,
+    Read,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(FirmwareBuildType, {
     {FirmwareBuildType::Invalid, "Invalid"},
     {FirmwareBuildType::ProvisioningDebug, "ProvisioningDebug"},
@@ -117,6 +129,18 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RestrictionMode, {
     {RestrictionMode::Allowlist, "Allowlist"},
     {RestrictionMode::ProvisionedHostAllowlist, "ProvisionedHostAllowlist"},
     {RestrictionMode::ProvisionedHostDisabled, "ProvisionedHostDisabled"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(RASRawCommandType, {
+    {RASRawCommandType::Invalid, "Invalid"},
+    {RASRawCommandType::I2C, "I2C"},
+    {RASRawCommandType::I3C, "I3C"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(RASRawCommandOpCode, {
+    {RASRawCommandOpCode::Invalid, "Invalid"},
+    {RASRawCommandOpCode::Write, "Write"},
+    {RASRawCommandOpCode::Read, "Read"},
 });
 
 }
