@@ -150,6 +150,7 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         // Handle unauthorized expand query parameters for service root example
         // /redfish/v1/?$expand=< >
         if (req.session == nullptr &&
+            persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
             queryOpt->expandType != query_param::ExpandType::None)
         {
             messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
