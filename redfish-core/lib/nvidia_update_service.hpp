@@ -44,6 +44,7 @@
 #include <http_client.hpp>
 #include <http_connection.hpp>
 #include <registries/oem/nvidia_resource_event_message_registry.hpp>
+#include <resource_messages.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/unpack_properties.hpp>
@@ -387,6 +388,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     if (msgId == "NvidiaResourceEvent.1.0.BmcDriverErrorsDetected")
     {
         return messages::bmcDriverErrorsDetected(arg1, arg2, arg3);
+    }
+    if (msgId == "ResourceEvent.1.2.ResourceErrorsDetected")
+    {
+        return messages::resourceErrorsDetectedFormatError(arg1, arg2);
     }
 
     return {};
