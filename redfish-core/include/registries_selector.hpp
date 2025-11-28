@@ -13,6 +13,10 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/sensor_event_message_registry.hpp"
+// Nvidia: added code start
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/storage_device_message_registry.hpp"
+// Nvidia: added code end
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/task_event_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
@@ -67,6 +71,12 @@ inline std::optional<registries::HeaderAndUrl>
     {
         return HeaderAndUrl{Update::header, Update::url};
     }
+    // Nvidia: added code start
+    if (StorageDevice::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{StorageDevice::header, StorageDevice::url};
+    }
+    // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)
     {
         if (BiosAttributeRegistry::header.registryPrefix == registryName)
@@ -117,6 +127,12 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     {
         return {SensorEvent::registry};
     }
+    // Nvidia: added code start
+    if (StorageDevice::header.registryPrefix == registryName)
+    {
+        return {StorageDevice::registry};
+    }
+    // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)
     {
         if (BiosAttributeRegistry::header.registryPrefix == registryName)
