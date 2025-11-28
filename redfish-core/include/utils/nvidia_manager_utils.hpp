@@ -40,6 +40,8 @@ static constexpr auto restrictionModeInterface =
 static constexpr auto restrictionModeProperty = "RestrictionMode";
 static constexpr std::array<std::string_view, 1> restrictionModeInterfaceArray =
     {restrictionModeInterface};
+static constexpr std::array<std::string_view, 1> ssifInterfaceArray = {
+    "xyz.openbmc_project.Ipmi.Channel.ipmi_ssif"};
 
 /**
  * @brief Retrieves telemetry ready state data over DBus
@@ -659,13 +661,13 @@ inline void populateRestrictionModeData(
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("DBUS getProperty error: {}", ec);
+        BMCWEB_LOG_DEBUG("DBUS getProperty error: {}", ec);
         return;
     }
     nvidia_manager::RestrictionMode mode = restrictionModeFromDbus(modeStr);
     if (mode == nvidia_manager::RestrictionMode::Invalid)
     {
-        BMCWEB_LOG_ERROR("Invalid restriction mode: {}", modeStr);
+        BMCWEB_LOG_DEBUG("Invalid restriction mode: {}", modeStr);
         return;
     }
     nlohmann::json& ipmi = asyncResp->res.jsonValue["Oem"]["Nvidia"]["IPMI"];
@@ -690,7 +692,7 @@ inline void getRestrictionModeHandler(
 {
     if (ec || object.empty())
     {
-        BMCWEB_LOG_ERROR("Error getting service name: {}", ec);
+        BMCWEB_LOG_DEBUG("Error getting service name: {}", ec);
         return;
     }
     const std::string& service = object.begin()->first;
@@ -703,15 +705,38 @@ inline void getRestrictionModeHandler(
  * @brief Gets the restriction mode.
  *
  * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] subtree     The MapperGetSubTree result from D-Bus.
  */
-inline void
-    getRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getRestrictionModeIfSsifPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
+    if (ec || subtree.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "DBUS getSubTree error or SSIF interface not found: {}", ec);
+        return;
+    }
     dbus::utility::getDbusObject(
         restrictionModePath, restrictionModeInterfaceArray,
         std::bind_front(getRestrictionModeHandler, asyncResp,
                         restrictionModePath, restrictionModeInterface,
                         restrictionModeProperty));
+}
+
+/**
+ * @brief Gets the restriction mode if SSIF is present.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ */
+inline void
+    getRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/Ipmi/Channel", 0, ssifInterfaceArray,
+        std::bind_front(getRestrictionModeIfSsifPresent, asyncResp));
 }
 
 /**
@@ -734,7 +759,7 @@ inline void setRestrictionModeHandler(
 {
     if (ec || object.empty())
     {
-        BMCWEB_LOG_ERROR("Error getting service name: {}", ec);
+        BMCWEB_LOG_DEBUG("Error getting service name: {}", ec);
         messages::resourceNotFound(asyncResp->res, "RestrictionMode", path);
         return;
     }
@@ -749,25 +774,49 @@ inline void setRestrictionModeHandler(
  *
  * @param[in] asyncResp   Shared pointer for generating response message.
  * @param[in] mode        The restriction mode to set.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] subtree     The MapperGetSubTree result from D-Bus.
  */
-inline void
-    setRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& mode)
+inline void setRestrictionModeIfSsifPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& mode, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
+    if (ec || subtree.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "DBUS getSubTree error or SSIF interface not found: {}", ec);
+        messages::resourceNotFound(asyncResp->res, "RestrictionMode", "SSIF");
+        return;
+    }
     std::string dbusMode = dbusRestrictionModeFromRedfish(mode);
     if (dbusMode.empty())
     {
-        BMCWEB_LOG_ERROR("Invalid restriction mode: {}", mode);
+        BMCWEB_LOG_DEBUG("Invalid restriction mode: {}", mode);
         messages::propertyValueNotInList(asyncResp->res, mode,
                                          "RestrictionMode");
         return;
     }
-
     dbus::utility::getDbusObject(
         restrictionModePath, restrictionModeInterfaceArray,
         std::bind_front(setRestrictionModeHandler, asyncResp,
                         restrictionModePath, restrictionModeInterface,
                         restrictionModeProperty, dbusMode));
+}
+
+/**
+ * @brief Sets the restriction mode.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] mode        The restriction mode to set.
+ */
+inline void
+    setRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& mode)
+{
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/Ipmi/Channel", 0, ssifInterfaceArray,
+        std::bind_front(setRestrictionModeIfSsifPresent, asyncResp, mode));
 }
 
 } // namespace nvidia_manager_util

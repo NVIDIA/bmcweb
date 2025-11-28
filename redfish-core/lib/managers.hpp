@@ -4054,8 +4054,7 @@ inline void requestRoutesManager(App& app)
         if (restrictionMode)
         {
             BMCWEB_LOG_DEBUG("RestrictionMode: {}", *restrictionMode);
-            nvidia_manager_util::setRestrictionMode(asyncResp,
-                                                    *restrictionMode);
+            nvidia_manager_util::setRestrictionMode(asyncResp, *restrictionMode);
         }
 
 #ifdef BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
