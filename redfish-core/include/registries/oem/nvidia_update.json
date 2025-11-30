@@ -157,6 +157,15 @@
             "ParamTypes": ["string", "string"],
             "Resolution": "None.",
             "Severity": "Critical"
+        },
+        "ActivateSuccessful": {
+            "Description": "Indicates that image is successfully activated on the device",
+            "Message": "Device %1 is successfully activated with image %2.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 2,
+            "ParamTypes": ["string", "string"],
+            "Resolution": "None.",
+            "Severity": "OK"
         }
     },
     "Name": "Nvidia Message Registry",

@@ -40,6 +40,19 @@ static constexpr const char* url =
 static constexpr std::array registry =
 {
     MessageEntry{
+        "ActivateSuccessful",
+        {
+            "Indicates that image is successfully activated on the device",
+            "Device %1 is successfully activated with image %2.",
+            "OK",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "ComponentUpdateSkipped",
         {
             "Indicates that update of component has been skipped",
@@ -255,23 +268,24 @@ static constexpr std::array registry =
 
 enum class Index
 {
-    componentUpdateSkipped = 0,
-    componentUpdateTime = 1,
-    dOTActionResponseError = 2,
-    dOTMCTPStatusError = 3,
-    debugTokenAlreadyInstalled = 4,
-    debugTokenEraseFailed = 5,
-    debugTokenEraseSuccess = 6,
-    debugTokenInstallationFailed = 7,
-    debugTokenInstallationSuccess = 8,
-    debugTokenRequestSuccess = 9,
-    debugTokenStatusSuccess = 10,
-    debugTokenUnsupported = 11,
-    firmwareNotInRecovery = 12,
-    headerValueInvalid = 13,
-    recoveryStarted = 14,
-    recoverySuccessful = 15,
-    stageSuccessful = 16,
+    activateSuccessful = 0,
+    componentUpdateSkipped = 1,
+    componentUpdateTime = 2,
+    dOTActionResponseError = 3,
+    dOTMCTPStatusError = 4,
+    debugTokenAlreadyInstalled = 5,
+    debugTokenEraseFailed = 6,
+    debugTokenEraseSuccess = 7,
+    debugTokenInstallationFailed = 8,
+    debugTokenInstallationSuccess = 9,
+    debugTokenRequestSuccess = 10,
+    debugTokenStatusSuccess = 11,
+    debugTokenUnsupported = 12,
+    firmwareNotInRecovery = 13,
+    headerValueInvalid = 14,
+    recoveryStarted = 15,
+    recoverySuccessful = 16,
+    stageSuccessful = 17,
 };
 }; // struct nvidia_update
 

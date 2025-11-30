@@ -240,4 +240,13 @@ inline nlohmann::json headerValueInvalid(
     return getLogNvidia(
         redfish::registries::NvidiaUpdate::Index::headerValueInvalid, args);
 }
+
+inline nlohmann::json activateSuccessful(std::string_view arg1,
+                                         std::string_view arg2)
+{
+    std::array<std::string_view, 2> args{arg1, arg2};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::activateSuccessful, args);
+}
+
 } // namespace redfish::messages

@@ -397,6 +397,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::resourceErrorsDetectedFormatError(arg1, arg2);
     }
+    if (msgId == "NvidiaUpdate.1.0.ActivateSuccessful")
+    {
+        return messages::activateSuccessful(arg1, arg2);
+    }
 
     return {};
 }
