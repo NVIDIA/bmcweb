@@ -2467,10 +2467,12 @@ inline void forwardImage(
                 std::optional<std::vector<std::string>> targets;
                 std::optional<bool> forceUpdate;
                 std::optional<nlohmann::json> oemObject;
+                std::optional<std::string> applyTime;
 
                 json_util::readJson(content, asyncResp->res, "Targets", targets,
                                     "ForceUpdate", forceUpdate, "Oem",
-                                    oemObject);
+                                    oemObject, "@Redfish.OperationApplyTime",
+                                    applyTime);
 
                 nlohmann::json paramJson = nlohmann::json::object();
 
@@ -2508,6 +2510,10 @@ inline void forwardImage(
                 if (oemObject)
                 {
                     paramJson["Oem"] = *oemObject;
+                }
+                if (applyTime)
+                {
+                    paramJson["@Redfish.OperationApplyTime"] = *applyTime;
                 }
                 data += paramJson.dump();
                 data += "\r\n";
