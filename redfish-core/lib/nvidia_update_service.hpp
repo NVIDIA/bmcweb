@@ -2327,7 +2327,21 @@ inline void forwardImage(
     sharedReq->clearBody();
     bool hasUpdateFile = false;
     std::string data;
-    data.reserve(originalRequestSize);
+
+    // Calculate overhead to prevent string reallocation.
+    // Original request might not have Content-Type headers (depends on client).
+    // We always add Content-Type for each part:
+    // 1. UpdateFile: "Content-Type: application/octet-stream\r\n\r\n" = 40
+    // bytes
+    // 2. UpdateParameters: "Content-Type: application/json\r\n\r\n" = 34 bytes
+    //   each
+    constexpr size_t contentTypeOctetLen = 40;
+    constexpr size_t contentTypeJsonLen = 34;
+    size_t numUpdateParamsParts = parser.mime_fields.size() - 1;
+    size_t overheadBuffer =
+        contentTypeOctetLen + (numUpdateParamsParts * contentTypeJsonLen);
+    data.reserve(originalRequestSize + overheadBuffer);
+
     std::string_view boundary(parser.boundary);
     for (FormPart& formpart : parser.mime_fields)
     {
