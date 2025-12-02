@@ -8,9 +8,11 @@
 #include "http_server.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
+#include "nvidia_http.hpp"
 #include "routing.hpp"
 #include "routing/dynamicrule.hpp"
 #include "str_utility.hpp"
+#include "utils/ip_utils.hpp"
 
 #include <sys/socket.h>
 #include <systemd/sd-daemon.h>
@@ -50,6 +52,13 @@ class App
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
+        if constexpr (BMCWEB_NVIDIA_API_METRICS)
+        {
+            nvidia::http::logRedfishRequest(
+                redfish::ip_util::toString(req->ipAddress), req->methodString(),
+                req->url());
+        }
+
         router.handle(req, asyncResp);
     }
 

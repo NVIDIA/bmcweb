@@ -136,7 +136,7 @@ inline void populateXIDLogServiceFromSubtree(
                             std::get<1>(reqData));
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaLogService.v1_3_0.NvidiaLogService";
+                            "#NvidiaLogService.v1_4_0.NvidiaLogService";
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["LatestEntryID"] =
                             std::to_string(std::get<0>(reqData));

@@ -723,6 +723,12 @@ option(
     description: 'Enable OEM Nvidia BootEntryID for phosphor-logging based logs.',
 )
 option(
+    'nvidia-api-metrics',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable API metrics logging for Redfish requests.',
+)
+option(
     'stalesensor-upper-limit-milisecond',
     type: 'integer',
     min: 1,

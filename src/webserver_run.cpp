@@ -17,6 +17,7 @@
 #include "kvm_websocket.hpp"
 #include "logging.hpp"
 #include "login_routes.hpp"
+#include "nvidia_log_services.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
@@ -144,6 +145,11 @@ int run()
 #else
         tal::TelemetryAggregator::namespaceInit(tal::ProcessType::Client);
 #endif
+    }
+
+    if constexpr (BMCWEB_NVIDIA_API_METRICS)
+    {
+        redfish::api_metrics::registerApiMetricsSignal();
     }
 
     bmcweb::registerUserRemovedSignal();
