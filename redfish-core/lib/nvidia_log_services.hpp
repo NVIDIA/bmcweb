@@ -38,6 +38,7 @@
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/exception.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -154,6 +155,129 @@ static void generateMessageRegistry(
 }
 
 } // namespace message_registries
+
+namespace api_metrics
+{
+constexpr const char* service = "xyz.openbmc_project.Settings";
+constexpr const char* objpath = "/xyz/openbmc_project/logging/bmc_cmd_metrics";
+constexpr const char* interface = "xyz.openbmc_project.Object.Enable";
+constexpr const char* property = "Enabled";
+
+inline bool& getEnabled()
+{
+    static bool enabled = true;
+    return enabled;
+}
+
+inline void handleInitProperty(const boost::system::error_code& ec,
+                               bool enabled)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Failed to get API Metrics setting, using default=enabled: {}",
+            ec.message());
+        return;
+    }
+    getEnabled() = enabled;
+}
+
+inline void handleGetProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool enabled)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get API Metrics setting via D-Bus: {}",
+                         ec.message());
+        messages::resourceNotFound(asyncResp->res, "Property",
+                                   "ApiMetricsEnabled");
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaLogService.v1_4_0.NvidiaLogService";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["ApiMetricsEnabled"] = enabled;
+}
+
+inline void handleSetProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to set API Metrics setting via D-Bus: {}",
+                         ec.message());
+        messages::resourceNotFound(asyncResp->res, "Property",
+                                   "ApiMetricsEnabled");
+        return;
+    }
+    asyncResp->res.result(boost::beast::http::status::no_content);
+}
+
+inline void onPropertyChanged(sdbusplus::message_t& msg)
+{
+    std::string iface;
+    dbus::utility::DBusPropertiesMap propertiesMap;
+    msg.read(iface, propertiesMap);
+
+    auto it = std::ranges::find_if(propertiesMap, [](const auto& x) {
+        return x.first == property;
+    });
+
+    if (it != propertiesMap.end())
+    {
+        const bool* enabled = std::get_if<bool>(&it->second);
+        if (enabled == nullptr)
+        {
+            BMCWEB_LOG_ERROR("API Metrics D-Bus property '{}' is not a bool",
+                             property);
+            return;
+        }
+        getEnabled() = *enabled;
+        BMCWEB_LOG_DEBUG("API Metrics: {}", *enabled ? "enabled" : "disabled");
+    }
+}
+
+inline void onServiceStarted(sdbusplus::message_t& msg)
+{
+    std::string name;
+    std::string oldOwner;
+    std::string newOwner;
+    msg.read(name, oldOwner, newOwner);
+
+    if (!newOwner.empty())
+    {
+        sdbusplus::asio::getProperty<bool>(*crow::connections::systemBus,
+                                           service, objpath, interface,
+                                           property, handleInitProperty);
+    }
+}
+
+inline void registerApiMetricsSignal()
+{
+    BMCWEB_LOG_INFO("Register API Metrics PropertiesChanged Signal");
+
+    // Monitor property changes
+    static std::unique_ptr<sdbusplus::bus::match_t> apiMetricsMatch =
+        std::make_unique<sdbusplus::bus::match_t>(
+            *crow::connections::systemBus,
+            sdbusplus::bus::match::rules::propertiesChanged(objpath, interface),
+            onPropertyChanged);
+
+    // Monitor service start/restart
+    static std::unique_ptr<sdbusplus::bus::match_t> serviceMonitor =
+        std::make_unique<sdbusplus::bus::match_t>(
+            *crow::connections::systemBus,
+            sdbusplus::bus::match::rules::nameOwnerChanged(service),
+            onServiceStarted);
+
+    // Get initial value after match is set up
+    sdbusplus::asio::getProperty<bool>(*crow::connections::systemBus, service,
+                                       objpath, interface, property,
+                                       handleInitProperty);
+}
+
+} // namespace api_metrics
 
 inline void requestRoutesChassisLogServiceCollection(App& app)
 {
@@ -317,6 +441,42 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
                 }
             });
         messages::success(asyncResp->res);
+    }
+}
+
+inline void handleLogServicesDumpServicePatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+
+    std::optional<bool> apiMetricsEnabled;
+    if (!json_util::readJsonPatch(req, asyncResp->res,
+                                  "Oem/Nvidia/ApiMetricsEnabled",
+                                  apiMetricsEnabled))
+    {
+        return;
+    }
+
+    if (apiMetricsEnabled)
+    {
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, api_metrics::service,
+            api_metrics::objpath, api_metrics::interface, api_metrics::property,
+            *apiMetricsEnabled,
+            [asyncResp](const boost::system::error_code& ec) {
+                api_metrics::handleSetProperty(asyncResp, ec);
+            });
     }
 }
 
@@ -779,7 +939,7 @@ inline void extendSystemLogServicesGet(
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaLogService.v1_3_0.NvidiaLogService";
+                    "#NvidiaLogService.v1_4_0.NvidiaLogService";
             } /* BMCWEB_NVIDIA_OEM_PROPERTIES */
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LatestEntryID"] =
                 std::to_string(std::get<0>(reqData));
@@ -823,7 +983,18 @@ inline void extendLogServiceOEMGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& dumpType)
 {
-    if (dumpType == "System")
+    if (dumpType == "BMC")
+    {
+        if constexpr (BMCWEB_NVIDIA_API_METRICS)
+        {
+            sdbusplus::asio::getProperty<bool>(
+                *crow::connections::systemBus, api_metrics::service,
+                api_metrics::objpath, api_metrics::interface,
+                api_metrics::property,
+                std::bind_front(api_metrics::handleGetProperty, asyncResp));
+        } // BMCWEB_NVIDIA_API_METRICS
+    }
+    else if (dumpType == "System")
     {
         if constexpr (BMCWEB_NVIDIA_RETIMER_DEBUGMODE)
         {
@@ -843,7 +1014,7 @@ inline void extendLogServiceOEMGet(
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaLogService.v1_2_0.NvidiaLogService";
+                        "#NvidiaLogService.v1_4_0.NvidiaLogService";
                     asyncResp->res
                         .jsonValue["Oem"]["Nvidia"]["RetimerDebugModeEnabled"] =
                         debugModeEnabled;

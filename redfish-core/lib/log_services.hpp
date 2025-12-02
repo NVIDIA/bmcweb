@@ -2783,6 +2783,14 @@ inline void requestRoutesBMCDumpService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpServiceGet, std::ref(app), "BMC"));
+
+    if constexpr (BMCWEB_NVIDIA_API_METRICS)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/LogServices/Dump/")
+            .privileges(redfish::privileges::patchLogService)
+            .methods(boost::beast::http::verb::patch)(std::bind_front(
+                handleLogServicesDumpServicePatch, std::ref(app)));
+    }
 }
 
 inline void requestRoutesBMCDumpEntryCollection(App& app)
