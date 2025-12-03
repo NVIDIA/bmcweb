@@ -987,11 +987,10 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
 }
 
 // Forward declarations - functions defined in log_services.hpp
-inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const crow::Request& req, const std::string& dumpType);
-inline void downloadDumpEntry(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& entryID, const std::string& dumpType);
+void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const crow::Request& req, const std::string& dumpType);
+void downloadDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& entryID, const std::string& dumpType);
 
 inline void precheckOemDiagDataTypeAndCreateDump(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
