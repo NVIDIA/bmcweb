@@ -77,24 +77,35 @@ inline void getChassisAssociatedEndpoint(
     const std::string& chassisID,
     const std::function<void(const std::string&, bool)>& callback)
 {
-    std::string associatedChassisPath =
-        "/xyz/openbmc_project/inventory/system/chassis/";
-    associatedChassisPath.append(chassisID);
-    associatedChassisPath.append("/associated_chassis");
-
-    chassis_utils::getAssociationEndpoint(
-        associatedChassisPath,
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisID,
         [asyncResp, chassisID,
-         callback](const bool& status, const std::string& ep) {
-            if (!status)
+         callback](const std::optional<std::string>& validChassisPath) {
+            if (!validChassisPath)
             {
-                BMCWEB_LOG_DEBUG(
-                    "No associated_chassis endpoint found for chassis: {}",
-                    chassisID);
+                BMCWEB_LOG_DEBUG("No valid chassis path found for chassis: {}",
+                                 chassisID);
                 callback("", false);
                 return;
             }
-            callback(ep, true);
+
+            std::string associatedChassisPath = *validChassisPath;
+            associatedChassisPath.append("/associated_chassis");
+
+            chassis_utils::getAssociationEndpoint(
+                associatedChassisPath,
+                [asyncResp, chassisID,
+                 callback](const bool& status, const std::string& ep) {
+                    if (!status)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "No associated_chassis endpoint found for chassis: {}",
+                            chassisID);
+                        callback("", false);
+                        return;
+                    }
+                    callback(ep, true);
+                });
         });
 }
 
