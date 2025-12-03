@@ -662,8 +662,8 @@ inline void fetchAssociations(
             fetchInventoryProperties(asyncResp, chassisID, endpoint);
             fetchTrustedComponentLinks(asyncResp, chassisID, endpoint);
             // Nvidia Added Code Start
-            debug_token::addTrustedComponentOemProperties(asyncResp, chassisID,
-                                                          componentID);
+            addTrustedComponentOemProperties(asyncResp, chassisID, componentID);
+            addDOTURISupport(asyncResp, chassisID, componentID);
             // Nvidia Added Code End
         });
 }

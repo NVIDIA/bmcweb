@@ -17,6 +17,7 @@
 #pragma once
 
 #include "dbus_utility.hpp"
+#include "dot/base.hpp"
 #include "logging.hpp"
 
 #include <sdbusplus/bus/match.hpp>
@@ -29,14 +30,6 @@
 
 namespace redfish::dot_async
 {
-
-// DBus interface name for async status monitoring
-constexpr const std::string_view asyncStatusIntf = "com.nvidia.Async.Status";
-
-// Base DBus path for async operation objects
-constexpr const std::string_view asyncOperationBasePath =
-    "/com/nvidia/nsmd/AsyncOperation";
-
 /**
  * @brief DOT operation result states
  *
@@ -104,7 +97,7 @@ class DotAsyncBase : public std::enable_shared_from_this<DotAsyncBase>
     {
         std::string matchRule =
             sdbusplus::bus::match::rules::propertiesChangedNamespace(
-                asyncOperationBasePath, asyncStatusIntf);
+                dot::asyncOperationBasePath, dot::asyncStatusIntf);
         BMCWEB_LOG_DEBUG("DOT: Creating D-Bus match with rule: {}", matchRule);
         match = std::make_unique<sdbusplus::bus::match_t>(
             *crow::connections::systemBus, matchRule.c_str(),
@@ -135,8 +128,9 @@ class DotAsyncBase : public std::enable_shared_from_this<DotAsyncBase>
         BMCWEB_LOG_DEBUG("DOT: Starting to monitor async path: {}",
                          asyncObjectPath);
         dbus::utility::getProperty<std::string>(
-            asyncObjectService, asyncObjectPath, std::string(asyncStatusIntf),
-            "Status",
+            asyncObjectService, asyncObjectPath,
+            std::string(dot::asyncStatusIntf),
+            std::string(dot::asyncStatusProperty),
             [self = shared_from_this()](const boost::system::error_code& ec,
                                         const std::string& status) {
                 if (ec)
@@ -285,7 +279,7 @@ class DotAsyncBase : public std::enable_shared_from_this<DotAsyncBase>
         const std::string* dbusStatus = nullptr;
         for (const auto& [key, value] : propertiesMap)
         {
-            if (key == "Status")
+            if (key == dot::asyncStatusProperty)
             {
                 dbusStatus = std::get_if<std::string>(&value);
                 break;

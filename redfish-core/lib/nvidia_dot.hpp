@@ -21,6 +21,8 @@
 
 #include <app.hpp>
 #include <boost/url/format.hpp>
+#include <dot/base.hpp>
+#include <dot/dot_utils.hpp>
 #include <dot_async.hpp>
 #include <nvidia_messages.hpp>
 #include <query.hpp>
@@ -60,55 +62,6 @@ inline void setupActionInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 /**
- * @brief Find matching D-Bus object for a component ID
- *
- * Searches through discovered D-Bus objects and finds one that matches
- * the component ID pattern, handling both prefixed and non-prefixed names.
- *
- * @param componentId The component ID (e.g., "IRoT_CPU_0")
- * @param resp The D-Bus discovery response containing object paths
- * @return Optional pair of (path, serviceMap) if found, nullopt otherwise
- */
-inline std::optional<std::pair<
-    std::string, std::vector<std::pair<std::string, std::vector<std::string>>>>>
-    findMatchingDOTComponent(
-        const std::string& componentId,
-        const dbus::utility::MapperGetSubTreeResponse& resp)
-{
-    constexpr std::string_view platformPrefix(PLATFORMDEVICEPREFIX);
-
-    for (const auto& [path, serviceMap] : resp)
-    {
-        sdbusplus::message::object_path objPath(path);
-        std::string dbusComponentName = objPath.filename();
-
-        if (dbusComponentName == componentId)
-        {
-            return std::make_pair(path, serviceMap);
-        }
-
-        std::string componentWithPrefix =
-            std::string(platformPrefix) + componentId;
-        if (dbusComponentName == componentWithPrefix)
-        {
-            return std::make_pair(path, serviceMap);
-        }
-
-        if (dbusComponentName.starts_with(platformPrefix))
-        {
-            std::string dbusWithoutPrefix =
-                dbusComponentName.substr(platformPrefix.size());
-            if (dbusWithoutPrefix == componentId)
-            {
-                return std::make_pair(path, serviceMap);
-            }
-        }
-    }
-
-    return std::nullopt;
-}
-
-/**
  * @brief Validates DOT component after D-Bus discovery
  *
  * Callback invoked after D-Bus subtree discovery to validate that the
@@ -136,7 +89,8 @@ inline void afterDOTComponentValidation(
         return;
     }
 
-    auto matchResult = findMatchingDOTComponent(componentId, subtree);
+    auto matchResult =
+        dot_utils::findMatchingDOTComponent(componentId, subtree);
     if (!matchResult)
     {
         BMCWEB_LOG_DEBUG("DOT not available for component: {} in chassis: {}",
@@ -176,8 +130,7 @@ inline void afterChassisValidation(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        dot_async::dotActionIntf};
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces,
@@ -272,7 +225,8 @@ inline void afterDOTResourceDiscovery(
         return;
     }
 
-    auto matchResult = findMatchingDOTComponent(componentId, subtree);
+    auto matchResult =
+        dot_utils::findMatchingDOTComponent(componentId, subtree);
     if (!matchResult)
     {
         BMCWEB_LOG_DEBUG("DOT not available for component: {} in chassis: {}",
@@ -408,8 +362,7 @@ inline void afterChassisValidationWithDOTDiscovery(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        dot_async::dotActionIntf};
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
 
     dbus::utility::getSubTree("/xyz/openbmc_project", 0, interfaces,
                               std::move(callback));
@@ -920,7 +873,7 @@ inline void afterDOTServiceDiscovery(
         return;
     }
 
-    auto matchResult = findMatchingDOTComponent(componentId, resp);
+    auto matchResult = dot_utils::findMatchingDOTComponent(componentId, resp);
     if (!matchResult)
     {
         BMCWEB_LOG_ERROR("No matching DOT component found for: {}",
@@ -1010,8 +963,7 @@ inline void afterChassisValidationForDOTInstall(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        dot_async::dotActionIntf};
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces,
         std::bind_front(
@@ -1134,7 +1086,7 @@ inline void afterDOTCAKBypassServiceDiscovery(
         "DOT CAKBypass service discovery: componentId='{}', found {} paths",
         componentId, resp.size());
 
-    auto matchResult = findMatchingDOTComponent(componentId, resp);
+    auto matchResult = dot_utils::findMatchingDOTComponent(componentId, resp);
     if (!matchResult)
     {
         BMCWEB_LOG_ERROR("DOT CAKBypass: No matching component found for: {}",

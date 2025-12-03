@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "dot/base.hpp"
 #include "dot/dot_async_base.hpp"
 
 #include <string>
@@ -23,10 +24,6 @@
 
 namespace redfish::dot_async
 {
-
-// DBus interface name for DOT action operations
-constexpr const std::string_view dotActionIntf = "com.nvidia.Dot.Action";
-
 /**
  * @brief Handler for DOT command operations
  *
@@ -147,11 +144,11 @@ class DotCommandHandler : public DotAsyncBase
     {
         if (scheme == "Ecdsa")
         {
-            return std::string(dotActionIntf) + ".KeyAuthScheme.Ecdsa";
+            return std::string(dot::dotActionIntf) + ".KeyAuthScheme.Ecdsa";
         }
         if (scheme == "Hybrid")
         {
-            return std::string(dotActionIntf) + ".KeyAuthScheme.Hybrid";
+            return std::string(dot::dotActionIntf) + ".KeyAuthScheme.Hybrid";
         }
         BMCWEB_LOG_ERROR("Invalid authentication scheme: {}", scheme);
         return "";
@@ -197,9 +194,9 @@ class DotCommandHandler : public DotAsyncBase
                 self->createMatch();
                 self->monitorAsyncOperation();
             },
-            service, objectPath, std::string(dotActionIntf), "DotCAKInstall",
-            cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
-            lakLmsKey, lockDisable, minSvn);
+            service, objectPath, std::string(dot::dotActionIntf),
+            "DotCAKInstall", cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum,
+            lakEcdsaKey, lakLmsKey, lockDisable, minSvn);
     }
 
     /**
@@ -230,7 +227,7 @@ class DotCommandHandler : public DotAsyncBase
                 self->createMatch();
                 self->monitorAsyncOperation();
             },
-            service, objectPath, std::string(dotActionIntf), "Bypass");
+            service, objectPath, std::string(dot::dotActionIntf), "Bypass");
     }
 };
 

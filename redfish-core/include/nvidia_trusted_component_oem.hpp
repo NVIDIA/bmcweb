@@ -21,16 +21,17 @@
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/base.hpp"
+#include "dot/base.hpp"
+#include "dot/dot_utils.hpp"
 
 #include <nlohmann/json.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <format>
 #include <memory>
 #include <string>
 
 namespace redfish
-{
-namespace debug_token
 {
 
 /**
@@ -48,9 +49,9 @@ inline void addTrustedComponentOemProperties(
     const std::string& chassisID, const std::string& componentID)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
-        debugTokenStatusIntf};
+        debug_token::debugTokenStatusIntf};
     dbus::utility::getSubTree(
-        std::string(debugTokenBasePath), 0, interfaces,
+        std::string(debug_token::debugTokenBasePath), 0, interfaces,
         [asyncResp, chassisID,
          componentID](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& resp) {
@@ -124,5 +125,47 @@ inline void addTrustedComponentOemProperties(
         });
 }
 
-} // namespace debug_token
+/**
+ * @brief Checks for DOT component support and adds DOT URI if found
+ *
+ * Performs D-Bus discovery for DOT components and adds the DOT URI to the
+ * OEM properties if the component supports DOT operations.
+ *
+ * @param asyncResp Response object to populate
+ * @param chassisID Chassis identifier
+ * @param componentID Component identifier to match against DOT components
+ */
+inline void addDOTURISupport(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& componentID)
+{
+    constexpr std::array<std::string_view, 1> dotInterfaces = {
+        dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, dotInterfaces,
+        [asyncResp, chassisID,
+         componentID](const boost::system::error_code& dotEc,
+                      const dbus::utility::MapperGetSubTreeResponse& dotResp) {
+            if (dotEc)
+            {
+                BMCWEB_LOG_DEBUG("GetSubTree for DOT interface failed: {}",
+                                 dotEc.message());
+                return;
+            }
+
+            auto dotMatchResult =
+                dot_utils::findMatchingDOTComponent(componentID, dotResp);
+            if (dotMatchResult)
+            {
+                std::string basePath =
+                    std::format("/redfish/v1/Chassis/{}/TrustedComponents/{}",
+                                chassisID, componentID);
+                nlohmann::json& oemNvidia =
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                oemNvidia["DOT"]["@odata.id"] =
+                    std::format("{}/Oem/Nvidia/DOT", basePath);
+            }
+        });
+}
+
 } // namespace redfish
