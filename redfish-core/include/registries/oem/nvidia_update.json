@@ -121,6 +121,24 @@
             "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "Warning"
+        },
+        "ActionParameterNotSupported": {
+            "Description": "Indicates that the parameter supplied for the action is not supported on the resource.",
+            "Message": "The value %1 for the parameter %2 supplied is not supported on the target resource. See ActionInfo resource URI %3",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "Choose a value from the enumeration list provided in the ActionInfo resource URI and resubmit the request.",
+            "Severity": "Warning"
+        },
+        "HeaderValueInvalid": {
+            "Description": "Indicates that a header value is invalid.",
+            "Message": "Header value '%1' for header '%2' is invalid expected value is '%3'.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "Check the header value and expected value and resubmit the request again.",
+            "Severity": "Critical"
         }
     },
     "Name": "Nvidia Message Registry",

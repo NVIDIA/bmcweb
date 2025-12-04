@@ -40,6 +40,20 @@ static constexpr const char* url =
 static constexpr std::array registry =
 {
     MessageEntry{
+        "ActionParameterNotSupported",
+        {
+            "Indicates that the parameter supplied for the action is not supported on the resource.",
+            "The value %1 for the parameter %2 supplied is not supported on the target resource. See ActionInfo resource URI %3",
+            "Warning",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Choose a value from the enumeration list provided in the ActionInfo resource URI and resubmit the request.",
+        }},
+    MessageEntry{
         "ComponentUpdateSkipped",
         {
             "Indicates that update of component has been skipped",
@@ -162,6 +176,20 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "HeaderValueInvalid",
+        {
+            "Indicates that a header value is invalid.",
+            "Header value '%1' for header '%2' is invalid expected value is '%3'.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Check the header value and expected value and resubmit the request again.",
+        }},
+    MessageEntry{
         "RecoveryStarted",
         {
             "Indicates that recovery has started on a component",
@@ -203,19 +231,21 @@ static constexpr std::array registry =
 
 enum class Index
 {
-    componentUpdateSkipped = 0,
-    debugTokenAlreadyInstalled = 1,
-    debugTokenEraseFailed = 2,
-    debugTokenInstallationSuccess = 3,
-    debugTokenRequestSuccess = 4,
-    debugTokenStatusSuccess = 5,
-    debugTokenUnsupported = 6,
-    dotActionResponseError = 7,
-    dotMCTPStatusError = 8,
-    firmwareNotInRecovery = 9,
-    recoveryStarted = 10,
-    recoverySuccessful = 11,
-    stageSuccessful = 12,
+    actionParameterNotSupported = 0,
+    componentUpdateSkipped = 1,
+    debugTokenAlreadyInstalled = 2,
+    debugTokenEraseFailed = 3,
+    debugTokenInstallationSuccess = 4,
+    debugTokenRequestSuccess = 5,
+    debugTokenStatusSuccess = 6,
+    debugTokenUnsupported = 7,
+    dotActionResponseError = 8,
+    dotMCTPStatusError = 9,
+    firmwareNotInRecovery = 10,
+    headerValueInvalid = 11,
+    recoveryStarted = 12,
+    recoverySuccessful = 13,
+    stageSuccessful = 14,
 };
 }; // struct nvidia_update
 

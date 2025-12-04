@@ -209,4 +209,22 @@ inline nlohmann::json deviceDriverErrorsDetected(
                         args);
 }
 
+inline nlohmann::json actionParameterNotSupported(
+    std::string_view actionParameterValue, std::string_view actionParameter,
+    std::string_view actionInfoURI)
+{
+    std::array<std::string_view, 3> args{actionParameterValue, actionParameter,
+                                         actionInfoURI};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::actionParameterNotSupported,
+        args);
+}
+
+inline nlohmann::json headerValueInvalid(
+    std::string_view arg1, std::string_view arg2, std::string_view arg3)
+{
+    std::array<std::string_view, 3> args{arg1, arg2, arg3};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::headerValueInvalid, args);
+}
 } // namespace redfish::messages
