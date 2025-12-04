@@ -267,12 +267,24 @@ inline void getSatBMCInfo(
         return;
     }
 
+    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
+    subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
 
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");
+        subscribeTimer->async_wait(
+            [&ioc, deferTime](const boost::system::error_code& ec1) {
+                if (ec1)
+                {
+                    BMCWEB_LOG_ERROR("Timer error: {}", ec1);
+                    return;
+                }
+                RedfishAggregator::getSatelliteConfigs(
+                    std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
+            });
         return;
     }
 
@@ -283,8 +295,6 @@ inline void getSatBMCInfo(
 
     boost::urls::url url(sat->second);
 
-    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
-    subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     subscribeTimer->async_wait(
         std::bind_front(querySubscriptionList, client, url));
 }

@@ -57,7 +57,7 @@ inline void disableRedfishEventListener(const crow::Request& req)
     {
         // there will be no subscription after the deletion
         // stop redfish event listener
-        if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
+        if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 0)
         {
             stopRedfishEventListener(getIoContext());
         }
