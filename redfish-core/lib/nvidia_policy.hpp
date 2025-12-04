@@ -281,10 +281,16 @@ inline void handleLeakDetectionPolicyPatch(
 
     std::optional<bool> policyEnabled;
     std::optional<double> reactionDelaySeconds;
+    std::optional<std::vector<nlohmann::json::object_t>> policyReactions;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "PolicyEnabled",
-                                  policyEnabled, "ReactionDelaySeconds",
-                                  reactionDelaySeconds))
+    // NOTE: ReactionDelaySeconds at the top level is a non-standard property
+    // and is only supported for backwards compatibility with old systems.
+    // The standard-compliant approach is to use PolicyReactions array with
+    // ReactionDelaySeconds inside the reaction objects.
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, "PolicyEnabled", policyEnabled,
+            "ReactionDelaySeconds", reactionDelaySeconds, "PolicyReactions",
+            policyReactions))
     {
         return;
     }
@@ -303,6 +309,43 @@ inline void handleLeakDetectionPolicyPatch(
             asyncResp, chassisId,
             std::bind_front(doLeakDetectionReactionDelayPatch, asyncResp,
                             chassisId, *reactionDelaySeconds));
+    }
+
+    if (policyReactions)
+    {
+        // Handle PolicyReactions array format (schema-compliant approach).
+        // Extract ReactionDelaySeconds from the first reaction object and apply
+        // it. This is the preferred method; ReactionDelaySeconds at the top
+        // level is maintained for backwards compatibility.
+        if (policyReactions->empty())
+        {
+            messages::arraySizeTooShort(asyncResp->res, "PolicyReactions", "1");
+            return;
+        }
+        if (policyReactions->size() > 1)
+        {
+            messages::arraySizeTooLong(asyncResp->res, "PolicyReactions", 1);
+            return;
+        }
+
+        // Extract the first reaction object and use json_util to parse it
+        nlohmann::json::object_t& reactionObj = (*policyReactions)[0];
+        std::optional<double> delaySeconds;
+
+        // This automatically handles both int and double types
+        if (!json_util::readJsonObject(reactionObj, asyncResp->res,
+                                       "ReactionDelaySeconds", delaySeconds))
+        {
+            return;
+        }
+
+        if (delaySeconds)
+        {
+            redfish::chassis_utils::getValidChassisPath(
+                asyncResp, chassisId,
+                std::bind_front(doLeakDetectionReactionDelayPatch, asyncResp,
+                                chassisId, *delaySeconds));
+        }
     }
 }
 
