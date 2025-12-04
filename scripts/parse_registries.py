@@ -87,24 +87,50 @@ def openbmc_local_getter() -> RegistryInfo:
     return (path, json_file, "openbmc", url)
 
 
-def nvidia_local_getter():
+def oem_registry_local_getter(registry_name):
     url = ""
-    with open(
-        os.path.join(
-            SCRIPT_DIR,
-            "..",
-            "redfish-core",
-            "include",
-            "registries",
-            "oem",
-            "nvidia.json",
-        ),
-        "rb",
-    ) as json_file:
-        json_file = json.load(json_file)
 
-    path = os.path.join(INCLUDE_PATH, "oem", "nvidia_message_registry.hpp")
-    return (path, json_file, "nvidia", url)
+    json_path = os.path.join(
+        SCRIPT_DIR,
+        "..",
+        "redfish-core",
+        "include",
+        "registries",
+        "oem",
+        f"{registry_name}.json",
+    )
+
+    with open(json_path, "rb") as json_file:
+        json_data = json.load(json_file)
+
+    path = os.path.join(
+        INCLUDE_PATH, "oem", f"{registry_name}_message_registry.hpp"
+    )
+    return (path, json_data, registry_name, url)
+
+
+def discover_oem_registries() -> t.OrderedDict[str, RegistryInfo]:
+    """
+    Discover all OEM registries by scanning the oem directory for *.json files.
+    Returns an ordered mapping of registry name to RegistryInfo.
+    """
+    oem_dir = os.path.join(
+        SCRIPT_DIR,
+        "..",
+        "redfish-core",
+        "include",
+        "registries",
+        "oem",
+    )
+    registries: t.OrderedDict[str, RegistryInfo] = OrderedDict()
+    if not os.path.isdir(oem_dir):
+        return registries
+    for filename in sorted(os.listdir(oem_dir)):
+        if not filename.endswith(".json"):
+            continue
+        registry_name = filename[:-5]  # strip .json
+        registries[registry_name] = oem_registry_local_getter(registry_name)
+    return registries
 
 
 def update_registries(files: t.List[RegistryInfo]) -> None:
@@ -757,8 +783,11 @@ def main() -> None:
                 f"{registry}_message_registry.hpp",
                 registry,
             )
-    if "nvidia" in registries:
-        registries_map["nvidia"] = nvidia_local_getter()
+
+    # Always include all OEM registries discovered in the oem folder, regardless of --registries
+    for name, info in discover_oem_registries().items():
+        if name not in registries_map:
+            registries_map[name] = info
     if "openbmc" in registries:
         registries_map["openbmc"] = openbmc_local_getter()
 

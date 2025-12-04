@@ -103,6 +103,24 @@
             "ParamTypes": ["string", "string"],
             "Resolution": "None.",
             "Severity": "OK"
+        },
+        "DotActionResponseError": {
+            "Description": "Indicates that an error occured for the requested DOT command.",
+            "Message": "Requested DOT action has resulted in error of type '%1'.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "Warning"
+        },
+        "DotMCTPStatusError": {
+            "Description": "Indicates that an MCTP error occured for the requested DOT command.",
+            "Message": "Requested DOT action has resulted in MCTP error of type '%1'.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "Warning"
         }
     },
     "Name": "Nvidia Message Registry",

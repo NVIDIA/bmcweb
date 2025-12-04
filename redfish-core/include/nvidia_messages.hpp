@@ -18,7 +18,8 @@
 
 #include "error_message_utils.hpp"
 #include "error_messages.hpp"
-#include "registries/oem/nvidia_message_registry.hpp"
+#include "registries/oem/nvidia_resource_event_message_registry.hpp"
+#include "registries/oem/nvidia_update_message_registry.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -35,24 +36,43 @@ namespace redfish::messages
  * @param[in] args - argument
  * @return nlohmann::json
  */
-inline nlohmann::json getLogNvidia(redfish::registries::nvidia::Index name,
-                                   std::span<const std::string_view> args)
+inline nlohmann::json getLogNvidia(
+    redfish::registries::NvidiaUpdate::Index name,
+    std::span<const std::string_view> args)
 {
     size_t index = static_cast<size_t>(name);
-    if (index >= redfish::registries::nvidia::registry.size())
+    if (index >= redfish::registries::NvidiaUpdate::registry.size())
     {
         return {};
     }
-    return getLogFromRegistry(redfish::registries::nvidia::header,
-                              redfish::registries::nvidia::registry, index,
-                              args);
+    return getLogFromRegistry(redfish::registries::NvidiaUpdate::header,
+                              redfish::registries::NvidiaUpdate::registry,
+                              index, args);
+}
+
+/**
+ * @brief Method to get error message from NVIDIA resource event registry
+ */
+inline nlohmann::json getLogNvidia(
+    redfish::registries::NvidiaResourceEvent::Index name,
+    std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::NvidiaResourceEvent::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(
+        redfish::registries::NvidiaResourceEvent::header,
+        redfish::registries::NvidiaResourceEvent::registry, index, args);
 }
 
 inline nlohmann::json debugTokenAlreadyInstalled(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenAlreadyInstalled, args);
+        redfish::registries::NvidiaUpdate::Index::debugTokenAlreadyInstalled,
+        args);
 }
 
 inline void debugTokenAlreadyInstalled(crow::Response& res,
@@ -66,7 +86,7 @@ inline nlohmann::json debugTokenInstallationSuccess(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenInstallationSuccess,
+        redfish::registries::NvidiaUpdate::Index::debugTokenInstallationSuccess,
         args);
 }
 
@@ -74,21 +94,23 @@ inline nlohmann::json debugTokenRequestSuccess(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenRequestSuccess, args);
+        redfish::registries::NvidiaUpdate::Index::debugTokenRequestSuccess,
+        args);
 }
 
 inline nlohmann::json debugTokenStatusSuccess(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenStatusSuccess, args);
+        redfish::registries::NvidiaUpdate::Index::debugTokenStatusSuccess,
+        args);
 }
 
 inline nlohmann::json debugTokenUnsupported(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenUnsupported, args);
+        redfish::registries::NvidiaUpdate::Index::debugTokenUnsupported, args);
 }
 
 inline void debugTokenUnsupported(crow::Response& res, std::string_view arg1)
@@ -102,14 +124,14 @@ inline nlohmann::json debugTokenEraseFailed(std::string_view arg1,
 {
     std::array<std::string_view, 2> args{arg1, arg2};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::debugTokenEraseFailed, args);
+        redfish::registries::NvidiaUpdate::Index::debugTokenEraseFailed, args);
 }
 
 inline nlohmann::json dotActionResponseError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::dotActionResponseError, args);
+        redfish::registries::NvidiaUpdate::Index::dotActionResponseError, args);
 }
 
 inline void dotActionResponseError(crow::Response& res, std::string_view arg1)
@@ -121,8 +143,8 @@ inline void dotActionResponseError(crow::Response& res, std::string_view arg1)
 inline nlohmann::json dotMctpStatusError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(redfish::registries::nvidia::Index::dotMctpStatusError,
-                        args);
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::dotMCTPStatusError, args);
 }
 
 inline void dotMctpStatusError(crow::Response& res, std::string_view arg1)
@@ -136,28 +158,28 @@ inline nlohmann::json componentUpdateSkipped(std::string_view arg1,
 {
     std::array<std::string_view, 2> args{arg1, arg2};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::componentUpdateSkipped, args);
+        redfish::registries::NvidiaUpdate::Index::componentUpdateSkipped, args);
 }
 
 inline nlohmann::json recoveryStarted(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(redfish::registries::nvidia::Index::recoveryStarted,
-                        args);
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::recoveryStarted, args);
 }
 
 inline nlohmann::json recoverySuccessful(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(redfish::registries::nvidia::Index::recoverySuccessful,
-                        args);
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::recoverySuccessful, args);
 }
 
 inline nlohmann::json firmwareNotInRecovery(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
     return getLogNvidia(
-        redfish::registries::nvidia::Index::firmwareNotInRecovery, args);
+        redfish::registries::NvidiaUpdate::Index::firmwareNotInRecovery, args);
 }
 
 inline nlohmann::json stageSuccessful(std::string_view arg1,
@@ -165,7 +187,25 @@ inline nlohmann::json stageSuccessful(std::string_view arg1,
 {
     (void)arg2;
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(redfish::registries::nvidia::Index::stageSuccessful,
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::stageSuccessful, args);
+}
+
+inline nlohmann::json bmcDriverErrorsDetected(
+    std::string_view arg1, std::string_view arg2, std::string_view arg3)
+{
+    std::array<std::string_view, 3> args{arg1, arg2, arg3};
+    return getLogNvidia(redfish::registries::NvidiaResourceEvent::Index::
+                            bmcDriverErrorsDetected,
+                        args);
+}
+
+inline nlohmann::json deviceDriverErrorsDetected(
+    std::string_view arg1, std::string_view arg2, std::string_view arg3)
+{
+    std::array<std::string_view, 3> args{arg1, arg2, arg3};
+    return getLogNvidia(redfish::registries::NvidiaResourceEvent::Index::
+                            deviceDriverErrorsDetected,
                         args);
 }
 

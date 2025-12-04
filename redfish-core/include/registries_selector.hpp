@@ -22,6 +22,10 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/update_message_registry.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/oem/nvidia_update_message_registry.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/oem/nvidia_resource_event_message_registry.hpp"
 
 #include <optional>
 #include <span>
@@ -75,6 +79,15 @@ inline std::optional<registries::HeaderAndUrl>
     if (StorageDevice::header.registryPrefix == registryName)
     {
         return HeaderAndUrl{StorageDevice::header, StorageDevice::url};
+    }
+    if (NvidiaUpdate::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{NvidiaUpdate::header, NvidiaUpdate::url};
+    }
+    if (NvidiaResourceEvent::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{NvidiaResourceEvent::header,
+                            NvidiaResourceEvent::url};
     }
     // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)
@@ -131,6 +144,14 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (StorageDevice::header.registryPrefix == registryName)
     {
         return {StorageDevice::registry};
+    }
+    if (NvidiaUpdate::header.registryPrefix == registryName)
+    {
+        return {NvidiaUpdate::registry};
+    }
+    if (NvidiaResourceEvent::header.registryPrefix == registryName)
+    {
+        return {NvidiaResourceEvent::registry};
     }
     // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)

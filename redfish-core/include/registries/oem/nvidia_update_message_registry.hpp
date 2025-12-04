@@ -17,9 +17,11 @@
 
 // clang-format off
 
-namespace redfish::registries::nvidia
+namespace redfish::registries
 {
-const Header header = {
+struct NvidiaUpdate
+{
+static constexpr Header header = {
     "Copyright 2024 Nvidia. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
@@ -31,10 +33,11 @@ const Header header = {
     "NvidiaUpdate",
     "Nvidia",
 };
-constexpr const char* url =
+
+static constexpr const char* url =
     "";
 
-constexpr std::array registry =
+static constexpr std::array registry =
 {
     MessageEntry{
         "ComponentUpdateSkipped",
@@ -123,7 +126,7 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
-        "DOTActionResponseError",
+        "DotActionResponseError",
         {
             "Indicates that an error occured for the requested DOT command.",
             "Requested DOT action has resulted in error of type '%1'.",
@@ -135,7 +138,7 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
-        "DOTMCTPStatusError",
+        "DotMCTPStatusError",
         {
             "Indicates that an MCTP error occured for the requested DOT command.",
             "Requested DOT action has resulted in MCTP error of type '%1'.",
@@ -208,10 +211,15 @@ enum class Index
     debugTokenStatusSuccess = 5,
     debugTokenUnsupported = 6,
     dotActionResponseError = 7,
-    dotMctpStatusError = 8,
+    dotMCTPStatusError = 8,
     firmwareNotInRecovery = 9,
     recoveryStarted = 10,
     recoverySuccessful = 11,
     stageSuccessful = 12,
 };
-} // namespace redfish::registries::nvidia
+}; // struct nvidia_update
+
+[[gnu::constructor]] inline void registerNvidiaUpdate()
+{ registerRegistry<NvidiaUpdate>(); }
+
+} // namespace redfish::registries

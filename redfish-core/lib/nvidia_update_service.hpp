@@ -277,6 +277,7 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
 {
     std::string arg1;
     std::string arg2;
+    std::string arg3;
     if (!args.empty())
     {
         arg1 = args[0];
@@ -284,6 +285,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     if (args.size() >= 2)
     {
         arg2 = args[1];
+    }
+    if (args.size() >= 3)
+    {
+        arg3 = args[2];
     }
 
     if (msgId == "Update.1.0.TargetDetermined")
@@ -373,6 +378,14 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
     {
         return messages::debugTokenEraseFailed(arg1, arg2);
+    }
+    if (msgId == "NvidiaResourceEvent.1.0.DeviceDriverErrorsDetected")
+    {
+        return messages::deviceDriverErrorsDetected(arg1, arg2, arg3);
+    }
+    if (msgId == "NvidiaResourceEvent.1.0.BmcDriverErrorsDetected")
+    {
+        return messages::bmcDriverErrorsDetected(arg1, arg2, arg3);
     }
 
     return {};

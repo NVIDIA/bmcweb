@@ -1,0 +1,31 @@
+{
+    "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
+    "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
+    "Description": "This registry defines the driver and resource event messages for Nvidia.",
+    "Id": "NvidiaResourceEvent.1.0.0",
+    "Language": "en",
+    "Messages": {
+        "DeviceDriverErrorsDetected": {
+            "Description": "Indicates a driver-level failure occurred on a device.",
+            "Message": "Operation '%1' failed while communicating to device '%2' with error: %3.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "If problem persists, perform power cycle of the system to recover the device.",
+            "Severity": "Critical"
+        },
+        "BmcDriverErrorsDetected": {
+            "Description": "Indicates a driver-level failure occurred on the management controller while communicating with a device.",
+            "Message": "Operation '%1' failed on management controller while communicating to device '%2' with error: %3.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "If problem persists, perform management controller reboot.",
+            "Severity": "Critical"
+        }
+    },
+    "Name": "NVIDIA Driver and Resource Event Registry",
+    "OwningEntity": "Nvidia",
+    "RegistryPrefix": "NvidiaResourceEvent",
+    "RegistryVersion": "1.0.0"
+}
