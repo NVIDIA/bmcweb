@@ -19,6 +19,7 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/leak_detector.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
@@ -32,12 +33,22 @@ static constexpr auto leakDetectorOpStatusInterface =
     "xyz.openbmc_project.State.Decorator.OperationalStatus";
 static constexpr auto leakDetectorInventoryInterface =
     "xyz.openbmc_project.Inventory.Item.LeakDetector";
+static constexpr auto leakDetectorPolicyConfigInterface =
+    "xyz.openbmc_project.Configuration.LeakDetectionPolicy";
 
 constexpr std::array<std::string_view, 1> leakDetectorInventoryInterfaces = {
     leakDetectorInventoryInterface};
 
 constexpr std::array<std::string_view, 2> leakDetectorStateInterfaces = {
     leakDetectorStateInterface, leakDetectorOpStatusInterface};
+
+// Struct to hold leak detector policy properties
+struct LeakDetectorPolicyProperties
+{
+    std::optional<std::string> criticalReactionType;
+    std::optional<std::string> warningReactionType;
+    std::optional<double> reactionDelaySeconds;
+};
 
 inline std::string getDetectorState(const std::string& detectorState)
 {
@@ -137,6 +148,24 @@ inline std::string getLeakDetectorType(const std::string& leakDetectorType)
     return "";
 }
 
+inline leak_detector::ReactionType translateReactionTypeString(
+    const std::string& reactionType)
+{
+    if (reactionType == "None")
+    {
+        return leak_detector::ReactionType::None;
+    }
+    if (reactionType == "ForceOff")
+    {
+        return leak_detector::ReactionType::ForceOff;
+    }
+    if (reactionType == "GracefulShutdown")
+    {
+        return leak_detector::ReactionType::GracefulShutdown;
+    }
+    return leak_detector::ReactionType::Invalid;
+}
+
 inline void getValidLeakDetectorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& leakDetectorId,
@@ -165,6 +194,93 @@ inline void getValidLeakDetectorPath(
         });
 }
 
+inline void afterGetLeakDetectorName(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorId,
+    const std::function<void(const std::string& leakDetectorConfigPath,
+                             const std::string& service,
+                             const std::string& configInterface)>& callback,
+    const std::string& path, const std::string& service,
+    const boost::system::error_code& ec, const std::string& leakDetectorName)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Failed to get LeakDetectorName property from path {}: {}", path,
+            ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (leakDetectorName == leakDetectorId)
+    {
+        callback(path, service, leakDetectorPolicyConfigInterface);
+    }
+}
+
+inline void afterGetSubTreeLeakDetectorPolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorId,
+    const std::function<void(const std::string& leakDetectorConfigPath,
+                             const std::string& service,
+                             const std::string& configInterface)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error on getSubTree {}", ec.value());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (subtree.empty())
+    {
+        BMCWEB_LOG_DEBUG("No leak detector config paths found in subtree");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& [path, serviceMap] : subtree)
+    {
+        if (serviceMap.empty())
+        {
+            BMCWEB_LOG_ERROR(
+                "No services found for path {} in subtree response for "
+                "leak detector policy",
+                path);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        const std::string& service = serviceMap.front().first;
+
+        // Query LeakDetectorName property
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, service, path,
+            leakDetectorPolicyConfigInterface, "LeakDetectorName",
+            std::bind_front(afterGetLeakDetectorName, asyncResp, leakDetectorId,
+                            callback, path, service));
+    }
+}
+
+inline void getValidLeakDetectorPolicyPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorId,
+    std::function<void(const std::string& leakDetectorConfigPath,
+                       const std::string& service,
+                       const std::string& configInterface)>&& callback)
+{
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 1>{leakDetectorPolicyConfigInterface},
+        [asyncResp, leakDetectorId, callback{std::move(callback)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            afterGetSubTreeLeakDetectorPolicy(asyncResp, leakDetectorId,
+                                              callback, ec, subtree);
+        });
+}
+
 inline void addLeakDetectorCommonProperties(crow::Response& resp,
                                             const std::string& chassisId,
                                             const std::string& leakDetectorId)
@@ -172,7 +288,7 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
     resp.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
-    resp.jsonValue["@odata.type"] = "#LeakDetector.v1_1_0.LeakDetector";
+    resp.jsonValue["@odata.type"] = "#LeakDetector.v1_4_0.LeakDetector";
     resp.jsonValue["Id"] = leakDetectorId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors/{}",
@@ -354,6 +470,83 @@ inline void getLeakDetectorItem(
         });
 }
 
+inline void afterLeakDetectorPolicyProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error for State {}", ec.value());
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    const std::string* criticalReactionType = nullptr;
+    const std::string* warningReactionType = nullptr;
+    const double* reactionDelaySeconds = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList,
+        "CriticalReactionType", criticalReactionType, "WarningReactionType",
+        warningReactionType, "ReactionDelaySeconds", reactionDelaySeconds);
+
+    if (!success)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error: Unpacking Policy Properties.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (criticalReactionType != nullptr)
+    {
+        leak_detector::ReactionType reactionType =
+            translateReactionTypeString(*criticalReactionType);
+
+        if (reactionType != leak_detector::ReactionType::Invalid)
+        {
+            asyncResp->res.jsonValue["CriticalReactionType"] = reactionType;
+        }
+        else
+        {
+            BMCWEB_LOG_WARNING("Critical reaction type value is invalid: {}",
+                               *criticalReactionType);
+        }
+    }
+
+    if (warningReactionType != nullptr)
+    {
+        leak_detector::ReactionType reactionType =
+            translateReactionTypeString(*warningReactionType);
+
+        if (reactionType != leak_detector::ReactionType::Invalid)
+        {
+            asyncResp->res.jsonValue["WarningReactionType"] = reactionType;
+        }
+        else
+        {
+            BMCWEB_LOG_WARNING("Warning reaction type value is invalid: {}",
+                               *warningReactionType);
+        }
+    }
+
+    if (reactionDelaySeconds != nullptr)
+    {
+        if (std::isfinite(*reactionDelaySeconds))
+        {
+            asyncResp->res.jsonValue["ReactionDelaySeconds"] =
+                static_cast<int64_t>(*reactionDelaySeconds);
+        }
+        else
+        {
+            BMCWEB_LOG_WARNING("Reaction delay value is invalid");
+        }
+    }
+}
+
 inline void afterGetValidLeakDetectorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& leakDetectorId,
@@ -362,6 +555,20 @@ inline void afterGetValidLeakDetectorPath(
     addLeakDetectorCommonProperties(asyncResp->res, chassisId, leakDetectorId);
     getLeakDetectorState(asyncResp, leakDetectorPath, service);
     getLeakDetectorItem(asyncResp, leakDetectorPath, service);
+}
+
+inline void afterGetValidLeakDetectorPolicyPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorConfigPath, const std::string& service,
+    const std::string& configInterface)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, leakDetectorConfigPath,
+        configInterface,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+            afterLeakDetectorPolicyProperties(asyncResp, ec, propertiesList);
+        });
 }
 
 inline void doLeakDetectorGet(
@@ -379,6 +586,10 @@ inline void doLeakDetectorGet(
         asyncResp, leakDetectorId,
         std::bind_front(afterGetValidLeakDetectorPath, asyncResp, chassisId,
                         leakDetectorId));
+
+    getValidLeakDetectorPolicyPath(
+        asyncResp, leakDetectorId,
+        std::bind_front(afterGetValidLeakDetectorPolicyPath, asyncResp));
 }
 
 inline void handleLeakDetectorGet(
@@ -498,6 +709,99 @@ inline void handleLeakDetectorCollectionHead(
         });
 }
 
+inline void doLeakDetectorPolicyPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const LeakDetectorPolicyProperties& policyProperties,
+    const std::string& leakDetectorConfigPath, const std::string& service,
+    const std::string& configInterface)
+{
+    sdbusplus::message::object_path path(leakDetectorConfigPath);
+
+    if (policyProperties.criticalReactionType)
+    {
+        setDbusProperty(asyncResp, "CriticalReactionType", service, path,
+                        configInterface, "CriticalReactionType",
+                        *policyProperties.criticalReactionType);
+    }
+
+    if (policyProperties.warningReactionType)
+    {
+        setDbusProperty(asyncResp, "WarningReactionType", service, path,
+                        configInterface, "WarningReactionType",
+                        *policyProperties.warningReactionType);
+    }
+
+    if (policyProperties.reactionDelaySeconds)
+    {
+        setDbusProperty(asyncResp, "ReactionDelaySeconds", service, path,
+                        configInterface, "ReactionDelaySeconds",
+                        *policyProperties.reactionDelaySeconds);
+    }
+}
+
+inline void handleLeakDetectorPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*chassisId*/, const std::string& leakDetectorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    LeakDetectorPolicyProperties policyProperties;
+
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, "CriticalReactionType",
+            policyProperties.criticalReactionType, "WarningReactionType",
+            policyProperties.warningReactionType, "ReactionDelaySeconds",
+            policyProperties.reactionDelaySeconds))
+    {
+        return;
+    }
+
+    // Validate criticalReactionType if provided
+    if (policyProperties.criticalReactionType)
+    {
+        leak_detector::ReactionType reactionType =
+            translateReactionTypeString(*policyProperties.criticalReactionType);
+
+        if (reactionType == leak_detector::ReactionType::Invalid)
+        {
+            messages::propertyValueNotInList(
+                asyncResp->res, *policyProperties.criticalReactionType,
+                "CriticalReactionType");
+            return;
+        }
+    }
+
+    // Validate warningReactionType if provided
+    if (policyProperties.warningReactionType)
+    {
+        leak_detector::ReactionType reactionType =
+            translateReactionTypeString(*policyProperties.warningReactionType);
+
+        if (reactionType == leak_detector::ReactionType::Invalid)
+        {
+            messages::propertyValueNotInList(
+                asyncResp->res, *policyProperties.warningReactionType,
+                "WarningReactionType");
+            return;
+        }
+    }
+
+    // Only call getValidLeakDetectorPolicyPath if there's something to patch
+    if (policyProperties.criticalReactionType ||
+        policyProperties.warningReactionType ||
+        policyProperties.reactionDelaySeconds)
+    {
+        getValidLeakDetectorPolicyPath(
+            asyncResp, leakDetectorId,
+            std::bind_front(doLeakDetectorPolicyPatch, asyncResp,
+                            std::move(policyProperties)));
+    }
+}
+
 inline void requestRoutesLeakDetector(App& app)
 {
     BMCWEB_ROUTE(
@@ -527,6 +831,13 @@ inline void requestRoutesLeakDetector(App& app)
         .privileges(redfish::privileges::getLeakDetector)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleLeakDetectorGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/LeakDetectors/<str>/")
+        .privileges(redfish::privileges::patchLeakDetector)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleLeakDetectorPatch, std::ref(app)));
 }
 
 } // namespace redfish
