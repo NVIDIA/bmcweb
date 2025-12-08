@@ -683,11 +683,10 @@ inline void requestOemNvidiaRshim(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            messages::success(asyncResp->res);
         },
         rshimServiceBf, rshimObjBf, dbusPropertyInterface, "Set",
         rshimServiceIntfBf, "State", state);
-
-    messages::success(asyncResp->res);
 }
 
 inline void getOemNvidiaSwitchLinkStatus(
