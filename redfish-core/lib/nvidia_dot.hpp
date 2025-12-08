@@ -33,6 +33,7 @@
 
 #include <format>
 #include <functional>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <variant>
@@ -41,7 +42,137 @@
 namespace redfish
 {
 using DOTErrorType = std::tuple<uint16_t, std::string>;
-using DOTResultType = std::variant<std::monostate, DOTErrorType>;
+using DOTData = std::vector<uint8_t>;
+using DOTGetInfoStruct = std::tuple<uint16_t, uint8_t, uint8_t, DOTData>;
+using DOTResultType =
+    std::variant<std::monostate, DOTErrorType, DOTData, DOTGetInfoStruct>;
+
+/**
+ * @brief Handle DOT operation error result
+ *
+ * Generic error handler that processes DOT async operation error results,
+ * mapping operation status values to appropriate HTTP error responses.
+ * Extracts error information from the variant and handles InvalidArgument,
+ * Unavailable, UnsupportedRequest, and generic error cases with appropriate
+ * error messages.
+ *
+ * @param asyncResp Async response object to populate with error result
+ * @param status Operation status string from async operation
+ * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
+ * @param actionName Name of the DOT action (e.g., "Install", "CAKBypass")
+ */
+inline void handleDOTErrorResult(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& status, const DOTResultType* resultPtr,
+    const std::string& actionName)
+{
+    std::string errorMsg;
+    if (resultPtr != nullptr)
+    {
+        if (const auto* errPtr = std::get_if<DOTErrorType>(resultPtr))
+        {
+            const auto& [errorCode, errorMessage] = *errPtr;
+            errorMsg = errorMessage;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR(
+                "DOT {} failed with status {} but error data format is unexpected",
+                actionName, status);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+    }
+    if (status == nvidia_async_operation_utils::asyncStatusValueInvalidArgument)
+    {
+        BMCWEB_LOG_ERROR("DOT {} invalid argument: {}", actionName, errorMsg);
+        messages::actionParameterValueError(
+            asyncResp->res, nlohmann::json(errorMsg), actionName);
+        return;
+    }
+    if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)
+    {
+        BMCWEB_LOG_ERROR("DOT {} service unavailable: {}", actionName,
+                         errorMsg);
+        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
+        return;
+    }
+    if (status ==
+        nvidia_async_operation_utils::asyncStatusValueUnsupportedRequest)
+    {
+        BMCWEB_LOG_ERROR("DOT {} unsupported by device: {}", actionName,
+                         errorMsg);
+        messages::actionNotSupported(asyncResp->res, actionName);
+        return;
+    }
+    if (errorMsg.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT {} failed with status {} but no error data",
+                         actionName, status);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_ERROR("DOT {} failed: {}", actionName, errorMsg);
+    messages::dotActionResponseError(asyncResp->res, errorMsg);
+}
+
+/**
+ * @brief Common helper for DOT service discovery
+ *
+ * Processes the D-Bus discovery response to find the matching DOT service
+ * and path for a given component ID. Handles error cases and returns the
+ * service and path if found.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param actionName Name of the action for logging purposes
+ * @param ec Error code from D-Bus discovery operation
+ * @param resp D-Bus subtree response containing discovered DOT objects
+ * @return Optional pair of (dotService, path) if found, nullopt if error
+ */
+inline std::optional<std::pair<std::string, std::string>> findDOTServiceAndPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& actionName,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DOT {}: GetSubTree error: {}", actionName,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return std::nullopt;
+    }
+
+    auto matchResult = dot_utils::findMatchingDOTComponent(componentId, resp);
+    if (!matchResult)
+    {
+        BMCWEB_LOG_ERROR("DOT {}: No matching component found for: {}",
+                         actionName, componentId);
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return std::nullopt;
+    }
+
+    const auto& [path, serviceMap] = *matchResult;
+    BMCWEB_LOG_DEBUG("DOT {}: Found matching component: {} for componentId: {}",
+                     actionName, path, componentId);
+
+    if (serviceMap.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT {}: No service found for matched path: {}",
+                         actionName, path);
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return std::nullopt;
+    }
+
+    const std::string& dotService = serviceMap[0].first;
+    BMCWEB_LOG_DEBUG("DOT {}: Found service '{}' at path '{}'", actionName,
+                     dotService, path);
+
+    return std::make_pair(dotService, path);
+}
 
 /**
  * @brief Sets up ActionInfo JSON response for DOT operations
@@ -204,6 +335,142 @@ inline void handleDOTActionInfo(
 }
 
 /**
+ * @brief Helper function for Lock/CAKRotate success handling (returns DOT data)
+ *
+ * Extracts DOTData from DOTResultType variant and encodes it as base64.
+ *
+ * @param asyncResp Async response object
+ * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
+ */
+inline void handleDOTDataSuccess(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const DOTResultType* resultPtr)
+{
+    if (resultPtr == nullptr)
+    {
+        BMCWEB_LOG_ERROR("DOT operation: Success but no result data");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const DOTData* dotDataPtr = std::get_if<DOTData>(resultPtr);
+    if (dotDataPtr == nullptr)
+    {
+        BMCWEB_LOG_ERROR("DOT operation: Result data is not DOTData");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::string base64Data = crow::utility::base64encode(
+        std::string(dotDataPtr->begin(), dotDataPtr->end()));
+    asyncResp->res.jsonValue["DOTData"] = base64Data;
+    BMCWEB_LOG_DEBUG(
+        "DOT operation: Returning DOT data (byte array converted to base64)");
+    asyncResp->res.result(boost::beast::http::status::ok);
+}
+
+/**
+ * @brief Helper function for UnlockChallenge success handling (returns
+ * challenge)
+ *
+ * @param asyncResp Async response object
+ * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
+ */
+inline void handleDOTUnlockChallengeSuccess(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const DOTResultType* resultPtr)
+{
+    if (resultPtr == nullptr)
+    {
+        BMCWEB_LOG_ERROR("DOT UnlockChallenge: Success but no result data");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const std::vector<uint8_t>* challengeBytes =
+        std::get_if<std::vector<uint8_t>>(resultPtr);
+    if (challengeBytes == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "DOT UnlockChallenge: Result data is not a byte array");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::string hexChallenge = bytesToHexString(*challengeBytes);
+    asyncResp->res.jsonValue["Challenge"] = hexChallenge;
+    asyncResp->res.result(boost::beast::http::status::ok);
+}
+
+/**
+ * @brief Helper function for GetInfo success handling (returns structured data)
+ *
+ * @param asyncResp Async response object
+ * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
+ */
+inline void handleDOTGetInfoSuccess(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const DOTResultType* resultPtr)
+{
+    if (resultPtr == nullptr)
+    {
+        BMCWEB_LOG_ERROR("DOT GetInfo: Success but no result data");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const DOTGetInfoStruct* dotInfo = std::get_if<DOTGetInfoStruct>(resultPtr);
+    if (dotInfo == nullptr)
+    {
+        BMCWEB_LOG_ERROR("DOT GetInfo: Result data is not a DotGetInfoStruct");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const auto& [version, fuseState, transfers, dotData] = *dotInfo;
+
+    asyncResp->res.jsonValue["DOTVersion"] = static_cast<int64_t>(version);
+    asyncResp->res.jsonValue["FuseChangeState"] =
+        dot_utils::dotFuseChangeStateToString(fuseState);
+    asyncResp->res.jsonValue["TransfersRemaining"] =
+        static_cast<int64_t>(transfers);
+    std::string base64Data = crow::utility::base64encode(
+        std::string(dotData.begin(), dotData.end()));
+    asyncResp->res.jsonValue["DOTData"] = base64Data;
+    asyncResp->res.result(boost::beast::http::status::ok);
+}
+
+/**
+ * @brief Reads DOTState property from D-Bus and sets it in the response
+ *
+ * Reads the DOTState property from the com.nvidia.Dot.Action interface
+ * and converts it to Redfish format.
+ *
+ * @param asyncResp Async response object to populate with DOTState
+ * @param service D-Bus service name providing the DOT interface
+ * @param path D-Bus object path for the DOT component
+ */
+inline void getDOTState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& service, const std::string& path)
+{
+    dbus::utility::getProperty<std::string>(
+        service, path, std::string(dot::dotActionIntf), "DOTState",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& dotState) {
+            if (ec)
+            {
+                if (ec == boost::system::errc::host_unreachable)
+                {
+                    BMCWEB_LOG_DEBUG("DOTState service not available {}", ec);
+                    return;
+                }
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["DOTState"] =
+                dot_utils::convertDOTStateToRedfish(dotState);
+        });
+}
+
+/**
  * @brief Processes DOT resource discovery results
  *
  * Callback invoked after D-Bus discovery for DOT resources. Validates that
@@ -254,7 +521,11 @@ inline void afterDOTResourceDiscovery(
     asyncResp->res.jsonValue["Name"] = std::format(
         "{} TrustedComponents {} Oem Nvidia DOT", chassisId, componentId);
 
-    asyncResp->res.jsonValue["DOTState"] = "Uninitialized";
+    if (!serviceMap.empty())
+    {
+        const std::string& dotService = serviceMap[0].first;
+        getDOTState(asyncResp, dotService, path);
+    }
 
     asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.Install"]
                             ["@Redfish.ActionInfo"] = boost::urls::format(
@@ -742,17 +1013,17 @@ inline void handleDOTRecoveryActionInfo(
  * @param defaultAuthScheme Default authentication scheme if not provided
  * @return true if parsing succeeded, false otherwise
  */
-inline bool parseKeyStructure(const std::optional<nlohmann::json>& keyJsonOpt,
-                              const std::string& keyName, crow::Response& res,
-                              std::string& authScheme, std::string& ecdsaKey,
-                              std::string& lmsKey, bool isRequired = true,
-                              const std::string& defaultAuthScheme = "Ecdsa")
+inline bool parseKeyStructure(
+    const std::optional<nlohmann::json>& keyJsonOpt, const std::string& keyName,
+    crow::Response& res, std::string& authScheme, std::string& ecdsaKey,
+    std::string& lmsKey, const std::string& actionName, bool isRequired = true,
+    const std::string& defaultAuthScheme = "Ecdsa")
 {
     if (!keyJsonOpt)
     {
         if (isRequired)
         {
-            messages::actionParameterMissing(res, "Action", keyName);
+            messages::actionParameterMissing(res, actionName, keyName);
             return false;
         }
         authScheme = defaultAuthScheme;
@@ -765,7 +1036,7 @@ inline bool parseKeyStructure(const std::optional<nlohmann::json>& keyJsonOpt,
 
     if (!keyJson.is_object())
     {
-        messages::actionParameterValueTypeError(res, keyJson.dump(), "Action",
+        messages::actionParameterValueTypeError(res, keyJson.dump(), actionName,
                                                 keyName);
         return false;
     }
@@ -789,93 +1060,174 @@ inline bool parseKeyStructure(const std::optional<nlohmann::json>& keyJsonOpt,
     if (authScheme != "Ecdsa" && authScheme != "Hybrid")
     {
         messages::actionParameterValueNotInList(
-            res, "Action", "AuthenticationScheme", authScheme);
+            res, actionName, keyName + "/AuthenticationScheme", authScheme);
         return false;
     }
 
     if (authScheme == "Hybrid" && lmsKey.empty())
     {
-        messages::actionParameterMissing(res, "Action", keyName + "/LMSKey");
+        messages::actionParameterMissing(res, actionName, keyName + "/LMSKey");
         return false;
     }
     return true;
 }
 
 /**
- * @brief Handle DOT operation error result
+ * @brief Process DOT service discovery for CAK Bypass operation
  *
- * Generic error handler that processes DOT async operation error results,
- * mapping operation status values to appropriate HTTP error responses.
- * Extracts error information from the variant and handles InvalidArgument,
- * Unavailable, UnsupportedRequest, and generic error cases with appropriate
- * error messages.
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * component exists and supports DOT operations, then initiates the CAK Bypass
+ * operation via D-Bus.
  *
- * @param asyncResp Async response object to populate with error result
- * @param status Operation status string from async operation
- * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
- * @param actionName Name of the DOT action (e.g., "Install", "CAKBypass")
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
  */
-inline void handleDOTErrorResult(
+inline void afterDOTCAKBypassServiceDiscovery(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& status, const DOTResultType* resultPtr,
-    const std::string& actionName)
+    const std::string& componentId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
 {
-    std::string errorMsg;
-    if (resultPtr != nullptr)
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "CAKBypass", ec, resp);
+    if (!servicePath.has_value())
     {
-        if (const auto* errPtr = std::get_if<DOTErrorType>(resultPtr))
-        {
-            const auto& [errorCode, errorMessage] = *errPtr;
-            errorMsg = errorMessage;
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR(
-                "DOT {} failed with status {} but error data format is unexpected",
-                actionName, status);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    }
-    if (status == nvidia_async_operation_utils::asyncStatusValueInvalidArgument)
-    {
-        BMCWEB_LOG_ERROR("DOT {} invalid argument: {}", actionName, errorMsg);
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(errorMsg), actionName);
         return;
     }
-    if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKBypass: Calling Bypass on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "Bypass",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT CAKBypass succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr, "CAKBypass");
+        });
+}
+
+/**
+ * @brief Process DOT service discovery for CAKRotate operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * component exists and supports DOT operations, then initiates the CAKRotate
+ * operation via D-Bus with the provided CAK key fields and signature fields.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param cakKeyAuthScheme CAK key authentication scheme (Ecdsa or Hybrid)
+ * @param cakEcdsaKey CAK ECDSA key data
+ * @param cakLmsKey CAK LMS key data
+ * @param signatureAuthScheme Signature authentication scheme (Ecdsa or Hybrid)
+ * @param ecdsaSignature ECDSA signature data
+ * @param lmsSignature LMS signature data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTCAKRotateServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& cakKeyAuthEnum,
+    const std::string& cakEcdsaKey, const std::string& cakLmsKey,
+    const std::string& signatureAuthEnum, const std::string& ecdsaSignature,
+    const std::string& lmsSignature, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "CAKRotate", ec, resp);
+    if (!servicePath.has_value())
     {
-        BMCWEB_LOG_ERROR("DOT {} service unavailable: {}", actionName,
-                         errorMsg);
-        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
         return;
     }
-    if (status ==
-        nvidia_async_operation_utils::asyncStatusValueUnsupportedRequest)
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKRotate: Calling CAKRotate on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "CAKRotate",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT CAKRotate succeeded");
+                handleDOTDataSuccess(asyncResp, resultPtr);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.CAKRotate");
+        },
+        cakKeyAuthEnum, cakEcdsaKey, cakLmsKey, signatureAuthEnum,
+        ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Process DOT service discovery for GetInfo operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the GetInfo operation via dot_async.
+ *
+ * @param asyncResp Async response object to populate
+ * @param componentId Component ID from the URI
+ * @param ec Error code from getSubTree operation
+ * @param subtree D-Bus mapper subtree result containing service information
+ */
+inline void afterDOTGetInfoServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "GetInfo", ec, subtree);
+    if (!servicePath.has_value())
     {
-        BMCWEB_LOG_ERROR("DOT {} unsupported by device: {}", actionName,
-                         errorMsg);
-        messages::actionNotSupported(asyncResp->res, actionName);
         return;
     }
-    if (errorMsg.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT {} failed with status {} but no error data",
-                         actionName, status);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    BMCWEB_LOG_ERROR("DOT {} failed: {}", actionName, errorMsg);
-    messages::dotActionResponseError(asyncResp->res, errorMsg);
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT GetInfo: Calling GetInfo on service '{}' at path '{}'", dotService,
+        path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "GetInfo",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT GetInfo succeeded");
+                handleDOTGetInfoSuccess(asyncResp, resultPtr);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.GetInfo");
+        });
 }
 
 /**
  * @brief Process DOT service discovery for Install operation
  *
  * Callback invoked after DBus discovery for DOT services. Validates that the
- * component exists and supports DOT operations, then initiates the CAK Install
- * operation via D-Bus with the provided key data.
+ * component exists and supports DOT operations, then initiates the Install
+ * operation via D-Bus with the provided CAK and LAK key fields.
  *
  * @param asyncResp Async response object for error reporting
  * @param componentId The trusted component identifier
@@ -892,58 +1244,21 @@ inline void handleDOTErrorResult(
  */
 inline void afterDOTCAKInstallServiceDiscovery(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& componentId, const std::string& cakAuthScheme,
+    const std::string& componentId, const std::string& cakAuthEnum,
     const std::string& cakEcdsaKey, const std::string& cakLmsKey,
-    const std::string& lakAuthScheme, const std::string& lakEcdsaKey,
+    const std::string& lakAuthEnum, const std::string& lakEcdsaKey,
     const std::string& lakLmsKey, bool lockDisable, uint32_t minSvn,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& resp)
 {
-    if (ec)
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Install", ec, resp);
+    if (!servicePath.has_value())
     {
-        BMCWEB_LOG_ERROR("GetSubTree error: {}", ec.message());
-        messages::internalError(asyncResp->res);
         return;
     }
 
-    auto matchResult = dot_utils::findMatchingDOTComponent(componentId, resp);
-    if (!matchResult)
-    {
-        BMCWEB_LOG_ERROR("No matching DOT component found for: {}",
-                         componentId);
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    const auto& [path, serviceMap] = *matchResult;
-    BMCWEB_LOG_DEBUG("Found matching DOT component: {} for componentId: {}",
-                     path, componentId);
-
-    if (serviceMap.empty())
-    {
-        BMCWEB_LOG_ERROR("No service for DOT path: {}", path);
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    const std::string& dotService = serviceMap[0].first;
-    BMCWEB_LOG_DEBUG("Found DOT service: {} at path: {}", dotService, path);
-
-    std::string cakAuthEnum =
-        dot_utils::convertAuthSchemeToDbusEnum(cakAuthScheme);
-    std::string lakAuthEnum =
-        dot_utils::convertAuthSchemeToDbusEnum(lakAuthScheme);
-
-    if (cakAuthEnum.empty() || lakAuthEnum.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Install: Invalid authentication scheme");
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json("Invalid authentication scheme"),
-            "Install");
-        return;
-    }
+    const auto& [dotService, path] = *servicePath;
 
     nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
         DOTResultType>(
@@ -961,6 +1276,346 @@ inline void afterDOTCAKInstallServiceDiscovery(
         },
         cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
         lakLmsKey, lockDisable, minSvn);
+}
+
+/**
+ * @brief Process DOT service discovery for Lock operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * component exists and supports DOT operations, then initiates the Lock
+ * operation via the DotCommandHandler with the provided key and signature data.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param cakAuthScheme CAK authentication scheme (Ecdsa or Hybrid)
+ * @param cakEcdsaKey CAK ECDSA key data
+ * @param cakLmsKey CAK LMS key data
+ * @param lakAuthScheme LAK authentication scheme (Ecdsa or Hybrid)
+ * @param lakEcdsaKey LAK ECDSA key data
+ * @param lakLmsKey LAK LMS key data
+ * @param nonceType Nonce type for unlock challenge
+ * @param staticChallenge Static challenge value
+ * @param lockSigAuthScheme Lock signature authentication scheme
+ * @param ecdsaSignature ECDSA signature data
+ * @param lmsSignature LMS signature data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTLockServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& cakAuthEnum,
+    const std::string& cakEcdsaKey, const std::string& cakLmsKey,
+    const std::string& lakAuthEnum, const std::string& lakEcdsaKey,
+    const std::string& lakLmsKey, const std::string& nonceTypeEnum,
+    const std::string& staticChallenge, const std::string& lockSigAuthEnum,
+    const std::string& ecdsaSignature, const std::string& lmsSignature,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Lock", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG("DOT Lock: Calling Lock on service '{}' at path '{}'",
+                     dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "Lock",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Lock succeeded");
+                handleDOTDataSuccess(asyncResp, resultPtr);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.Lock");
+        },
+        cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
+        lakLmsKey, nonceTypeEnum, staticChallenge, lockSigAuthEnum,
+        ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Process DOT service discovery for UnlockChallenge operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * component exists and supports DOT operations, then initiates the
+ * UnlockChallenge operation via the DotCommandHandler.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param unlockType Unlock type (OwnerUnlock or VendorUnlock)
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTUnlockChallengeServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& unlockTypeEnum,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath = findDOTServiceAndPath(asyncResp, componentId,
+                                             "UnlockChallenge", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT UnlockChallenge: Calling UnlockChallenge on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "UnlockChallenge",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT UnlockChallenge succeeded");
+                handleDOTUnlockChallengeSuccess(asyncResp, resultPtr);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.UnlockChallenge");
+        },
+        unlockTypeEnum);
+}
+
+/**
+ * @brief Process DOT service discovery for Unlock operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the Unlock operation via dot_async.
+ *
+ * @param asyncResp Async response object to populate
+ * @param componentId Component ID from the URI
+ * @param lakSigAuthScheme LAK signature authentication scheme
+ * @param ecdsaSignature ECDSA signature
+ * @param lmsSignature LMS signature
+ * @param ec Error code from getSubTree operation
+ * @param subtree D-Bus mapper subtree result containing service information
+ */
+inline void afterDOTUnlockServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& lakSigAuthEnum,
+    const std::string& ecdsaSignature, const std::string& lmsSignature,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Unlock", ec, subtree);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG("DOT Unlock: Calling Unlock on service '{}' at path '{}'",
+                     dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "Unlock",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Unlock succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.Unlock");
+        },
+        lakSigAuthEnum, ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Parse and validate signature structure from JSON request
+ *
+ * Extracts and validates authentication scheme, ECDSA signature, and LMS
+ * signature from a JSON signature structure object. Validates authentication
+ * scheme values and ensures required fields are present.
+ *
+ * @param sigJson JSON object containing signature structure
+ * @param sigName Name of the signature (for error messages)
+ * @param res Response object for error reporting
+ * @param authScheme Output: Authentication scheme (Ecdsa or Hybrid)
+ * @param ecdsaSignature Output: ECDSA signature data
+ * @param lmsSignature Output: LMS signature data (required for Hybrid scheme)
+ * @param actionName Name of the action (for error messages)
+ * @return true if parsing succeeded, false otherwise
+ */
+inline bool parseSignatureStructure(
+    nlohmann::json& sigJson, const std::string& sigName, crow::Response& res,
+    std::string& authScheme, std::string& ecdsaSignature,
+    std::string& lmsSignature, const std::string& actionName)
+{
+    if (!sigJson.is_object())
+    {
+        messages::actionParameterValueTypeError(res, sigJson.dump(), actionName,
+                                                sigName);
+        return false;
+    }
+
+    std::optional<std::string> lmsSigOpt;
+    if (!redfish::json_util::readJson(
+            sigJson, res, "AuthenticationScheme", authScheme, "ECDSASignature",
+            ecdsaSignature, "LMSSignature", lmsSigOpt))
+    {
+        return false;
+    }
+
+    lmsSignature = lmsSigOpt.value_or("");
+    if (authScheme == "ECDSA")
+    {
+        authScheme = "Ecdsa";
+    }
+
+    if (authScheme != "Ecdsa" && authScheme != "Hybrid")
+    {
+        messages::actionParameterValueNotInList(
+            res, actionName, sigName + "/AuthenticationScheme", authScheme);
+        return false;
+    }
+
+    if (authScheme == "Hybrid" && lmsSignature.empty())
+    {
+        messages::actionParameterMissing(res, actionName,
+                                         sigName + "/LMSSignature");
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Process chassis validation and parse CAKRotate action parameters
+ *
+ * Callback invoked after chassis validation for DOT CAKRotate action. Parses
+ * and validates the request JSON body including NewCAKKey (KeyStructure) and
+ * LAKSignature (SignatureStructure), extracts individual fields, then initiates
+ * DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTCAKRotate(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT CAKRotate: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    nlohmann::json newCAKKey;
+    nlohmann::json lakSignature;
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "NewCAKKey", newCAKKey,
+                                   "LAKSignature", lakSignature))
+    {
+        return;
+    }
+
+    std::string cakKeyAuthScheme;
+    std::string cakEcdsaKey;
+    std::string cakLmsKey;
+    if (!parseKeyStructure(newCAKKey, "NewCAKKey", asyncResp->res,
+                           cakKeyAuthScheme, cakEcdsaKey, cakLmsKey,
+                           "NvidiaDOT.CAKRotate", true))
+    {
+        return;
+    }
+
+    std::string signatureAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(lakSignature, "LAKSignature", asyncResp->res,
+                                 signatureAuthScheme, ecdsaSignature,
+                                 lmsSignature, "NvidiaDOT.CAKRotate"))
+    {
+        return;
+    }
+
+    std::string cakKeyAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(cakKeyAuthScheme);
+    std::string signatureAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(signatureAuthScheme);
+
+    if (cakKeyAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.CAKRotate",
+            "NewCAKKey/AuthenticationScheme", cakKeyAuthScheme);
+        return;
+    }
+
+    if (signatureAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.CAKRotate",
+            "LAKSignature/AuthenticationScheme", signatureAuthScheme);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, interfaces,
+        std::bind_front(afterDOTCAKRotateServiceDiscovery, asyncResp,
+                        componentId, cakKeyAuthEnum, cakEcdsaKey, cakLmsKey,
+                        signatureAuthEnum, ecdsaSignature, lmsSignature));
+}
+
+/**
+ * @brief Process chassis validation for GetInfo action
+ *
+ * Callback invoked after chassis validation for DOT GetInfo action.
+ * Initiates DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTGetInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT GetInfo: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree("/xyz/openbmc_project", 0, interfaces,
+                              std::bind_front(afterDOTGetInfoServiceDiscovery,
+                                              asyncResp, componentId));
 }
 
 /**
@@ -1008,7 +1663,7 @@ inline void afterChassisValidationForDOTInstall(
     std::string cakEcdsaKey;
     std::string cakLmsKey;
     if (!parseKeyStructure(cakKeyOpt, "CAKKey", asyncResp->res, cakAuthScheme,
-                           cakEcdsaKey, cakLmsKey, true))
+                           cakEcdsaKey, cakLmsKey, "Install", true))
     {
         return;
     }
@@ -1017,8 +1672,29 @@ inline void afterChassisValidationForDOTInstall(
     std::string lakEcdsaKey;
     std::string lakLmsKey;
     if (!parseKeyStructure(lakKeyOpt, "LAKKey", asyncResp->res, lakAuthScheme,
-                           lakEcdsaKey, lakLmsKey, false))
+                           lakEcdsaKey, lakLmsKey, "Install", false))
     {
+        return;
+    }
+
+    std::string cakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(cakAuthScheme);
+    std::string lakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakAuthScheme);
+
+    if (cakAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "Install", "CAKKey/AuthenticationScheme",
+            cakAuthScheme);
+        return;
+    }
+
+    if (lakAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "Install", "LAKKey/AuthenticationScheme",
+            lakAuthScheme);
         return;
     }
 
@@ -1027,9 +1703,133 @@ inline void afterChassisValidationForDOTInstall(
         "/xyz/openbmc_project", 0, interfaces,
         std::bind_front(
             afterDOTCAKInstallServiceDiscovery, asyncResp, componentId,
-            cakAuthScheme, cakEcdsaKey, cakLmsKey, lakAuthScheme, lakEcdsaKey,
+            cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
             lakLmsKey, lockDisableOpt.value_or(false),
             static_cast<uint32_t>(minSecurityVersionOpt.value_or(0))));
+}
+
+/**
+ * @brief Handle DOT CAK Bypass action request
+ *
+ * Entry point for DOT CAK Bypass action endpoint. Validates the request,
+ * chassis, and component before initiating the bypass operation that skips
+ * CAK authentication requirements.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTCAKBypassAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKBypass action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT CAKBypass: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationWithDOTDiscovery, asyncResp,
+                        chassisId, componentId,
+                        std::bind_front(afterDOTCAKBypassServiceDiscovery,
+                                        asyncResp, componentId)));
+}
+
+/**
+ * @brief Handle DOT CAKRotate action request
+ *
+ * Entry point for DOT CAKRotate action endpoint. Validates the request,
+ * chassis, and component before processing the CAKRotate operation that
+ * rotates the locked CAK without causing a DOT FUSE State change.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTCAKRotateAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKRotate action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT CAKRotate: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTCAKRotate, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
+ * @brief Handle DOT GetInfo action request
+ *
+ * Entry point for DOT GetInfo action endpoint. Validates the request,
+ * chassis, and component before processing the GetInfo operation.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTGetInfoAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT GetInfo action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT GetInfo: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTGetInfo, asyncResp,
+                        chassisId, componentId));
 }
 
 /**
@@ -1075,92 +1875,251 @@ inline void handleDOTInstallAction(
 }
 
 /**
- * @brief Process DOT service discovery for CAK Bypass operation
+ * @brief Process chassis validation and parse Lock action parameters
  *
- * Callback invoked after DBus discovery for DOT services. Validates that the
- * component exists and supports DOT operations, then initiates the CAK Bypass
- * operation via D-Bus.
+ * Callback invoked after chassis validation for DOT Lock action. Parses
+ * and validates the request JSON body including CAK key, LAK key, nonce type,
+ * static challenge, and signature, then initiates DOT service discovery.
  *
  * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
  * @param componentId The trusted component identifier
- * @param ec Error code from DBus discovery operation
- * @param resp DBus subtree response containing discovered DOT objects
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
  */
-inline void afterDOTCAKBypassServiceDiscovery(
+inline void afterChassisValidationForDOTLock(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& componentId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& resp)
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
 {
-    if (ec)
+    if (!validChassisPath)
     {
-        BMCWEB_LOG_ERROR("DOT CAKBypass GetSubTree error: {}", ec.message());
-        messages::internalError(asyncResp->res);
+        BMCWEB_LOG_ERROR("DOT Lock: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
 
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass service discovery: componentId='{}', found {} paths",
-        componentId, resp.size());
+    nlohmann::json cakKey;
+    nlohmann::json lakKey;
+    std::string nonceType;
+    std::optional<std::string> staticChallengeOpt;
+    nlohmann::json lakSignature;
 
-    auto matchResult = dot_utils::findMatchingDOTComponent(componentId, resp);
-    if (!matchResult)
+    if (!json_util::readJsonAction(
+            req, asyncResp->res, "CAKKey", cakKey, "LAKKey", lakKey,
+            "NonceType", nonceType, "StaticChallenge", staticChallengeOpt,
+            "LAKSignature", lakSignature))
     {
-        BMCWEB_LOG_ERROR("DOT CAKBypass: No matching component found for: {}",
-                         componentId);
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
         return;
     }
 
-    const auto& [path, serviceMap] = *matchResult;
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass found matching component: {} for componentId: {}", path,
-        componentId);
-
-    if (serviceMap.empty())
+    std::string cakAuthScheme;
+    std::string cakEcdsaKey;
+    std::string cakLmsKey;
+    if (!parseKeyStructure(cakKey, "CAKKey", asyncResp->res, cakAuthScheme,
+                           cakEcdsaKey, cakLmsKey, "NvidiaDOT.Lock", true))
     {
-        BMCWEB_LOG_ERROR("DOT CAKBypass: No service found for matched path: {}",
-                         path);
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
         return;
     }
 
-    const std::string& dotService = serviceMap[0].first;
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass: Calling Bypass on service '{}' at path '{}'",
-        dotService, path);
+    std::string lakAuthScheme;
+    std::string lakEcdsaKey;
+    std::string lakLmsKey;
+    if (!parseKeyStructure(lakKey, "LAKKey", asyncResp->res, lakAuthScheme,
+                           lakEcdsaKey, lakLmsKey, "NvidiaDOT.Lock", true))
+    {
+        return;
+    }
+    if (nonceType != "DeviceUniqueIdentifier" && nonceType != "RandomNonce" &&
+        nonceType != "StaticValue")
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Lock", "NonceType", nonceType);
+        return;
+    }
 
-    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
-        DOTResultType>(
-        asyncResp, std::chrono::seconds(60), dotService, path,
-        std::string(dot::dotActionIntf), "Bypass",
-        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
-            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
-            {
-                BMCWEB_LOG_DEBUG("DOT CAKBypass succeeded");
-                messages::success(asyncResp->res);
-                return;
-            }
+    if (nonceType == "StaticValue" && !staticChallengeOpt)
+    {
+        messages::actionParameterMissing(asyncResp->res, "NvidiaDOT.Lock",
+                                         "StaticChallenge");
+        return;
+    }
 
-            handleDOTErrorResult(asyncResp, status, resultPtr, "CAKBypass");
-        });
+    std::string staticChallenge = staticChallengeOpt.value_or("");
+
+    std::string lockSigAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(lakSignature, "LAKSignature", asyncResp->res,
+                                 lockSigAuthScheme, ecdsaSignature,
+                                 lmsSignature, "NvidiaDOT.Lock"))
+    {
+        return;
+    }
+
+    std::string cakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(cakAuthScheme);
+    std::string lakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakAuthScheme);
+    std::string lockSigAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lockSigAuthScheme);
+    std::string nonceTypeEnum =
+        dot_utils::convertNonceTypeToDbusEnum(nonceType);
+
+    if (cakAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Lock", "CAKKey/AuthenticationScheme",
+            cakAuthScheme);
+        return;
+    }
+
+    if (lakAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Lock", "LAKKey/AuthenticationScheme",
+            lakAuthScheme);
+        return;
+    }
+
+    if (lockSigAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Lock",
+            "LAKSignature/AuthenticationScheme", lockSigAuthScheme);
+        return;
+    }
+
+    if (nonceTypeEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Lock", "NonceType", nonceType);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, interfaces,
+        std::bind_front(afterDOTLockServiceDiscovery, asyncResp, componentId,
+                        cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum,
+                        lakEcdsaKey, lakLmsKey, nonceTypeEnum, staticChallenge,
+                        lockSigAuthEnum, ecdsaSignature, lmsSignature));
 }
 
 /**
- * @brief Handle DOT CAK Bypass action request
+ * @brief Handle DOT Lock action request
  *
- * Entry point for DOT CAK Bypass action endpoint. Validates the request,
- * chassis, and component before initiating the bypass operation that skips
- * CAK authentication requirements.
+ * Entry point for DOT Lock action endpoint. Validates the request,
+ * chassis, and component before processing the Lock operation that
+ * transitions DOT from volatile state to locked state.
  *
  * @param app Crow application reference
- * @param req HTTP request object
+ * @param req HTTP request object containing action parameters
  * @param asyncResp Async response object for the operation result
  * @param chassisId The chassis identifier from the URI
  * @param componentId The trusted component identifier from the URI
  */
-inline void handleDOTCAKBypassAction(
+inline void handleDOTLockAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("DOT Lock action called - Chassis: '{}', Component: '{}'",
+                     chassisId, componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Lock: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTLock, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
+ * @brief Process chassis validation and parse UnlockChallenge action parameters
+ *
+ * Callback invoked after chassis validation for DOT UnlockChallenge action.
+ * Parses and validates the request JSON body including unlock type, then
+ * initiates DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTUnlockChallenge(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT UnlockChallenge: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    std::string unlockType;
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "UnlockType",
+                                   unlockType))
+    {
+        return;
+    }
+    if (unlockType != "OwnerUnlock" && unlockType != "VendorUnlock")
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
+        return;
+    }
+
+    std::string unlockTypeEnum =
+        dot_utils::convertUnlockTypeToDbusEnum(unlockType);
+
+    if (unlockTypeEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, interfaces,
+        std::bind_front(afterDOTUnlockChallengeServiceDiscovery, asyncResp,
+                        componentId, unlockTypeEnum));
+}
+
+/**
+ * @brief Handle DOT UnlockChallenge action request
+ *
+ * Entry point for DOT UnlockChallenge action endpoint. Validates the request,
+ * chassis, and component before processing the UnlockChallenge operation that
+ * generates a challenge for subsequent Unlock or Override operations.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTUnlockChallengeAction(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
@@ -1171,12 +2130,12 @@ inline void handleDOTCAKBypassAction(
     }
 
     BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass action called - Chassis: '{}', Component: '{}'",
+        "DOT UnlockChallenge action called - Chassis: '{}', Component: '{}'",
         chassisId, componentId);
 
     if (componentId.empty())
     {
-        BMCWEB_LOG_ERROR("DOT CAKBypass: componentId is empty");
+        BMCWEB_LOG_ERROR("DOT UnlockChallenge: componentId is empty");
         messages::resourceNotFound(asyncResp->res, "TrustedComponent",
                                    componentId);
         return;
@@ -1184,10 +2143,111 @@ inline void handleDOTCAKBypassAction(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        std::bind_front(afterChassisValidationWithDOTDiscovery, asyncResp,
-                        chassisId, componentId,
-                        std::bind_front(afterDOTCAKBypassServiceDiscovery,
-                                        asyncResp, componentId)));
+        std::bind_front(afterChassisValidationForDOTUnlockChallenge, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
+ * @brief Process chassis validation and parse Unlock action parameters
+ *
+ * Callback invoked after chassis validation for DOT Unlock action. Parses
+ * and validates the request JSON body including LAK signature, then initiates
+ * DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTUnlock(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT Unlock: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    nlohmann::json lakSigJson;
+    if (!redfish::json_util::readJsonAction(req, asyncResp->res, "LAKSignature",
+                                            lakSigJson))
+    {
+        return;
+    }
+
+    std::string lakSigAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(lakSigJson, "LAKSignature", asyncResp->res,
+                                 lakSigAuthScheme, ecdsaSignature, lmsSignature,
+                                 "NvidiaDOT.Unlock"))
+    {
+        return;
+    }
+
+    std::string lakSigAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakSigAuthScheme);
+
+    if (lakSigAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Unlock",
+            "LAKSignature/AuthenticationScheme", lakSigAuthScheme);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, interfaces,
+        std::bind_front(afterDOTUnlockServiceDiscovery, asyncResp, componentId,
+                        lakSigAuthEnum, ecdsaSignature, lmsSignature));
+}
+
+/**
+ * @brief Handle DOT Unlock action request
+ *
+ * Entry point for DOT Unlock action endpoint. Validates the request,
+ * chassis, and component before processing the Unlock operation that
+ * transitions DOT from locked state to volatile state.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTUnlockAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Unlock action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Unlock: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTUnlock, asyncResp,
+                        std::ref(req), chassisId, componentId));
 }
 
 /**
@@ -1276,6 +2336,41 @@ inline void requestRoutesNvidiaOemDOT(App& app)
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTCAKBypassAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Lock")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTLockAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.CAKRotate")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTCAKRotateAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.UnlockChallenge")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTUnlockChallengeAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Unlock")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTUnlockAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.GetInfo")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTGetInfoAction, std::ref(app)));
 }
 
 } // namespace redfish
