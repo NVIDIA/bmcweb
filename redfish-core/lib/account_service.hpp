@@ -1161,6 +1161,13 @@ inline void afterVerifyUserExists(
             persistent_data::SessionStore::getInstance()
                 .removeSessionsByUsernameExceptSession(params.username,
                                                        params.session);
+            // If no other properties are changed, return no content
+            if (!params.enabled && !params.roleId && !params.locked &&
+                !params.accountTypes)
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
+                return;
+            }
         }
     }
 
