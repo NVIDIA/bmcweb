@@ -17,11 +17,19 @@
 
 #pragma once
 
+#include "error_message_utils.hpp"
+#include "error_messages.hpp"
 #include "logging.hpp"
+#include "nvidia_error_messages.hpp"
+#include "resource_messages.hpp"
+#include "update_messages.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 
+#include <boost/asio/steady_timer.hpp>
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
+#include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/message.hpp>
 
 #include <filesystem>
@@ -32,40 +40,214 @@
 namespace fs = std::filesystem;
 using Json = nlohmann::json;
 
-using Priority = int;
-using MctpMedium = std::string;
-using MctpBinding = std::string;
+namespace redfish
+{
+
+struct ChassisObjectSoftwarePath
+{
+    std::string chassisName;
+    std::vector<std::string> objectPaths;
+};
+
 using UUID = std::string;
-using EID = uint8_t;
 using URI = std::string;
 
-static const std::unordered_map<MctpMedium, Priority> mediumPriority = {
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.PCIe", 0},
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.USB", 1},
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.SPI", 2},
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.KCS", 3},
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.Serial", 4},
-    {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.SMBus", 5}};
+static constexpr std::string_view chassisInventoryPrefix =
+    "/xyz/openbmc_project/inventory/system/chassis/";
+static constexpr std::string_view imageCopyInterface = "com.nvidia.ImageCopy";
 
-static const std::unordered_map<MctpBinding, Priority> bindingPriority = {
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.PCIe", 0},
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.USB", 1},
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.SPI", 2},
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.KCS", 3},
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.Serial", 4},
-    {"xyz.openbmc_project.MCTP.Binding.BindingTypes.SMBus", 5}};
+/**
+ * @brief Structure to hold the result of a single commit operation
+ */
+struct CommitResult
+{
+    std::vector<std::string> objectPaths;
+    bool success{};
+    std::string message;
+    std::string severity;
+    std::string messageId;
+    std::string resolution;
+};
 
-constexpr const char* mctpObjectPath = "/au/com/codeconstruct/mctp1";
-constexpr const char* mctpCommonUUIDIntf = "xyz.openbmc_project.Common.UUID";
-constexpr const char* mctpMCTPEndpointIntf =
-    "xyz.openbmc_project.MCTP.Endpoint";
-constexpr const char* mctpMCTPBindingIntf = "xyz.openbmc_project.MCTP.Binding";
+/**
+ * @brief Aggregation context for tracking multiple commit image operations
+ *
+ * This class tracks the progress and results of commit image operations
+ * across multiple chassis. It uses the shared_ptr lifecycle pattern to ensure
+ * the HTTP response is finalized only after all asynchronous operations
+ * complete.
+ *
+ * The destructor finalizes the response when the last shared_ptr reference
+ * is released, which occurs when all async callbacks have completed.
+ */
+class CommitImageAggregationContext :
+    public std::enable_shared_from_this<CommitImageAggregationContext>
+{
+  public:
+    CommitImageAggregationContext(const CommitImageAggregationContext&) =
+        delete;
+    CommitImageAggregationContext& operator=(
+        const CommitImageAggregationContext&) = delete;
+    CommitImageAggregationContext(CommitImageAggregationContext&&) = delete;
+    CommitImageAggregationContext& operator=(CommitImageAggregationContext&&) =
+        delete;
 
-using UuidToEidMap =
-    std::unordered_map<UUID, std::tuple<EID, Priority, Priority>>;
-using UuidToUriMap = std::unordered_map<UUID, URI>;
-using ResultCallback = std::function<void(UUID, EID, URI)>;
-using ErrorCallback = std::function<void(const std::string, const std::string)>;
+    /**
+     * @brief Constructor
+     *
+     * @param asyncRespIn Shared pointer to the async response object
+     * @param totalOpsIn Total number of operations to track
+     */
+    CommitImageAggregationContext(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        size_t totalOpsIn) : asyncResp(asyncRespIn), totalOperations(totalOpsIn)
+    {
+        results.reserve(totalOperations);
+    }
+
+    /**
+     * @brief Destructor - finalizes the HTTP response
+     *
+     * Called when the last shared_ptr reference is released (after all
+     * async operations complete). Aggregates all results and sets the
+     * appropriate HTTP response status and ExtendedInfo messages.
+     */
+    ~CommitImageAggregationContext()
+    {
+        finalizeResponse();
+    }
+
+    /**
+     * @brief Report the result of a single operation
+     *
+     * This method is called by each async callback when an operation completes.
+     *
+     * @param objectPaths The software object paths associated with this
+     * operation
+     * @param success Whether the operation succeeded
+     * @param errorMessage Error message if operation failed
+     */
+    void reportResult(const std::vector<std::string>& objectPaths, bool success,
+                      const std::string& messageId = "",
+                      const std::string& severity = "",
+                      const std::string& message = "",
+                      const std::string& resolution = "")
+    {
+        CommitResult result;
+        result.objectPaths = objectPaths;
+        result.success = success;
+        result.messageId =
+            messageId.empty() ? "Base.1.16.0.Success" : messageId;
+        result.message = message;
+        result.severity = severity.empty() ? "OK" : severity;
+        result.resolution = resolution.empty() ? "None." : resolution;
+        results.push_back(std::move(result));
+
+        completedOperations++;
+
+        BMCWEB_LOG_DEBUG(
+            "CommitImage: Operation completed ({}/{}), success={}, paths={}",
+            completedOperations, totalOperations, success, objectPaths.size());
+    }
+
+  private:
+    /**
+     * @brief Finalize the HTTP response after all operations complete
+     *
+     * Sets the appropriate HTTP status code and creates detailed
+     * ExtendedInfo messages for each operation.
+     */
+    void finalizeResponse()
+    {
+        BMCWEB_LOG_DEBUG("CommitImage: Finalizing response for {} operations",
+                         totalOperations);
+
+        size_t successCount = 0;
+        size_t failureCount = 0;
+
+        for (const auto& result : results)
+        {
+            if (result.success)
+            {
+                successCount++;
+            }
+            else
+            {
+                failureCount++;
+            }
+        }
+
+        nlohmann::json& extendedInfo =
+            asyncResp->res.jsonValue["@Message.ExtendedInfo"];
+
+        if (extendedInfo.is_null())
+        {
+            extendedInfo = nlohmann::json::array();
+        }
+
+        for (const auto& result : results)
+        {
+            // Skip successful results - we'll add one standard success message
+            if (result.success)
+            {
+                continue;
+            }
+
+            // Build firmware inventory paths from the D-Bus object paths
+            std::vector<std::string> firmwareInventoryPaths;
+            firmwareInventoryPaths.reserve(result.objectPaths.size());
+            for (const auto& pathStr : result.objectPaths)
+            {
+                firmwareInventoryPaths.push_back(
+                    "/redfish/v1/UpdateService/FirmwareInventory/" +
+                    fs::path(pathStr).filename().string());
+            }
+
+            nlohmann::json msg;
+            msg["@odata.type"] = "#Message.v1_1_1.Message";
+            msg["MessageId"] = result.messageId;
+            msg["Severity"] = result.severity;
+            msg["Message"] = result.message;
+            msg["MessageArgs"] = firmwareInventoryPaths;
+            msg["Resolution"] = result.resolution;
+
+            extendedInfo.push_back(std::move(msg));
+        }
+
+        // Add one standard success message if there were any successful results
+        if (successCount > 0)
+        {
+            messages::addMessageToJsonRoot(asyncResp->res.jsonValue,
+                                           messages::success());
+        }
+
+        if (failureCount == 0)
+        {
+            asyncResp->res.result(boost::beast::http::status::ok);
+            BMCWEB_LOG_INFO("CommitImage: All {} operations succeeded",
+                            successCount);
+        }
+        else if (successCount == 0)
+        {
+            asyncResp->res.result(
+                boost::beast::http::status::internal_server_error);
+            BMCWEB_LOG_ERROR("CommitImage: All {} operations failed",
+                             failureCount);
+        }
+        else
+        {
+            asyncResp->res.result(boost::beast::http::status::ok);
+            BMCWEB_LOG_WARNING(
+                "CommitImage: Partial success - {} succeeded, {} failed",
+                successCount, failureCount);
+        }
+    }
+
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    size_t totalOperations;
+    size_t completedOperations{0};
+    std::vector<CommitResult> results;
+};
 
 struct CommitImageValueEntry
 {
@@ -79,6 +261,141 @@ struct CommitImageValueEntry
         return c1.inventoryUri == c2;
     }
 };
+
+/**
+ * @brief Formats ImageCopy error messages into JSON based on error code
+ * Message body varies based on the error code from NSM ImageCopy interface
+ *
+ * @param[in] objectPaths The vector of object paths (last element is used)
+ * @param[in] errorCode The error code string from ImageCopy interface
+ *
+ * @returns Message formatted to JSON with appropriate MessageId, Message,
+ * Severity, and Resolution
+ */
+inline nlohmann::json imageCopyError(
+    const std::vector<std::string>& objectPaths, const std::string& errorCode)
+{
+    std::string messageId;
+    std::string message;
+    std::string severity;
+    std::string resolution;
+
+    std::string firmwareInventoryPaths;
+    if (!objectPaths.empty())
+    {
+        firmwareInventoryPaths = "[";
+        bool first = true;
+        for (const auto& path : objectPaths)
+        {
+            if (!first)
+            {
+                firmwareInventoryPaths += ", ";
+            }
+            first = false;
+            size_t pos = path.rfind('/');
+            std::string objectName;
+            if (pos != std::string::npos)
+            {
+                objectName = path.substr(pos + 1);
+            }
+            else
+            {
+                objectName = path;
+            }
+            firmwareInventoryPaths +=
+                "'/redfish/v1/UpdateService/FirmwareInventory/";
+            firmwareInventoryPaths += objectName;
+            firmwareInventoryPaths += "'";
+        }
+        firmwareInventoryPaths += "]";
+    }
+
+    if (errorCode.find("NoBootComplete") != std::string::npos)
+    {
+        auto msg = redfish::messages::resourceErrorsDetected(
+            firmwareInventoryPaths,
+            "Device has not received boot complete indication");
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] =
+            "Wait for the Device to receive boot complete indication "
+            "before initiating image copy operation.";
+        return msg;
+    }
+    if (errorCode.find("UpdateInProgress") != std::string::npos)
+    {
+        auto msg = redfish::messages::updateInProgress();
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] = "Wait for the current firmware update to complete "
+                            "before initiating a new image copy operation.";
+        return msg;
+    }
+    if (errorCode.find("ImageCopyInProgress") != std::string::npos)
+    {
+        auto msg = redfish::messages::resourceErrorsDetected(
+            firmwareInventoryPaths, "Image copy is already in progress");
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] =
+            "Wait for the current image copy operation to complete "
+            "before initiating a new one.";
+        return msg;
+    }
+    if (errorCode.find("FlashWearMitigation") != std::string::npos)
+    {
+        auto msg = redfish::messages::resourceErrorsDetected(
+            firmwareInventoryPaths,
+            "A flash wear mitigation policy is in effect");
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] =
+            "The flash wear mitigation policy is preventing this "
+            "operation. Wait for the mitigation period to expire.";
+        return msg;
+    }
+    if (errorCode.find("IncompleteComponentSet") != std::string::npos)
+    {
+        auto msg = redfish::messages::resourceErrorsDetected(
+            firmwareInventoryPaths,
+            "Additional components required in the request");
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] =
+            "Include all required components in the image copy request.";
+        return msg;
+    }
+    if (errorCode.find("ImageCopyCompleted") != std::string::npos)
+    {
+        messageId = "Base.1.12.0.Success";
+        message =
+            "Image copy had already been completed successfully for software objects: " +
+            firmwareInventoryPaths;
+        severity = "OK";
+        resolution = "None";
+    }
+    else if (errorCode.find("TimedOut") != std::string::npos)
+    {
+        messageId = "OpenBMC.0.4.1.AsyncError";
+        message = "Async command failed timed out for software objects: " +
+                  firmwareInventoryPaths;
+        severity = "Critical";
+        resolution =
+            "Resubmit the request. If the problem persists, consider resetting the service or provider.";
+    }
+    else
+    {
+        auto msg = redfish::messages::resourceErrorsDetected(
+            firmwareInventoryPaths,
+            "Operation failed with error: " + errorCode);
+        msg["MessageSeverity"] = "Critical";
+        msg["Resolution"] =
+            "Check the error code and system logs for more details.";
+        return msg;
+    }
+
+    return nlohmann::json{{"@odata.type", "#Message.v1_1_1.Message"},
+                          {"MessageId", messageId},
+                          {"Message", message},
+                          {"MessageArgs", {errorCode}},
+                          {"MessageSeverity", severity},
+                          {"Resolution", resolution}};
+}
 
 inline std::vector<CommitImageValueEntry> getAllowableValues()
 {
@@ -128,256 +445,701 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
 }
 
 /**
- * @brief Updates the UUID to EID mapping based on priority and binding rules.
+ * @brief State tracker for asynchronous collection of chassis-to-software path
+ * mappings
  *
- * This function updates the provided `uuidToEidMap` by comparing the current
- * UUID's EID and MediumType priority with any previously stored values.
- * It ensures that the EID with the highest priority (lower value) is retained
- * in the map, based on both MediumType and binding priorities.
- *
- * @param[in] uuid The UUID being processed.
- * @param[in] eid The EID corresponding to the UUID.
- * @param[in] mediumType The MediumType property associated with the UUID.
- * @param[in] bindingType The BindingType property associated with the UUID.
- * @param[in,out] uuidToEidMap A map that stores the UUID-to-EID mappings along
- * with their priority.
+ * This struct maintains the state for the async operation chain initiated by
+ * collectImageCopySoftwarePaths. It tracks pending D-Bus operations and
+ * accumulates the chassis-to-software path mappings.
  */
-inline void updateUuidToEidMapping(
-    const UUID& uuid, EID eid, const std::string& mediumType,
-    const std::string& bindingType, UuidToEidMap& uuidToEidMap)
+struct CollectionState
 {
-    auto mediumPriorityIter = mediumPriority.find(mediumType);
-    Priority currentMediumPriority =
-        (mediumPriorityIter != mediumPriority.end())
-            ? mediumPriorityIter->second
-            : std::numeric_limits<int>::max();
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
 
-    auto bindingPriorityIter = bindingPriority.find(bindingType);
-    Priority currentBindingPriority =
-        (bindingPriorityIter != bindingPriority.end())
-            ? bindingPriorityIter->second
-            : std::numeric_limits<int>::max();
+    std::function<void(const std::map<std::string, std::vector<std::string>>&)>
+        callback;
 
-    auto eidIter = uuidToEidMap.find(uuid);
-    if (eidIter != uuidToEidMap.end())
+    std::map<std::string, std::vector<std::string>> chassisToPathsMap;
+
+    size_t pendingOps = 0;
+
+    /**
+     * @brief Checks if all operations are complete and invokes the callback
+     *
+     * @return void
+     */
+    void checkComplete() const
     {
-        EID prevEid = 0;
-        Priority prevMediumPriority = 0;
-        Priority prevBindingPriority = 0;
-        std::tie(prevEid, prevMediumPriority, prevBindingPriority) =
-            eidIter->second;
-        if (currentMediumPriority < prevMediumPriority)
+        if (pendingOps == 0)
         {
-            uuidToEidMap[uuid] = std::make_tuple(eid, currentMediumPriority,
-                                                 currentBindingPriority);
+            callback(chassisToPathsMap);
         }
-        else if (currentMediumPriority == prevMediumPriority)
+    }
+};
+
+/**
+ * @brief Handles the result of checking if a chassis has ImageCopy interface
+ *
+ * This function is called as a callback after querying D-Bus to determine if
+ * a chassis object implements the com.nvidia.ImageCopy interface. If the
+ * interface is found, the software path is added to the chassis mapping.
+ *
+ * @param state Shared state containing the collection context and results
+ * @param chassisName Name of the chassis being checked
+ * @param softwarePath D-Bus path to the software object
+ * @param assocEndpoint D-Bus path to the associated chassis endpoint
+ * @param errorCode Error code from the D-Bus GetObject call
+ * @param objInfo Map of services and their provided interfaces
+ *
+ * @return void
+ */
+inline void handleImageCopyInterfaceCheck(
+    const std::shared_ptr<CollectionState>& state,
+    const std::string& chassisName, const std::string& softwarePath,
+    const std::string& assocEndpoint,
+    const boost::system::error_code& errorCode,
+    const dbus::utility::MapperGetObject& objInfo)
+{
+    state->pendingOps--;
+
+    if (errorCode)
+    {
+        BMCWEB_LOG_ERROR("D-Bus call failed to get dbus object for {}: {}",
+                         assocEndpoint, errorCode.message());
+        state->checkComplete();
+        return;
+    }
+
+    bool hasImageCopyInterface = false;
+    for (const auto& [service, interfaces] : objInfo)
+    {
+        for (const auto& interface : interfaces)
         {
-            if (currentBindingPriority < prevBindingPriority)
+            if (interface == imageCopyInterface)
             {
-                uuidToEidMap[uuid] = std::make_tuple(eid, currentMediumPriority,
-                                                     currentBindingPriority);
+                hasImageCopyInterface = true;
+                break;
             }
         }
+        if (hasImageCopyInterface)
+        {
+            break;
+        }
     }
-    else
+
+    if (hasImageCopyInterface)
     {
-        uuidToEidMap[uuid] =
-            std::make_tuple(eid, currentMediumPriority, currentBindingPriority);
+        state->chassisToPathsMap[chassisName].push_back(softwarePath);
+        BMCWEB_LOG_DEBUG(
+            "Added mapping - Chassis: {} -> Software: {} (has com.nvidia.ImageCopy)",
+            chassisName, softwarePath);
     }
+
+    state->checkComplete();
 }
 
 /**
- * @brief Retrieves the EID for a UUID from MCTP services.
+ * @brief Handles the result of querying associated_chassis endpoints
  *
- * This function retrieves the mapping between UUIDs and EIDs from MCTP services
- * and invokes a callback function with the corresponding UUID, EID, and URI for
- * each mapped service. The function first fetches all services that provide the
- * MCTP service properties, then for each service, retrieves and analyzes the
- * relevant MCTP UUID, EID, and MediumType properties. The callback function is
- * executed for each UUID that has a corresponding URI in the uuidToUriMap.
+ * This function processes the endpoints from the associated_chassis D-Bus
+ * association. It extracts chassis names from the endpoints and initiates
+ * a check to determine if each chassis supports the ImageCopy interface.
  *
- * @param[in] serviceNames A vector of service names to be processed for
- * retrieving MCTP service properties.
- * @param[in] uuidToUriMap A map containing UUID-to-URI mappings for MCTP
- * services.
- * @param[in] resultCallback A callback function that is called with the UUID,
- * EID, and URI after processing each service.
- * @param[in] errorCallback A callback function that is invoked when an error
- * occurs.
- * @param[in] uuidToEidMap (Optional) A map storing the current UUID-to-EID
- * mappings along with priority, updated as services are analyzed.
+ * @param state Shared state containing the collection context and results
+ * @param softwarePath D-Bus path to the software object
+ * @param ec Error code from the D-Bus getProperty call
+ * @param associatedEndpoints Vector of associated chassis endpoint paths
  *
- * @return
+ * @return void
  */
-inline void retrieveEidFromMctpServiceProperties(
-    const std::vector<std::string>& serviceNames,
-    const std::unordered_map<UUID, URI>& uuidToUriMap,
-    const ResultCallback& resultCallback, const ErrorCallback& errorCallback,
-    const UuidToEidMap& uuidToEidMap = {})
+inline void handleAssociatedChassisEndpoints(
+    const std::shared_ptr<CollectionState>& state,
+    const std::string& softwarePath, const boost::system::error_code& errorCode,
+    const std::vector<std::string>& associatedEndpoints)
 {
-    const std::string& currentServiceName = serviceNames.front();
-    const std::vector<std::string> remainingServices(serviceNames.begin() + 1,
-                                                     serviceNames.end());
-    sdbusplus::message::object_path path(mctpObjectPath);
-    sdbusplus::bus::bus bus = sdbusplus::bus::new_default();
-    dbus::utility::getManagedObjects(
-        currentServiceName, path,
-        [remainingServices, uuidToUriMap, resultCallback, errorCallback,
-         uuidToEidMap](const boost::system::error_code& ec,
-                       const dbus::utility::ManagedObjectType& objects) {
-            if (ec || objects.empty())
+    state->pendingOps--;
+
+    if (errorCode)
+    {
+        BMCWEB_LOG_DEBUG(
+            "D-Bus call failed to get associated_chassis for {}: {}",
+            softwarePath, errorCode.message());
+        state->checkComplete();
+        return;
+    }
+
+    // Extract chassis name from associated_chassis endpoint
+    for (const std::string& assocEndpoint : associatedEndpoints)
+    {
+        if (assocEndpoint.starts_with(chassisInventoryPrefix))
+        {
+            // Extract final chassis name (last segment of path)
+            size_t lastSlashPos = assocEndpoint.rfind('/');
+            if (lastSlashPos != std::string::npos)
             {
-                const std::string errorDesc =
-                    "failed to retrieveEidFromMctpServiceProperties";
-                errorCallback(errorDesc, ec.message());
+                std::string chassisName =
+                    assocEndpoint.substr(lastSlashPos + 1);
 
-                return;
-            }
-
-            std::optional<UUID> uuid;
-            std::optional<EID> eid;
-            std::optional<std::string> mediumType;
-            std::optional<std::string> bindingType;
-
-            UuidToEidMap updatedUuidToEidMap = uuidToEidMap;
-
-            for (const auto& [objectPath, interfaces] : objects)
-            {
-                for (const auto& [interfaceNameStr, properties] : interfaces)
+                if (!chassisName.empty())
                 {
-                    if (interfaceNameStr == mctpCommonUUIDIntf)
-                    {
-                        for (const auto& propertyMap : properties)
-                        {
-                            if (propertyMap.first == "UUID")
-                            {
-                                if (const std::string* uuidPtr =
-                                        std::get_if<std::string>(
-                                            &propertyMap.second))
-                                {
-                                    uuid = *uuidPtr;
-                                }
-                            }
-                        }
-                    }
-                    if (interfaceNameStr == mctpMCTPEndpointIntf)
-                    {
-                        for (const auto& propertyMap : properties)
-                        {
-                            if (propertyMap.first == "EID")
-                            {
-                                if (const uint8_t* eidPtr =
-                                        std::get_if<uint8_t>(
-                                            &propertyMap.second))
-                                {
-                                    eid = *eidPtr;
-                                }
-                            }
-                            if (propertyMap.first == "MediumType")
-                            {
-                                if (const std::string* mediumTypePtr =
-                                        std::get_if<std::string>(
-                                            &propertyMap.second))
-                                {
-                                    mediumType = *mediumTypePtr;
-                                }
-                            }
-                        }
-                    }
-                    if (interfaceNameStr == mctpMCTPBindingIntf)
-                    {
-                        for (const auto& propertyMap : properties)
-                        {
-                            if (propertyMap.first == "BindingType")
-                            {
-                                if (const std::string* bindingTypePtr =
-                                        std::get_if<std::string>(
-                                            &propertyMap.second))
-                                {
-                                    bindingType = *bindingTypePtr;
-                                }
-                            }
-                        }
-                    }
-                }
+                    // Check if chassis implements com.nvidia.ImageCopy
+                    // interface
+                    state->pendingOps++;
 
-                if (uuid && eid && mediumType && bindingType)
-                {
-                    updateUuidToEidMapping(*uuid, *eid, *mediumType,
-                                           *bindingType, updatedUuidToEidMap);
+                    crow::connections::systemBus->async_method_call(
+                        [state, chassisName, softwarePath, assocEndpoint](
+                            const boost::system::error_code& ec,
+                            const dbus::utility::MapperGetObject& objInfo) {
+                            handleImageCopyInterfaceCheck(
+                                state, chassisName, softwarePath, assocEndpoint,
+                                ec, objInfo);
+                        },
+                        "xyz.openbmc_project.ObjectMapper",
+                        "/xyz/openbmc_project/object_mapper",
+                        "xyz.openbmc_project.ObjectMapper", "GetObject",
+                        assocEndpoint, std::array<const char*, 0>());
+
+                    break;
                 }
             }
+        }
+    }
 
-            if (!remainingServices.empty())
-            {
-                retrieveEidFromMctpServiceProperties(
-                    remainingServices, uuidToUriMap, resultCallback,
-                    errorCallback, updatedUuidToEidMap);
-            }
-            else
-            {
-                // When 'remainingServices' is empty, it means that all MCTP
-                // services have been analyzed. The 'updatedUuidToEidMap'
-                // contains the mapping between EIDs and UUIDs from all MCTP
-                // services. The final step is to check if the UUID from
-                // 'uuidToUriMap' is present in 'updatedUuidToEidMap', and then
-                // call the resultCallback function with the appropriate
-                // parameters.
+    state->checkComplete();
+}
 
-                // The expectation is that the UUID-to-EID mapping is not empty.
-                // If the collection is empty, it indicates that it was not
-                // possible to find a mapping between UUIDs and EIDs
-                if (updatedUuidToEidMap.empty())
-                {
-                    const std::string errorDesc =
-                        "failed to retrieveEidFromMctpServiceProperties";
-                    const std::string errorMsg =
-                        "couldn't find mapping between UUIDs and EIDs";
-                    errorCallback(errorDesc, errorMsg);
-                    return;
-                }
+/**
+ * @brief Handles the result of querying inventory endpoints
+ *
+ * This function processes inventory endpoints from a software object's
+ * /inventory association. It searches for chassis paths and initiates
+ * a query to get the associated_chassis endpoints.
+ *
+ * @param state Shared state containing the collection context and results
+ * @param softwarePath D-Bus path to the software object
+ * @param errorCode Error code from the D-Bus getProperty call
+ * @param invEndpoints Vector of inventory endpoint paths
+ *
+ * @return void
+ */
+inline void handleInventoryEndpoints(
+    const std::shared_ptr<CollectionState>& state,
+    const std::string& softwarePath, const boost::system::error_code& errorCode,
+    const std::vector<std::string>& invEndpoints)
+{
+    state->pendingOps--;
 
-                for (const auto& [uuidKey, eidTuple] : updatedUuidToEidMap)
-                {
-                    EID eidValue = 0;
-                    Priority mediumPriorityValue = 0;
-                    Priority bindingPriorityValue = 0;
-                    std::tie(eidValue, mediumPriorityValue,
-                             bindingPriorityValue) = eidTuple;
-                    auto uriIter = uuidToUriMap.find(uuidKey);
-                    if (uriIter != uuidToUriMap.end())
-                    {
-                        resultCallback(uuidKey, eidValue, uriIter->second);
-                    }
-                }
-            }
+    if (errorCode)
+    {
+        BMCWEB_LOG_DEBUG(
+            "D-Bus call failed to get inventory endpoints for {}: {}",
+            softwarePath, errorCode.message());
+        state->checkComplete();
+        return;
+    }
+
+    // Find chassis path in inventory endpoints
+    std::string chassisPath;
+    for (const std::string& endpoint : invEndpoints)
+    {
+        if (endpoint.starts_with(chassisInventoryPrefix))
+        {
+            BMCWEB_LOG_DEBUG(
+                "Found chassis path {} in inventory endpoints for software path {}",
+                endpoint, softwarePath);
+            chassisPath = endpoint;
+            break;
+        }
+    }
+
+    if (chassisPath.empty())
+    {
+        BMCWEB_LOG_DEBUG("No chassis path found in inventory endpoints for {}",
+                         softwarePath);
+        state->checkComplete();
+        return;
+    }
+
+    // Query associated_chassis for this chassis path
+    std::string associatedChassisPath = chassisPath + "/associated_chassis";
+
+    state->pendingOps++;
+
+    dbus::utility::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+        associatedChassisPath, "xyz.openbmc_project.Association", "endpoints",
+        [state,
+         softwarePath](const boost::system::error_code& ec,
+                       const std::vector<std::string>& associatedEndpoints) {
+            handleAssociatedChassisEndpoints(state, softwarePath, ec,
+                                             associatedEndpoints);
+        });
+
+    state->checkComplete();
+}
+
+/**
+ * @brief Handles the response from inventory path D-Bus lookup
+ *
+ * This function processes the result of checking if an inventory path exists
+ * on D-Bus. If the path exists, it queries the inventory association endpoints
+ * to continue the discovery chain. If not, it decrements the pending operations
+ * counter and checks for completion.
+ *
+ * @param state Shared collection state tracking async operations
+ * @param softwarePath D-Bus path of the software object being processed
+ * @param inventoryObjectPath D-Bus path of the inventory association
+ * @param errorCode Error code from the D-Bus getDbusObject call
+ * @param mapperResponse Response from the object mapper lookup
+ *
+ * @return void
+ */
+inline void handleInventoryPathLookup(
+    const std::shared_ptr<CollectionState>& state,
+    const std::string& softwarePath, const std::string& inventoryObjectPath,
+    const boost::system::error_code& errorCode,
+    const dbus::utility::MapperGetObject& mapperResponse)
+{
+    if (errorCode || mapperResponse.empty())
+    {
+        // Inventory path doesn't exist, skip this software object
+        state->pendingOps--;
+        state->checkComplete();
+        return;
+    }
+
+    // Query inventory association endpoints
+    dbus::utility::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+        inventoryObjectPath, "xyz.openbmc_project.Association", "endpoints",
+        [state, softwarePath](const boost::system::error_code& ec,
+                              const std::vector<std::string>& invEndpoints) {
+            handleInventoryEndpoints(state, softwarePath, ec, invEndpoints);
         });
 }
 
 /**
- * @brief Retrieves EID mapping for all available MCTP services.
+ * @brief Handles the result of getSubTree for software objects
  *
- * This function queries the D-Bus subtree for MCTP services and retrieves the
- * mapping between UUIDs and EIDs. It calls the
- * retrieveEidFromMctpServiceProperties function for each service and eventually
- * invokes the callback function for every UUID that is found in the
- * uuidToUriMap with its corresponding EID and URI.
+ * This function processes the D-Bus subtree response for software objects.
+ * It filters for objects with /inventory sub-paths and initiates inventory
+ * endpoint queries for each valid software object found.
  *
- * @param[in] uuidToUriMap A map containing UUID-to-URI mappings for MCTP
- * services.
- * @param[in] resultCallback A callback function that is called with the UUID,
- * EID, and URI after processing each service.
- * @param[in] errorCallback A callback function that is invoked when an error
- * occurs.
+ * @param asyncResp Shared async response object for HTTP responses
+ * @param callback Function to call with the final chassis-to-software mapping
+ * @param errorCode Error code from the D-Bus getSubTree call
+ * @param subtree Map of D-Bus object paths and their services
  *
- * @return
+ * @return void
  */
-inline void retrieveEidFromMctpServices(const UuidToUriMap& uuidToUriMap,
-                                        const ResultCallback& resultCallback,
-                                        const ErrorCallback& errorCallback)
+inline void handleSoftwareSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<
+        void(const std::map<std::string, std::vector<std::string>>&)>& callback,
+    const boost::system::error_code& errorCode,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    std::vector<std::string> serviceNames = {"au.com.codeconstruct.MCTP1"};
-    retrieveEidFromMctpServiceProperties(serviceNames, uuidToUriMap,
-                                         resultCallback, errorCallback);
+    if (errorCode)
+    {
+        BMCWEB_LOG_ERROR("D-Bus call failed to get software objects: {}",
+                         errorCode);
+        redfish::messages::internalError(asyncResp->res);
+        return;
+    }
+
+    auto state = std::make_shared<CollectionState>();
+    state->asyncResp = asyncResp;
+    state->callback = callback;
+
+    // Identify software objects with /inventory sub-path
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        // Construct the inventory path by appending "/inventory"
+        std::string inventoryObjectPath = objectPath + "/inventory";
+
+        // Use objectPath as the software path
+        std::string softwarePath = objectPath;
+        state->pendingOps++;
+
+        // Check if inventory path exists on D-Bus
+        dbus::utility::getDbusObject(
+            inventoryObjectPath,
+            std::array<std::string_view, 1>{"xyz.openbmc_project.Association"},
+            [state, softwarePath, inventoryObjectPath](
+                const boost::system::error_code& ec,
+                const dbus::utility::MapperGetObject& mapperResponse) {
+                handleInventoryPathLookup(state, softwarePath,
+                                          inventoryObjectPath, ec,
+                                          mapperResponse);
+            });
+    }
+
+    // If no pending operations, invoke callback immediately
+    state->checkComplete();
 }
+
+/**
+ * @brief Collects mappings between chassis and software paths supporting
+ * ImageCopy
+ *
+ * This function initiates an asynchronous operation chain to discover all
+ * chassis-to-software path mappings where the chassis implements the
+ * com.nvidia.ImageCopy interface. The operation traverses D-Bus associations
+ * from software objects through inventory to chassis objects.
+ *
+ * The function performs the following steps asynchronously:
+ * 1. Query all software objects under /xyz/openbmc_project/software
+ * 2. For each software object with an /inventory association:
+ *    a. Query inventory endpoints
+ *    b. Find chassis paths in the inventory
+ *    c. Query associated_chassis endpoints
+ *    d. Check if chassis implements com.nvidia.ImageCopy interface
+ *    e. Add mapping if interface is present
+ *
+ * @param asyncResp Shared async response object for HTTP error reporting
+ * @param callback Function called with the final map of chassis names to
+ *                 software paths when all operations complete
+ *
+ * @return void
+ */
+inline void collectImageCopySoftwarePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<
+        void(const std::map<std::string, std::vector<std::string>>&)>& callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Software.Version"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/software", 0, interfaces,
+        [asyncResp,
+         callback](const boost::system::error_code& ec,
+                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            handleSoftwareSubtree(asyncResp, callback, ec, subtree);
+        });
+}
+
+/**
+ * @brief Helper class to monitor ImageCopyRequestStatus property changes
+ *
+ * This class sets up a D-Bus property change match to monitor the
+ * ImageCopyRequestStatus property and react when the operation completes
+ * or fails.
+ */
+class ImageCopyStatusMonitor :
+    public std::enable_shared_from_this<ImageCopyStatusMonitor>
+{
+  public:
+    // Timeout for image copy operation (matches NSM async infra timeout)
+    static constexpr std::chrono::seconds monitorTimeout{60};
+
+    ImageCopyStatusMonitor(
+        const std::shared_ptr<CommitImageAggregationContext>& ctx,
+        const std::string& chassis, const std::string& dbusPath,
+        const std::vector<std::string>& paths) :
+        aggregationCtx(ctx), chassisName(chassis), chassisDBusPath(dbusPath),
+        objectPaths(paths),
+        timeoutTimer(crow::connections::systemBus->get_io_context())
+    {}
+
+    ImageCopyStatusMonitor(const ImageCopyStatusMonitor&) = delete;
+    ImageCopyStatusMonitor& operator=(const ImageCopyStatusMonitor&) = delete;
+    ImageCopyStatusMonitor(ImageCopyStatusMonitor&&) = delete;
+    ImageCopyStatusMonitor& operator=(ImageCopyStatusMonitor&&) = delete;
+
+    ~ImageCopyStatusMonitor()
+    {
+        timeoutTimer.cancel();
+        destroyMatch();
+    }
+
+    /**
+     * @brief Start monitoring the ImageCopyRequestStatus property
+     */
+    void startMonitoring()
+    {
+        createMatch();
+        startTimeout();
+        // Query initial status
+        queryStatus();
+    }
+
+  private:
+    /**
+     * @brief Create D-Bus match for ImageCopyRequestStatus property changes
+     */
+    void createMatch()
+    {
+        std::string matchRule = sdbusplus::bus::match::rules::propertiesChanged(
+            chassisDBusPath, std::string(imageCopyInterface));
+
+        match = std::make_unique<sdbusplus::bus::match_t>(
+            *crow::connections::systemBus, matchRule,
+            [self = shared_from_this()](sdbusplus::message::message& msg) {
+                self->handlePropertyChange(msg);
+            });
+    }
+
+    /**
+     * @brief Start timeout timer for the image copy operation
+     */
+    void startTimeout()
+    {
+        timeoutTimer.expires_after(monitorTimeout);
+        timeoutTimer.async_wait([self = shared_from_this()](
+                                    const boost::system::error_code& ec) {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                // Timer was canceled, operation completed normally
+                return;
+            }
+            if (self->completed)
+            {
+                return;
+            }
+            self->completed = true;
+            self->destroyMatch();
+            BMCWEB_LOG_ERROR(
+                "ImageCopy operation timed out for object paths: {}",
+                join(self->objectPaths, ", "));
+            self->aggregationCtx->reportResult(
+                self->objectPaths, false, "Base.1.16.0.OperationTimeout",
+                "Critical", "Image copy operation timed out after 60 seconds",
+                "Retry the operation. If the problem persists, check NSM service logs.");
+        });
+    }
+
+    /**
+     * @brief Destroy the D-Bus match
+     */
+    void destroyMatch()
+    {
+        if (match)
+        {
+            match.reset();
+        }
+    }
+
+    /**
+     * @brief Query the current ImageCopyRequestStatus
+     */
+    void queryStatus()
+    {
+        dbus::utility::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.NSM",
+            chassisDBusPath, std::string(imageCopyInterface),
+            "ImageCopyRequestStatus",
+            [self = shared_from_this(),
+             ctx = aggregationCtx](const boost::system::error_code& ec,
+                                   const std::string& status) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "D-Bus call failed to query ImageCopyRequestStatus property for object paths {}: {}",
+                        join(self->objectPaths, ", "), ec.message());
+                    ctx->reportResult(
+                        self->objectPaths, false, "Base.1.16.0.GeneralError",
+                        "Critical", "Failed to query status: " + ec.message());
+                    return;
+                }
+                self->handleStatus(status);
+            });
+    }
+
+    /**
+     * @brief Handle property change notifications
+     */
+    void handlePropertyChange(sdbusplus::message::message& msg)
+    {
+        if (completed)
+        {
+            return;
+        }
+
+        std::string interface;
+        dbus::utility::DBusPropertiesMap propertiesMap;
+        msg.read(interface, propertiesMap);
+
+        // Look for ImageCopyRequestStatus property
+        for (const auto& [key, value] : propertiesMap)
+        {
+            if (key == "ImageCopyRequestStatus")
+            {
+                const std::string* status = std::get_if<std::string>(&value);
+                if (status != nullptr)
+                {
+                    handleStatus(*status);
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * @brief Handle status update
+     */
+    void handleStatus(const std::string& status)
+    {
+        // Keep both the monitor and aggregationCtx alive for the duration of
+        // this function This is critical because we may call destroyMatch()
+        // which destroys the match callback that's currently executing,
+        // potentially releasing the last references before we're done using
+        // them
+        auto self = shared_from_this();
+        auto ctx = aggregationCtx;
+
+        if (completed)
+        {
+            return;
+        }
+
+        // Continue monitoring if status is InProgress
+        if (status == "com.nvidia.ImageCopy.ImageCopyRequestStatus.Processing")
+        {
+            return;
+        }
+
+        // Operation completed or failed
+        completed = true;
+        timeoutTimer.cancel();
+        destroyMatch();
+
+        if (status == "com.nvidia.ImageCopy.ImageCopyRequestStatus.Accepted")
+        {
+            ctx->reportResult(objectPaths, true);
+        }
+        else if (status ==
+                 "com.nvidia.ImageCopy.ImageCopyRequestStatus.Rejected")
+        {
+            BMCWEB_LOG_ERROR("Commit image failed for object paths {}",
+                             join(objectPaths, ", "));
+            // Read ErrorCode property
+            readErrorCode();
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR(
+                "Unknown ImageCopy Request Status '{}' for object paths {}",
+                status, join(objectPaths, ", "));
+            ctx->reportResult(
+                objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
+                "Image copy returned unexpected status: " + status,
+                "Check NSM service logs for details.");
+        }
+    }
+
+    /**
+     * @brief Read ErrorCode property when operation fails
+     */
+    void readErrorCode()
+    {
+        dbus::utility::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.NSM",
+            chassisDBusPath, std::string(imageCopyInterface), "ErrorCode",
+            [self = shared_from_this(),
+             ctx = aggregationCtx](const boost::system::error_code& ec,
+                                   const std::string& errorCode) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "D-Bus call failed to read ImageCopy ErrorCode property for object paths {}: {}",
+                        join(self->objectPaths, ", "), ec.message());
+                    ctx->reportResult(
+                        self->objectPaths, false, "Base.1.16.0.GeneralError",
+                        "Critical", "Image copy failed. Error: " + ec.message(),
+                        "Verify NSM service is running and try again.");
+                    return;
+                }
+
+                BMCWEB_LOG_ERROR("ImageCopy ErrorCode for object paths {}: {}",
+                                 join(self->objectPaths, ", "), errorCode);
+
+                // Map error code to user-friendly message using centralized
+                // error message registry
+                nlohmann::json errorMsg =
+                    redfish::imageCopyError(self->objectPaths, errorCode);
+
+                // Extract message details from the error JSON
+                std::string messageId =
+                    errorMsg.value("MessageId", "Base.1.16.0.GeneralError");
+                std::string message =
+                    errorMsg.value("Message", "Operation failed");
+                std::string severity =
+                    errorMsg.value("MessageSeverity", "Critical");
+                std::string resolution = errorMsg.value("Resolution", "None.");
+
+                ctx->reportResult(self->objectPaths, false, messageId, severity,
+                                  message, resolution);
+            });
+    }
+
+    std::shared_ptr<CommitImageAggregationContext> aggregationCtx;
+    std::string chassisName;
+    std::string chassisDBusPath;
+    std::vector<std::string> objectPaths;
+    std::unique_ptr<sdbusplus::bus::match_t> match;
+    boost::asio::steady_timer timeoutTimer;
+    bool completed = false;
+};
+
+/**
+ * @brief Execute InitiateImageCopy command with aggregation support
+ *
+ * Initiates an image copy operation and monitors the ImageCopyRequestStatus
+ * property for completion. When the status changes from InProgress, the
+ * operation result is reported to the aggregation context.
+ *
+ * @param aggregationCtx Shared pointer to aggregation context for tracking
+ * multiple operations
+ * @param chassisObjectSoftwarePath object containing chassis name and software
+ * object paths
+ *
+ * @return None.
+ */
+inline void initiateImageCopy(
+    const std::shared_ptr<CommitImageAggregationContext>& aggregationCtx,
+    const ChassisObjectSoftwarePath& chassisObjectSoftwarePath)
+{
+    std::string chassisDBusPath = std::string(chassisInventoryPrefix) +
+                                  chassisObjectSoftwarePath.chassisName;
+    std::string chassisName = chassisObjectSoftwarePath.chassisName;
+    std::vector<std::string> objectPaths =
+        chassisObjectSoftwarePath.objectPaths;
+
+    std::vector<sdbusplus::message::object_path> objectPathsVector;
+    objectPathsVector.reserve(objectPaths.size());
+    for (const auto& pathStr : objectPaths)
+    {
+        objectPathsVector.emplace_back(pathStr);
+    }
+
+    // Create status monitor
+    auto monitor = std::make_shared<ImageCopyStatusMonitor>(
+        aggregationCtx, chassisName, chassisDBusPath, objectPaths);
+
+    crow::connections::systemBus->async_method_call(
+        [self = aggregationCtx, chassisName, objectPaths,
+         monitor](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus call RequestImageCopy for object paths {} failed: {}",
+                    join(objectPaths, ", "), ec.message());
+                self->reportResult(
+                    objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
+                    "Failed to initiate image copy operation. Error: " +
+                        ec.message(),
+                    "Verify NSM service is running and try again.");
+                return;
+            }
+
+            BMCWEB_LOG_DEBUG(
+                "D-Bus call RequestImageCopy for object paths {} succeeded",
+                join(objectPaths, ", "));
+
+            // Start monitoring the status property
+            monitor->startMonitoring();
+        },
+        "xyz.openbmc_project.NSM", chassisDBusPath,
+        std::string(imageCopyInterface), "RequestImageCopy", objectPathsVector);
+}
+} // namespace redfish

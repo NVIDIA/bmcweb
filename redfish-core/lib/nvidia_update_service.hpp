@@ -1833,7 +1833,7 @@ inline void updateParametersForCommitImageInfo(
  * for the list of delivered in the body of request
  * firmware inventories
  *
- * @param resp Async HTTP response.
+ * @param req Async HTTP request.
  * @param asyncResp Pointer to object holding response data
  * @param[in] subtree  Collection of objectmappers for
  * "/xyz/openbmc_project/software"
@@ -1842,11 +1842,7 @@ inline void updateParametersForCommitImageInfo(
  */
 inline void handleCommitImagePost(
     const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::vector<std::pair<
-        std::string,
-        std::vector<std::pair<std::string, std::vector<std::string>>>>>&
-        subtree)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::optional<std::vector<std::string>> targets;
 
@@ -1862,7 +1858,8 @@ inline void handleCommitImagePost(
         hasTargets = true;
     }
 
-    UuidToUriMap targetUuidInventoryUriMap = {};
+    // Pair: first = dbus software object path, second = redfish inventory path
+    std::vector<std::pair<std::string, std::string>> softwareObjectPaths = {};
 
     if (hasTargets)
     {
@@ -1875,10 +1872,11 @@ inline void handleCommitImagePost(
                 "/xyz/openbmc_project/software/" + objectPath.filename();
             std::pair<bool, CommitImageValueEntry> result =
                 getAllowableValue(inventoryPathIn);
+
             if (result.first)
             {
-                targetUuidInventoryUriMap[result.second.uuid] =
-                    result.second.inventoryUri;
+                softwareObjectPaths.emplace_back(result.second.inventoryUri,
+                                                 target);
             }
             else
             {
@@ -1889,39 +1887,96 @@ inline void handleCommitImagePost(
             }
         }
     }
-    else
-    {
-        for (const auto& obj : subtree)
-        {
-            std::pair<bool, CommitImageValueEntry> result =
-                getAllowableValue(obj.first);
 
-            if (result.first)
+    collectImageCopySoftwarePaths(
+        asyncResp, [asyncResp, hasTargets, softwareObjectPaths](
+                       const std::map<std::string, std::vector<std::string>>&
+                           chassisToPathsMap) {
+            bool hasInvalidTargets = false;
+            if (hasTargets)
             {
-                targetUuidInventoryUriMap[result.second.uuid] =
-                    result.second.inventoryUri;
+                for (const auto& [dbusPath, redfishPath] : softwareObjectPaths)
+                {
+                    bool foundInChassis = false;
+                    for (const auto& [chassisName, chassisObjectPaths] :
+                         chassisToPathsMap)
+                    {
+                        if (std::find(chassisObjectPaths.begin(),
+                                      chassisObjectPaths.end(), dbusPath) !=
+                            chassisObjectPaths.end())
+                        {
+                            foundInChassis = true;
+                            break;
+                        }
+                    }
+
+                    if (!foundInChassis)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Target path {} not found in any chassis",
+                            redfishPath);
+                        boost::urls::url_view targetURL(redfishPath);
+                        messages::resourceMissingAtURI(asyncResp->res,
+                                                       targetURL);
+                        hasInvalidTargets = true;
+                    }
+                }
             }
-        }
-    }
 
-    auto initBackgroundCopyCallback =
-        [&req, asyncResp]([[maybe_unused]] const UUID& uuid, const EID eid,
-                          const URI& inventoryUri) mutable {
-            BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}",
-                             eid, uuid);
-            initBackgroundCopy(req, asyncResp, eid, inventoryUri);
-        };
+            std::vector<ChassisObjectSoftwarePath> chassisCollection;
+            for (const auto& [chassisName, chassisObjectPaths] :
+                 chassisToPathsMap)
+            {
+                std::vector<std::string> matchingPaths;
+                for (const auto& path : chassisObjectPaths)
+                {
+                    if (hasTargets)
+                    {
+                        auto it = std::find_if(
+                            softwareObjectPaths.begin(),
+                            softwareObjectPaths.end(),
+                            [&path](const std::pair<std::string, std::string>&
+                                        swPathPair) {
+                                return swPathPair.first == path;
+                            });
+                        if (it != softwareObjectPaths.end())
+                        {
+                            matchingPaths.push_back(path);
+                        }
+                    }
+                    else
+                    {
+                        matchingPaths.push_back(path);
+                    }
+                }
 
-    auto errorCallback =
-        [asyncResp]([[maybe_unused]] const std::string& desc,
-                    [[maybe_unused]] const std::string& errMsg) mutable {
-            BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
-                             errMsg);
-            messages::internalError(asyncResp->res);
-        };
+                if (!matchingPaths.empty())
+                {
+                    ChassisObjectSoftwarePath entry;
+                    entry.chassisName = chassisName;
+                    entry.objectPaths = matchingPaths;
+                    chassisCollection.push_back(std::move(entry));
+                }
+            }
 
-    retrieveEidFromMctpServices(targetUuidInventoryUriMap,
-                                initBackgroundCopyCallback, errorCallback);
+            if (chassisCollection.empty() && !hasInvalidTargets)
+            {
+                BMCWEB_LOG_ERROR("No chassis found for commit image operation");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            // Create aggregation context to track all operations
+            auto aggregationCtx =
+                std::make_shared<CommitImageAggregationContext>(
+                    asyncResp, chassisCollection.size());
+
+            // Initiate commit image operation for each chassis
+            for (const auto& chassis : chassisCollection)
+            {
+                initiateImageCopy(aggregationCtx, chassis);
+            }
+        });
 }
 
 inline void extendSoftwareInventoryGet(
@@ -2743,32 +2798,7 @@ inline void handleCommitImageActionInfoPost(
 
         return;
     }
-
-    crow::connections::systemBus->async_method_call(
-        [&req, asyncResp{asyncResp}](
-            const boost::system::error_code& ec,
-            const std::vector<std::pair<
-                std::string,
-                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
-                subtree) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            handleCommitImagePost(req, asyncResp, subtree);
-        },
-        // Note that only firmware levels associated with a device
-        // are stored under /xyz/openbmc_project/software therefore
-        // to ensure only real FirmwareInventory items are returned,
-        // this full object path must be used here as input to
-        // mapper
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/software", static_cast<int32_t>(0),
-        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+    handleCommitImagePost(req, asyncResp);
 }
 
 /**
