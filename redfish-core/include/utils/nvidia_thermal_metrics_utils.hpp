@@ -118,11 +118,6 @@ inline void processSensorsValue(
                     nlohmann::json& resArray =
                         asyncResp->res.jsonValue["TemperatureReadingsCelsius"];
                     nlohmann::json objectJson = nlohmann::json::object();
-                    objectJson["@odata.id"] =
-                        std::string("/redfish/v1/Chassis/")
-                            .append(chassisId)
-                            .append("/Sensors/")
-                            .append(sensorName);
                     objectJson["DataSourceUri"] =
                         std::string("/redfish/v1/Chassis/")
                             .append(chassisId)
