@@ -22,19 +22,26 @@
 #include <app.hpp>
 #include <boost/url/format.hpp>
 #include <dot/base.hpp>
+#include <dot/dot_dbus_utils.hpp>
 #include <dot/dot_utils.hpp>
-#include <dot_async.hpp>
 #include <nvidia_messages.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/message.hpp>
 #include <utils/chassis_utils.hpp>
+#include <utils/nvidia_async_call_utils.hpp>
 
 #include <format>
+#include <functional>
 #include <string>
+#include <tuple>
+#include <variant>
+#include <vector>
 
 namespace redfish
 {
+using DOTErrorType = std::tuple<uint16_t, std::string>;
+using DOTResultType = std::variant<std::monostate, DOTErrorType>;
 
 /**
  * @brief Sets up ActionInfo JSON response for DOT operations
@@ -795,45 +802,71 @@ inline bool parseKeyStructure(const std::optional<nlohmann::json>& keyJsonOpt,
 }
 
 /**
- * @brief Handle DOT Install operation result
+ * @brief Handle DOT operation error result
  *
- * Processes the result of a DOT Install async operation, mapping operation
- * states to appropriate HTTP responses. Reports success or appropriate error
- * messages based on the operation outcome.
+ * Generic error handler that processes DOT async operation error results,
+ * mapping operation status values to appropriate HTTP error responses.
+ * Extracts error information from the variant and handles InvalidArgument,
+ * Unavailable, UnsupportedRequest, and generic error cases with appropriate
+ * error messages.
  *
- * @param asyncResp Async response object to populate with result
- * @param result DOT operation result containing state and error message
+ * @param asyncResp Async response object to populate with error result
+ * @param status Operation status string from async operation
+ * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
+ * @param actionName Name of the DOT action (e.g., "Install", "CAKBypass")
  */
-inline void handleDOTInstallResult(
+inline void handleDOTErrorResult(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const dot_async::DotResult& result)
+    const std::string& status, const DOTResultType* resultPtr,
+    const std::string& actionName)
 {
-    const auto& [state, errorMsg] = result;
-    if (state == dot_async::DotState::Success)
+    std::string errorMsg;
+    if (resultPtr != nullptr)
     {
-        messages::success(asyncResp->res);
-        return;
+        if (const auto* errPtr = std::get_if<DOTErrorType>(resultPtr))
+        {
+            const auto& [errorCode, errorMessage] = *errPtr;
+            errorMsg = errorMessage;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR(
+                "DOT {} failed with status {} but error data format is unexpected",
+                actionName, status);
+            messages::internalError(asyncResp->res);
+            return;
+        }
     }
-    if (state == dot_async::DotState::InvalidArgument)
+    if (status == nvidia_async_operation_utils::asyncStatusValueInvalidArgument)
     {
-        BMCWEB_LOG_ERROR("DOT Install invalid argument: {}", errorMsg);
+        BMCWEB_LOG_ERROR("DOT {} invalid argument: {}", actionName, errorMsg);
         messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(errorMsg), "Install");
+            asyncResp->res, nlohmann::json(errorMsg), actionName);
         return;
     }
-    if (state == dot_async::DotState::Unavailable)
+    if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)
     {
-        BMCWEB_LOG_ERROR("DOT Install service unavailable: {}", errorMsg);
+        BMCWEB_LOG_ERROR("DOT {} service unavailable: {}", actionName,
+                         errorMsg);
         messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
         return;
     }
-    if (state == dot_async::DotState::UnsupportedRequest)
+    if (status ==
+        nvidia_async_operation_utils::asyncStatusValueUnsupportedRequest)
     {
-        BMCWEB_LOG_ERROR("DOT Install unsupported by device: {}", errorMsg);
-        messages::actionNotSupported(asyncResp->res, "Install");
+        BMCWEB_LOG_ERROR("DOT {} unsupported by device: {}", actionName,
+                         errorMsg);
+        messages::actionNotSupported(asyncResp->res, actionName);
         return;
     }
-    BMCWEB_LOG_ERROR("DOT Install failed: {}", errorMsg);
+    if (errorMsg.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT {} failed with status {} but no error data",
+                         actionName, status);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_ERROR("DOT {} failed: {}", actionName, errorMsg);
     messages::dotActionResponseError(asyncResp->res, errorMsg);
 }
 
@@ -842,7 +875,7 @@ inline void handleDOTInstallResult(
  *
  * Callback invoked after DBus discovery for DOT services. Validates that the
  * component exists and supports DOT operations, then initiates the CAK Install
- * operation via the DotCommandHandler with the provided key data.
+ * operation via D-Bus with the provided key data.
  *
  * @param asyncResp Async response object for error reporting
  * @param componentId The trusted component identifier
@@ -857,7 +890,7 @@ inline void handleDOTInstallResult(
  * @param ec Error code from DBus discovery operation
  * @param resp DBus subtree response containing discovered DOT objects
  */
-inline void afterDOTServiceDiscovery(
+inline void afterDOTCAKInstallServiceDiscovery(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& componentId, const std::string& cakAuthScheme,
     const std::string& cakEcdsaKey, const std::string& cakLmsKey,
@@ -898,10 +931,36 @@ inline void afterDOTServiceDiscovery(
     const std::string& dotService = serviceMap[0].first;
     BMCWEB_LOG_DEBUG("Found DOT service: {} at path: {}", dotService, path);
 
-    dot_async::DotCommandHandler::startCAKInstall(
-        dotService, path, cakAuthScheme, cakEcdsaKey, cakLmsKey, lakAuthScheme,
-        lakEcdsaKey, lakLmsKey, lockDisable, minSvn,
-        std::bind_front(handleDOTInstallResult, asyncResp));
+    std::string cakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(cakAuthScheme);
+    std::string lakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakAuthScheme);
+
+    if (cakAuthEnum.empty() || lakAuthEnum.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Install: Invalid authentication scheme");
+        messages::actionParameterValueError(
+            asyncResp->res, nlohmann::json("Invalid authentication scheme"),
+            "Install");
+        return;
+    }
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "DotCAKInstall",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Install succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr, "Install");
+        },
+        cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
+        lakLmsKey, lockDisable, minSvn);
 }
 
 /**
@@ -967,9 +1026,9 @@ inline void afterChassisValidationForDOTInstall(
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces,
         std::bind_front(
-            afterDOTServiceDiscovery, asyncResp, componentId, cakAuthScheme,
-            cakEcdsaKey, cakLmsKey, lakAuthScheme, lakEcdsaKey, lakLmsKey,
-            lockDisableOpt.value_or(false),
+            afterDOTCAKInstallServiceDiscovery, asyncResp, componentId,
+            cakAuthScheme, cakEcdsaKey, cakLmsKey, lakAuthScheme, lakEcdsaKey,
+            lakLmsKey, lockDisableOpt.value_or(false),
             static_cast<uint32_t>(minSecurityVersionOpt.value_or(0))));
 }
 
@@ -1016,54 +1075,11 @@ inline void handleDOTInstallAction(
 }
 
 /**
- * @brief Handle DOT CAK Bypass operation result
- *
- * Processes the result of a DOT CAK Bypass async operation, mapping operation
- * states to appropriate HTTP responses. Reports success or appropriate error
- * messages based on the operation outcome.
- *
- * @param asyncResp Async response object to populate with result
- * @param result DOT operation result containing state and error message
- */
-inline void handleDOTCAKBypassResult(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const dot_async::DotResult& result)
-{
-    const auto& [state, errorMsg] = result;
-    if (state == dot_async::DotState::Success)
-    {
-        messages::success(asyncResp->res);
-        return;
-    }
-    if (state == dot_async::DotState::InvalidArgument)
-    {
-        BMCWEB_LOG_ERROR("DOT CAKBypass invalid argument: {}", errorMsg);
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(errorMsg), "CAKBypass");
-        return;
-    }
-    if (state == dot_async::DotState::Unavailable)
-    {
-        BMCWEB_LOG_ERROR("DOT CAKBypass service unavailable: {}", errorMsg);
-        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
-        return;
-    }
-    if (state == dot_async::DotState::UnsupportedRequest)
-    {
-        BMCWEB_LOG_ERROR("DOT CAKBypass unsupported by device: {}", errorMsg);
-        messages::actionNotSupported(asyncResp->res, "CAKBypass");
-        return;
-    }
-    BMCWEB_LOG_ERROR("DOT CAKBypass failed: {}", errorMsg);
-    messages::dotActionResponseError(asyncResp->res, errorMsg);
-}
-
-/**
  * @brief Process DOT service discovery for CAK Bypass operation
  *
  * Callback invoked after DBus discovery for DOT services. Validates that the
  * component exists and supports DOT operations, then initiates the CAK Bypass
- * operation via the DotCommandHandler.
+ * operation via D-Bus.
  *
  * @param asyncResp Async response object for error reporting
  * @param componentId The trusted component identifier
@@ -1115,8 +1131,20 @@ inline void afterDOTCAKBypassServiceDiscovery(
         "DOT CAKBypass: Calling Bypass on service '{}' at path '{}'",
         dotService, path);
 
-    dot_async::DotCommandHandler::startBypass(
-        dotService, path, std::bind_front(handleDOTCAKBypassResult, asyncResp));
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(60), dotService, path,
+        std::string(dot::dotActionIntf), "Bypass",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT CAKBypass succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr, "CAKBypass");
+        });
 }
 
 /**

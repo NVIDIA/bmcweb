@@ -16,12 +16,35 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
+#include "dot/base.hpp"
+#include "logging.hpp"
+
+#include <string>
 #include <string_view>
 
-namespace redfish::dot
+namespace redfish::dot_utils
 {
 
-// D-Bus interface name for DOT action operations
-constexpr const std::string_view dotActionIntf = "com.nvidia.Dot.Action";
+/**
+ * @brief Convert auth scheme string to DBus enum format
+ *
+ * @param scheme Authentication scheme: "Ecdsa" or "Hybrid"
+ * @return Full DBus enum path or empty string on error
+ */
+inline std::string convertAuthSchemeToDbusEnum(const std::string& scheme)
+{
+    if (scheme == "Ecdsa")
+    {
+        return std::string(dot::dotActionIntf) + ".KeyAuthScheme.Ecdsa";
+    }
+    if (scheme == "Hybrid")
+    {
+        return std::string(dot::dotActionIntf) + ".KeyAuthScheme.Hybrid";
+    }
+    BMCWEB_LOG_ERROR("Invalid authentication scheme: {}", scheme);
+    return "";
+}
 
-} // namespace redfish::dot
+} // namespace redfish::dot_utils

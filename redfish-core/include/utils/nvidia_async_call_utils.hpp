@@ -62,12 +62,11 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
             statusInfo->callback(status);
             statusInfo->timeoutTimer.cancel();
         }
+        return;
     }
-
-    if (status == asyncStatusValueSuccess)
+    if (status != asyncStatusValueInProgress)
     {
         std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
-
         crow::connections::systemBus->async_method_call(
             [weakStatusInfo,
              status](const boost::system::error_code ec,
@@ -77,7 +76,7 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                 if (!statInfo || statInfo->completed)
                 {
                     BMCWEB_LOG_INFO(
-                        "Call Async : Redudent Response for GetValue or Response arrived after the timeout.");
+                        "Call Async : Redundant Response for GetValue or Response arrived after the timeout.");
                     return;
                 }
 
@@ -86,38 +85,24 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                     BMCWEB_LOG_INFO(
                         "Call Async : GetValue failed with error {}", ec);
                     reportErrorAndCancel(statInfo);
+                    return;
                 }
-                else
+                const auto valuePtr =
+                    std::get_if<typename CallAsyncStatusInfo::Value>(&value);
+                if (valuePtr == nullptr && status != asyncStatusValueSuccess)
                 {
-                    const auto valuePtr =
-                        std::get_if<typename CallAsyncStatusInfo::Value>(
-                            &value);
-
-                    if (valuePtr == nullptr)
-                    {
-                        BMCWEB_LOG_INFO(
-                            "Call Async : Failed to get value from variant");
-                        reportErrorAndCancel(statInfo);
-                        return;
-                    }
-
                     BMCWEB_LOG_INFO(
-                        "Call Async : Successfully Obtained the Value.");
-
-                    statInfo->completed = true;
-                    statInfo->callback(status, valuePtr);
-                    statInfo->timeoutTimer.cancel();
+                        "Call Async: Failed to get value from variant for non-success status");
+                    reportErrorAndCancel(statInfo);
+                    return;
                 }
+                statInfo->completed = true;
+                statInfo->callback(status, valuePtr);
+                statInfo->timeoutTimer.cancel();
             },
             statusInfo->service, statusInfo->object,
             "org.freedesktop.DBus.Properties", "Get",
             statusInfo->valueInterface, statusInfo->valueProperty);
-    }
-    else if (status != asyncStatusValueInProgress)
-    {
-        statusInfo->completed = true;
-        statusInfo->callback(status, {});
-        statusInfo->timeoutTimer.cancel();
     }
 }
 
