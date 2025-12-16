@@ -39,6 +39,8 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
+#include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
 #include <dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
@@ -49,6 +51,8 @@
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
+
+#include <algorithm>
 
 namespace redfish
 {
@@ -96,9 +100,11 @@ static void getChassisCertificateCollection(
         // Example: /xyz/openbmc_project/SPDM/IRoT_CX7_1 matches IRoT_CX7_1
         if (objPath.filename() == chassisID)
         {
-            std::string certUrl =
-                "/redfish/v1/Chassis/" + chassisID + "/Certificates/CertChain";
-            members.push_back({{"@odata.id", certUrl}});
+            boost::urls::url certUrl = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Certificates/CertChain", chassisID);
+            nlohmann::json::object_t certObj;
+            certObj["@odata.id"] = std::string(certUrl.buffer());
+            members.emplace_back(std::move(certObj));
             break;
         }
     }
@@ -108,7 +114,7 @@ static void getChassisCertificateCollection(
 
 /**
  * @brief Find the certificate association of the SPDM managed objects
- * @param req - Shared pointer to object holding request data
+ * @param requestPath - Request URL encoded path
  * @param asyncResp - Shared pointer to object holding response data
  * @param object - Object holding the associations
  * @param objectPath - Path of the object
@@ -118,7 +124,7 @@ static void getChassisCertificateCollection(
  * @return None
  */
 static void checkAssociationEndpointsForMatch(
-    const crow::Request& req,
+    const std::string& requestPath,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::pair<sdbusplus::message::object_path,
                     dbus::utility::DBusInterfacesMap>& object,
@@ -177,20 +183,9 @@ static void checkAssociationEndpointsForMatch(
         }
 
         // Get the desired certificated and convert it into PEM.
-        auto chassisID = std::filesystem::path(objectPath).filename().string();
-        if (slot != nullptr)
-        {
-            asyncResp->res.jsonValue = {
-                {"@odata.id", req.url()},
-                {"@odata.type", "#Certificate.v1_5_0.Certificate"},
-                {"Id", certificateID},
-                {"Name", chassisID + " Certificate Chain"},
-                {"CertificateType", "PEMchain"},
-                {"CertificateUsageTypes", nlohmann::json::array({"Device"})},
-                {"SPDM", {{"SlotId", *slot}}},
-            };
-        }
-        else
+        std::string chassisID =
+            std::filesystem::path(objectPath).filename().string();
+        if (slot == nullptr)
         {
             BMCWEB_LOG_ERROR("No slot found");
             messages::resourceNotFound(
@@ -198,27 +193,45 @@ static void checkAssociationEndpointsForMatch(
             return;
         }
 
+        nlohmann::json::object_t certJson;
+        certJson["@odata.id"] = requestPath;
+        certJson["@odata.type"] = "#Certificate.v1_5_0.Certificate";
+        certJson["Id"] = certificateID;
+        certJson["Name"] = chassisID + " Certificate Chain";
+        certJson["CertificateType"] = "PEMchain";
+
+        nlohmann::json::array_t usageTypes;
+        usageTypes.emplace_back("Device");
+        certJson["CertificateUsageTypes"] = std::move(usageTypes);
+
+        nlohmann::json::object_t spdmObj;
+        spdmObj["SlotId"] = *slot;
+        certJson["SPDM"] = std::move(spdmObj);
+
+        asyncResp->res.jsonValue = std::move(certJson);
+
         // If the certificate is found, add it to the response.
         if (certs != nullptr && !certs->empty())
         {
-            auto it = std::find_if(
-                (*certs).begin(), (*certs).end(),
+            erot::SPDMCertificates::const_iterator it = std::ranges::find_if(
+                certs->begin(), certs->end(),
                 [slot](const std::tuple<uint8_t, std::string>& cert) {
-                    return std::get<0>(cert) == (*slot);
+                    return std::get<0>(cert) == *slot;
                 });
-            if (it != (*certs).end())
+
+            if (it != certs->end())
             {
                 BMCWEB_LOG_DEBUG("Found certificate");
+                asyncResp->res.jsonValue["CertificateString"] =
+                    std::get<1>(*it);
             }
-            std::string certStr = std::get<1>(*it);
-            asyncResp->res.jsonValue["CertificateString"] = certStr;
         }
     }
 }
 
 /**
  * @brief Retrieve the SPDM managed objects and collect the certificate
- * @param req - Shared pointer to object holding request data
+ * @param requestPath - Request URL encoded path
  * @param asyncResp - Shared pointer to object holding response data
  * @param objectPath - Path of the object
  * @param certificateID - Optional certificate ID
@@ -227,7 +240,7 @@ static void checkAssociationEndpointsForMatch(
  * @return None
  */
 static void getChassisCertificateInstanceHandler(
-    const crow::Request& req,
+    const std::string& requestPath,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const std::string& certificateID,
     const boost::system::error_code& ec,
@@ -253,7 +266,7 @@ static void getChassisCertificateInstanceHandler(
         const std::string assocPath =
             std::string(object.first) + "/inventory_object";
         auto cb =
-            std::bind_front(checkAssociationEndpointsForMatch, std::cref(req),
+            std::bind_front(checkAssociationEndpointsForMatch, requestPath,
                             asyncResp, object, objectPath, certificateID);
         dbus::utility::findAssociations(assocPath, cb);
     }
@@ -261,7 +274,7 @@ static void getChassisCertificateInstanceHandler(
 
 /**
  * @brief Get the certificate instance from the chassis
- * @param req - Shared pointer to object holding request data
+ * @param requestPath - Request URL encoded path
  * @param asyncResp - Shared pointer to object holding response data
  * @param chassisID - ID of the chassis
  * @param certificateID - Certificate ID
@@ -270,7 +283,7 @@ static void getChassisCertificateInstanceHandler(
  * @return None
  */
 static void getChassisCertificateInstance(
-    const crow::Request& req,
+    const std::string& requestPath,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& certificateID,
     const boost::system::error_code& ec,
@@ -302,9 +315,8 @@ static void getChassisCertificateInstance(
         dbus::utility::getManagedObjects(
             erot::spdmServiceName,
             sdbusplus::message::object_path(erot::spdmObjectPath),
-            std::bind_front(getChassisCertificateInstanceHandler,
-                            std::cref(req), asyncResp, objectPath,
-                            certificateID));
+            std::bind_front(getChassisCertificateInstanceHandler, requestPath,
+                            asyncResp, objectPath, certificateID));
         break;
     }
 }
@@ -678,9 +690,14 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                 {
                     return;
                 }
+
+                std::string requestPath = std::string(req.url().encoded_path());
+                BMCWEB_LOG_DEBUG("URL={}", requestPath);
+
                 redfish::nvidia_chassis_utils::isEROTChassis(
                     chassisID,
-                    [&req, asyncResp, chassisID, certificateID](
+                    [asyncResp, chassisID, certificateID,
+                     requestPath{std::move(requestPath)}](
                         bool isEROT, [[maybe_unused]] bool isCpuEROT) {
                         if (!isEROT)
                         {
@@ -698,18 +715,15 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             return;
                         }
 
-                        BMCWEB_LOG_DEBUG("URL={}", req.url());
                         constexpr std::array<std::string_view, 2> interfaces = {
                             "xyz.openbmc_project.Inventory.Item.Chassis",
                             "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-                        // Get the subtree of the inventory object and find the
-                        // chassis object
                         dbus::utility::getSubTree(
                             "/xyz/openbmc_project/inventory", 0, interfaces,
                             std::bind_front(getChassisCertificateInstance,
-                                            std::cref(req), asyncResp,
-                                            chassisID, certificateID));
+                                            requestPath, asyncResp, chassisID,
+                                            certificateID));
                     });
             });
 
@@ -727,17 +741,19 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                     return;
                 }
 
-                std::string url =
-                    "/redfish/v1/Chassis/" + chassisID + "/Certificates";
-                asyncResp->res.jsonValue = {
-                    {"@odata.id", url},
-                    {"@odata.type",
-                     "#CertificateCollection.CertificateCollection"},
-                    {"Name", "Certificates Collection"}};
+                std::string requestPath = std::string(req.url().encoded_path());
+                BMCWEB_LOG_DEBUG("URL={}", requestPath);
+
+                nlohmann::json::object_t collectionJson;
+                collectionJson["@odata.id"] = requestPath;
+                collectionJson["@odata.type"] =
+                    "#CertificateCollection.CertificateCollection";
+                collectionJson["Name"] = "Certificates Collection";
+                asyncResp->res.jsonValue = std::move(collectionJson);
 
                 redfish::nvidia_chassis_utils::isEROTChassis(
                     chassisID,
-                    [&req, asyncResp,
+                    [asyncResp,
                      chassisID](bool isEROT, [[maybe_unused]] bool isCpuEROT) {
                         if (!isEROT)
                         {
@@ -748,11 +764,11 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             return;
                         }
 
-                        BMCWEB_LOG_DEBUG("URL={}", req.url());
+                        sdbusplus::message::object_path spdmObjPath(
+                            erot::spdmObjectPath);
+
                         dbus::utility::getManagedObjects(
-                            erot::spdmServiceName,
-                            sdbusplus::message::object_path(
-                                erot::spdmObjectPath),
+                            erot::spdmServiceName, spdmObjPath,
                             std::bind_front(getChassisCertificateCollection,
                                             asyncResp, chassisID));
                     });
