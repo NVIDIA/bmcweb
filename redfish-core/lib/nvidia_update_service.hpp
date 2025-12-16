@@ -1200,10 +1200,8 @@ inline void extendUpdateServiceGet(
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
             {"@odata.type", "#NvidiaUpdateService.v1_3_0.NvidiaUpdateService"},
-            {"AutomaticDebugTokenErased", true},
             {"MultipartHttpPushUriOptions",
-             {{"UpdateOptionSupport",
-               [&]() {
+             {{"UpdateOptionSupport", [&]() {
                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
                    {
                        return std::vector<std::string>{"StageAndActivate",
@@ -1213,10 +1211,7 @@ inline void extendUpdateServiceGet(
                    {
                        return std::vector<std::string>{"StageAndActivate"};
                    }
-               }()},
-              {"UpdateServiceActionInfo",
-               {{"@odata.id",
-                 "/redfish/v1/UpdateService/Oem/Nvidia/MultipartHttpPushUriOptionsActionInfo"}}}}}};
+               }()}}}};
         debug_token::getErasePolicy(
             [asyncResp](const std::optional<bool>& erasePolicy) {
                 if (erasePolicy)
@@ -1358,67 +1353,6 @@ inline void extendUpdateServiceGet(
         });
 }
 
-inline void handleMultipartUpdateActionInfoGet(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    nlohmann::json& actionInfoJson = asyncResp->res.jsonValue;
-    actionInfoJson["@odata.type"] = "#ActionInfo.v1_4_2.ActionInfo";
-    actionInfoJson["@odata.id"] =
-        "/redfish/v1/UpdateService/Oem/Nvidia/MultipartUpdateActionInfo";
-    actionInfoJson["Id"] = "MultipartUpdateActionInfo";
-    actionInfoJson["Name"] = "Multipart Update Action Info";
-
-    actionInfoJson["Parameters"] = nlohmann::json::array({
-        {
-            {"Name", "@Redfish.OperationApplyTime"},
-            {"Required", false},
-            {"DataType", "String"},
-            {"AllowableValues",
-             nlohmann::json::array({"Immediate", "OnReset"})},
-        },
-        {
-            {"Name", "Targets"},
-            {"Required", false},
-            {"DataType", "StringArray"},
-        },
-        {
-            {"Name", "ForceUpdate"},
-            {"Required", false},
-            {"DataType", "Boolean"},
-        },
-    });
-}
-
-inline void addUnsupportedActionParametersMessages(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const nlohmann::json::object_t& actionParametersObject)
-{
-    asyncResp->res.jsonValue.clear();
-    asyncResp->res.result(boost::beast::http::status::bad_request);
-    nlohmann::json& extendedInfo =
-        asyncResp->res.jsonValue["error"][messages::messageAnnotation];
-    for (const auto& [key, _] : actionParametersObject)
-    {
-        if (key == "Targets" || key == "ForceUpdate" ||
-            key == "@Redfish.OperationApplyTime")
-        {
-            continue;
-        }
-        if (!extendedInfo.is_array())
-        {
-            extendedInfo = nlohmann::json::array();
-        }
-        extendedInfo.push_back(messages::actionParameterNotSupported(
-            key, "UpdateParameters",
-            "/redfish/v1/UpdateService/Oem/Nvidia/MultipartUpdateActionInfo/"));
-    }
-}
 /**
  * @brief update oem action with ComputeDigest for devices which supports hash
  * compute
@@ -3283,12 +3217,6 @@ inline void handleUpdateServicePatch(
 
 inline void requestRoutesNvidiaUpdateService(App& app)
 {
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/UpdateService/Oem/Nvidia/MultipartUpdateActionInfo/")
-        .privileges(redfish::privileges::getUpdateService)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleMultipartUpdateActionInfoGet, std::ref(app)));
-
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/SoftwareInventory/<str>/")
         .privileges(redfish::privileges::getSoftwareInventory)
         .methods(boost::beast::http::verb::get)(std::bind_front(
