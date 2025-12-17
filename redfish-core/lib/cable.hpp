@@ -11,6 +11,7 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "nvidia_cables.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -22,10 +23,8 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
-#include <utils/nvidia_cable_util.hpp>
 
 #include <array>
 #include <cmath>
@@ -60,10 +59,15 @@ inline void fillCableProperties(
 
     const std::string* cableTypeDescription = nullptr;
     const double* length = nullptr;
+    const std::string* cableClass = nullptr;
+    const std::vector<std::string>* downstreamConnectorTypes = nullptr;
+    const std::vector<std::string>* upstreamConnectorTypes = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "CableTypeDescription",
-        cableTypeDescription, "Length", length);
+        cableTypeDescription, "Length", length, "CableClass", cableClass,
+        "DownstreamConnectorTypes", downstreamConnectorTypes,
+        "UpstreamConnectorTypes", upstreamConnectorTypes);
 
     if (!success)
     {
@@ -71,27 +75,31 @@ inline void fillCableProperties(
         return;
     }
 
-    if (cableTypeDescription != nullptr)
+    // Nvidia: convert D-Bus enum paths to Redfish strings
+    nvidia_cables::fillNvidiaCableProperties(
+        asyncResp, cableClass, downstreamConnectorTypes,
+        upstreamConnectorTypes);
+}
+
+inline void handleCablePresence(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cableObjectPath, const boost::system::error_code& ec,
+    bool present)
+{
+    if (ec)
     {
-        asyncResp->res.jsonValue["CableType"] = *cableTypeDescription;
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("get presence failed for Cable {} with error {}",
+                             cableObjectPath, ec.value());
+            messages::internalError(asyncResp->res);
+        }
+        return;
     }
 
-    if (length != nullptr)
+    if (!present)
     {
-        if (!std::isfinite(*length))
-        {
-            // Cable length is NaN by default, do not throw an error
-            if (!std::isnan(*length))
-            {
-                BMCWEB_LOG_ERROR("Cable length value is invalid");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        }
-        else
-        {
-            asyncResp->res.jsonValue["LengthMeters"] = *length;
-        }
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Absent;
     }
 }
 
@@ -100,27 +108,11 @@ inline void fillCableHealthState(
     const std::string& cableObjectPath, const std::string& service)
 {
     dbus::utility::getProperty<bool>(
-        *crow::connections::systemBus, service, cableObjectPath,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+        service, cableObjectPath, "xyz.openbmc_project.Inventory.Item",
+        "Present",
         [asyncResp,
          cableObjectPath](const boost::system::error_code& ec, bool present) {
-            if (ec)
-            {
-                if (ec.value() != EBADR)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "get presence failed for Cable {} with error {}",
-                        cableObjectPath, ec.value());
-                    messages::internalError(asyncResp->res);
-                }
-                return;
-            }
-
-            if (!present)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
-            }
+            handleCablePresence(asyncResp, cableObjectPath, ec, present);
         });
 }
 
@@ -145,27 +137,19 @@ inline void getCableProperties(
             if (interface == "xyz.openbmc_project.Inventory.Item.Cable")
             {
                 dbus::utility::getAllProperties(
-                    *crow::connections::systemBus, service, cableObjectPath,
-                    interface, std::bind_front(fillCableProperties, asyncResp));
+                    service, cableObjectPath, interface,
+                    std::bind_front(fillCableProperties, asyncResp));
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {
                 fillCableHealthState(asyncResp, cableObjectPath, service);
             }
-            // Nvidia code starts here
-            else if (
-                interface == "xyz.openbmc_project.Inventory.Decorator.Asset" ||
-                interface ==
-                    "xyz.openbmc_project.Inventory.Decorator.LocationCode" ||
-                interface ==
-                    "xyz.openbmc_project.Inventory.Decorator.LocationContext")
-            {
-                fetchCableInventoryProperties(asyncResp, service,
-                                              cableObjectPath);
-            }
-            // Nvidia code ends here
         }
     }
+
+    // Nvidia: fetch inventory, location, and OEM properties
+    nvidia_cables::getNvidiaCableProperties(asyncResp, cableObjectPath,
+                                            serviceMap);
 }
 
 inline void afterHandleCableGet(
@@ -198,8 +182,13 @@ inline void afterHandleCableGet(
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Cables/{}", cableId);
         asyncResp->res.jsonValue["Id"] = cableId;
-        asyncResp->res.jsonValue["Name"] = "Cable";
+        // Nvidia modified: use cableId as Name instead of "Cable"
+        asyncResp->res.jsonValue["Name"] = cableId;
         asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+
+        // Nvidia: add Assembly link and DownstreamChassis association
+        nvidia_cables::addNvidiaCableLinks(asyncResp, cableId, objectPath);
 
         getCableProperties(asyncResp, objectPath, serviceMap);
         return;
@@ -251,6 +240,9 @@ inline void requestRoutesCable(App& app)
         .privileges(redfish::privileges::getCable)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleCableGet, std::ref(app)));
+
+    // Nvidia: Cable Assembly endpoint
+    nvidia_cables::requestRoutesCableAssembly(app);
 }
 
 /**
