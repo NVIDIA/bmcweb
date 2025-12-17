@@ -487,25 +487,32 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::stringValueTooLong(asyncResp->res, password, limit);
         return;
     }
-    // Open pipe
-    std::shared_ptr<CredentialsPipe> secretPipe =
-        std::make_shared<CredentialsPipe>(
-            crow::connections::systemBus->get_io_context());
-    int fd = secretPipe->releaseFd();
 
-    // Pass secret over pipe
-    secretPipe->asyncWrite(
-        std::move(userName), std::move(password),
-        [asyncResp,
-         secretPipe](const boost::system::error_code& ec, std::size_t) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
-                messages::internalError(asyncResp->res);
-            }
-        });
+    using OptionalUnixFd = std::variant<int32_t, sdbusplus::message::unix_fd>;
+    OptionalUnixFd fdVariant = -1;
 
-    sdbusplus::message::unix_fd unixFd(fd);
+    if (!userName.empty() || !password.empty())
+    {
+        // Open pipe
+        std::shared_ptr<CredentialsPipe> secretPipe =
+            std::make_shared<CredentialsPipe>(
+                crow::connections::systemBus->get_io_context());
+        int fd = secretPipe->releaseFd();
+
+        // Pass secret over pipe
+        secretPipe->asyncWrite(
+            std::move(userName), std::move(password),
+            [asyncResp,
+             secretPipe](const boost::system::error_code& ec, std::size_t) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
+                    messages::internalError(asyncResp->res);
+                }
+            });
+
+        fdVariant = sdbusplus::message::unix_fd(fd);
+    }
 
     sdbusplus::message::object_path path(
         "/xyz/openbmc_project/VirtualMedia/Legacy");
@@ -526,7 +533,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         },
         service, path.str, "xyz.openbmc_project.VirtualMedia.Legacy", "Mount",
-        imageUrl, rw, std::variant<sdbusplus::message::unix_fd>(unixFd));
+        imageUrl, rw, fdVariant);
 }
 
 /**
