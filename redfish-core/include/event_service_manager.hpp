@@ -2402,6 +2402,13 @@ class EventServiceManager
             }
         }
 
+        // OOC path is already a Redfish path
+        if (!path.empty() && path.starts_with("/redfish/v1/"))
+        {
+            sendEventWithOOC(path, event);
+            return;
+        }
+
         BMCWEB_LOG_WARNING(
             "No Matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
             path);
