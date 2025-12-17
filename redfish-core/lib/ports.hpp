@@ -23,6 +23,8 @@
 
 #include <app.hpp>
 
+#include <filesystem>
+
 namespace redfish
 {
 // Enumeration of chassis ID subtypes as defined in IEEE 802.1AB
@@ -673,6 +675,34 @@ inline void getLldpInformationWithIndex(
 }
 
 /**
+ * @brief Check if a network interface is physical (not virtual)
+ * @param ifaceName - Name of the network interface
+ * @return true if interface is physical hardware, false if virtual
+ *
+ * In Linux, network interfaces are symlinked in /sys/class/net/:
+ * - Physical interfaces: point to /devices/platform/.../net/<name> (hardware
+ * device)
+ * - Virtual interfaces: point to /devices/virtual/net/<name> (no hardware)
+ *
+ * This function checks if the interface path contains "/virtual/" to determine
+ * if it's virtual.
+ */
+inline bool isPhysicalInterface(const std::string& ifaceName)
+{
+    std::string ifacePath = "/sys/class/net/" + ifaceName;
+    std::error_code ec;
+    // Read the symlink to see where it points
+    auto target = std::filesystem::read_symlink(ifacePath, ec);
+    if (ec)
+    {
+        return false; // Can't read symlink, assume not physical
+    }
+    // Virtual interfaces have "/virtual/" in their path
+    std::string targetStr = target.string();
+    return targetStr.find("/virtual/") == std::string::npos;
+}
+
+/**
  * @brief Get list of physical (non-VLAN) Ethernet interfaces
  * @param callback - Function to call with the list of physical interfaces
  *
@@ -724,7 +754,10 @@ void getPhysicalEthernetIfaceList(CallbackFunc&& callback)
                 if (hasEthernetInterface && !hasVlanInterface)
                 {
                     std::string ifaceId = objpath.first.filename();
-                    if (!ifaceId.empty())
+                    // Exclude virtual interfaces via sysfs check.
+                    // Virtual: /sys/devices/virtual/net/, Physical:
+                    // /sys/devices/platform/.../net/
+                    if (!ifaceId.empty() && isPhysicalInterface(ifaceId))
                     {
                         physicalIfaceList.emplace_back(ifaceId);
                     }
