@@ -371,6 +371,7 @@ enum class TransferProtocol
 {
     https,
     smb,
+    file,
     invalid
 };
 
@@ -389,6 +390,10 @@ inline std::optional<TransferProtocol> getTransferProtocolFromUri(
     if (scheme == "https")
     {
         return TransferProtocol::https;
+    }
+    if (scheme == "file")
+    {
+        return TransferProtocol::file;
     }
     if (!scheme.empty())
     {
@@ -600,7 +605,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
                          "contain specified protocol type from list: "
-                         "(smb, https).");
+                         "(smb, https, file).");
 
         messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
 
