@@ -54,6 +54,8 @@ using URI = std::string;
 
 static constexpr std::string_view chassisInventoryPrefix =
     "/xyz/openbmc_project/inventory/system/chassis/";
+static constexpr std::string_view chassisBmcInventoryPrefix =
+    "/xyz/openbmc_project/inventory/system/bmc/";
 static constexpr std::string_view imageCopyInterface = "com.nvidia.ImageCopy";
 
 /**
@@ -640,8 +642,18 @@ inline void handleInventoryEndpoints(
 
     // Find chassis path in inventory endpoints
     std::string chassisPath;
+    bool foundBmcPath = false;
     for (const std::string& endpoint : invEndpoints)
     {
+        if (endpoint.starts_with(chassisBmcInventoryPrefix))
+        {
+            BMCWEB_LOG_DEBUG(
+                "Found BMC path {} in inventory endpoints for software path {}",
+                endpoint, softwarePath);
+            chassisPath = endpoint;
+            foundBmcPath = true;
+            break;
+        }
         if (endpoint.starts_with(chassisInventoryPrefix))
         {
             BMCWEB_LOG_DEBUG(
@@ -661,7 +673,9 @@ inline void handleInventoryEndpoints(
     }
 
     // Query associated_chassis for this chassis path
-    std::string associatedChassisPath = chassisPath + "/associated_chassis";
+    std::string associatedChassisPath =
+        foundBmcPath ? chassisPath + "/associated_ROT"
+                     : chassisPath + "/associated_chassis";
 
     state->pendingOps++;
 
