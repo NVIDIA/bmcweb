@@ -66,24 +66,136 @@ inline void updateCableNameProperty(
     }
 }
 
+// Structure for parsing CBC Tray Topology data.
+// Matching the CBC FRU specification used by GB200 Chassis
+struct TrayTopology
+{
+    uint8_t revision;
+    uint8_t reserved1;
+    uint8_t chassisSlotNumber;
+    uint8_t trayIndex;
+    uint8_t topologyId;
+    uint8_t reserved2;
+    uint8_t reserved3;
+    uint8_t reserved4;
+};
+
+inline void fetchCBCOemProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& cableObjectPath)
+{
+    constexpr size_t trayTopologyStringLength = 16;
+    constexpr size_t trayTopologyTokenLength = 2;
+    constexpr size_t trayTopologyByteLength = 8;
+    constexpr uint8_t trayTopologyMinRevision = 2;
+
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, service, cableObjectPath,
+        "xyz.openbmc_project.Inventory.Decorator.VendorInformation",
+        "CustomField1",
+        [asyncResp, cableObjectPath](const boost::system::error_code& ec,
+                                     const std::string& property) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "No CustomField1 for CBC {}, skipping OEM properties",
+                    cableObjectPath);
+                return;
+            }
+
+            // CBC FRU matching GB200 Fru topology that it is 8 bytes (string
+            // length 16)
+            if (property.length() != trayTopologyStringLength)
+            {
+                BMCWEB_LOG_DEBUG("CBC Tray ID string length is invalid for {}",
+                                 cableObjectPath);
+                return;
+            }
+
+            std::array<uint8_t, trayTopologyByteLength> byteArray{};
+            for (size_t i = 0; i < trayTopologyByteLength; i++)
+            {
+                byteArray[i] = static_cast<uint8_t>(
+                    std::stoi(property.substr((i * trayTopologyTokenLength),
+                                              trayTopologyTokenLength),
+                              nullptr, 16));
+            }
+
+            TrayTopology trayTopology{};
+            if (sizeof(trayTopology) > byteArray.size())
+            {
+                BMCWEB_LOG_ERROR(
+                    "CBC Tray ID data is shorter than TrayTopology size");
+                return;
+            }
+            std::memcpy(&trayTopology, byteArray.data(), sizeof(trayTopology));
+
+            if (trayTopology.revision < trayTopologyMinRevision)
+            {
+                BMCWEB_LOG_DEBUG("CBC Tray ID revision must be >= {} for {}",
+                                 static_cast<int>(trayTopologyMinRevision),
+                                 cableObjectPath);
+                return;
+            }
+
+            auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+            oem["@odata.type"] = "#NvidiaCable.v0_7_0.NvidiaCBC";
+            oem["ChassisPhysicalSlotNumber"] = trayTopology.chassisSlotNumber;
+            oem["ComputeTrayIndex"] = trayTopology.trayIndex;
+            oem["RevisionId"] = trayTopology.revision;
+            oem["TopologyId"] = trayTopology.topologyId;
+        });
+}
+
+inline void handleCableAssetPropertiesResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cableObjectPath, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG(
+            "get Asset properties failed for Cable {} with error {}",
+            cableObjectPath, ec);
+        return;
+    }
+
+    const std::string* partNumber = nullptr;
+    const std::string* manufacturer = nullptr;
+    const std::string* model = nullptr;
+    const std::string* serialNumber = nullptr;
+    sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "PartNumber", partNumber,
+        "Manufacturer", manufacturer, "Model", model, "SerialNumber",
+        serialNumber);
+
+    if (partNumber != nullptr)
+    {
+        asyncResp->res.jsonValue["PartNumber"] = *partNumber;
+    }
+    if (manufacturer != nullptr)
+    {
+        asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+    }
+    if (model != nullptr)
+    {
+        asyncResp->res.jsonValue["Model"] = *model;
+    }
+    if (serialNumber != nullptr)
+    {
+        asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+    }
+}
+
 inline void fetchCableInventoryProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& cableObjectPath)
 {
-    sdbusplus::asio::getProperty<std::string>(
+    dbus::utility::getAllProperties(
         *crow::connections::systemBus, service, cableObjectPath,
-        "xyz.openbmc_project.Inventory.Decorator.Asset", "PartNumber",
-        [asyncResp, cableObjectPath](const boost::system::error_code& ec2,
-                                     const std::string& partNumber) {
-            if (ec2)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "get presence failed for Cable {} with error {}",
-                    cableObjectPath, ec2.what());
-                return;
-            }
-            asyncResp->res.jsonValue["PartNumber"] = partNumber;
-        });
+        "xyz.openbmc_project.Inventory.Decorator.Asset",
+        std::bind_front(handleCableAssetPropertiesResponse, asyncResp,
+                        cableObjectPath));
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, cableObjectPath,
