@@ -17,6 +17,7 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "generated/enums/chassis.hpp"
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
@@ -2583,29 +2584,80 @@ inline void handleFruAssetInformation(
         });
 }
 
+template <typename Enum>
+inline Enum parseDbusEnum(const std::string& stateType, Enum invalidValue)
+{
+    auto pos = stateType.rfind('.');
+    if (pos == std::string::npos)
+    {
+        return invalidValue;
+    }
+
+    Enum value = nlohmann::json(stateType.substr(pos + 1)).get<Enum>();
+    if (value == invalidValue)
+    {
+        BMCWEB_LOG_ERROR("Unknown DBus enum value {}", stateType);
+        return invalidValue;
+    }
+    return value;
+}
+inline chassis::IntrusionSensor getIntrusionStateType(
+    const std::string& stateType)
+{
+    return parseDbusEnum(stateType, chassis::IntrusionSensor::Invalid);
+}
+
+inline chassis::IntrusionSensorReArm getIntrusionRearmType(
+    const std::string& stateType)
+{
+    return parseDbusEnum(stateType, chassis::IntrusionSensorReArm::Invalid);
+}
+
 inline void getIntrusionByService(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get intrusion status by service ");
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Chassis.Intrusion", "Status",
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Chassis.Intrusion",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::string& value) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                // do not add err msg in redfish response, because this is not
-                //     mandatory property
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
                 return;
             }
+            const std::string* rearm = nullptr;
+            const std::string* status = nullptr;
 
-            asyncResp->res
-                .jsonValue["PhysicalSecurity"]["IntrusionSensorNumber"] = 1;
-            asyncResp->res.jsonValue["PhysicalSecurity"]["IntrusionSensor"] =
-                value;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "Rearm", rearm,
+                "Status", status);
+
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error while unpacking properties");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            auto& physicalSecurity =
+                asyncResp->res.jsonValue["PhysicalSecurity"];
+            if (rearm != nullptr)
+            {
+                physicalSecurity["IntrusionSensorReArm"] =
+                    getIntrusionRearmType(*rearm);
+            }
+
+            if (status != nullptr)
+            {
+                physicalSecurity["IntrusionSensor"] =
+                    getIntrusionStateType(*status);
+            }
+
+            physicalSecurity["IntrusionSensorNumber"] = 1;
         });
 }
 
