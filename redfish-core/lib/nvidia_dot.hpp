@@ -24,11 +24,13 @@
 #include <dot/base.hpp>
 #include <dot/dot_dbus_utils.hpp>
 #include <dot/dot_utils.hpp>
+#include <http/utility.hpp>
 #include <nvidia_messages.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/message.hpp>
 #include <utils/chassis_utils.hpp>
+#include <utils/memfd_utils.hpp>
 #include <utils/nvidia_async_call_utils.hpp>
 
 #include <format>
@@ -2157,6 +2159,557 @@ inline void handleDOTUnlockAction(
 }
 
 /**
+ * @brief Process DOT service discovery for Disable operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * component exists and supports DOT operations, then initiates the Disable
+ * operation via D-Bus.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param lakAuthEnum LAK authentication scheme enum
+ * @param lakEcdsaKey LAK ECDSA key data
+ * @param lakLmsKey LAK LMS key data
+ * @param nonceTypeEnum Nonce type enum
+ * @param staticChallenge Static challenge value
+ * @param lakSigAuthEnum LAK signature authentication scheme enum
+ * @param ecdsaSignature ECDSA signature data
+ * @param lmsSignature LMS signature data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTDisableServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& lakAuthEnum,
+    const std::string& lakEcdsaKey, const std::string& lakLmsKey,
+    const std::string& nonceTypeEnum, const std::string& staticChallenge,
+    const std::string& lakSigAuthEnum, const std::string& ecdsaSignature,
+    const std::string& lmsSignature, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Disable", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Disable: Calling Disable on service '{}' at path '{}'", dotService,
+        path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(10), dotService, path,
+        std::string(dot::dotActionIntf), "Disable",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Disable succeeded");
+                handleDOTDataSuccess(asyncResp, resultPtr);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.Disable");
+        },
+        lakAuthEnum, lakEcdsaKey, lakLmsKey, nonceTypeEnum, staticChallenge,
+        lakSigAuthEnum, ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Process chassis validation and parse Disable action parameters
+ *
+ * Callback invoked after chassis validation for DOT Disable action. Parses
+ * and validates the request JSON body including LAK key, nonce type,
+ * optional static challenge, and signature, then initiates DOT service
+ * discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTDisable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT Disable: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    nlohmann::json lakKey;
+    std::string nonceType;
+    std::optional<std::string> staticChallengeOpt;
+    nlohmann::json lakSignature;
+
+    if (!json_util::readJsonAction(
+            req, asyncResp->res, "LAKKey", lakKey, "NonceType", nonceType,
+            "StaticChallenge", staticChallengeOpt, "LAKSignature",
+            lakSignature))
+    {
+        return;
+    }
+
+    std::string lakAuthScheme;
+    std::string lakEcdsaKey;
+    std::string lakLmsKey;
+    if (!parseKeyStructure(lakKey, "LAKKey", asyncResp->res, lakAuthScheme,
+                           lakEcdsaKey, lakLmsKey, "NvidiaDOT.Disable", true))
+    {
+        return;
+    }
+
+    if (nonceType != "DeviceUniqueIdentifier" && nonceType != "RandomNonce" &&
+        nonceType != "StaticValue")
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Disable", "NonceType", nonceType);
+        return;
+    }
+
+    if (nonceType == "StaticValue" && !staticChallengeOpt)
+    {
+        messages::actionParameterMissing(asyncResp->res, "NvidiaDOT.Disable",
+                                         "StaticChallenge");
+        return;
+    }
+
+    std::string staticChallenge = staticChallengeOpt.value_or("");
+
+    std::string lakSigAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(lakSignature, "LAKSignature", asyncResp->res,
+                                 lakSigAuthScheme, ecdsaSignature, lmsSignature,
+                                 "NvidiaDOT.Disable"))
+    {
+        return;
+    }
+
+    std::string lakAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakAuthScheme);
+    std::string lakSigAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakSigAuthScheme);
+    std::string nonceTypeEnum =
+        dot_utils::convertNonceTypeToDbusEnum(nonceType);
+
+    if (lakAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Disable", "LAKKey/AuthenticationScheme",
+            lakAuthScheme);
+        return;
+    }
+
+    if (lakSigAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Disable",
+            "LAKSignature/AuthenticationScheme", lakSigAuthScheme);
+        return;
+    }
+
+    if (nonceTypeEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Disable", "NonceType", nonceType);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/DOT", 0, interfaces,
+        std::bind_front(afterDOTDisableServiceDiscovery, asyncResp, componentId,
+                        lakAuthEnum, lakEcdsaKey, lakLmsKey, nonceTypeEnum,
+                        staticChallenge, lakSigAuthEnum, ecdsaSignature,
+                        lmsSignature));
+}
+
+/**
+ * @brief Process DOT service discovery for Override operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the Override operation via D-Bus.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param vendorSigAuthEnum Vendor signature authentication scheme enum
+ * @param ecdsaSignature ECDSA signature data
+ * @param lmsSignature LMS signature data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTOverrideServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const std::string& vendorSigAuthEnum,
+    const std::string& ecdsaSignature, const std::string& lmsSignature,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Override", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Override: Calling Override on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(10), dotService, path,
+        std::string(dot::dotActionIntf), "Override",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Override succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.Override");
+        },
+        vendorSigAuthEnum, ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Process chassis validation and parse Override action parameters
+ *
+ * Callback invoked after chassis validation for DOT Override action. Parses
+ * and validates the request JSON body including vendor signature, then
+ * initiates DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTOverride(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT Override: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    nlohmann::json vendorSigJson;
+    if (!redfish::json_util::readJsonAction(req, asyncResp->res,
+                                            "VendorSignature", vendorSigJson))
+    {
+        return;
+    }
+
+    std::string vendorSigAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(vendorSigJson, "VendorSignature",
+                                 asyncResp->res, vendorSigAuthScheme,
+                                 ecdsaSignature, lmsSignature,
+                                 "NvidiaDOT.Override"))
+    {
+        return;
+    }
+
+    std::string vendorSigAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(vendorSigAuthScheme);
+
+    if (vendorSigAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Override",
+            "VendorSignature/AuthenticationScheme", vendorSigAuthScheme);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/DOT", 0, interfaces,
+        std::bind_front(afterDOTOverrideServiceDiscovery, asyncResp,
+                        componentId, vendorSigAuthEnum, ecdsaSignature,
+                        lmsSignature));
+}
+
+/**
+ * @brief Process DOT service discovery for Recovery operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the Recovery operation via D-Bus.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param dotData Base64-encoded backup DOT data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTRecoveryServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId,
+    const std::shared_ptr<MemoryFD>& dotDataMemfd,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "RecoverDOT", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Recovery: Calling Recovery on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(10), dotService, path,
+        std::string(dot::dotActionIntf), "RecoverDOT",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Recovery succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.RecoverDOT");
+        },
+        sdbusplus::message::unix_fd(dotDataMemfd->fd));
+}
+
+/**
+ * @brief Process chassis validation and parse Recovery action parameters
+ *
+ * Callback invoked after chassis validation for DOT Recovery action. Parses
+ * and validates the request JSON body including DOT data, then initiates
+ * DOT service discovery.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param req HTTP request containing action parameters
+ * @param chassisId The chassis identifier
+ * @param componentId The trusted component identifier
+ * @param validChassisPath Optional path to validated chassis (nullopt if
+ * invalid)
+ */
+inline void afterChassisValidationForDOTRecovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& chassisId,
+    const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT Recovery: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    std::string dotDataBase64;
+    if (!redfish::json_util::readJsonAction(req, asyncResp->res, "DOTData",
+                                            dotDataBase64))
+    {
+        return;
+    }
+
+    if (dotDataBase64.empty())
+    {
+        messages::actionParameterMissing(asyncResp->res, "NvidiaDOT.RecoverDOT",
+                                         "DOTData");
+        return;
+    }
+
+    constexpr size_t dotBlobSize = 1024;
+    constexpr size_t maxBase64Size = dotBlobSize * 4 / 3;
+    if (dotDataBase64.size() > maxBase64Size)
+    {
+        BMCWEB_LOG_ERROR(
+            "DOT Recovery: DOTData size {} exceeds maximum allowed size {}",
+            dotDataBase64.size(), maxBase64Size);
+        messages::actionParameterValueFormatError(
+            asyncResp->res, nlohmann::json(dotDataBase64), "DOTData",
+            "NvidiaDOT.RecoverDOT");
+        return;
+    }
+
+    std::string dotDataBinary;
+    if (!crow::utility::base64Decode(dotDataBase64, dotDataBinary))
+    {
+        BMCWEB_LOG_ERROR("DOT Recovery: Failed to decode base64 DOT data");
+        messages::actionParameterValueFormatError(
+            asyncResp->res, nlohmann::json(dotDataBase64), "DOTData",
+            "NvidiaDOT.RecoverDOT");
+        return;
+    }
+
+    std::shared_ptr<MemoryFD> dotDataMemfd;
+    try
+    {
+        dotDataMemfd = std::make_shared<MemoryFD>();
+        std::vector<uint8_t> data(dotDataBinary.begin(), dotDataBinary.end());
+        dotDataMemfd->write(data);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR(
+            "DOT Recovery: Failed to create memfd for DOT data: {}", e.what());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/DOT", 0, interfaces,
+        std::bind_front(afterDOTRecoveryServiceDiscovery, asyncResp,
+                        componentId, dotDataMemfd));
+}
+
+/**
+ * @brief Handle DOT Disable action request
+ *
+ * Entry point for DOT Disable action endpoint. Validates the request,
+ * chassis, and component before processing the Disable operation that
+ * disables Device Ownership Transfer (DOT) functionality completely.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTDisableAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Disable action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Disable: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTDisable, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
+ * @brief Handle DOT Override action request
+ *
+ * Entry point for DOT Override action endpoint. Validates the request,
+ * chassis, and component before processing the Override operation that
+ * resets ownership state when valid DOT data can no longer be recovered.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTOverrideAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Override action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Override: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTOverride, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
+ * @brief Handle DOT Recovery action request
+ *
+ * Entry point for DOT Recovery action endpoint. Validates the request,
+ * chassis, and component before processing the Recovery operation that
+ * recovers corrupted DOT data using backup data.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTRecoveryAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Recovery action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
+
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("DOT Recovery: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidationForDOTRecovery, asyncResp,
+                        std::ref(req), chassisId, componentId));
+}
+
+/**
  * @brief Registers Redfish routes for Nvidia OEM Trusted Components DOT
  * endpoints
  *
@@ -2270,6 +2823,27 @@ inline void requestRoutesNvidiaOemDOT(App& app)
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTGetInfoAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Disable")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTDisableAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Override")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTOverrideAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Recovery")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTRecoveryAction, std::ref(app)));
 }
 
 } // namespace redfish
