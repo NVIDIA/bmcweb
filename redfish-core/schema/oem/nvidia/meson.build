@@ -30,6 +30,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaNVLinkMetrics_v1.xml',
         'NvidiaNetworkAdapter_v1.xml',
         'NvidiaNetworkProtocol_v1.xml',
+        'NvidiaPCIeEqualization_v1.xml',
         'NvidiaPCIeDevice_v1.xml',
         'NvidiaPCIeSlots_v1.xml',
         'NvidiaPersistentStorage_v1.xml',
