@@ -16,6 +16,7 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "nvidia_bios.hpp"
+#include "nvidia_chassis.hpp"
 #include "nvidia_chassis_env_metrics.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_dot.hpp"
@@ -291,6 +292,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesChassisControls(app);
     requestRoutesChassisControlsCollection(app);
     requestRoutesChassisControlsReset(app);
+    requestRoutesChassisSetCPURecoveryMode(app);
     requestRoutesTrustedComponents(app);
     requestRoutesNvidiaOemDOT(app);
 

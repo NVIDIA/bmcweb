@@ -1,14 +1,18 @@
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "erot_chassis.hpp"
 #include "error_messages.hpp"
+#include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
+#include <boost/beast/http/verb.hpp>
 #include <sdbusplus/message/types.hpp>
 
 namespace redfish
@@ -225,5 +229,184 @@ inline void getChassisOemNvidiaProperties(
         std::bind_front(&afterChassisSpiInterfacesFound, asyncResp, chassisId));
 }
 
+/**
+ * @brief Add SetCPURecoveryMode OEM action to chassis response if supported
+ *
+ * Checks if the chassis supports CPU recovery mode by looking for the
+ * com.nvidia.SetRecoveryMode D-Bus interface and adds the OEM action
+ * to the chassis response.
+ *
+ * @param asyncResp Async response object
+ * @param chassisId Target chassis identifier
+ */
+inline void addCpuRecoveryModeAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
+    {
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> recoveryInterfaces = {
+        "com.nvidia.SetRecoveryMode"};
+    const std::string chassisObjPath =
+        "/xyz/openbmc_project/inventory/system/chassis/" + chassisId;
+
+    dbus::utility::getDbusObject(
+        chassisObjPath, recoveryInterfaces,
+        [asyncResp,
+         chassisId](const boost::system::error_code& ecRecovery,
+                    const dbus::utility::MapperGetObject& mapperResponse) {
+            if (ecRecovery || mapperResponse.empty())
+            {
+                return;
+            }
+
+            asyncResp->res.jsonValue["Actions"]["Oem"]
+                                    ["#NvidiaChassis.SetCPURecoveryMode"]
+                                    ["target"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaChassis.SetCPURecoveryMode",
+                chassisId);
+        });
+}
+
+/**
+ * @brief Callback for SetRecoveryMode D-Bus method call
+ *
+ * @param asyncResp Async response object
+ * @param ec Error code from D-Bus call
+ */
+inline void handleSetRecoveryModeResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("SetCPURecoveryMode D-Bus call failed: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    messages::success(asyncResp->res);
+}
+
+/**
+ * @brief Invoke SetRecoveryMode on the discovered service
+ *
+ * @param asyncResp Async response object
+ * @param service D-Bus service name
+ * @param chassisObjPath Chassis object path
+ */
+inline void invokeSetRecoveryMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& chassisObjPath)
+{
+    constexpr std::string_view recoveryInterface = "com.nvidia.SetRecoveryMode";
+    constexpr std::string_view recoveryMethod = "SetRecoveryMode";
+
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp](const boost::system::error_code& ec) {
+            handleSetRecoveryModeResponse(asyncResp, ec);
+        },
+        service, chassisObjPath, std::string(recoveryInterface),
+        std::string(recoveryMethod));
+}
+
 } // namespace nvidia_chassis
+
+/**
+ * @brief POST handler for CPU recovery mode action
+ *
+ * Forces all CPUs within the chassis into USB RCM recovery mode.
+ * This is a chassis-level action that triggers recovery for all CPUs
+ * at once via GPIO sequence.
+ *
+ * Uses D-Bus interface: com.nvidia.SetRecoveryMode
+ * Method: SetRecoveryMode() - void method, throws exception on failure
+ *
+ * Exit from recovery mode is done via power cycle.
+ *
+ * @param app       Crow application
+ * @param req       HTTP request
+ * @param asyncResp Async response object
+ * @param chassisId Target chassis identifier
+ */
+inline void handleChassisSetCPURecoveryModePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("SetCPURecoveryMode POST request for: {}", chassisId);
+
+    constexpr std::string_view recoveryInterface = "com.nvidia.SetRecoveryMode";
+
+    const std::string chassisObjPath =
+        "/xyz/openbmc_project/inventory/system/chassis/" + chassisId;
+
+    dbus::utility::getDbusObject(
+        chassisObjPath, std::array<std::string_view, 1>{recoveryInterface},
+        [asyncResp,
+         chassisObjPath](const boost::system::error_code& ec,
+                         const dbus::utility::MapperGetObject& object) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("GetDbusObject failed for SetRecoveryMode: {}",
+                                 ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            if (object.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "SetRecoveryMode interface not found on chassis");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (object.size() != 1)
+            {
+                BMCWEB_LOG_ERROR("SetRecoveryMode mapper response size {}",
+                                 object.size());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            const std::string& service = object.begin()->first;
+            nvidia_chassis::invokeSetRecoveryMode(asyncResp, service,
+                                                  chassisObjPath);
+        });
+}
+
+/**
+ * @brief Registers Redfish route for CPU recovery mode action
+ *
+ * Route: POST
+ * /redfish/v1/Chassis/{ChassisId}/Actions/Oem/NvidiaChassis.SetCPURecoveryMode/
+ *
+ * Enables forcing all CPUs within a chassis into recovery mode.
+ * Only available for chassis with CPU recovery support configured
+ * in Entity Manager (USBRCMRecovery type with ChassisName).
+ */
+inline void requestRoutesChassisSetCPURecoveryMode(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.SetCPURecoveryMode/")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            handleChassisSetCPURecoveryModePost, std::ref(app)));
+}
+
 } // namespace redfish

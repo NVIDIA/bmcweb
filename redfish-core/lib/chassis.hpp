@@ -674,6 +674,10 @@ inline void handleChassisGetSubTree(
                     "/Oem/Nvidia/AuxPowerResetActionInfo";
             }
         }
+
+        // Add CPU recovery mode OEM action if supported
+        nvidia_chassis::addCpuRecoveryModeAction(asyncResp, chassisId);
+
         // Nvidia Added code end
 
         asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
