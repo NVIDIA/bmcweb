@@ -23,6 +23,7 @@
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
+#include <charconv>
 #include <string>
 
 namespace redfish
@@ -95,60 +96,13 @@ static inline std::string getStrAfterLastDot(const std::string& text)
     return text;
 }
 
-static inline bool stringToInt(const std::string& str, int& number)
-{
-    try
-    {
-        size_t pos = 0;
-        number = std::stoi(str, &pos);
-        if (pos != str.size())
-        {
-            return false;
-        }
-    }
-    catch (const std::invalid_argument&)
-    {
-        return false;
-    }
-    catch (const std::out_of_range&)
-    {
-        return false;
-    }
-    return true;
-}
-
-static inline std::string removeRoTFromStr(const std::string& input)
-{
-    // Find the position of "RoT" in the string
-    size_t rotPos = input.find("RoT");
-    if (rotPos == std::string::npos)
-    {
-        return input;
-    }
-
-    // Find the underscore before "RoT", if it exists; otherwise, use start of
-    // string
-    size_t firstUnderscore = input.rfind('_', rotPos);
-    size_t secondUnderscore = input.find('_', rotPos + 3);
-
-    if (secondUnderscore != std::string::npos)
-    {
-        bool isRoTAtStart = (firstUnderscore == std::string::npos);
-
-        // If "RoT" is at the start, start from beginning (0)
-        // Otherwise, keep the part before first_underscore
-        size_t startPos = isRoTAtStart ? 0 : firstUnderscore;
-
-        // If "RoT" is at the start, skip the underscore after it
-        // Otherwise, include the underscore
-        size_t endPos = isRoTAtStart ? secondUnderscore + 1 : secondUnderscore;
-
-        return input.substr(0, startPos) + input.substr(endPos);
-    }
-    // If conditions are not met, return the original string
-    return input;
-}
-
+/**
+ * @brief Update slot properties
+ * @param asyncResp Async response object
+ * @param service Service name
+ * @param objectPath Object path
+ * @return void
+ */
 inline void updateSlotProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objectPath)
@@ -162,8 +116,6 @@ inline void updateSlotProperties(
             {
                 if (ec == boost::system::errc::host_unreachable)
                 {
-                    // Service not available, no error, just don't
-                    // return chassis state info
                     BMCWEB_LOG_ERROR("Service not available {}", ec);
                     return;
                 }
@@ -309,6 +261,143 @@ inline void updateSlotProperties(
         service, objectPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
+/**
+ * @brief Process image slot properties
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param slotNumStr Slot number string
+ * @param slotNum Slot number
+ * @param service Service name
+ * @param objectPath Object path
+ * @param propertiesList Properties list
+ * @return void
+ */
+inline void processImageSlotProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr,
+    const std::string& slotNumStr, const std::string& service,
+    const std::string& objectPath,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    std::optional<uint8_t> slotId;
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "SlotId", slotId);
+
+    if (!success)
+    {
+        BMCWEB_LOG_ERROR("Unpack Slot properties error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Name"] =
+        std::format("{} RoTProtectedComponent {} ImageSlot {}", chassisId,
+                    fwTypeStr, slotNumStr);
+    asyncResp->res.jsonValue["Id"] = slotNumStr;
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
+    asyncResp->res.jsonValue["@odata.id"] = std::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots/{}",
+        chassisId, fwTypeStr, slotNumStr);
+    updateSlotProperties(asyncResp, service, objectPath);
+}
+
+/**
+ * @brief Process Nvidia RoT image slot subtree
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param slotNumStr Slot number string
+ * @param subtree Subtree
+ */
+inline void processNvidiaRoTImageSlotSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr,
+    const std::string& slotNumStr,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto dbusComponentId = fwTypeStr == "Self" ? chassisId : fwTypeStr;
+
+    std::vector<std::pair<std::string, std::string>> cachedPathServices;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() != dbusComponentId)
+        {
+            continue;
+        }
+
+        for (const auto& [service, interfaces] : serviceMap)
+        {
+            auto it = std::find_if(std::begin(interfaces), std::end(interfaces),
+                                   [](const auto& element) {
+                                       return element == softwareSlotInterface;
+                                   });
+            if (it == std::end(interfaces))
+            {
+                continue;
+            }
+            cachedPathServices.emplace_back(objectPath, service);
+            break;
+        }
+    }
+
+    if (cachedPathServices.empty())
+    {
+        BMCWEB_LOG_ERROR("Slot entry not found for {}.{}", chassisId,
+                         slotNumStr);
+        messages::resourceNotFound(asyncResp->res, "NvidiaRoTImageSlot",
+                                   slotNumStr);
+        return;
+    }
+
+    unsigned int slotNum = 0;
+    std::string_view slotNumView(slotNumStr);
+    auto [ptr, parseEc] =
+        std::from_chars(slotNumView.begin(), slotNumView.end(), slotNum);
+    if (parseEc != std::errc{} || ptr != slotNumView.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "NvidiaRoTImageSlot",
+                                   slotNumStr);
+        return;
+    }
+
+    if (slotNum >= cachedPathServices.size())
+    {
+        messages::resourceNotFound(asyncResp->res, "NvidiaRoTImageSlot",
+                                   slotNumStr);
+        return;
+    }
+
+    auto [objectPath, service] = cachedPathServices[slotNum];
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, objectPath,
+        softwareSlotInterface,
+        [asyncResp, chassisId, fwTypeStr, slotNumStr, service,
+         objectPath](const boost::system::error_code& ec,
+                     const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            processImageSlotProperties(asyncResp, chassisId, fwTypeStr,
+                                       slotNumStr, service, objectPath,
+                                       propertiesList);
+        });
+}
+
+/**
+ * @brief Handle Nvidia RoT image slot
+ * @param app App
+ * @param req Request
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param slotNumStr Slot number string
+ */
 inline void handleNvidiaRoTImageSlot(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -320,16 +409,9 @@ inline void handleNvidiaRoTImageSlot(
         return;
     }
 
-    int slotNum = 0;
-    if (!stringToInt(slotNumStr, slotNum) || (slotNum > 1))
-    {
-        messages::resourceNotFound(asyncResp->res, "SlotNumber", slotNumStr);
-        return;
-    }
-
     dbus::utility::getSubTree(
         chassisDbusPath + chassisId, 0, propertyInterfaces,
-        [chassisId, slotNum, fwTypeStr, slotNumStr,
+        [chassisId, fwTypeStr, slotNumStr,
          asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -338,113 +420,18 @@ inline void handleNvidiaRoTImageSlot(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            auto componentId =
-                fwTypeStr != "Self" ? removeRoTFromStr(chassisId) : "Self";
-            if (componentId.find(fwTypeStr) == std::string::npos)
-            {
-                messages::resourceNotFound(asyncResp->res, "NvidiaRoTImageSlot",
-                                           fwTypeStr);
-                return;
-            }
-            size_t slotCount = subtree.size();
-            std::shared_ptr<size_t> parsedSlotCount =
-                std::make_shared<size_t>(0);
-            std::shared_ptr<bool> slotFound = std::make_shared<bool>(false);
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                for (const auto& [service, interfaces] : serviceMap)
-                {
-                    auto it = std::find_if(
-                        std::begin(interfaces), std::end(interfaces),
-                        [](const auto& element) {
-                            return element == softwareSlotInterface;
-                        });
-                    if (it == std::end(interfaces))
-                    {
-                        continue;
-                    }
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, service, objectPath,
-                        "xyz.openbmc_project.Software.Slot",
-                        [asyncResp, service, objectPath, chassisId, slotNum,
-                         slotNumStr, fwTypeStr, slotCount, parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec1,
-                                    const dbus::utility::DBusPropertiesMap&
-                                        propertiesList) {
-                            if (ec1)
-                            {
-                                if (ec1 ==
-                                    boost::system::errc::host_unreachable)
-                                {
-                                    // Service not available, no error, just
-                                    // don't return chassis state info
-                                    BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec1);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            (*parsedSlotCount) += 1;
-                            const auto* const slotType =
-                                (fwTypeStr == "Self")
-                                    ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
-                                    : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
-                            std::optional<uint8_t> slotId;
-                            std::optional<bool> isActive;
-                            std::optional<std::string> fwType;
-                            const bool success =
-                                sdbusplus::unpackPropertiesNoThrow(
-                                    dbus_utils::UnpackErrorPrinter(),
-                                    propertiesList, "SlotId", slotId,
-                                    "IsActive", isActive, "Type", fwType);
-                            if (!success)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Unpack Slot properites error");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if ((fwType && *fwType == slotType) &&
-                                (slotId && *slotId == slotNum))
-                            {
-                                *slotFound = true;
-                                std::string name = chassisId;
-                                name += " RoTProtectedComponent ";
-                                name += fwTypeStr;
-                                name += " ImageSlot ";
-                                name += slotNumStr;
-                                asyncResp->res.jsonValue["Name"] = name;
-                                asyncResp->res.jsonValue["Id"] = slotNumStr;
-                                asyncResp->res.jsonValue["@odata.type"] =
-                                    "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
-                                std::string odataId = "/redfish/v1/Chassis/";
-                                odataId += chassisId;
-                                odataId +=
-                                    "/Oem/NvidiaRoT/RoTProtectedComponents/";
-                                odataId += fwTypeStr;
-                                odataId += "/ImageSlots/";
-                                odataId += slotNumStr;
-                                asyncResp->res.jsonValue["@odata.id"] = odataId;
-                                updateSlotProperties(asyncResp, service,
-                                                     objectPath);
-                            }
-                            if (*parsedSlotCount == slotCount && !(*slotFound))
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Slot entry not found for {}.{}", chassisId,
-                                    slotNumStr);
-                                messages::resourceNotFound(asyncResp->res,
-                                                           "NvidiaRoTImageSlot",
-                                                           slotNumStr);
-                            }
-                        });
-                }
-            }
+
+            processNvidiaRoTImageSlotSubtree(asyncResp, chassisId, fwTypeStr,
+                                             slotNumStr, subtree);
         });
 }
 
+/**
+ * @brief Update protected component link
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @return void
+ */
 inline void updateProtectedComponentLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -472,6 +459,124 @@ inline void updateProtectedComponentLink(
         });
 }
 
+/**
+ * @brief Process component collection properties
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param objectPath Object path
+ * @param propertiesList Properties list
+ */
+inline void processComponentCollectionProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& objectPath,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    std::optional<uint8_t> slotId;
+    std::optional<std::string> fwType;
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "SlotId", slotId,
+        "Type", fwType);
+
+    if (!success)
+    {
+        BMCWEB_LOG_ERROR("Unpack Slot properties error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (slotId && fwType && *slotId == 0)
+    {
+        if (*fwType == "xyz.openbmc_project.Software.Slot.FirmwareType.EC")
+        {
+            asyncResp->res.jsonValue["Members"].push_back(
+                {{"@odata.id",
+                  std::format(
+                      "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/Self",
+                      chassisId)}});
+            asyncResp->res.jsonValue["Members@odata.count"] =
+                asyncResp->res.jsonValue["Members"].size();
+        }
+        else if (*fwType == "xyz.openbmc_project.Software.Slot.FirmwareType.AP")
+        {
+            sdbusplus::message::object_path path(objectPath);
+            auto componentId = path.filename();
+            asyncResp->res.jsonValue["Members"].push_back(
+                {{"@odata.id",
+                  std::format(
+                      "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}",
+                      chassisId, componentId)}});
+            asyncResp->res.jsonValue["Members@odata.count"] =
+                asyncResp->res.jsonValue["Members"].size();
+        }
+    }
+}
+
+/**
+ * @brief Process Nvidia RoT protected component collection subtree
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param subtree Subtree
+ */
+inline void processNvidiaRoTProtectedComponentCollectionSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    asyncResp->res.jsonValue["@odata.id"] = std::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents",
+        chassisId);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaRoTProtectedComponentCollection.NvidiaRoTProtectedComponentCollection";
+    asyncResp->res.jsonValue["Name"] =
+        std::format("{} RoTProtectedComponent Collection", chassisId);
+    asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+
+    std::vector<std::pair<std::string, std::string>> cachedPathServices;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        for (const auto& [service, interfaces] : serviceMap)
+        {
+            cachedPathServices.emplace_back(objectPath, service);
+            break;
+        }
+    }
+    if (cachedPathServices.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "NvidiaRoTProtectedComponentCollection entry not found for {}",
+            chassisId);
+        messages::resourceNotFound(
+            asyncResp->res, "NvidiaRoTProtectedComponentCollection", chassisId);
+        return;
+    }
+
+    for (const auto& [objectPath, service] : cachedPathServices)
+    {
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, service, objectPath,
+            softwareSlotInterface,
+            [asyncResp, chassisId, objectPath](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                processComponentCollectionProperties(
+                    asyncResp, chassisId, objectPath, propertiesList);
+            });
+    }
+}
+
+/**
+ * @brief Handle Nvidia RoT protected component collection
+ * @param app App
+ * @param req Request
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ */
 inline void handleNvidiaRoTProtectedComponentCollection(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -482,7 +587,8 @@ inline void handleNvidiaRoTProtectedComponentCollection(
         return;
     }
     dbus::utility::getSubTree(
-        chassisDbusPath + chassisId, 0, propertyInterfaces,
+        chassisDbusPath + chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
         [chassisId,
          asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -490,8 +596,6 @@ inline void handleNvidiaRoTProtectedComponentCollection(
             {
                 if (ec == boost::system::errc::host_unreachable)
                 {
-                    // Service not available, no error, just don't
-                    // return chassis state info
                     BMCWEB_LOG_ERROR("Service not available {}", ec);
                     messages::internalError(asyncResp->res);
                     return;
@@ -502,102 +606,88 @@ inline void handleNvidiaRoTProtectedComponentCollection(
                     chassisId);
                 return;
             }
-            asyncResp->res.jsonValue["@odata.id"] =
-                "/redfish/v1/Chassis/" + chassisId +
-                "/Oem/NvidiaRoT/RoTProtectedComponents";
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#NvidiaRoTProtectedComponentCollection.NvidiaRoTProtectedComponentCollection";
-            asyncResp->res.jsonValue["Name"] =
-                chassisId + " RoTProtectedComponent Collection";
-            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                for (const auto& [service, interfaces] : serviceMap)
-                {
-                    auto it = std::find_if(
-                        std::begin(interfaces), std::end(interfaces),
-                        [](const auto& element) {
-                            return element == softwareSlotInterface;
-                        });
-                    if (it == std::end(interfaces))
-                    {
-                        continue;
-                    }
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, service, objectPath,
-                        "xyz.openbmc_project.Software.Slot",
-                        [asyncResp, objectPath,
-                         chassisId](const boost::system::error_code& ec1,
-                                    const dbus::utility::DBusPropertiesMap&
-                                        propertiesList) {
-                            if (ec1)
-                            {
-                                if (ec1 ==
-                                    boost::system::errc::host_unreachable)
-                                {
-                                    // Service not available, no error, just
-                                    // don't return chassis state info
-                                    BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec1);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            std::optional<uint8_t> slotID;
-                            std::optional<bool> isActive;
-                            std::optional<std::string> fwType;
-                            const bool success =
-                                sdbusplus::unpackPropertiesNoThrow(
-                                    dbus_utils::UnpackErrorPrinter(),
-                                    propertiesList, "SlotId", slotID,
-                                    "IsActive", isActive, "Type", fwType);
-                            if (!success)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Unpack Slot properites error");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if (slotID && fwType)
-                            {
-                                if (*slotID == 0 &&
-                                    *fwType ==
-                                        "xyz.openbmc_project.Software.Slot.FirmwareType.EC")
-                                {
-                                    asyncResp->res.jsonValue["Members"].push_back(
-                                        {{"@odata.id",
-                                          "/redfish/v1/Chassis/" + chassisId +
-                                              "/Oem/NvidiaRoT/RoTProtectedComponents/Self"}});
-                                    asyncResp->res
-                                        .jsonValue["Members@odata.count"] =
-                                        asyncResp->res.jsonValue["Members"]
-                                            .size();
-                                }
-                                else if (
-                                    *slotID == 0 &&
-                                    fwType ==
-                                        "xyz.openbmc_project.Software.Slot.FirmwareType.AP")
-                                {
-                                    asyncResp->res.jsonValue["Members"].push_back(
-                                        {{"@odata.id",
-                                          "/redfish/v1/Chassis/" + chassisId +
-                                              "/Oem/NvidiaRoT/RoTProtectedComponents/" +
-                                              removeRoTFromStr(chassisId)}});
-                                    asyncResp->res
-                                        .jsonValue["Members@odata.count"] =
-                                        asyncResp->res.jsonValue["Members"]
-                                            .size();
-                                }
-                            }
-                        });
-                    break;
-                }
-            }
+
+            processNvidiaRoTProtectedComponentCollectionSubtree(
+                asyncResp, chassisId, subtree);
         });
 }
 
+/**
+ * @brief Process Nvidia RoT image slot subtree
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param subtree Subtree
+ */
+inline void processNvidiaRoTImageSlotSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto dbusComponentId = fwTypeStr == "Self" ? chassisId : fwTypeStr;
+
+    std::vector<std::pair<std::string, std::string>> cachedPathServices;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() != dbusComponentId)
+        {
+            continue;
+        }
+
+        for (const auto& [service, interfaces] : serviceMap)
+        {
+            auto it = std::find_if(std::begin(interfaces), std::end(interfaces),
+                                   [](const auto& element) {
+                                       return element == softwareSlotInterface;
+                                   });
+            if (it == std::end(interfaces))
+            {
+                continue;
+            }
+            cachedPathServices.emplace_back(objectPath, service);
+            break;
+        }
+    }
+
+    if (cachedPathServices.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "NvidiaRoTImageSlotCollection entry not found for {}.{}", chassisId,
+            fwTypeStr);
+        messages::resourceNotFound(asyncResp->res,
+                                   "NvidiaRoTImageSlotCollection", fwTypeStr);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaRoTImageSlotCollection.NvidiaRoTImageSlotCollection";
+    asyncResp->res.jsonValue["@odata.id"] = std::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots",
+        chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["Name"] = std::format(
+        "{} RoTProtectedComponent {} ImageSlot", chassisId, fwTypeStr);
+
+    for (size_t slotIndex = 0; slotIndex < cachedPathServices.size();
+         ++slotIndex)
+    {
+        auto memberId = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots/{}",
+            chassisId, fwTypeStr, slotIndex);
+        asyncResp->res.jsonValue["Members"].push_back(
+            {{"@odata.id", memberId}});
+    }
+    asyncResp->res.jsonValue["Members@odata.count"] = cachedPathServices.size();
+}
+
+/**
+ * @brief Handle Nvidia RoT image slot collection
+ * @param app App
+ * @param req Request
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ */
 inline void handleNvidiaRoTImageSlotCollection(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -608,7 +698,8 @@ inline void handleNvidiaRoTImageSlotCollection(
         return;
     }
     dbus::utility::getSubTree(
-        chassisDbusPath + chassisId, 0, propertyInterfaces,
+        chassisDbusPath + chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
         [chassisId, fwTypeStr,
          asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -618,114 +709,8 @@ inline void handleNvidiaRoTImageSlotCollection(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            auto componentId =
-                fwTypeStr != "Self" ? removeRoTFromStr(chassisId) : "Self";
-            if (componentId.find(fwTypeStr) == std::string::npos)
-            {
-                messages::resourceNotFound(
-                    asyncResp->res, "NvidiaRoTImageSlotCollection", fwTypeStr);
-                return;
-            }
-            size_t slotCount = subtree.size();
-            std::shared_ptr<size_t> parsedSlotCount =
-                std::make_shared<size_t>(0);
-            std::shared_ptr<bool> slotFound = std::make_shared<bool>(false);
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                for (const auto& [service, interfaces] : serviceMap)
-                {
-                    auto it = std::find_if(
-                        std::begin(interfaces), std::end(interfaces),
-                        [](const auto& element) {
-                            return element == softwareSlotInterface;
-                        });
-                    if (it == std::end(interfaces))
-                    {
-                        continue;
-                    }
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, service, objectPath,
-                        "xyz.openbmc_project.Software.Slot",
-                        [asyncResp, objectPath, chassisId, fwTypeStr, slotCount,
-                         parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec1,
-                                    const dbus::utility::DBusPropertiesMap&
-                                        propertiesList) {
-                            if (ec1)
-                            {
-                                if (ec1 ==
-                                    boost::system::errc::host_unreachable)
-                                {
-                                    // Service not available, no error, just
-                                    // don't return chassis state info
-                                    BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec1);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            (*parsedSlotCount) += 1;
-                            const auto* const slotType =
-                                (fwTypeStr == "Self")
-                                    ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
-                                    : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
-                            std::optional<uint8_t> slotID;
-                            std::optional<bool> isActive;
-                            std::optional<std::string> fwType;
-                            const bool success =
-                                sdbusplus::unpackPropertiesNoThrow(
-                                    dbus_utils::UnpackErrorPrinter(),
-                                    propertiesList, "SlotId", slotID,
-                                    "IsActive", isActive, "Type", fwType);
-                            if (!success)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Unpack Slot properites error");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if (fwType && *fwType == slotType)
-                            {
-                                *slotFound = true;
-                                asyncResp->res.jsonValue["@odata.type"] =
-                                    "#NvidiaRoTImageSlotCollection.NvidiaRoTImageSlotCollection";
-                                std::string odataId = "/redfish/v1/Chassis/";
-                                odataId += chassisId;
-                                odataId +=
-                                    "/Oem/NvidiaRoT/RoTProtectedComponents/";
-                                odataId += fwTypeStr;
-                                odataId += "/ImageSlots";
-                                asyncResp->res.jsonValue["@odata.id"] = odataId;
-                                std::string name = chassisId;
-                                name += " RoTProtectedComponent ";
-                                name += fwTypeStr;
-                                name += " ImageSlot";
-                                asyncResp->res.jsonValue["Name"] = name;
-                                auto memberId = boost::urls::format(
-                                    "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots/{}",
-                                    chassisId, fwTypeStr,
-                                    std::to_string(*slotID));
-                                asyncResp->res.jsonValue["Members"].push_back(
-                                    {{"@odata.id", memberId}});
-                                asyncResp->res
-                                    .jsonValue["Members@odata.count"] =
-                                    asyncResp->res.jsonValue["Members"].size();
-                            }
-                            if (*parsedSlotCount == slotCount && !(*slotFound))
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "NvidiaRoTImageSlotCollection entry not found for {}.{}",
-                                    chassisId, fwTypeStr);
-                                messages::resourceNotFound(
-                                    asyncResp->res,
-                                    "NvidiaRoTImageSlotCollection", fwTypeStr);
-                            }
-                        });
-                    break;
-                }
-            }
+            processNvidiaRoTImageSlotSubtree(asyncResp, chassisId, fwTypeStr,
+                                             subtree);
         });
 }
 
@@ -973,8 +958,6 @@ inline void updatePendingProperties(
                     {
                         if (ec1 == boost::system::errc::host_unreachable)
                         {
-                            // Service not available, no error, just don't
-                            // return chassis state info
                             BMCWEB_LOG_ERROR("Service not available {}", ec1);
                             return;
                         }
@@ -1034,6 +1017,27 @@ inline void updatePendingProperties(
         });
 }
 
+/**
+ * @brief Process protected component settings
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ */
+inline void processNvidiaRoTProtectedComponentSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr)
+{
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/Settings",
+        chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent";
+    asyncResp->res.jsonValue["Name"] = std::format(
+        "{} RoTProtectedComponent {} Pending Settings", chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["Id"] = "Settings";
+    updatePendingProperties(asyncResp, chassisId, fwTypeStr);
+}
+
 inline void handleNvidiaRoTProtectedComponentSettings(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1043,128 +1047,148 @@ inline void handleNvidiaRoTProtectedComponentSettings(
     {
         return;
     }
-    dbus::utility::getSubTree(
-        chassisDbusPath + chassisId, 0, propertyInterfaces,
-        [chassisId, fwTypeStr, asyncResp](
-            const boost::system::error_code& ec,
-            [[maybe_unused]] const dbus::utility::MapperGetSubTreeResponse&
-                subtree) {
-            if (ec)
-            {
-                if (ec == boost::system::errc::host_unreachable)
-                {
-                    // Service not available, no error, just don't
-                    // return chassis state info
-                    BMCWEB_LOG_ERROR("Service not available {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec, ec.message());
-                messages::resourceNotFound(
-                    asyncResp->res, "NvidiaRoTProtectedComponent", fwTypeStr);
-                return;
-            }
-            auto componentId =
-                fwTypeStr != "Self" ? removeRoTFromStr(chassisId) : "Self";
-            if (componentId.find(fwTypeStr) == std::string::npos)
-            {
-                messages::resourceNotFound(
-                    asyncResp->res, "NvidiaRoTProtectedComponent", fwTypeStr);
-                return;
-            }
-            size_t slotCount = subtree.size();
-            std::shared_ptr<size_t> parsedSlotCount =
-                std::make_shared<size_t>(0);
-            std::shared_ptr<bool> slotFound = std::make_shared<bool>(false);
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                for (const auto& [service, interfaces] : serviceMap)
-                {
-                    auto it = std::find_if(
-                        std::begin(interfaces), std::end(interfaces),
-                        [](const auto& element) {
-                            return element == softwareSlotInterface;
-                        });
-                    if (it == std::end(interfaces))
-                    {
-                        continue;
-                    }
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, service, objectPath,
-                        "xyz.openbmc_project.Software.Slot",
-                        [asyncResp, objectPath, chassisId, fwTypeStr,
-                         componentId, slotCount, parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec1,
-                                    const dbus::utility::DBusPropertiesMap&
-                                        propertiesList) {
-                            if (ec1)
-                            {
-                                if (ec1 ==
-                                    boost::system::errc::host_unreachable)
-                                {
-                                    // Service not available, no error, just
-                                    // don't return chassis state info
-                                    BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec1);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            (*parsedSlotCount) += 1;
-                            const auto* const slotType =
-                                (fwTypeStr == "Self")
-                                    ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
-                                    : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
-                            std::optional<uint8_t> slotID;
-                            std::optional<bool> isActive;
-                            std::optional<std::string> fwType;
-                            const bool success =
-                                sdbusplus::unpackPropertiesNoThrow(
-                                    dbus_utils::UnpackErrorPrinter(),
-                                    propertiesList, "SlotId", slotID,
-                                    "IsActive", isActive, "Type", fwType);
-                            if (!success)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Unpack Slot properites error");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if (fwType && *fwType == slotType)
-                            {
-                                *slotFound = true;
-                                asyncResp->res.jsonValue["@odata.id"] =
-                                    boost::urls::format(
-                                        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/"
-                                        "RoTProtectedComponents/{}/Settings",
-                                        chassisId, componentId);
-                                asyncResp->res.jsonValue["@odata.type"] =
-                                    "#NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent";
-                                asyncResp->res.jsonValue["Name"] = std::format(
-                                    "{} RoTProtectedComponent {} Pending Settings",
-                                    chassisId, fwTypeStr);
-                                asyncResp->res.jsonValue["Id"] = "Settings";
-                                updatePendingProperties(asyncResp, chassisId,
-                                                        componentId);
-                            }
-                            if (*parsedSlotCount == slotCount && !(*slotFound))
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Pending Slot entry not found for {}.{}",
-                                    chassisId, componentId);
-                                messages::resourceNotFound(
-                                    asyncResp->res,
-                                    "NvidiaRoTProtectedComponent", fwTypeStr);
-                            }
-                        });
-                    break;
-                }
-            }
-        });
+    processNvidiaRoTProtectedComponentSettings(asyncResp, chassisId, fwTypeStr);
 }
 
+/**
+ * @brief Process protected component properties
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param ec Error code
+ * @param propertiesList Properties list
+ */
+inline void processProtectedComponentProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        if (ec == boost::system::errc::host_unreachable)
+        {
+            BMCWEB_LOG_ERROR("Service not available {}", ec);
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::optional<uint8_t> slotId;
+    std::optional<bool> isActive;
+    std::optional<std::string> fwType;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "SlotId", slotId,
+        "IsActive", isActive, "Type", fwType);
+
+    if (!success)
+    {
+        BMCWEB_LOG_ERROR("Unpack Slot properties error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}",
+        chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent";
+    asyncResp->res.jsonValue["Name"] =
+        std::format("{} RoTProtectedComponent {}", chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["Id"] = fwTypeStr;
+    if (fwType &&
+        *fwType == "xyz.openbmc_project.Software.Slot.FirmwareType.AP")
+    {
+        asyncResp->res.jsonValue["RoTProtectedComponentType"] = "AP";
+    }
+    else
+    {
+        asyncResp->res.jsonValue["RoTProtectedComponentType"] = "Self";
+    }
+    auto slotUrl = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots",
+        chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["ImageSlots"] = {{"@odata.id", slotUrl}};
+
+    auto settingsUrl = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/Settings",
+        chassisId, fwTypeStr);
+    asyncResp->res.jsonValue["@Redfish.Settings"] = {
+        {"@odata.type", "#Settings.v1_3_3.Settings"},
+        {"SettingsObject", {{"@odata.id", settingsUrl}}}};
+
+    if (slotId && isActive && *isActive)
+    {
+        asyncResp->res.jsonValue["ActiveSlotId"] = *slotId;
+    }
+
+    redfish::nvidia_chassis_utils::getOemBootStatus(asyncResp, chassisId);
+    updateSigningKeyProperties(asyncResp, chassisId, fwTypeStr);
+    updateSecurityVersionProperties(asyncResp, chassisId, fwTypeStr);
+}
+
+/**
+ * @brief Process Nvidia RoT protected component subtree
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ * @param subtree Subtree
+ */
+inline void processNvidiaRoTProtectedComponentSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fwTypeStr,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto dbusComponentId = fwTypeStr == "Self" ? chassisId : fwTypeStr;
+
+    std::vector<std::pair<std::string, std::string>> cachedPathServices;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() != dbusComponentId)
+        {
+            continue;
+        }
+
+        for (const auto& [service, interfaces] : serviceMap)
+        {
+            cachedPathServices.emplace_back(objectPath, service);
+            break;
+        }
+    }
+
+    if (cachedPathServices.empty())
+    {
+        BMCWEB_LOG_ERROR("Slot entry not found for {}.{}", chassisId,
+                         dbusComponentId);
+        messages::resourceNotFound(asyncResp->res,
+                                   "NvidiaRoTProtectedComponent", fwTypeStr);
+        return;
+    }
+
+    for (const auto& [objectPath, service] : cachedPathServices)
+    {
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, service, objectPath,
+            softwareSlotInterface,
+            [asyncResp, chassisId, fwTypeStr](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
+                processProtectedComponentProperties(
+                    asyncResp, chassisId, fwTypeStr, ec, propertiesList);
+            });
+    }
+}
+
+/**
+ * @brief Handle Nvidia RoT protected component
+ * @param app App
+ * @param req Request
+ * @param asyncResp Async response object
+ * @param chassisId Chassis ID
+ * @param fwTypeStr Firmware type string
+ */
 inline void handleNvidiaRoTProtectedComponent(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1174,256 +1198,24 @@ inline void handleNvidiaRoTProtectedComponent(
     {
         return;
     }
-    dbus::
-        utility::getSubTree(chassisDbusPath + chassisId, 0, propertyInterfaces,
-                            [chassisId, fwTypeStr,
-                             asyncResp](const boost::system::error_code& ec,
-                                        [[maybe_unused]] const dbus::utility::
-                                            MapperGetSubTreeResponse& subtree) {
-                                if (ec)
-                                {
-                                    if (ec ==
-                                        boost::system::errc::host_unreachable)
-                                    {
-                                        // Service not available, no error, just
-                                        // don't return chassis state info
-                                        BMCWEB_LOG_ERROR(
-                                            "Service not available {}", ec);
-                                        messages::internalError(asyncResp->res);
-                                        return;
-                                    }
-                                    BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec,
-                                                     ec.message());
-                                    messages::resourceNotFound(
-                                        asyncResp->res,
-                                        "NvidiaRoTProtectedComponent",
-                                        fwTypeStr);
-                                    return;
-                                }
-                                auto componentId =
-                                    fwTypeStr != "Self"
-                                        ? removeRoTFromStr(chassisId)
-                                        : "Self";
-                                if (componentId.find(fwTypeStr) ==
-                                    std::string::npos)
-                                {
-                                    messages::resourceNotFound(
-                                        asyncResp->res,
-                                        "NvidiaRoTProtectedComponent",
-                                        fwTypeStr);
-                                    return;
-                                }
-                                size_t slotCount = subtree.size();
-                                std::shared_ptr<size_t> parsedSlotCount =
-                                    std::make_shared<size_t>(0);
-                                std::shared_ptr<bool> slotFound =
-                                    std::make_shared<bool>(false);
-                                for (const auto& [objectPath, serviceMap] :
-                                     subtree)
-                                {
-                                    for (const auto& [service, interfaces] :
-                                         serviceMap)
-                                    {
-                                        auto it = std::find_if(
-                                            std::begin(interfaces),
-                                            std::end(interfaces),
-                                            [](const auto& element) {
-                                                return element ==
-                                                       softwareSlotInterface;
-                                            });
-                                        if (it == std::end(interfaces))
-                                        {
-                                            continue;
-                                        }
-                                        sdbusplus::
-                                            asio::getAllProperties(*crow::connections::
-                                                                       systemBus,
-                                                                   service,
-                                                                   objectPath,
-                                                                   "xyz.openbmc_project.Software.Slot",
-                                                                   [asyncResp,
-                                                                    objectPath,
-                                                                    chassisId,
-                                                                    fwTypeStr,
-                                                                    componentId,
-                                                                    slotCount,
-                                                                    parsedSlotCount,
-                                                                    slotFound](
-                                                                       const boost::
-                                                                           system::error_code&
-                                                                               ec1,
-                                                                       const dbus::utility::
-                                                                           DBusPropertiesMap&
-                                                                               propertiesList) {
-                                                                       if (ec1)
-                                                                       {
-                                                                           if (ec1 ==
-                                                                               boost::system::
-                                                                                   errc::
-                                                                                       host_unreachable)
-                                                                           {
-                                                                               // Service not available, no error, just don't
-                                                                               // return chassis state info
-                                                                               BMCWEB_LOG_ERROR(
-                                                                                   "Service not available {}",
-                                                                                   ec1);
-                                                                               return;
-                                                                           }
-                                                                           BMCWEB_LOG_ERROR(
-                                                                               "DBUS response error {}",
-                                                                               ec1);
-                                                                           messages::internalError(
-                                                                               asyncResp
-                                                                                   ->res);
-                                                                           return;
-                                                                       }
-                                                                       (*parsedSlotCount) +=
-                                                                           1;
-                                                                       const auto* const slotType =
-                                                                           (fwTypeStr ==
-                                                                            "Self")
-                                                                               ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
-                                                                               : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
-                                                                       std::optional<
-                                                                           uint8_t>
-                                                                           slotID;
-                                                                       std::optional<
-                                                                           bool>
-                                                                           isActive;
-                                                                       std::optional<
-                                                                           std::
-                                                                               string>
-                                                                           fwType;
-                                                                       const bool success = sdbusplus::unpackPropertiesNoThrow(
-                                                                           dbus_utils::
-                                                                               UnpackErrorPrinter(),
-                                                                           propertiesList,
-                                                                           "SlotId",
-                                                                           slotID,
-                                                                           "IsActive",
-                                                                           isActive,
-                                                                           "Type",
-                                                                           fwType);
-                                                                       if (!success)
-                                                                       {
-                                                                           BMCWEB_LOG_ERROR(
-                                                                               "Unpack Slot properites error");
-                                                                           messages::internalError(
-                                                                               asyncResp
-                                                                                   ->res);
-                                                                           return;
-                                                                       }
-                                                                       if (fwType &&
-                                                                           *fwType ==
-                                                                               slotType)
-                                                                       {
-                                                                           *slotFound =
-                                                                               true;
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["@odata.id"] =
-                                                                               boost::urls::format(
-                                                                                   "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}",
-                                                                                   chassisId,
-                                                                                   componentId);
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["@odata.type"] =
-                                                                               "#NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent";
-                                                                           std::string
-                                                                               name =
-                                                                                   chassisId;
-                                                                           name +=
-                                                                               " RoTProtectedComponent ";
-                                                                           name +=
-                                                                               fwTypeStr;
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["Name"] =
-                                                                               name;
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["Id"] =
-                                                                               fwTypeStr;
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["RoTProtectedComponentType"] =
-                                                                               fwTypeStr ==
-                                                                                       "Self"
-                                                                                   ? "Self"
-                                                                                   : "AP";
-                                                                           auto slotUrl = boost::
-                                                                               urls::format(
-                                                                                   "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots",
-                                                                                   chassisId,
-                                                                                   componentId);
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["ImageSlots"] =
-                                                                               {{"@odata.id",
-                                                                                 slotUrl}};
-                                                                           auto settingsUrl =
-                                                                               boost::urls::format(
-                                                                                   "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/Settings",
-                                                                                   chassisId,
-                                                                                   componentId);
-                                                                           asyncResp
-                                                                               ->res
-                                                                               .jsonValue
-                                                                                   ["@Redfish.Settings"] =
-                                                                               {{"@odata.type",
-                                                                                 "#Settings.v1_3_3.Settings"},
-                                                                                {"SettingsObject",
-                                                                                 {{"@odata.id",
-                                                                                   settingsUrl}}}};
-                                                                           if (slotID &&
-                                                                               isActive &&
-                                                                               *isActive)
-                                                                           {
-                                                                               asyncResp
-                                                                                   ->res
-                                                                                   .jsonValue
-                                                                                       ["ActiveSlotId"] =
-                                                                                   *slotID;
-                                                                           }
-                                                                           redfish::nvidia_chassis_utils::
-                                                                               getOemBootStatus(
-                                                                                   asyncResp,
-                                                                                   chassisId);
-                                                                           updateSigningKeyProperties(
-                                                                               asyncResp,
-                                                                               chassisId,
-                                                                               componentId);
-                                                                           updateSecurityVersionProperties(
-                                                                               asyncResp,
-                                                                               chassisId,
-                                                                               componentId);
-                                                                       }
-                                                                       if (*parsedSlotCount ==
-                                                                               slotCount &&
-                                                                           !(*slotFound))
-                                                                       {
-                                                                           BMCWEB_LOG_ERROR(
-                                                                               "Slot entry not found for {}.{}",
-                                                                               chassisId,
-                                                                               componentId);
-                                                                           messages::resourceNotFound(
-                                                                               asyncResp
-                                                                                   ->res,
-                                                                               "NvidiaRoTProtectedComponent",
-                                                                               fwTypeStr);
-                                                                       }
-                                                                   });
-                                        break;
-                                    }
-                                }
-                            });
+
+    dbus::utility::getSubTree(
+        chassisDbusPath + chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
+        [chassisId, fwTypeStr,
+         asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec, ec.message());
+                messages::resourceNotFound(
+                    asyncResp->res, "NvidiaRoTProtectedComponent", fwTypeStr);
+                return;
+            }
+
+            processNvidiaRoTProtectedComponentSubtree(asyncResp, chassisId,
+                                                      fwTypeStr, subtree);
+        });
 }
 
 inline void handleSetIrreversibleConfigActionInfo(
@@ -1806,7 +1598,7 @@ inline void updateMinSecurityVersion(
     }
     dbus::utility::getDbusObject(
         securityPath, minSecIntf,
-        [asyncResp, chassisId, securityPath, componentId, requestType, nonce,
+        [asyncResp, chassisId, securityPath, requestType, nonce,
          reqMinSecVersion](
             const boost::system::error_code& ec,
             const ::dbus::utility::MapperGetObject& mapperResponse) {
@@ -2045,7 +1837,7 @@ inline void revokeKeys(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     dbus::utility::getDbusObject(
         securityPath, signingConfigIntf,
-        [asyncResp, chassisId, securityPath, componentId, requestType, keys,
+        [asyncResp, chassisId, securityPath, requestType, keys,
          nonce](const boost::system::error_code& ec,
                 const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
