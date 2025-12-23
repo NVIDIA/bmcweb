@@ -837,9 +837,14 @@ inline void handleChassisGetSubTree(
                         redfish::nvidia_chassis_utils::getOemCBCChassisAsset(
                             asyncResp, connectionName, path);
                     }
+                    else if (interface == "com.nvidia.NVLink.NVLinkLED")
+                    {
+                        BMCWEB_LOG_DEBUG("Get NVLink LED Status");
+                        redfish::nvidia_chassis_utils::getNvlinkLEDStatus(
+                            asyncResp, connectionName, path);
+                    }
                 }
             }
-
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
             redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                                  chassisId);

@@ -876,6 +876,102 @@ inline void
         "xyz.openbmc_project.Inventory.Decorator.PCIeRefClock");
 }
 
+inline void
+    translateNVLinkLEDStatus(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                             const std::string& ledState)
+{
+    auto& nvlinkLedResp =
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLink"]["LED"];
+
+    if (ledState ==
+        "com.nvidia.NVLink.NVLinkLED.LedState.Utilization_0_Percent")
+    {
+        nvlinkLedResp["Color"] = "Green";
+        nvlinkLedResp["Blinking"] = false;
+        nvlinkLedResp["Description"] = "Link Up, 0% Utilization";
+    }
+    else if (ledState ==
+             "com.nvidia.NVLink.NVLinkLED.LedState.Utilization_25_Percent")
+    {
+        nvlinkLedResp["Color"] = "Green";
+        nvlinkLedResp["Blinking"] = true;
+        nvlinkLedResp["Description"] = "Link Up, 25% Utilization";
+    }
+    else if (ledState ==
+             "com.nvidia.NVLink.NVLinkLED.LedState.Utilization_50_Percent")
+    {
+        nvlinkLedResp["Color"] = "Green";
+        nvlinkLedResp["Blinking"] = true;
+        nvlinkLedResp["Description"] = "Link Up, 50% Utilization";
+    }
+    else if (ledState ==
+             "com.nvidia.NVLink.NVLinkLED.LedState.Utilization_75_Percent")
+    {
+        nvlinkLedResp["Color"] = "Green";
+        nvlinkLedResp["Blinking"] = true;
+        nvlinkLedResp["Description"] = "Link Up, 75% Utilization";
+    }
+    else if (ledState ==
+             "com.nvidia.NVLink.NVLinkLED.LedState.Utilization_100_Percent")
+    {
+        nvlinkLedResp["Color"] = "Green";
+        nvlinkLedResp["Blinking"] = true;
+        nvlinkLedResp["Description"] = "Link Up, 100% Utilization";
+    }
+    else if (ledState == "com.nvidia.NVLink.NVLinkLED.LedState.Disabled")
+    {
+        nvlinkLedResp["Color"] = "Amber";
+        nvlinkLedResp["Blinking"] = false;
+        nvlinkLedResp["Description"] = "Link Up, Disabled";
+    }
+    else if (ledState == "com.nvidia.NVLink.NVLinkLED.LedState.No_Link")
+    {
+        nvlinkLedResp["Color"] = nullptr;
+        nvlinkLedResp["Blinking"] = false;
+        nvlinkLedResp["Description"] = "No Link";
+    }
+    else if (ledState == "com.nvidia.NVLink.NVLinkLED.LedState.Beacon")
+    {
+        nvlinkLedResp["Color"] = "Amber";
+        nvlinkLedResp["Blinking"] = true;
+        nvlinkLedResp["Description"] = "Beacon";
+    }
+    else if (ledState == "com.nvidia.NVLink.NVLinkLED.LedState.Read_Error")
+    {
+        nvlinkLedResp["Color"] = nullptr;
+        nvlinkLedResp["Blinking"] = nullptr;
+        nvlinkLedResp["Description"] = "An error occurred reading LED state";
+    }
+    else
+    {
+        nvlinkLedResp["Color"] = nullptr;
+        nvlinkLedResp["Blinking"] = nullptr;
+        nvlinkLedResp["Description"] = "Invalid LED state";
+    }
+}
+
+inline void getNvlinkLEDStatus(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                               const std::string& service,
+                               const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get NVLink LED Status");
+
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, service, objPath,
+        "com.nvidia.NVLink.NVLinkLED", "LED_State",
+        [objPath, asyncResp{std::move(asyncResp)}](
+            const boost::system::error_code& ec, const std::string& property) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        translateNVLinkLEDStatus(asyncResp, property);
+    });
+}
+
 /**
  * @brief Fill out chassis power limits info of a chassis by
  * requesting data from the given D-Bus object.
@@ -1627,7 +1723,7 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_6_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_9_0.NvidiaChassis";
 
         if (writeProtected != nullptr)
         {
