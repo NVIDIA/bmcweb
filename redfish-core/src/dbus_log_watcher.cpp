@@ -192,7 +192,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     const DbusEventLogEntry& entry)
 {
     std::string messageId;
-    std::string eventId;
+    std::string errorId;
     std::string severity;
     std::string timestamp;
     std::string originOfCondition;
@@ -209,78 +209,74 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     if (!entry.AdditionalData.empty())
     {
         AdditionalData additionalData(entry.AdditionalData);
+        std::string redfishMessageArgs;
 
-        if (additionalData.contains("DEVICE_NAME"))
+        // Iterate through AdditionalData and extract values
+        for (const auto& [key, value] : additionalData)
         {
-            deviceName = additionalData["DEVICE_NAME"];
-        }
-        // convert SEL SENSOR_PATH to RF OriginOfCondition
-        if (additionalData.contains("SENSOR_PATH"))
-        {
-            originOfCondition = additionalData["SENSOR_PATH"];
-        }
-        if (additionalData.contains("REDFISH_ORIGIN_OF_CONDITION"))
-        {
-            originOfCondition = additionalData["REDFISH_ORIGIN_OF_CONDITION"];
-        }
-        if (additionalData.contains("REDFISH_LOGENTRY"))
-        {
-            satBMCLogEntryUrl = additionalData["REDFISH_LOGENTRY"];
-        }
-        if (additionalData.contains("REDFISH_MESSAGE_ID"))
-        {
-            messageId = additionalData["REDFISH_MESSAGE_ID"];
-            BMCWEB_LOG_DEBUG("Found message ID: {}", messageId);
-            if (additionalData.contains("REDFISH_MESSAGE_ARGS"))
+            if (key == "DEVICE_NAME")
             {
-                std::string args = additionalData["REDFISH_MESSAGE_ARGS"];
-                BMCWEB_LOG_DEBUG("Processing message args: {}", args);
-                bmcweb::split(messageArgs, args, ',');
-                // Trim leading and tailing whitespace of each argument
-                for (auto& msgArg : messageArgs)
-                {
-                    redfish::trim(msgArg);
-                }
+                deviceName = value;
+            }
+            else if (key == "ERROR_ID")
+            {
+                errorId = value;
+            }
+            else if (key == "SENSOR_PATH" ||
+                     key == "REDFISH_ORIGIN_OF_CONDITION")
+            {
+                // convert SEL SENSOR_PATH or REDFISH_ORIGIN_OF_CONDITION to
+                // RF OriginOfCondition
+                originOfCondition = value;
+            }
+            else if (key == "REDFISH_LOGENTRY")
+            {
+                satBMCLogEntryUrl = value;
+            }
+            else if (key == "REDFISH_MESSAGE_ID")
+            {
+                messageId = value;
+                BMCWEB_LOG_DEBUG("Found message ID: {}", messageId);
+            }
+            else if (key == "REDFISH_MESSAGE_ARGS")
+            {
+                redfishMessageArgs = value;
+            }
+        }
 
-                if (!messageArgs[0].empty())
+        // Process message args if both messageId and args are present
+        if (!messageId.empty() && !redfishMessageArgs.empty())
+        {
+            BMCWEB_LOG_DEBUG("Processing message args: {}", redfishMessageArgs);
+            bmcweb::split(messageArgs, redfishMessageArgs, ',');
+            // Trim leading and tailing whitespace of each argument
+            for (auto& msgArg : messageArgs)
+            {
+                msgArg = redfish::trim(msgArg);
+            }
+
+            if (!messageArgs.empty() && !messageArgs[0].empty())
+            {
+                // Map dbus property to redfish property
+                bool mappingFound = false;
+                for (const auto& [dbusKey, redfishValue] :
+                     dBusToRedfishProperty)
                 {
-                    // Map dbus property to redfish property
-                    if (dBusToRedfishProperty.contains(messageArgs[0]))
+                    if (messageArgs[0] == dbusKey)
                     {
                         std::string oldArg = messageArgs[0];
-                        auto it = dBusToRedfishProperty.find(messageArgs[0]);
-                        if (it == dBusToRedfishProperty.end())
-                        {
-                            return false;
-                        }
-                        messageArgs[0] = it->second;
+                        messageArgs[0] = redfishValue;
                         BMCWEB_LOG_DEBUG("Mapped property: {} -> {}", oldArg,
                                          messageArgs[0]);
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_WARNING("property mapping not found for {}",
-                                           messageArgs[0]);
+                        mappingFound = true;
+                        break;
                     }
                 }
-            }
-            else if (additionalData.contains("REDFISH_MESSAGE_ARGS"))
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Multiple REDFISH_MESSAGE_ARGS in the Dbus signal message.");
-                return false;
-            }
-        }
-        else
-        {
-            bool hasMsgId = additionalData.contains("REDFISH_MESSAGE_ID");
-            // when removing entries, this should be false
-            if (hasMsgId)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "There should be exactly one MessageId in the Dbus signal message. Found {}",
-                    "1");
-                return false;
+                if (!mappingFound)
+                {
+                    BMCWEB_LOG_WARNING("property mapping not found for {}",
+                                       messageArgs[0]);
+                }
             }
         }
 
@@ -294,11 +290,6 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     if (!entry.Message.empty())
     {
         message = entry.Message;
-    }
-
-    if (entry.EventId != nullptr)
-    {
-        eventId = *entry.EventId;
     }
 
     if (entry.Id != 0)
@@ -345,7 +336,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
                       {{"Nvidia",
                         {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
                          {"Device", deviceName},
-                         {"ErrorId", eventId}}}}}};
+                         {"ErrorId", errorId}}}}}};
     }
     if (!cper.empty())
     {

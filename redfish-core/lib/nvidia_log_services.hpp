@@ -117,7 +117,7 @@ static void generateMessageRegistry(
     // Trim leading and tailing whitespace of each arg.
     for (auto& f : fields)
     {
-        redfish::trim(f);
+        f = redfish::trim(f);
     }
     std::span<std::string> msgArgs;
     msgArgs = {fields.data(), fields.size()};
@@ -1033,35 +1033,45 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     std::string messageArgs;
     std::string originOfCondition;
     std::string deviceName;
+    std::string errorId;
     nlohmann::json::object_t cper;
     bool deviceEventData = false;
 
     if (!entry.AdditionalData.empty())
     {
         AdditionalData additional(entry.AdditionalData);
-        if (additional.contains("REDFISH_MESSAGE_ID"))
-        {
-            isMessageRegistry = true;
-            messageId = additional["REDFISH_MESSAGE_ID"];
-            BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
 
-            if (additional.contains("REDFISH_MESSAGE_ARGS"))
+        // Iterate through AdditionalData and extract values
+        for (const auto& [key, value] : additional)
+        {
+            if (key == "REDFISH_MESSAGE_ID")
             {
-                messageArgs = additional["REDFISH_MESSAGE_ARGS"];
+                isMessageRegistry = true;
+                messageId = value;
+                BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
+            }
+            else if (key == "REDFISH_MESSAGE_ARGS")
+            {
+                messageArgs = value;
+            }
+            else if (key == "REDFISH_ORIGIN_OF_CONDITION")
+            {
+                originOfCondition = value;
+            }
+            else if (key == "DEVICE_NAME")
+            {
+                deviceName = value;
+            }
+            else if (key == "ERROR_ID")
+            {
+                errorId = value;
+            }
+            else if (key == "DEVICE_EVENT_DATA")
+            {
+                deviceEventData = true;
             }
         }
-        if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
-        {
-            originOfCondition = additional["REDFISH_ORIGIN_OF_CONDITION"];
-        }
-        if (additional.contains("DEVICE_NAME"))
-        {
-            deviceName = additional["DEVICE_NAME"];
-        }
-        if (additional.contains("DEVICE_EVENT_DATA"))
-        {
-            deviceEventData = true;
-        }
+
         // populate CPER section (checks are in the fn)
         nlohmann::json::object_t oem;
         parseAdditionalDataForCPER(cper, oem, additional, originOfCondition);
@@ -1102,7 +1112,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        if ((entry.Id != 0U) || !deviceName.empty())
+        if (!deviceName.empty() || !errorId.empty())
         {
             nlohmann::json oem = {
                 {"Oem",
@@ -1113,9 +1123,9 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             {
                 oem["Oem"]["Nvidia"]["Device"] = deviceName;
             }
-            if (entry.Id != 0U)
+            if (!errorId.empty())
             {
-                oem["Oem"]["Nvidia"]["ErrorId"] = std::to_string(entry.Id);
+                oem["Oem"]["Nvidia"]["ErrorId"] = errorId;
             }
             objectToFillOut.update(oem);
         }
