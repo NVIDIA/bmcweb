@@ -39,6 +39,7 @@ inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), resp,
         "AdditionalData", entry.AdditionalData,
+        "EventId", entry.EventId,
         "Id", entry.Id,
         "Message", entry.Message,
         "Path", entry.Path,
