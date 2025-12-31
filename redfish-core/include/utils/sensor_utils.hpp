@@ -737,10 +737,13 @@ inline void objectPropertiesToJson(
             const uint64_t* uint64Value = std::get_if<uint64_t>(&valueVariant);
             if (doubleValue != nullptr)
             {
-                if (valueName == "MaxAllowableValue" ||
-                    valueName == "MinAllowableValue")
+                if (chassisSubNode != ChassisSubNode::sensorsNode)
                 {
-                    forceToInt = true;
+                    if (valueName == "MaxAllowableValue" ||
+                        valueName == "MinAllowableValue")
+                    {
+                        forceToInt = true;
+                    }
                 }
                 if (!std::isfinite(*doubleValue))
                 {
