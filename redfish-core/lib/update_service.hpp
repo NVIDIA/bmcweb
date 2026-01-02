@@ -751,6 +751,7 @@ inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 struct MultiPartUpdate
 {
     std::string uploadData;
+    std::optional<std::string> updateFileContentType;
     struct UpdateParameters
     {
         std::optional<std::string> applyTime;
@@ -834,6 +835,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
             multiRet.applyTime, "Targets", multiRet.targets, "ForceUpdate",
             multiRet.forceUpdate))
     {
+        addUnsupportedActionParametersMessages(asyncResp, *obj);
         return std::nullopt;
     }
 
@@ -921,6 +923,30 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
         {
             // Nvidia code start
             hasUpdateFile = true;
+            // Capture per-part Content-Type for UpdateFile if provided
+            boost::beast::http::fields::const_iterator ctIt =
+                formpart.fields.find("Content-Type");
+            if (ctIt != formpart.fields.end())
+            {
+                multiRet.updateFileContentType =
+                    std::string(ctIt->value().data(), ctIt->value().size());
+                BMCWEB_LOG_DEBUG("UpdateFile Content-Type: {}",
+                                 multiRet.updateFileContentType.value());
+                if (multiRet.updateFileContentType.value() !=
+                    "application/octet-stream")
+                {
+                    BMCWEB_LOG_ERROR(
+                        "UpdateFile Content-Type is not application/octet-stream");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    messages::addMessageToErrorJson(
+                        asyncResp->res.jsonValue,
+                        messages::headerValueInvalid(
+                            multiRet.updateFileContentType.value(),
+                            "Content-Type", "application/octet-stream"));
+                    return std::nullopt;
+                }
+            }
             // Nvidia code end
             if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
             {
@@ -1398,6 +1424,10 @@ inline void handleUpdateServicePost(
     {
         BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
         asyncResp->res.result(boost::beast::http::status::bad_request);
+        messages::addMessageToErrorJson(
+            asyncResp->res.jsonValue,
+            messages::headerValueInvalid(contentType, "Content-Type",
+                                         "application/octet-stream"));
     }
 }
 
@@ -1448,6 +1478,10 @@ inline void handleUpdateServiceMultipartUpdatePost(
     {
         BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
         asyncResp->res.result(boost::beast::http::status::bad_request);
+        messages::addMessageToErrorJson(
+            asyncResp->res.jsonValue,
+            messages::headerValueInvalid(contentType, "Content-Type",
+                                         "multipart/form-data"));
     }
 }
 

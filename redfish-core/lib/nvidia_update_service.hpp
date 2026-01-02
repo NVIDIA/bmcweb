@@ -3215,6 +3215,35 @@ inline void handleUpdateServicePatch(
     }
 }
 
+inline void addUnsupportedActionParametersMessages(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json::object_t& actionParametersObject)
+{
+    asyncResp->res.jsonValue.clear();
+    asyncResp->res.result(boost::beast::http::status::bad_request);
+    nlohmann::json& extendedInfo =
+        asyncResp->res.jsonValue["error"][messages::messageAnnotation];
+    for (const auto& [key, _] : actionParametersObject)
+    {
+        if (key == "Targets" || key == "ForceUpdate" ||
+            key == "@Redfish.OperationApplyTime")
+        {
+            continue;
+        }
+        if (!extendedInfo.is_array())
+        {
+            extendedInfo = nlohmann::json::array();
+        }
+        nlohmann::json message =
+            messages::actionParameterNotSupported(key, "UpdateParameters");
+        message["Resolution"] =
+            "Refer to DMTF Redfish Specification for valid UpdateParameters. "
+            "Currently supported  UpdateParameters are Targets, ForceUpdate and "
+            "@Redfish.OperationApplyTime.";
+        extendedInfo.push_back(std::move(message));
+    }
+}
+
 inline void requestRoutesNvidiaUpdateService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/SoftwareInventory/<str>/")
