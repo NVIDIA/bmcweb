@@ -353,9 +353,19 @@ class Handler : public std::enable_shared_from_this<Handler>
         }
         else
         {
-            task->messages.emplace_back(
-                messages::resourceErrorsDetectedFormatError(
-                    objectName, std::get<std::string>(singleOpResult)));
+            std::string error = std::get<std::string>(singleOpResult);
+            if (error == "Error_RequesterCommunication")
+            {
+                ++completedObjects;
+                task->messages.emplace_back(
+                    messages::debugTokenUnsupported(objectName));
+            }
+            else
+            {
+                task->messages.emplace_back(
+                    messages::resourceErrorsDetectedFormatError(
+                        objectName, "SPDM error: " + error));
+            }
         }
     }
 };

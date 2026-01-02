@@ -55,7 +55,7 @@ namespace redfish::debug_token::unified::spdm_request
  * operation to complete before timing out. The timeout is used to prevent
  * indefinite waiting for SPDM operations that may fail or hang.
  */
-constexpr const int spdmTokenRequestTimeout = 5;
+constexpr const int spdmTokenRequestTimeout = 60;
 
 using Result = std::variant<std::string, std::vector<uint8_t>>;
 using ResultCallback = std::function<void(const Result&)>;
@@ -525,7 +525,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             spdmStatus.substr(spdmStatus.find_last_of('.') + 1);
         if (status.starts_with("Error_"))
         {
-            errorHandler(self, "SPDM error: " + status);
+            errorHandler(self, status);
         }
         else if (status == "Success")
         {

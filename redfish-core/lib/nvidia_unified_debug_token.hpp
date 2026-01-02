@@ -106,10 +106,17 @@ static void generateTokenRequestCallback(
     else if (std::holds_alternative<std::string>(result))
     {
         std::string error = std::get<std::string>(result);
-        messages::resourceErrorsDetectedFormatError(
-            asyncResp->res,
-            std::format("{} TrustedComponents {}", chassisId, componentId),
-            error);
+        if (error == "Error_RequesterCommunication")
+        {
+            messages::debugTokenUnsupported(asyncResp->res, componentId);
+        }
+        else
+        {
+            messages::resourceErrorsDetectedFormatError(
+                asyncResp->res,
+                std::format("{} TrustedComponents {} ", chassisId, componentId),
+                "SPDM error: " + error);
+        }
     }
     else
     {
