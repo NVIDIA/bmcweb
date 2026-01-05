@@ -56,6 +56,14 @@ if (get_option('dns-resolver') == 'systemd-dbus')
     add_project_arguments('-DBMCWEB_DBUS_DNS_RESOLVER', language: 'cpp')
 endif
 
+intrusion_chassis = get_option('platform-chassis-intrusion-component')
+if intrusion_chassis != ''
+    add_project_arguments(
+        '-DBMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT="' + intrusion_chassis + '"',
+        language: 'cpp',
+    )
+endif
+
 # Disable lto when compiling with no optimization
 if (get_option('optimization') == '0')
     add_project_arguments('-fno-lto', language: 'cpp')

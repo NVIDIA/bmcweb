@@ -919,13 +919,16 @@ inline void handleChassisGet(
         "/xyz/openbmc_project/inventory", 0, interfaces,
         std::bind_front(handleChassisGetSubTree, asyncResp, chassisId));
 
+    // by default, platform intrusion component is not specified,
+    // so we need to get the intrusion data from the chassis
+#ifndef BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT
     constexpr std::array<std::string_view, 1> interfaces2 = {
         "xyz.openbmc_project.Chassis.Intrusion"};
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces2,
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
-
+#endif
     redfish::nvidia_chassis::getChassisOemNvidiaProperties(
         asyncResp, chassisId);
 }
