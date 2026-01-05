@@ -47,9 +47,9 @@ namespace redfish
 inline std::string getLastResetType(const std::string& resetType)
 {
     if (resetType ==
-        "com.nvidia.ResetCounters.ResetCounterMetrics.ResetTypes.PFFLR")
+        "com.nvidia.ResetCounters.ResetCounterMetrics.ResetTypes.PF_FLR")
     {
-        return "PFFLR";
+        return "PF_FLR";
     }
     if (resetType ==
         "com.nvidia.ResetCounters.ResetCounterMetrics.ResetTypes.Conventional")
