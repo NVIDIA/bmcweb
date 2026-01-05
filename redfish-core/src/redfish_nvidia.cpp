@@ -298,8 +298,15 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesLeakDetection(app);
         requestRoutesLeakDetector(app);
-        requestRoutesLeakDetectionPolicy(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_POLICIES)
+    {
         requestPolicyCollection(app);
+        if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+        {
+            requestRoutesLeakDetectionPolicy(app);
+        }
     }
 
     if constexpr (BMCWEB_PROFILE_CONFIGURATION)

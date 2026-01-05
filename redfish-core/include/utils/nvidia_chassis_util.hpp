@@ -2360,12 +2360,16 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
 
-        if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+        if constexpr (BMCWEB_NVIDIA_OEM_POLICIES)
         {
-            // Policy Collection
-            getValidLeakDetectionPath(asyncResp, chassisId,
-                                      std::bind_front(doLeakDetectionPolicyGet,
-                                                      asyncResp, chassisId));
+            if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+            {
+                // Policy Collection
+                getValidLeakDetectionPath(
+                    asyncResp, chassisId,
+                    std::bind_front(doLeakDetectionPolicyGet, asyncResp,
+                                    chassisId));
+            }
         }
     }
     asyncResp->res.jsonValue["Name"] = chassisId;

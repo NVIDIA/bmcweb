@@ -681,6 +681,12 @@ option(
     description: 'Enable Nvidia Power Compliance Managers',
 )
 option(
+    'nvidia-oem-policies',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia Policies',
+)
+option(
     'nvidia-retimer-debugmode',
     type: 'feature',
     value: 'disabled',

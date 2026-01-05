@@ -111,6 +111,7 @@ feature_options = [
     'nvidia-manager-ready-csm',
     'nvidia-oem-openocd',
     'nvidia-oem-pmc',
+    'nvidia-oem-policies',
     'nvidia-oem-properties',
     'nvidia-retimer-debugmode',
     'nvidia-uuid-from-platform-chassis-name',
