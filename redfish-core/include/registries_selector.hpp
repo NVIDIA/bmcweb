@@ -6,6 +6,7 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/base_message_registry.hpp"
 #include "registries/bios_attribute_registry.hpp"
+#include "registries/environmental_message_registry.hpp"
 #include "registries/heartbeat_event_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/openbmc_message_registry.hpp"
@@ -75,6 +76,10 @@ inline std::optional<registries::HeaderAndUrl>
     {
         return HeaderAndUrl{Update::header, Update::url};
     }
+    if (Environmental::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{Environmental::header, Environmental::url};
+    }
     // Nvidia: added code start
     if (StorageDevice::header.registryPrefix == registryName)
     {
@@ -139,6 +144,10 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (SensorEvent::header.registryPrefix == registryName)
     {
         return {SensorEvent::registry};
+    }
+    if (Environmental::header.registryPrefix == registryName)
+    {
+        return {Environmental::registry};
     }
     // Nvidia: added code start
     if (StorageDevice::header.registryPrefix == registryName)
