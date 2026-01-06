@@ -67,52 +67,6 @@ using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
 } // namespace erot
 
 /**
- * @brief Populate the certificate collection members for a specific Chassis
- * @param asyncResp - Shared pointer to object holding response data
- * @param chassisID - ID of the chassis to match against SPDM objects
- * @param ec - Error code
- * @param objects - Managed objects
- * @return None
- */
-static void getChassisCertificateCollection(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisID, const boost::system::error_code& ec,
-    const dbus::utility::ManagedObjectType& objects)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-        return;
-    }
-
-    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-    if (!members.is_array())
-    {
-        members = nlohmann::json::array();
-    }
-
-    // Iterate over all the objects and add the certificate URL to the response.
-    for (const auto& object : objects)
-    {
-        sdbusplus::message::object_path objPath(object.first);
-
-        // Check if the SPDM object filename matches the Chassis ID
-        // Example: /xyz/openbmc_project/SPDM/IRoT_CX7_1 matches IRoT_CX7_1
-        if (objPath.filename() == chassisID)
-        {
-            boost::urls::url certUrl = boost::urls::format(
-                "/redfish/v1/Chassis/{}/Certificates/CertChain", chassisID);
-            nlohmann::json::object_t certObj;
-            certObj["@odata.id"] = std::string(certUrl.buffer());
-            members.emplace_back(std::move(certObj));
-            break;
-        }
-    }
-
-    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-}
-
-/**
  * @brief Find the certificate association of the SPDM managed objects
  * @param requestPath - Request URL encoded path
  * @param asyncResp - Shared pointer to object holding response data
@@ -123,7 +77,7 @@ static void getChassisCertificateCollection(
  * @param resp - Response object
  * @return None
  */
-static void checkAssociationEndpointsForMatch(
+static void checkAssociationEndpointsForInstance(
     const std::string& requestPath,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::pair<sdbusplus::message::object_path,
@@ -135,7 +89,7 @@ static void checkAssociationEndpointsForMatch(
     if (ec)
     {
         BMCWEB_LOG_ERROR(
-            "Response error={} for object={} in checkAssociationEndpointsForMatch",
+            "Response error={} for object={} in checkAssociationEndpointsForInstance",
             ec, objectPath);
         return;
     }
@@ -145,7 +99,7 @@ static void checkAssociationEndpointsForMatch(
     if (data == nullptr)
     {
         BMCWEB_LOG_ERROR(
-            "No associated inventory object found for object={} in checkAssociationEndpointsForMatch",
+            "No associated inventory object found for object={} in checkAssociationEndpointsForInstance",
             objectPath);
         return;
     }
@@ -266,7 +220,7 @@ static void getChassisCertificateInstanceHandler(
         const std::string assocPath =
             std::string(object.first) + "/inventory_object";
         auto cb =
-            std::bind_front(checkAssociationEndpointsForMatch, requestPath,
+            std::bind_front(checkAssociationEndpointsForInstance, requestPath,
                             asyncResp, object, objectPath, certificateID);
         dbus::utility::findAssociations(assocPath, cb);
     }
@@ -319,6 +273,278 @@ static void getChassisCertificateInstance(
                             asyncResp, objectPath, certificateID));
         break;
     }
+}
+
+/**
+ * @brief Handle the chassis certificate instance is ERoT chassis
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - Chassis ID
+ * @param certificateID - Certificate ID
+ * @param requestPath - Request URL encoded path
+ * @param isEROT - Is ERoT chassis
+ * @param isCpuEROT - Is CPU ERoT
+ * @return None
+ */
+static void handleChassisCertificateInstanceIsEROT(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& certificateID,
+    const std::string& requestPath, bool isEROT,
+    [[maybe_unused]] bool isCpuEROT)
+{
+    if (!isEROT)
+    {
+        BMCWEB_LOG_DEBUG("Not a EROT chassis");
+        messages::resourceNotFound(asyncResp->res, "Certificate", chassisID);
+        return;
+    }
+
+    if (certificateID != "CertChain")
+    {
+        BMCWEB_LOG_ERROR("No objects found");
+        messages::resourceNotFound(asyncResp->res, "Certificate",
+                                   certificateID);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Chassis",
+        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
+
+    // Get the subtree of the inventory object and find the chassis
+    // object
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        std::bind_front(getChassisCertificateInstance, requestPath, asyncResp,
+                        chassisID, certificateID));
+}
+
+/**
+ * @brief Handle the chassis certificate instance get request
+ * @param app - App object
+ * @param req - Request object
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - Chassis ID
+ * @param certificateID - Certificate ID
+ * @return None
+ */
+static void handleChassisCertificateInstanceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& certificateID)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string requestPath = std::string(req.url().encoded_path());
+    BMCWEB_LOG_DEBUG("URL={}", requestPath);
+
+    redfish::nvidia_chassis_utils::isEROTChassis(
+        chassisID,
+        std::bind_front(handleChassisCertificateInstanceIsEROT, asyncResp,
+                        chassisID, certificateID, requestPath));
+}
+
+/**
+ * @brief Find the certificate association of the inventory object
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param objectPath - Path of the object
+ * @param chassisID - ID of the chassis
+ * @param ec - Error code
+ * @param resp - Response object
+ * @return None
+ */
+static void checkAssociationEndpointsForCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& chassisID,
+    const boost::system::error_code& ec,
+    std::variant<std::vector<std::string>>& resp)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Response error={} for object={} in checkAssociationEndpointsForCollection",
+            ec, objectPath);
+        return;
+    }
+
+    std::vector<std::string>* data =
+        std::get_if<std::vector<std::string>>(&resp);
+    if (data == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "No associated inventory object found for object={} in checkAssociationEndpointsForCollection",
+            objectPath);
+        return;
+    }
+
+    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    if (!members.is_array())
+    {
+        members = nlohmann::json::array();
+    }
+
+    const std::string& associatedInventoryPath = data->front();
+    if (objectPath == associatedInventoryPath)
+    {
+        boost::urls::url certUrl = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Certificates/CertChain", chassisID);
+        nlohmann::json::object_t certObj;
+        certObj["@odata.id"] = std::string(certUrl.buffer());
+        members.emplace_back(std::move(certObj));
+    }
+
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+}
+
+/**
+ * @brief Get the certificate collection instance from the chassis
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param objectPath - Path of the object
+ * @param chassisID - ID of the chassis
+ * @param ec - Error code
+ * @param objects - Managed objects
+ * @return None
+ */
+static void getChassisCertificateCollectionHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& chassisID,
+    const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& objects)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        return;
+    }
+
+    if (objects.empty())
+    {
+        BMCWEB_LOG_ERROR("No objects found");
+        return;
+    }
+
+    for (const auto& object : objects)
+    {
+        const std::string assocPath =
+            std::string(object.first) + "/inventory_object";
+        auto cb = std::bind_front(checkAssociationEndpointsForCollection,
+                                  asyncResp, objectPath, chassisID);
+        dbus::utility::findAssociations(assocPath, cb);
+    }
+}
+
+/**
+ * @brief Get the certificate instance from the chassis
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - ID of the chassis
+ * @param ec - Error code
+ * @param subtree - Subtree response
+ * @return None
+ */
+static void getChassisCertificateCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("D-Bus response error on GetSubTree {}", ec);
+        return;
+    }
+
+    for (const auto& object : subtree)
+    {
+        const std::string& path = object.first;
+        const auto& connectionNames = object.second;
+
+        sdbusplus::message::object_path objectPath(path);
+        if (objectPath.filename() != chassisID)
+        {
+            continue;
+        }
+
+        if (connectionNames.empty())
+        {
+            BMCWEB_LOG_ERROR("Got 0 Connection names");
+            continue;
+        }
+
+        dbus::utility::getManagedObjects(
+            erot::spdmServiceName,
+            sdbusplus::message::object_path(erot::spdmObjectPath),
+            std::bind_front(getChassisCertificateCollectionHandler, asyncResp,
+                            objectPath, chassisID));
+        break;
+    }
+}
+
+/**
+ * @brief Handle the chassis certificate collection is ERoT chassis
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - Chassis ID
+ * @param isEROT - Is ERoT chassis
+ * @param isCpuEROT - Is CPU ERoT
+ * @return None
+ */
+static void handleChassisCertificateCollectionIsEROT(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, bool isEROT, [[maybe_unused]] bool isCpuEROT)
+{
+    BMCWEB_LOG_ERROR("Checking certificate collection is ERoT chassis");
+    if (!isEROT)
+    {
+        BMCWEB_LOG_DEBUG("Not a EROT chassis");
+        messages::resourceNotFound(asyncResp->res, "CertificateCollection",
+                                   chassisID);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Chassis",
+        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
+
+    // Get the subtree of the inventory object and find the chassis object
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        std::bind_front(getChassisCertificateCollection, asyncResp, chassisID));
+}
+
+/**
+ * @brief Handle the chassis certificate collection get request
+ * @param app - App object
+ * @param req - Request object
+ * @param asyncResp - Shared pointer to object holding response data
+ * @param chassisID - Chassis ID
+ * @return None
+ */
+static void handleChassisCertificateCollectionGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
+{
+    BMCWEB_LOG_ERROR("Getting certificate collection get request");
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string requestPath = std::string(req.url().encoded_path());
+    BMCWEB_LOG_DEBUG("URL={}", requestPath);
+
+    nlohmann::json::object_t collectionJson;
+    collectionJson["@odata.id"] = requestPath;
+    collectionJson["@odata.type"] =
+        "#CertificateCollection.CertificateCollection";
+    collectionJson["Name"] = "Certificates Collection";
+    collectionJson["Members"] = nlohmann::json::array();
+    collectionJson["Members@odata.count"] = 0;
+    asyncResp->res.jsonValue = std::move(collectionJson);
+
+    redfish::nvidia_chassis_utils::isEROTChassis(
+        chassisID, std::bind_front(handleChassisCertificateCollectionIsEROT,
+                                   asyncResp, chassisID));
 }
 
 /* This function implements the OEM property under
@@ -679,100 +905,21 @@ inline void getEROTChassis(const crow::Request& req,
  */
 inline void requestRoutesEROTChassisCertificate(App& app)
 {
+    /**
+     * Chassis certificate instance
+     */
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Certificates/<str>/")
         .privileges(redfish::privileges::getCertificate)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisID,
-                   const std::string& certificateID) -> void {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-
-                std::string requestPath = std::string(req.url().encoded_path());
-                BMCWEB_LOG_DEBUG("URL={}", requestPath);
-
-                redfish::nvidia_chassis_utils::isEROTChassis(
-                    chassisID,
-                    [asyncResp, chassisID, certificateID,
-                     requestPath{std::move(requestPath)}](
-                        bool isEROT, [[maybe_unused]] bool isCpuEROT) {
-                        if (!isEROT)
-                        {
-                            BMCWEB_LOG_DEBUG("Not a EROT chassis");
-                            messages::resourceNotFound(
-                                asyncResp->res, "Certificate", chassisID);
-                            return;
-                        }
-
-                        if (certificateID != "CertChain")
-                        {
-                            BMCWEB_LOG_ERROR("No objects found");
-                            messages::resourceNotFound(
-                                asyncResp->res, "Certificate", certificateID);
-                            return;
-                        }
-
-                        constexpr std::array<std::string_view, 2> interfaces = {
-                            "xyz.openbmc_project.Inventory.Item.Chassis",
-                            "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
-
-                        dbus::utility::getSubTree(
-                            "/xyz/openbmc_project/inventory", 0, interfaces,
-                            std::bind_front(getChassisCertificateInstance,
-                                            requestPath, asyncResp, chassisID,
-                                            certificateID));
-                    });
-            });
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleChassisCertificateInstanceGet, std::ref(app)));
 
     /**
-     * Collection of Chassis(EROT) certificates
+     * Chassis certificates collection
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Certificates/")
         .privileges(redfish::privileges::getCertificateCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisID) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-
-                std::string requestPath = std::string(req.url().encoded_path());
-                BMCWEB_LOG_DEBUG("URL={}", requestPath);
-
-                nlohmann::json::object_t collectionJson;
-                collectionJson["@odata.id"] = requestPath;
-                collectionJson["@odata.type"] =
-                    "#CertificateCollection.CertificateCollection";
-                collectionJson["Name"] = "Certificates Collection";
-                asyncResp->res.jsonValue = std::move(collectionJson);
-
-                redfish::nvidia_chassis_utils::isEROTChassis(
-                    chassisID,
-                    [asyncResp,
-                     chassisID](bool isEROT, [[maybe_unused]] bool isCpuEROT) {
-                        if (!isEROT)
-                        {
-                            BMCWEB_LOG_DEBUG("Not a EROT chassis");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "CertificateCollection",
-                                                       chassisID);
-                            return;
-                        }
-
-                        sdbusplus::message::object_path spdmObjPath(
-                            erot::spdmObjectPath);
-
-                        dbus::utility::getManagedObjects(
-                            erot::spdmServiceName, spdmObjPath,
-                            std::bind_front(getChassisCertificateCollection,
-                                            asyncResp, chassisID));
-                    });
-            });
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleChassisCertificateCollectionGet, std::ref(app)));
 }
 
 /**
