@@ -742,7 +742,7 @@ def main() -> None:
         [
             ("base", "1.19.0"),
             ("composition", "1.1.2"),
-            ("environmental", "1.1.0"),
+            ("environmental", "1.3.0"),
             ("ethernet_fabric", "1.0.1"),
             ("fabric", "1.0.2"),
             ("heartbeat_event", "1.0.1"),
