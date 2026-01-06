@@ -380,10 +380,11 @@ inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
 
-            if (!isPresent)
+            // drive is absent by default, set the state to Enabled
+            if (isPresent)
             {
                 asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
+                    resource::State::Enabled;
             }
         });
 }
