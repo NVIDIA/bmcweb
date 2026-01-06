@@ -557,8 +557,9 @@ inline void handleManagersNetworkProtocolPatch(
             // Nvidia properties starts here
             "Oem/Nvidia/Rsyslog/State", state, "Oem/Nvidia/Rsyslog/Address",
             address, "Oem/Nvidia/Rsyslog/Port", port,
-            "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",
-            tls, "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
+            "Oem/Nvidia/Rsyslog/TransportProtocol", protocol,
+            "Oem/Nvidia/Rsyslog/TLS", tls,
+            "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
             "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity,
             "Oem/Nvidia/Rsyslog/RFCFormat", rfcformat))
     {
