@@ -35,6 +35,10 @@
 
 namespace redfish
 {
+
+constexpr std::array<std::string_view, 1> cableInterfaces = {
+    "xyz.openbmc_project.Inventory.Item.Cable"};
+
 /**
  * @brief Fill cable specific properties.
  * @param[in,out]   resp        HTTP response.
@@ -94,18 +98,18 @@ inline void fillCableProperties(
 
     if (cableClass != nullptr)
     {
-        asyncResp->res.jsonValue["CableClass"] = *cableClass;
+        resp.jsonValue["CableClass"] = *cableClass;
     }
 
     if (downstreamConnectorTypes != nullptr)
     {
-        asyncResp->res.jsonValue["DownstreamConnectorTypes"] =
+        resp.jsonValue["DownstreamConnectorTypes"] =
             *downstreamConnectorTypes;
     }
 
     if (upstreamConnectorTypes != nullptr)
     {
-        asyncResp->res.jsonValue["UpstreamConnectorTypes"] =
+        resp.jsonValue["UpstreamConnectorTypes"] =
             *upstreamConnectorTypes;
     }
 }
@@ -181,7 +185,6 @@ inline void getCableProperties(
             {
                 fetchCBCOemProperties(asyncResp, service, cableObjectPath);
             }
-            // Nvidia code ends here
         }
     }
 }

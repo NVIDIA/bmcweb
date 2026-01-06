@@ -156,6 +156,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesDrive(app);
     requestRoutesCable(app);
     requestRoutesCableCollection(app);
+    requestRoutesCableAssembly(app);
 
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);
