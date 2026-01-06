@@ -111,12 +111,13 @@ TEST(HandleAddConfigFileError, FileEmpty_Returns400)
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 
-TEST(HandleAddConfigFileError, FileTooLarge_Returns400)
+TEST(HandleAddConfigFileError, FileTooLarge_Returns413)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     handleAddConfigFileError(asyncResp, "/test/uri",
                              makeDbusError("FileTooLarge"));
-    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
+    EXPECT_EQ(asyncResp->res.result(),
+              boost::beast::http::status::payload_too_large);
 }
 
 TEST(HandleAddConfigFileError, InvalidStructure_Returns400)
