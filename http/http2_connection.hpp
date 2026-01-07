@@ -308,11 +308,11 @@ class HTTP2Connection :
         crow::Response& thisRes = it->second.res;
 
         thisRes.setCompleteRequestHandler(
-            [this, streamId](Response& completeRes) {
+            [self = shared_from_this(), streamId](Response& completeRes) {
                 BMCWEB_LOG_DEBUG("res.completeRequestHandler called");
-                if (sendResponse(completeRes, streamId) != 0)
+                if (self->sendResponse(completeRes, streamId) != 0)
                 {
-                    close();
+                    self->close();
                     return;
                 }
             });
