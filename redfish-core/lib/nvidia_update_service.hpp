@@ -1802,6 +1802,7 @@ inline void handleCommitImagePost(
 
     // Pair: first = dbus software object path, second = redfish inventory path
     std::vector<std::pair<std::string, std::string>> softwareObjectPaths = {};
+    bool hasInvalidTargets = false;
 
     if (hasTargets)
     {
@@ -1826,15 +1827,16 @@ inline void handleCommitImagePost(
                     "Cannot find firmware inventory in allowable values");
                 boost::urls::url_view targetURL(target);
                 messages::resourceMissingAtURI(asyncResp->res, targetURL);
+                hasInvalidTargets = true;
             }
         }
     }
 
     collectImageCopySoftwarePaths(
-        asyncResp, [asyncResp, hasTargets, softwareObjectPaths](
-                       const std::map<std::string, std::vector<std::string>>&
-                           chassisToPathsMap) {
-            bool hasInvalidTargets = false;
+        asyncResp,
+        [asyncResp, hasTargets, softwareObjectPaths, hasInvalidTargets](
+            const std::map<std::string, std::vector<std::string>>&
+                chassisToPathsMap) mutable {
             if (hasTargets)
             {
                 for (const auto& [dbusPath, redfishPath] : softwareObjectPaths)
