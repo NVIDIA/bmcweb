@@ -221,16 +221,10 @@ class Connection :
 
         if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
         {
-            if constexpr (std::is_same<
-                              Adaptor,
-                              boost::asio::ssl::stream<
-                                  boost::asio::ip::tcp::socket>>::value)
+            if (!prepareMutualTls())
             {
-                if (!prepareMutualTls())
-                {
-                    BMCWEB_LOG_ERROR("{} Failed to prepare mTLS", logPtr(this));
-                    return;
-                }
+                BMCWEB_LOG_ERROR("{} Failed to prepare mTLS", logPtr(this));
+                return;
             }
         }
 
