@@ -34,6 +34,7 @@
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
 #include "nvidia_nic_debug_token.hpp"
+#include "nvidia_oem_chassis_recovery.hpp"
 #include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_oem_managed_entity.hpp"
@@ -360,6 +361,7 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesProcessorResetMetrics(app);
         requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
+        requestRoutesChassisOemNvidiaRecoveryActions(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)

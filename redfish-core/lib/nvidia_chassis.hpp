@@ -211,7 +211,51 @@ inline void afterChassisSpiInterfacesFound(
             chassisId);
 }
 
-// Find the existing chassis handler and add SPI interface detection
+inline void afterChassisSetRecoveryModeInterfacesFound(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
+{
+    if (ec)
+    {
+        return;
+    }
+
+    if (paths.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Action",
+                                   "NvidiaChassis.SetRecoveryMode");
+        return;
+    }
+
+    int objPathCount = 0;
+    for (const auto& path : paths)
+    {
+        if (std::filesystem::path(path).filename() == chassisId)
+        {
+            objPathCount++;
+        }
+    }
+    if (objPathCount != 1)
+    {
+        BMCWEB_LOG_ERROR(
+            "Multiple SetRecoveryMode interface object paths {} found for chassisId: {}",
+            objPathCount, chassisId);
+        return;
+    }
+
+    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+    oemActions["#NvidiaChassis.SetRecoveryMode"]["target"] =
+        boost::urls::format(
+            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaChassis.SetRecoveryMode",
+            chassisId);
+}
+
+/**
+ * @brief Get chassis OEM NVIDIA properties and actions
+ *
+ * This function detects and adds NVIDIA-specific chassis OEM actions
+ */
 inline void getChassisOemNvidiaProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -222,11 +266,19 @@ inline void getChassisOemNvidiaProperties(
         return;
     }
 
-    // Add SPI interface detection
-    std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
+    // Detect and add SPI interface actions
+    std::array<std::string_view, 1> spiInterfaces{"com.nvidia.GraceSPI"};
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        std::bind_front(&afterChassisSpiInterfacesFound, asyncResp, chassisId));
+        "/xyz/openbmc_project/inventory", 0, spiInterfaces,
+        std::bind_front(afterChassisSpiInterfacesFound, asyncResp, chassisId));
+
+    // Detect and add SetRecoveryMode action
+    std::array<std::string_view, 1> recoveryInterfaces{
+        "com.nvidia.SetRecoveryMode"};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, recoveryInterfaces,
+        std::bind_front(afterChassisSetRecoveryModeInterfacesFound, asyncResp,
+                        chassisId));
 }
 
 /**
