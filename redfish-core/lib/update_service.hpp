@@ -1234,7 +1234,7 @@ inline void updateMultipartContext(
 
     if (!multipart->params.applyTime)
     {
-        multipart->params.applyTime = "Immediate";
+        multipart->params.applyTime = "OnReset";
     }
 
     std::string dbusApplyTime;
