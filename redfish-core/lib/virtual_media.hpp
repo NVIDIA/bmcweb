@@ -526,7 +526,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         },
         service, path.str, "xyz.openbmc_project.VirtualMedia.Legacy", "Mount",
-        imageUrl, rw, unixFd);
+        imageUrl, rw, std::variant<sdbusplus::message::unix_fd>(unixFd));
 }
 
 /**
