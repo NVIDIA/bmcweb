@@ -1505,6 +1505,17 @@ inline void handleUpdateServiceGet(
     asyncResp->res.jsonValue["MultipartHttpPushUri"] =
         "/redfish/v1/UpdateService/update-multipart";
 
+    nlohmann::json::array_t supportedApplyTimes;
+    supportedApplyTimes.emplace_back("OnReset");
+    supportedApplyTimes.emplace_back("Immediate");
+    asyncResp->res
+        .jsonValue["MultipartHttpPushUri@Redfish.OperationApplyTimeSupport"]
+                  ["@odata.type"] =
+        "#Settings.v1_3_3.OperationApplyTimeSupport";
+    asyncResp->res
+        .jsonValue["MultipartHttpPushUri@Redfish.OperationApplyTimeSupport"]
+                  ["SupportedValues"] = std::move(supportedApplyTimes);
+
     // UpdateService cannot be disabled
     asyncResp->res.jsonValue["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["FirmwareInventory"]["@odata.id"] =
