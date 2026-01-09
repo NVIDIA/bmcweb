@@ -28,6 +28,7 @@
 #include <utils/nvidia_cable_util.hpp>
 
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -236,8 +237,9 @@ inline void afterHandleCableGet(
         asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
 
         // Add DownstreamChassis link from "downstream_chassis" association
-        for (const auto& [connectionName, interfaces] : serviceMap)
+        for (const auto& entry : serviceMap)
         {
+            (void)entry; // Suppress unused variable warning
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
                  cableId](const boost::system::error_code& ec1,
@@ -276,7 +278,7 @@ inline void afterHandleCableGet(
                     asyncResp->res.jsonValue["Links"]["DownstreamChassis"] =
                         std::move(downstreamChassis);
                 },
-                connectionName, objectPath + "/downstream_chassis",
+                "xyz.openbmc_project.ObjectMapper", objectPath + "/downstream_chassis",
                 "org.freedesktop.DBus.Properties", "Get",
                 "xyz.openbmc_project.Association", "endpoints");
         }
@@ -368,15 +370,77 @@ inline void requestRoutesCable(App& app)
                                 continue;
                             }
 
+                            // Set basic Redfish properties
                             asyncResp->res.jsonValue["@odata.type"] =
                                 "#Cable.v1_0_0.Cable";
                             asyncResp->res.jsonValue["@odata.id"] =
                                 boost::urls::format("/redfish/v1/Cables/{}",
                                                     cableId);
                             asyncResp->res.jsonValue["Id"] = cableId;
-                            asyncResp->res.jsonValue["Name"] = "Cable";
+                            asyncResp->res.jsonValue["Name"] = cableId;
                             asyncResp->res.jsonValue["Status"]["State"] =
                                 resource::State::Enabled;
+                            asyncResp->res.jsonValue["Status"]["Health"] =
+                                resource::Health::OK;
+
+                            // Add Assembly link
+                            asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
+                                boost::urls::format("/redfish/v1/Cables/{}/Assembly", cableId);
+
+                            // Add ManagedBy link
+                            nlohmann::json::array_t managedBy;
+                            nlohmann::json::object_t manager;
+                            manager["@odata.id"] = boost::urls::format(
+                                "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
+                            managedBy.emplace_back(std::move(manager));
+                            asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
+
+                            // Add DownstreamChassis link from "downstream_chassis" association
+                            for (const auto& entry : serviceMap)
+                            {
+                                (void)entry; // Suppress unused variable warning
+                                crow::connections::systemBus->async_method_call(
+                                    [asyncResp,
+                                     cableId](const boost::system::error_code& ec1,
+                                              std::variant<std::vector<std::string>>& resp) {
+                                        if (ec1)
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "No downstream_chassis associations found for Cable {}",
+                                                cableId);
+                                            return;
+                                        }
+
+                                        std::vector<std::string>* chassisList =
+                                            std::get_if<std::vector<std::string>>(&resp);
+
+                                        if (chassisList == nullptr || chassisList->empty())
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "Empty downstream chassis list for Cable {}",
+                                                cableId);
+                                            return;
+                                        }
+
+                                        nlohmann::json::array_t downstreamChassis;
+                                        for (const std::string& chassisPath : *chassisList)
+                                        {
+                                            sdbusplus::message::object_path chassisObjPath(
+                                                chassisPath);
+                                            std::string chassisId = chassisObjPath.filename();
+
+                                            nlohmann::json::object_t chassis;
+                                            chassis["@odata.id"] = boost::urls::format(
+                                                "/redfish/v1/Chassis/{}", chassisId);
+                                            downstreamChassis.emplace_back(std::move(chassis));
+                                        }
+                                        asyncResp->res.jsonValue["Links"]["DownstreamChassis"] =
+                                            std::move(downstreamChassis);
+                                    },
+                                    "xyz.openbmc_project.ObjectMapper", objectPath + "/downstream_chassis",
+                                    "org.freedesktop.DBus.Properties", "Get",
+                                    "xyz.openbmc_project.Association", "endpoints");
+                            }
 
                             getCableProperties(asyncResp, objectPath,
                                                serviceMap);
@@ -542,139 +606,155 @@ inline void requestRoutesCableAssembly(App& app)
                                     BMCWEB_LOG_DEBUG("Found Assembly Path: {}",
                                                      assembly);
 
-                                    // Get assembly properties
-                                    crow::connections::systemBus->async_method_call(
-                                        [asyncResp, assembly, cableId](
-                                            const boost::system::error_code&
-                                                ec2,
-                                            const dbus::utility::
-                                                DBusPropertiesMap& properties) {
-                                            if (ec2)
-                                            {
-                                                BMCWEB_LOG_ERROR(
-                                                    "Error getting assembly properties: {}",
-                                                    ec2);
-                                                return;
-                                            }
+                                    // Create a shared structure to collect properties from multiple interfaces
+                                    auto assemblyData = std::make_shared<std::map<std::string, std::variant<std::string>>>();
+                                    auto pendingCalls = std::make_shared<std::atomic<int>>(2); // Asset + Revision interfaces
 
-                                            nlohmann::json assemblyObj =
-                                                nlohmann::json::object();
+                                    auto processAssemblyData = [asyncResp, assembly, cableId, assemblyData]() {
+                                        nlohmann::json assemblyObj = nlohmann::json::object();
 
-                                            // Extract properties
-                                            const std::string* model = nullptr;
-                                            const std::string* partNumber =
-                                                nullptr;
-                                            const std::string* serialNumber =
-                                                nullptr;
-                                            const std::string* manufacturer =
-                                                nullptr;
-                                            const std::string* version =
-                                                nullptr;
-                                            const std::string* buildDate =
-                                                nullptr;
+                                        // Extract properties from collected data
+                                        const std::string* model = nullptr;
+                                        const std::string* partNumber = nullptr;
+                                        const std::string* serialNumber = nullptr;
+                                        const std::string* manufacturer = nullptr;
+                                        const std::string* version = nullptr;
+                                        const std::string* buildDate = nullptr;
 
-                                            for (const auto& [key, value] :
-                                                 properties)
+                                        for (const auto& [key, value] : *assemblyData)
+                                        {
+                                            const std::string* strValue = std::get_if<std::string>(&value);
+                                            if (strValue != nullptr)
                                             {
                                                 if (key == "Model")
                                                 {
-                                                    model = std::get_if<
-                                                        std::string>(&value);
+                                                    model = strValue;
                                                 }
                                                 else if (key == "PartNumber")
                                                 {
-                                                    partNumber = std::get_if<
-                                                        std::string>(&value);
+                                                    partNumber = strValue;
                                                 }
                                                 else if (key == "SerialNumber")
                                                 {
-                                                    serialNumber = std::get_if<
-                                                        std::string>(&value);
+                                                    serialNumber = strValue;
                                                 }
                                                 else if (key == "Manufacturer")
                                                 {
-                                                    manufacturer = std::get_if<
-                                                        std::string>(&value);
+                                                    manufacturer = strValue;
                                                 }
                                                 else if (key == "Version")
                                                 {
-                                                    version = std::get_if<
-                                                        std::string>(&value);
+                                                    version = strValue;
                                                 }
                                                 else if (key == "BuildDate")
                                                 {
-                                                    buildDate = std::get_if<
-                                                        std::string>(&value);
+                                                    buildDate = strValue;
                                                 }
                                             }
+                                        }
 
-                                            // Get assembly name from path
-                                            sdbusplus::message::object_path
-                                                assemblyPath(assembly);
-                                            std::string assemblyName =
-                                                assemblyPath.filename();
+                                        // Get assembly name from path
+                                        sdbusplus::message::object_path assemblyPath(assembly);
+                                        std::string assemblyName = assemblyPath.filename();
 
-                                            // Extract MemberId (last number in
-                                            // the name)
-                                            std::string memberId = "0";
-                                            size_t lastDigitPos =
-                                                assemblyName.find_last_not_of(
-                                                    "0123456789");
-                                            if (lastDigitPos !=
-                                                    std::string::npos &&
-                                                lastDigitPos <
-                                                    assemblyName.length() - 1)
-                                            {
-                                                memberId = assemblyName.substr(
-                                                    lastDigitPos + 1);
-                                            }
+                                        // Extract MemberId (last number in the name)
+                                        std::string memberId = "0";
+                                        size_t lastDigitPos = assemblyName.find_last_not_of("0123456789");
+                                        if (lastDigitPos != std::string::npos &&
+                                            lastDigitPos < assemblyName.length() - 1)
+                                        {
+                                            memberId = assemblyName.substr(lastDigitPos + 1);
+                                        }
 
-                                            assemblyObj["@odata.id"] =
-                                                boost::urls::format(
-                                                    "/redfish/v1/Cables/{}/Assembly#/Assemblies/{}",
-                                                    cableId, memberId);
-                                            assemblyObj["MemberId"] = memberId;
-                                            assemblyObj["Name"] = assemblyName;
+                                        assemblyObj["@odata.id"] = boost::urls::format(
+                                            "/redfish/v1/Cables/{}/Assembly#/Assemblies/{}",
+                                            cableId, memberId);
+                                        assemblyObj["MemberId"] = memberId;
+                                        assemblyObj["Name"] = assemblyName;
 
-                                            if (model != nullptr)
-                                            {
-                                                assemblyObj["Model"] = *model;
-                                            }
-                                            if (partNumber != nullptr)
-                                            {
-                                                assemblyObj["PartNumber"] =
-                                                    *partNumber;
-                                            }
-                                            if (serialNumber != nullptr)
-                                            {
-                                                assemblyObj["SerialNumber"] =
-                                                    *serialNumber;
-                                            }
-                                            if (manufacturer != nullptr)
-                                            {
-                                                assemblyObj["Vendor"] =
-                                                    *manufacturer;
-                                            }
-                                            if (version != nullptr)
-                                            {
-                                                assemblyObj["Version"] =
-                                                    *version;
-                                            }
-                                            if (buildDate != nullptr)
-                                            {
-                                                assemblyObj["ProductionDate"] =
-                                                    *buildDate;
-                                            }
+                                        if (model != nullptr)
+                                        {
+                                            assemblyObj["Model"] = *model;
+                                        }
+                                        if (partNumber != nullptr)
+                                        {
+                                            assemblyObj["PartNumber"] = *partNumber;
+                                        }
+                                        if (serialNumber != nullptr)
+                                        {
+                                            assemblyObj["SerialNumber"] = *serialNumber;
+                                        }
+                                        if (manufacturer != nullptr)
+                                        {
+                                            assemblyObj["Vendor"] = *manufacturer;
+                                        }
+                                        if (version != nullptr)
+                                        {
+                                            assemblyObj["Version"] = *version;
+                                        }
+                                        if (buildDate != nullptr)
+                                        {
+                                            assemblyObj["ProductionDate"] = *buildDate;
+                                        }
 
-                                            asyncResp->res
-                                                .jsonValue["Assemblies"]
-                                                .push_back(
-                                                    std::move(assemblyObj));
+                                        asyncResp->res.jsonValue["Assemblies"].push_back(std::move(assemblyObj));
+                                    };
+
+                                    // Get Asset interface properties
+                                    crow::connections::systemBus->async_method_call(
+                                        [assemblyData, pendingCalls, processAssemblyData](
+                                            const boost::system::error_code& ec2,
+                                            const dbus::utility::DBusPropertiesMap& properties) {
+                                            if (!ec2)
+                                            {
+                                                // Merge Asset properties
+                                                for (const auto& [key, value] : properties)
+                                                {
+                                                    const std::string* strValue = std::get_if<std::string>(&value);
+                                                    if (strValue != nullptr && !strValue->empty())
+                                                    {
+                                                        (*assemblyData)[key] = *strValue;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Decrement pending calls and process if all done
+                                            if (--(*pendingCalls) == 0)
+                                            {
+                                                processAssemblyData();
+                                            }
                                         },
                                         connectionName, assembly,
-                                        "org.freedesktop.DBus.Properties",
-                                        "GetAll",
+                                        "org.freedesktop.DBus.Properties", "GetAll",
                                         "xyz.openbmc_project.Inventory.Decorator.Asset");
+
+                                    // Get Revision interface properties (for Version)
+                                    crow::connections::systemBus->async_method_call(
+                                        [assemblyData, pendingCalls, processAssemblyData](
+                                            const boost::system::error_code& ec3,
+                                            const dbus::utility::DBusPropertiesMap& properties) {
+                                            if (!ec3)
+                                            {
+                                                // Merge Revision properties (Version overrides Asset if present)
+                                                for (const auto& [key, value] : properties)
+                                                {
+                                                    const std::string* strValue = std::get_if<std::string>(&value);
+                                                    if (strValue != nullptr && !strValue->empty())
+                                                    {
+                                                        (*assemblyData)[key] = *strValue;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Decrement pending calls and process if all done
+                                            if (--(*pendingCalls) == 0)
+                                            {
+                                                processAssemblyData();
+                                            }
+                                        },
+                                        connectionName, assembly,
+                                        "org.freedesktop.DBus.Properties", "GetAll",
+                                        "xyz.openbmc_project.Inventory.Decorator.Revision");
                                 }
                             },
                             "xyz.openbmc_project.ObjectMapper",
