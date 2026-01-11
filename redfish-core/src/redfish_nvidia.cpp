@@ -58,6 +58,7 @@
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
+#include "nvidia_systems_logservices_hostlogger.hpp"
 #include "nvidia_task.hpp"
 #include "nvidia_unified_debug_token.hpp"
 #include "nvidia_update_service.hpp"
@@ -186,6 +187,11 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesChassisXIDLogService(app);
         requestRoutesChassisXIDLogEntryCollection(app);
+    }
+
+    if constexpr (BMCWEB_REDFISH_HOST_LOGGER)
+    {
+        requestRoutesSystemsLogServiceHostloggerDownload(app);
     }
 
     requestRoutesDebugToken(app);

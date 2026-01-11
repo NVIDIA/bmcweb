@@ -6,6 +6,7 @@
 
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "gzfile.hpp"
@@ -21,6 +22,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
@@ -36,6 +38,47 @@
 
 namespace redfish
 {
+// nvidia code start
+inline void afterArchiveServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objInfo)
+{
+    if (ec)
+    {
+        // Archive service not available, don't expose action
+        BMCWEB_LOG_DEBUG(
+            "Archive service not available, DownloadRawLog action not exposed");
+        return;
+    }
+
+    // If objInfo is not empty, the archive interface exists
+    if (!objInfo.empty())
+    {
+        // Add DownloadRawLog action only if service exists
+        asyncResp->res.jsonValue["Actions"]["#LogService.DownloadRawLog"]
+                                ["target"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/LogServices/HostLogger/Actions/LogService.DownloadRawLog",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    }
+}
+
+inline void checkAndExposeDownloadRawLogAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    constexpr std::string_view archiveInterface =
+        "xyz.openbmc_project.Console.Archive";
+    constexpr std::string_view archiveObjectPath =
+        "/xyz/openbmc_project/console";
+
+    constexpr std::array<std::string_view, 1> interfaces = {archiveInterface};
+
+    dbus::utility::getDbusObject(
+        std::string(archiveObjectPath), interfaces,
+        std::bind_front(afterArchiveServiceDiscovery, asyncResp));
+}
+// nvidia code end
+
 constexpr const char* hostLoggerFolderPath = "/var/log/console";
 
 inline bool getHostLoggerFiles(
@@ -145,6 +188,10 @@ inline void handleSystemsLogServicesHostloggerGet(
     asyncResp->res.jsonValue["Entries"]["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/HostLogger/Entries",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+    // nvidia code start
+    checkAndExposeDownloadRawLogAction(asyncResp);
+    // nvidia code end
 }
 
 inline void handleSystemsLogServicesHostloggerEntriesGet(
