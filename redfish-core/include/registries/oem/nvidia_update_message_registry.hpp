@@ -53,6 +53,19 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "ComponentUpdateTime",
+        {
+            "Indicates the time taken to update a component",
+            "The update operation for component '%1' completed in '%2'.",
+            "OK",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "DOTActionResponseError",
         {
             "Indicates that an error occured for the requested DOT command.",
@@ -243,21 +256,22 @@ static constexpr std::array registry =
 enum class Index
 {
     componentUpdateSkipped = 0,
-    dOTActionResponseError = 1,
-    dOTMCTPStatusError = 2,
-    debugTokenAlreadyInstalled = 3,
-    debugTokenEraseFailed = 4,
-    debugTokenEraseSuccess = 5,
-    debugTokenInstallationFailed = 6,
-    debugTokenInstallationSuccess = 7,
-    debugTokenRequestSuccess = 8,
-    debugTokenStatusSuccess = 9,
-    debugTokenUnsupported = 10,
-    firmwareNotInRecovery = 11,
-    headerValueInvalid = 12,
-    recoveryStarted = 13,
-    recoverySuccessful = 14,
-    stageSuccessful = 15,
+    componentUpdateTime = 1,
+    dOTActionResponseError = 2,
+    dOTMCTPStatusError = 3,
+    debugTokenAlreadyInstalled = 4,
+    debugTokenEraseFailed = 5,
+    debugTokenEraseSuccess = 6,
+    debugTokenInstallationFailed = 7,
+    debugTokenInstallationSuccess = 8,
+    debugTokenRequestSuccess = 9,
+    debugTokenStatusSuccess = 10,
+    debugTokenUnsupported = 11,
+    firmwareNotInRecovery = 12,
+    headerValueInvalid = 13,
+    recoveryStarted = 14,
+    recoverySuccessful = 15,
+    stageSuccessful = 16,
 };
 }; // struct nvidia_update
 

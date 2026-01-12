@@ -377,6 +377,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::stageSuccessful(arg1, arg2);
     }
+    if (msgId == "NvidiaUpdate.1.0.ComponentUpdateTime")
+    {
+        return messages::componentUpdateTime(arg1, arg2);
+    }
     if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
     {
         return messages::debugTokenEraseFailed(arg1, arg2);

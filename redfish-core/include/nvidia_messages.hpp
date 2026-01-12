@@ -177,6 +177,14 @@ inline nlohmann::json componentUpdateSkipped(std::string_view arg1,
         redfish::registries::NvidiaUpdate::Index::componentUpdateSkipped, args);
 }
 
+inline nlohmann::json componentUpdateTime(std::string_view arg1,
+                                          std::string_view arg2)
+{
+    std::array<std::string_view, 2> args{arg1, arg2};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::componentUpdateTime, args);
+}
+
 inline nlohmann::json recoveryStarted(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};

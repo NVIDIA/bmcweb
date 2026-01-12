@@ -14,6 +14,15 @@
             "Resolution": "None.",
             "Severity": "OK"
         },
+        "ComponentUpdateTime": {
+            "Description": "Indicates the time taken to update a component",
+            "Message": "The update operation for component '%1' completed in '%2'.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 2,
+            "ParamTypes": ["string", "string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
         "DebugTokenAlreadyInstalled": {
             "Description": "Indicates that the device has a token already installed and cannot finish current request.",
             "Message": "Debug token for device '%1' has already been installed.",
