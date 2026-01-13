@@ -4,6 +4,6 @@ Description=BMC Webserver socket
 [Socket]
 ListenStream=@BMCWEB_HTTPS_PORT@
 ReusePort=true
-
+KeepAlive=true
 [Install]
 WantedBy=sockets.target

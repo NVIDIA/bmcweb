@@ -62,6 +62,12 @@ template <typename T>
 struct IsTls<boost::asio::ssl::stream<T>> : std::true_type
 {};
 
+enum class DeadlineTimerType
+{
+    Default,
+    Keepalive,
+};
+
 template <typename Adaptor, typename Handler>
 class Connection :
     public std::enable_shared_from_this<Connection<Adaptor, Handler>>
@@ -175,7 +181,7 @@ class Connection :
             return;
         }
 
-        startDeadline();
+        startDeadline(DeadlineTimerType::Default);
 
         readClientIp();
 
@@ -544,6 +550,9 @@ class Connection :
     void doReadHeaders()
     {
         BMCWEB_LOG_DEBUG("{} doReadHeaders", logPtr(this));
+
+        startDeadline(DeadlineTimerType::Keepalive);
+
         if (!parser)
         {
             BMCWEB_LOG_CRITICAL("Parser was not initialized.");
@@ -627,7 +636,7 @@ class Connection :
         {
             return;
         }
-        startDeadline();
+        startDeadline(DeadlineTimerType::Default);
         boost::beast::http::async_read_some(
             adaptor, buffer, *parser,
             [this,
@@ -755,7 +764,7 @@ class Connection :
 
         res.preparePayload(chunked);
 
-        startDeadline();
+        startDeadline(DeadlineTimerType::Default);
         boost::beast::async_write(
             adaptor,
             boost::beast::http::message_generator(std::move(res.response)),
@@ -766,18 +775,27 @@ class Connection :
     void cancelDeadlineTimer()
     {
         timer.cancel();
+        timerStarted = false;
     }
 
-    void startDeadline()
+    void startDeadline(DeadlineTimerType timerType)
     {
         cancelDeadlineTimer();
 
-        std::chrono::seconds timeout(bmcwebResponseTimeoutSeconds);
+        int timeoutDurationSeconds = bmcwebResponseTimeoutSeconds;
+        if (timerType == DeadlineTimerType::Keepalive)
+        {
+            // if we're waiting for future requests while idle in keepalive,
+            // allow up to 15 minutes of delay
+            timeoutDurationSeconds = 15 * 60;
+        }
+
+        std::chrono::seconds timeout(timeoutDurationSeconds);
         // allow slow uploads for logged in users
         bool loggedIn = userSession != nullptr;
         if (loggedIn)
         {
-            timeout = std::chrono::seconds(bmcwebResponseTimeoutSeconds);
+            timeout = std::chrono::seconds(timeoutDurationSeconds);
             return;
         }
         std::weak_ptr<Connection<Adaptor, Handler>> weakSelf = weak_from_this();
