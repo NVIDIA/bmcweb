@@ -64,7 +64,13 @@ static const std::map<std::string, std::string> firmwareState = {
      "WriteInProgress"},
     {"xyz.openbmc_project.Software.State.FirmwareState.Inactive", "Inactive"},
     {"xyz.openbmc_project.Software.State.FirmwareState.FailedAuthentication",
-     "FailedAuthentication"}};
+     "FailedAuthentication"},
+    {"xyz.openbmc_project.Software.State.FirmwareState.ImageCopyPending",
+     "ImageCopyPending"},
+    {"xyz.openbmc_project.Software.State.FirmwareState.ImageCopyInProgress",
+     "ImageCopyInProgress"},
+    {"xyz.openbmc_project.Software.State.FirmwareState.ImageCopyFailed",
+     "ImageCopyFailed"}};
 
 /**
  * @brief Maps D-Bus firmware build types to human-readable values.
