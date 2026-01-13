@@ -26,14 +26,14 @@
 #include <functional>
 
 /**
- * @brief Callback to handle ImageCopyPolicy property retrieval result
+ * @brief Callback to handle FailoverPolicy property retrieval result
  *
  * @param asyncResp Pointer to object holding response data
  * @param objectPath D-Bus object path being queried
  * @param ec Error code from the D-Bus property get call
- * @param propertyValue The ImageCopyPolicy property value
+ * @param propertyValue The FailoverPolicy property value
  */
-inline void getImageCopyPolicyCallback(
+inline void getFailoverPolicyCallback(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const boost::system::error_code& ec,
     const std::string& propertyValue)
@@ -41,11 +41,21 @@ inline void getImageCopyPolicyCallback(
     if (ec)
     {
         BMCWEB_LOG_ERROR(
-            "Failed to get the ImageCopyPolicy property for object path '{}': {}",
-            objectPath, ec.message());
+            "Failed to get the FailoverPolicy property for object path '{}': {}",
+            objectPath, ec);
         redfish::messages::resourceErrorsDetectedFormatError(
             asyncResp->res, objectPath, ec.message());
         return;
+    }
+
+    // Extract the last part after the last '.'
+    // e.g., "com.nvidia.FailoverPolicy.FailoverPolicyState.AutomaticFailover"
+    // should become "AutomaticFailover"
+    std::string failoverPolicy = propertyValue;
+    size_t lastDot = propertyValue.rfind('.');
+    if (lastDot != std::string::npos)
+    {
+        failoverPolicy = propertyValue.substr(lastDot + 1);
     }
 
     if (!asyncResp->res.jsonValue.contains("Oem"))
@@ -59,32 +69,38 @@ inline void getImageCopyPolicyCallback(
 
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
 
-    if (propertyValue ==
-        "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Automatic")
+    // When D-Bus value is Unknown, show null in Redfish (same as BuildType)
+    if (failoverPolicy == "NoFailover" || failoverPolicy == "AutomaticFailover")
     {
-        oem["AutomaticBackgroundCopyEnabled"] = true;
+        oem["FailoverPolicy"] = failoverPolicy;
     }
-
-    if (propertyValue ==
-        "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Manual")
+    else
     {
-        oem["AutomaticBackgroundCopyEnabled"] = false;
+        oem["FailoverPolicy"] = nullptr;
     }
 }
 
 /**
- *@brief Populates the AutomaticBackgroundCopyEnabled property based on
- * ImageCopyPolicy
+ *@brief Updates the failover policy (NoFailover or AutomaticFailover)
  *
  * @param asyncResp Pointer to object holding response data
- * @param chassisId chassisId
+ * @param failoverPolicy Failover policy value (NoFailover or AutomaticFailover)
+ * @param chassisId Chassis Id
  *
  * @return None.
  */
-inline void populateBackgroundCopyPolicy(
+inline void updateFailoverPolicy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
+    const std::string& failoverPolicy, const std::string& chassisId)
 {
+    // Validate input against allowed values
+    if (failoverPolicy != "NoFailover" && failoverPolicy != "AutomaticFailover")
+    {
+        redfish::messages::propertyValueNotInList(
+            asyncResp->res, failoverPolicy, "FailoverPolicy");
+        return;
+    }
+
     constexpr std::string_view chassisDBusPath =
         "/xyz/openbmc_project/inventory/system/chassis/";
     sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
@@ -92,55 +108,14 @@ inline void populateBackgroundCopyPolicy(
 
     dbus::utility::getDbusObject(
         objectPath,
-        std::array<std::string_view, 1>{"com.nvidia.ImageCopyPolicy"},
-        [asyncResp, objectPath](const boost::system::error_code& ec,
-                                const dbus::utility::MapperGetObject& object) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist",
-                    objectPath.str);
-                return;
-            }
-
-            const std::string& service = object.front().first;
-
-            dbus::utility::getProperty<std::string>(
-                *crow::connections::systemBus, service, objectPath,
-                "com.nvidia.ImageCopyPolicy", "ImageCopyPolicy",
-                std::bind_front(getImageCopyPolicyCallback, asyncResp,
-                                objectPath.str));
-        });
-}
-
-/**
- *@brief Updates the background copy policy (Automatic or Manual)
- *
- * @param asyncResp Pointer to object holding response data
- * @param enabled Enable (Automatic) or disable (Manual) the background copy
- * @param chassisID Chassis Id
- *
- * @return None.
- */
-inline void updateBackgroundCopyPolicy(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool enabled,
-    const std::string& chassisId)
-{
-    constexpr std::string_view chassisDBusPath =
-        "/xyz/openbmc_project/inventory/system/chassis/";
-    sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
-    objectPath /= chassisId;
-
-    dbus::utility::getDbusObject(
-        objectPath,
-        std::array<std::string_view, 1>{"com.nvidia.ImageCopyPolicy"},
+        std::array<std::string_view, 1>{"com.nvidia.FailoverPolicy"},
         [asyncResp, chassisId, objectPath,
-         enabled](const boost::system::error_code& ec,
-                  const dbus::utility::MapperGetObject& object) {
+         failoverPolicy](const boost::system::error_code& ec,
+                         const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist",
+                    "The D-Bus object that implements the FailoverPolicy interface at object path '{}' does not exist",
                     objectPath.str);
                 redfish::messages::resourceErrorsDetectedFormatError(
                     asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
@@ -150,21 +125,23 @@ inline void updateBackgroundCopyPolicy(
 
             const std::string& service = object.front().first;
 
+            // Convert short form to full D-Bus enum path
+            // e.g., "NoFailover" ->
+            // "com.nvidia.FailoverPolicy.FailoverPolicyState.NoFailover"
             std::string policyValue =
-                enabled
-                    ? "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Automatic"
-                    : "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Manual";
+                std::format("com.nvidia.FailoverPolicy.FailoverPolicyState.{}",
+                            failoverPolicy);
 
             BMCWEB_LOG_DEBUG(
-                "Updating ImageCopyPolicy for object path '{}' to '{}'",
+                "Updating FailoverPolicy for object path '{}' to '{}'",
                 objectPath.str, policyValue);
 
             redfish::nvidia_async_operation_utils::
                 doGenericSetAsyncAndGatherResult(
                     asyncResp, std::chrono::seconds(60), service, objectPath,
-                    "com.nvidia.ImageCopyPolicy", "ImageCopyPolicy",
+                    "com.nvidia.FailoverPolicy", "FailoverPolicy",
                     std::variant<std::string>(policyValue),
                     redfish::nvidia_async_operation_utils::PatchGenericCallback{
-                        asyncResp});
+                        asyncResp, "FailoverPolicy", failoverPolicy});
         });
 }

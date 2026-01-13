@@ -17,6 +17,7 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
@@ -3067,29 +3068,129 @@ inline void setInBandEnabled(
 }
 
 /**
- *@brief Gets background copy and in-band info for particular chassis
+ * @brief Handle combined getDbusObject response: dispatch getProperty for
+ * FailoverPolicy, InbandUpdatePolicy, and ImageCopyPolicy per interface found.
  *
- * @param asyncResp   Pointer to object holding response data
- * @param chassisId  Chassis ID
- *
- * @return None.
+ * @param policyInterfaces List of interface names requested (order used for
+ *                         dispatch).
  */
-inline void getBackgroundCopyAndInBandInfo(
+inline void getChassisPolicyPropertiesFromMapper(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisCfgPath,
+    std::span<const std::string_view> policyInterfaces,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& mapperResponse)
+{
+    if (ec || mapperResponse.empty())
+    {
+        BMCWEB_LOG_DEBUG("Chassis policy interfaces not present at {}: {}",
+                         chassisCfgPath, ec);
+        return;
+    }
+    boost::container::flat_map<std::string_view, std::string> ifaceToService;
+    for (const std::string& iface : mapperResponse.front().second)
+    {
+        ifaceToService[iface] = mapperResponse.front().first;
+    }
+    if (!asyncResp->res.jsonValue.contains("Oem"))
+    {
+        asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
+    }
+    if (!asyncResp->res.jsonValue["Oem"].contains("Nvidia"))
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaChassis.v1_12_0.NvidiaRoTChassis";
+
+    for (std::string_view iface : policyInterfaces)
+    {
+        auto it = ifaceToService.find(iface);
+        if (it == ifaceToService.end())
+        {
+            continue;
+        }
+        if (iface == "com.nvidia.FailoverPolicy")
+        {
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus, it->second, chassisCfgPath,
+                "com.nvidia.FailoverPolicy", "FailoverPolicy",
+                [asyncResp,
+                 chassisCfgPath](const boost::system::error_code& ecProp,
+                                 const std::string& propertyValue) {
+                    getFailoverPolicyCallback(asyncResp, chassisCfgPath, ecProp,
+                                              propertyValue);
+                });
+        }
+        else if (iface == "com.nvidia.InbandUpdatePolicy")
+        {
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus, it->second, chassisCfgPath,
+                "com.nvidia.InbandUpdatePolicy", "InbandUpdatePolicy",
+                [asyncResp](const boost::system::error_code& ecProp,
+                            const std::string& propertyValue) {
+                    if (ecProp)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "InbandUpdatePolicy getProperty error: {}",
+                            ecProp.message());
+                        return;
+                    }
+                    nlohmann::json& oem =
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                    if (propertyValue ==
+                        "com.nvidia.InbandUpdatePolicy.InbandPolicyState.Enabled")
+                    {
+                        oem["InbandUpdatePolicyEnabled"] = true;
+                    }
+                    else if (propertyValue ==
+                             "com.nvidia.InbandUpdatePolicy.InbandPolicyState."
+                             "Disabled")
+                    {
+                        oem["InbandUpdatePolicyEnabled"] = false;
+                    }
+                });
+        }
+        else if (iface == "com.nvidia.ImageCopyPolicy")
+        {
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus, it->second, chassisCfgPath,
+                "com.nvidia.ImageCopyPolicy", "ImageCopyPolicy",
+                [asyncResp,
+                 chassisCfgPath](const boost::system::error_code& ecProp,
+                                 const std::string& propertyValue) {
+                    getImageCopyPolicyCallback(asyncResp, chassisCfgPath,
+                                               ecProp, propertyValue);
+                });
+        }
+    }
+}
+
+/**
+ * @brief Single getDbusObject for chassis path requesting FailoverPolicy,
+ * InbandUpdatePolicy, and ImageCopyPolicy; dispatches getProperty for each
+ * interface found.
+ */
+inline void getChassisPolicyProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-    nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oem["@odata.type"] = "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
+    constexpr std::string_view chassisPolicyDbusPath =
+        "/xyz/openbmc_project/inventory/system/chassis/";
+    constexpr std::array<std::string_view, 3> policyInterfaces = {
+        "com.nvidia.FailoverPolicy", "com.nvidia.InbandUpdatePolicy",
+        "com.nvidia.ImageCopyPolicy"};
 
-    redfish::getChassisListForInBand(
-        asyncResp,
-        [asyncResp, chassisId](
-            const std::vector<std::string>& inbandUpdatePolicyAllowList) {
-            updateInBandEnabled(asyncResp, inbandUpdatePolicyAllowList,
-                                chassisId);
+    std::string chassisCfgPath = std::string(chassisPolicyDbusPath) + chassisId;
+    dbus::utility::getDbusObject(
+        chassisCfgPath, policyInterfaces,
+        [asyncResp, chassisCfgPath, policyInterfaces](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& mapperResponse) {
+            getChassisPolicyPropertiesFromMapper(
+                asyncResp, chassisCfgPath, policyInterfaces, ec,
+                mapperResponse);
         });
-
-    populateBackgroundCopyPolicy(asyncResp, chassisId);
 }
 
 /**

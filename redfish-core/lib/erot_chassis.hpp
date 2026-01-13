@@ -20,6 +20,7 @@
 #include "background_copy.hpp"
 #include "credential_pipe.hpp"
 #include "dot.hpp"
+#include "failover_policy.hpp"
 #include "health.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
@@ -798,8 +799,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                             chassisId);
                 firmware_info::updateIrreversibleConfigEnabled(asyncResp,
                                                                chassisId);
-
-                redfish::nvidia_chassis_utils::getBackgroundCopyAndInBandInfo(
+                redfish::nvidia_chassis_utils::getChassisPolicyProperties(
                     asyncResp, chassisId);
 
                 // Might have 2+ services to support different properties
@@ -958,6 +958,7 @@ inline void handleEROTChassisPatch(
     {
         return;
     }
+    std::optional<std::string> failoverPolicy;
 
     if (!oemNvidiaObject.has_value())
     {
@@ -970,7 +971,8 @@ inline void handleEROTChassisPatch(
     if (!json_util::readJson(
             *oemNvidiaObject, asyncResp->res, "ManualBootModeEnabled",
             manualBootModeEnabled, "AutomaticBackgroundCopyEnabled",
-            backgroundCopyEnabled, "InbandUpdatePolicyEnabled", inBandEnabled))
+            backgroundCopyEnabled, "InbandUpdatePolicyEnabled", inBandEnabled,
+            "FailoverPolicy", failoverPolicy))
     {
         return;
     }
@@ -988,6 +990,11 @@ inline void handleEROTChassisPatch(
             manual_boot::bootModeSet(asyncResp, chassisId,
                                      *manualBootModeEnabled);
         }
+    }
+
+    if (failoverPolicy.has_value())
+    {
+        updateFailoverPolicy(asyncResp, *failoverPolicy, chassisId);
     }
 
     if (!backgroundCopyEnabled.has_value() && !inBandEnabled.has_value())
