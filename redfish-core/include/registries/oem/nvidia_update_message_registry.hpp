@@ -227,6 +227,18 @@ static constexpr std::array registry =
             "Check the header value and expected value and resubmit the request again.",
         }},
     MessageEntry{
+        "ImageCopyCompleted",
+        {
+            "Indicates that image copy had already been completed successfully.",
+            "Image copy had already been completed successfully for '%1'.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "RecoveryStarted",
         {
             "Indicates that recovery has started on a component",
@@ -283,9 +295,10 @@ enum class Index
     debugTokenUnsupported = 12,
     firmwareNotInRecovery = 13,
     headerValueInvalid = 14,
-    recoveryStarted = 15,
-    recoverySuccessful = 16,
-    stageSuccessful = 17,
+    imageCopyCompleted = 15,
+    recoveryStarted = 16,
+    recoverySuccessful = 17,
+    stageSuccessful = 18,
 };
 }; // struct nvidia_update
 

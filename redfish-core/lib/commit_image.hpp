@@ -21,6 +21,7 @@
 #include "error_messages.hpp"
 #include "logging.hpp"
 #include "nvidia_error_messages.hpp"
+#include "nvidia_messages.hpp"
 #include "resource_messages.hpp"
 #include "update_messages.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
@@ -364,14 +365,9 @@ inline nlohmann::json imageCopyError(
     }
     if (errorCode.find("ImageCopyCompleted") != std::string::npos)
     {
-        messageId = "Base.1.12.0.Success";
-        message =
-            "Image copy had already been completed successfully for software objects: " +
-            firmwareInventoryPaths;
-        severity = "OK";
-        resolution = "None";
+        return redfish::messages::imageCopyCompleted(firmwareInventoryPaths);
     }
-    else if (errorCode.find("TimedOut") != std::string::npos)
+    if (errorCode.find("TimedOut") != std::string::npos)
     {
         messageId = "OpenBMC.0.4.1.AsyncError";
         message = "Async command failed timed out for software objects: " +

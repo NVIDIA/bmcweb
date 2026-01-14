@@ -140,6 +140,15 @@
             "Resolution": "Check the header value and expected value and resubmit the request again.",
             "Severity": "Critical"
         },
+        "ImageCopyCompleted": {
+            "Description": "Indicates that image copy had already been completed successfully.",
+            "Message": "Image copy had already been completed successfully for '%1'.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
         "DebugTokenEraseSuccess": {
             "Description": "Signifies the successful completion of debug token erase.",
             "Message": "The operation to erase a debug token for device '%1' has been successfully completed.",

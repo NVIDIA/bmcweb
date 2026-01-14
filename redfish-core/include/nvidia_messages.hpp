@@ -249,4 +249,10 @@ inline nlohmann::json activateSuccessful(std::string_view arg1,
         redfish::registries::NvidiaUpdate::Index::activateSuccessful, args);
 }
 
+inline nlohmann::json imageCopyCompleted(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::imageCopyCompleted, args);
+}
 } // namespace redfish::messages
