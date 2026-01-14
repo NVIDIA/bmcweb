@@ -882,12 +882,10 @@ inline void handleChassisGetSubTree(
                 asyncResp, objPath, path, interfaces2, chassisId);
 
             // Always check for SKU (either direct or via associated_SKU)
+            // OEM SKU is also checked and added within getChassisSKU if
+            // Async.Set interface is present
             redfish::nvidia_chassis_utils::getChassisSKU(asyncResp,
                                                          connectionName, path);
-
-            // Check and add OEM Nvidia SKU if UpdateSKU interface exists
-            redfish::nvidia_chassis_utils::checkAndAddOemSKU(asyncResp,
-                                                             chassisId, path);
             // Nvidia: added code end
         }
         isFoundChassisObject = true;
@@ -1087,9 +1085,8 @@ inline void handleChassisPatch(
 
                 if (oemSKU)
                 {
-                    redfish::nvidia_chassis_utils::
-                        checkForwardAssociationAndUpdateSKU(asyncResp, path,
-                                                            *oemSKU);
+                    redfish::nvidia_chassis_utils::patchChassisSKU(
+                        asyncResp, path, *oemSKU);
                 }
                 // Nvidia: added code end
 
