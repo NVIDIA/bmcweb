@@ -80,6 +80,33 @@ const int invalidDataOutSizeErr = 0x116;
 // Forward declaration for functions from managers.hpp
 void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
+inline void checkAndAddDOTBackupDataLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "com.nvidia.Dot.Blob"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/dot_blob", 0, interfaces,
+        [asyncResp,
+         managerId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DOT.Blob interface check failed: {}", ec);
+                return;
+            }
+            if (!subtree.empty())
+            {
+                nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
+                oemNvidia["DOTBackupData"]["@odata.id"] = std::format(
+                    "/redfish/v1/Managers/{}/Oem/Nvidia/DOTBackupData",
+                    managerId);
+            }
+        });
+}
+
 /**
  * Helper to enable the AuthenticationTLSRequired
  */
@@ -1597,9 +1624,10 @@ inline void extendManagerOEM(
 {
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_7_0.NvidiaManager";
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_8_0.NvidiaManager";
     oemNvidia["DebugTokenManagement"]["@odata.id"] = std::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
+    checkAndAddDOTBackupDataLink(asyncResp, managerId);
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {

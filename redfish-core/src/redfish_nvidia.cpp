@@ -20,6 +20,7 @@
 #include "nvidia_chassis_env_metrics.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_dot.hpp"
+#include "nvidia_dot_backup_data.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_fabric.hpp"
@@ -302,6 +303,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesChassisSetCPURecoveryMode(app);
     requestRoutesTrustedComponents(app);
     requestRoutesNvidiaOemDOT(app);
+    requestRoutesDOTBackupDataCollection(app);
 
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {
