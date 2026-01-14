@@ -1890,7 +1890,19 @@ inline void handleCommitImagePost(
                     }
                     else
                     {
-                        matchingPaths.push_back(path);
+                        // When no targets specified, only include paths that
+                        // are in the allowable values list
+                        if (isInventoryAllowableValue(path))
+                        {
+                            matchingPaths.push_back(path);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Skipping path {} - Cannot find "
+                                "firmware inventory in allowable values",
+                                path);
+                        }
                     }
                 }
 
