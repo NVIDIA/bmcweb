@@ -2769,6 +2769,8 @@ inline void handleBiosServiceGetExtended(
         {"@odata.id", std::format("/redfish/v1/Systems/{}/Bios/Settings",
                                   BMCWEB_REDFISH_SYSTEM_URI_NAME)}};
     asyncResp->res.jsonValue["@Redfish.Settings"] = biosSettings;
+    asyncResp->res.jsonValue["AttributeRegistry"] = boost::urls::format(
+        "/redfish/v1/Registries/BiosAttributeRegistry/BiosAttributeRegistry");
     asyncResp->res.jsonValue["Attributes"] = nlohmann::json({});
     // Get the BIOS Attributes
     getBiosAttributes(asyncResp);
