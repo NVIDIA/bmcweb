@@ -46,18 +46,19 @@ class App
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        Adaptor&& adaptor)
     {
+        nvidia::http::logRedfishRequest(
+            redfish::ip_util::toString(req->ipAddress), req->methodString(),
+            req->url());
+
         router.handleUpgrade(req, asyncResp, std::forward<Adaptor>(adaptor));
     }
 
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
-        if constexpr (BMCWEB_NVIDIA_API_METRICS)
-        {
-            nvidia::http::logRedfishRequest(
-                redfish::ip_util::toString(req->ipAddress), req->methodString(),
-                req->url());
-        }
+        nvidia::http::logRedfishRequest(
+            redfish::ip_util::toString(req->ipAddress), req->methodString(),
+            req->url());
 
         router.handle(req, asyncResp);
     }

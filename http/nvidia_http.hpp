@@ -47,15 +47,18 @@ inline void logRedfishRequest(std::string_view clientIp,
                               std::string_view method,
                               const boost::urls::url_view_base& uri)
 {
-    // Check if API Metrics is enabled
-    if (!redfish::api_metrics::getEnabled())
+    if constexpr (BMCWEB_NVIDIA_API_METRICS)
     {
-        return;
-    }
+        // Check if API Metrics is enabled
+        if (!redfish::api_metrics::getEnabled())
+        {
+            return;
+        }
 
-    // Log API metrics to journal for rsyslog filtering
-    BMCWEB_LOG_INFO("API Metrics: IP={} METHOD={} URI={}", clientIp, method,
-                    uri);
+        // Log API metrics to journal for rsyslog filtering
+        BMCWEB_LOG_INFO("API Metrics: IP={} METHOD={} URI={}", clientIp, method,
+                        uri);
+    }
 }
 
 } // namespace http
