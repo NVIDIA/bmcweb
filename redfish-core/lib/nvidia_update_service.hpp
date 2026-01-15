@@ -373,10 +373,6 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::firmwareNotInRecovery(arg1);
     }
-    if (msgId == "NvidiaUpdate.1.0.StageSuccessful")
-    {
-        return messages::stageSuccessful(arg1, arg2);
-    }
     if (msgId == "NvidiaUpdate.1.0.ComponentUpdateTime")
     {
         return messages::componentUpdateTime(arg1, arg2);
@@ -1158,20 +1154,6 @@ inline void extendUpdateServiceGet(
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
-            {"@odata.type", "#NvidiaUpdateService.v1_3_0.NvidiaUpdateService"},
-            {"MultipartHttpPushUriOptions",
-             {{"UpdateOptionSupport", [&]() {
-                   if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
-                   {
-                       return std::vector<std::string>{"StageAndActivate",
-                                                       "StageOnly"};
-                   }
-                   else
-                   {
-                       return std::vector<std::string>{"StageAndActivate"};
-                   }
-               }()}}}};
         debug_token::getErasePolicy(
             [asyncResp](const std::optional<bool>& erasePolicy) {
                 if (erasePolicy)
@@ -1894,11 +1876,7 @@ inline void extendSoftwareInventoryGet(
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
-        {
-            fw_util::getFWSlotInformation(asyncResp, objectPath);
-        }
-
+        fw_util::getFWSlotInformation(asyncResp, objectPath);
         updateOemActionComputeDigest(asyncResp, *swId);
     }
 }

@@ -105,7 +105,6 @@ feature_options = [
     'nvidia-oem-bf3-properties',
     'nvidia-oem-common-properties',
     'nvidia-oem-device-status-from-file',
-    'nvidia-oem-fw-update-staging',
     'nvidia-oem-gb200nvl-properties',
     'nvidia-oem-logservices',
     'nvidia-manager-ready-csm',

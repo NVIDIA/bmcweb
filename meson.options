@@ -639,12 +639,6 @@ option(
     description: 'Enable OEM properties.',
 )
 option(
-    'nvidia-oem-fw-update-staging',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable Stage and Activate later Update.',
-)
-option(
     'nvidia-oem-logservices',
     type: 'feature',
     value: 'disabled',
