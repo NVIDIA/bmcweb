@@ -1179,7 +1179,6 @@ inline void extendUpdateServiceGet(
             if (errorCode)
             {
                 BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-                BMCWEB_LOG_ERROR("error msg = ", errorCode.message());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
@@ -1192,59 +1191,13 @@ inline void extendUpdateServiceGet(
             // Ensure we only got one service back
             if (objInfo.size() != 1)
             {
-                BMCWEB_LOG_ERROR("Invalid Object Size ", objInfo.size());
+                BMCWEB_LOG_ERROR("Invalid Object Size {}", objInfo.size());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
                 }
                 return;
             }
-
-            crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec,
-                            GetManagedPropertyType& resp) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("error_code = {}", ec);
-                        BMCWEB_LOG_ERROR("error msg = ", ec.message());
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    for (auto& propertyMap : resp)
-                    {
-                        if (propertyMap.first == "Targets")
-                        {
-                            auto* targets = std::get_if<
-                                std::vector<sdbusplus::message::object_path>>(
-                                &propertyMap.second);
-                            if (targets)
-                            {
-                                std::vector<std::string> pushURITargets;
-                                for (auto& target : *targets)
-                                {
-                                    std::string firmwareId = target.filename();
-                                    if (firmwareId.empty())
-                                    {
-                                        BMCWEB_LOG_ERROR(
-                                            "Unable to parse firmware ID");
-                                        messages::internalError(asyncResp->res);
-                                        return;
-                                    }
-                                    pushURITargets.push_back(
-                                        "/redfish/v1/UpdateService/FirmwareInventory/" +
-                                        firmwareId);
-                                }
-                                asyncResp->res.jsonValue["HttpPushUriTargets"] =
-                                    pushURITargets;
-                            }
-                        }
-                    }
-                    return;
-                },
-                objInfo[0].first, "/xyz/openbmc_project/software/pldm",
-                "org.freedesktop.DBus.Properties", "GetAll",
-                "xyz.openbmc_project.Software.Update");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -3048,12 +3001,10 @@ inline void handleUpdateServicePatch(
     }
     BMCWEB_LOG_DEBUG("doPatch...");
 
-    std::optional<nlohmann::json> pushUriOptions;
-    std::optional<std::vector<std::string>> imgTargets;
     std::optional<bool> erasePolicy;
-    if (!json_util::readJsonPatch(
-            req, asyncResp->res, "HttpPushUriTargets", imgTargets,
-            "Oem/Nvidia/AutomaticDebugTokenErased", erasePolicy))
+    if (!json_util::readJsonPatch(req, asyncResp->res,
+                                  "Oem/Nvidia/AutomaticDebugTokenErased",
+                                  erasePolicy))
     {
         BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
         return;
@@ -3062,138 +3013,6 @@ inline void handleUpdateServicePatch(
     if (erasePolicy)
     {
         debug_token::setErasePolicy(asyncResp, *erasePolicy);
-    }
-
-    if (imgTargets)
-    {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, uriTargets{*imgTargets}](
-                const boost::system::error_code& ec,
-                const std::vector<std::string>& swInvPaths) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-
-                std::vector<sdbusplus::message::object_path>
-                    httpPushUriTargets = {};
-                // validate TargetUris if entries are present
-                if (!uriTargets.empty())
-                {
-                    std::vector<std::string> invalidTargets;
-                    for (const std::string& target : uriTargets)
-                    {
-                        std::string compName =
-                            std::filesystem::path(target).filename();
-                        bool validTarget = false;
-                        std::string objPath = "software/" + compName;
-                        for (const std::string& path : swInvPaths)
-                        {
-                            std::size_t idPos = path.rfind(objPath);
-                            if (idPos == std::string::npos)
-                            {
-                                continue;
-                            }
-                            std::string swId = path.substr(idPos);
-                            if (swId == objPath)
-                            {
-                                sdbusplus::message::object_path objpath(path);
-                                httpPushUriTargets.emplace_back(objpath);
-                                validTarget = true;
-                                break;
-                            }
-                        }
-                        if (!validTarget)
-                        {
-                            invalidTargets.emplace_back(target);
-                        }
-                    }
-                    // return HTTP400 - Bad request
-                    // when none of the target filters are valid
-                    if (invalidTargets.size() == uriTargets.size())
-                    {
-                        BMCWEB_LOG_ERROR("Targetted Device not Found!!");
-                        messages::invalidObject(
-                            asyncResp->res,
-                            boost::urls::format("HttpPushUriTargets"));
-                        return;
-                    }
-                    // return HTTP200 - Success with errors
-                    // when there is partial valid targets
-                    if (!invalidTargets.empty())
-                    {
-                        for (const std::string& invalidTarget : invalidTargets)
-                        {
-                            BMCWEB_LOG_ERROR("Invalid HttpPushUriTarget: {}",
-                                             invalidTarget);
-                            messages::propertyValueFormatError(
-                                asyncResp->res, invalidTarget,
-                                "HttpPushUriTargets");
-                        }
-                        asyncResp->res.result(boost::beast::http::status::ok);
-                    }
-                    // else all targets are valid
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, httpPushUriTargets](
-                        const boost::system::error_code& errorCode,
-                        const std::vector<
-                            std::pair<std::string, std::vector<std::string>>>&
-                            objInfo) mutable {
-                        if (errorCode)
-                        {
-                            BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-                            BMCWEB_LOG_ERROR("error msg = {}",
-                                             errorCode.message());
-                            if (asyncResp)
-                            {
-                                messages::internalError(asyncResp->res);
-                            }
-                            return;
-                        }
-                        // Ensure we only got one service back
-                        if (objInfo.size() != 1)
-                        {
-                            BMCWEB_LOG_ERROR("Invalid Object Size {}",
-                                             objInfo.size());
-                            if (asyncResp)
-                            {
-                                messages::internalError(asyncResp->res);
-                            }
-                            return;
-                        }
-
-                        crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code&
-                                            errCodePolicy) {
-                                if (errCodePolicy)
-                                {
-                                    BMCWEB_LOG_ERROR("error_code = {}",
-                                                     errCodePolicy);
-                                    messages::internalError(asyncResp->res);
-                                }
-                                messages::success(asyncResp->res);
-                            },
-                            objInfo[0].first, "/xyz/openbmc_project/software",
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Software.UpdatePolicy",
-                            "Targets",
-                            dbus::utility::DbusVariantType(httpPushUriTargets));
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    "/xyz/openbmc_project/software",
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Software.UpdatePolicy"});
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/software/", static_cast<int32_t>(0),
-            std::array<std::string, 1>{"xyz.openbmc_project.Software.Version"});
     }
 }
 
