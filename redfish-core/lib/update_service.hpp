@@ -1522,8 +1522,14 @@ inline void handleUpdateServiceGet(
     asyncResp->res.jsonValue["Description"] = "Service for Software Update";
     asyncResp->res.jsonValue["Name"] = "Update Service";
 
-    asyncResp->res.jsonValue["HttpPushUri"] =
-        "/redfish/v1/UpdateService/update";
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+    {
+        asyncResp->res.jsonValue["HttpPushUri"] =
+            "/redfish/v1/UpdateService/update";
+        asyncResp->res.jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
+                                ["ApplyTime"] =
+            update_service::ApplyTime::Immediate;
+    }
     asyncResp->res.jsonValue["MultipartHttpPushUri"] =
         "/redfish/v1/UpdateService/update-multipart";
 
@@ -1562,10 +1568,6 @@ inline void handleUpdateServiceGet(
         updateSvcSimpleUpdate["TransferProtocol@Redfish.AllowableValues"] =
             std::move(allowed);
     }
-
-    asyncResp->res
-        .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]["ApplyTime"] =
-        update_service::ApplyTime::Immediate;
 }
 
 inline void handleUpdateServiceFirmwareInventoryCollectionGet(
