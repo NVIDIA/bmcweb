@@ -174,12 +174,12 @@ inline void tokenStatusToJson(const TokenStatus& status, uint32_t tokenIndex,
         throw std::runtime_error(
             "Invalid index: " + std::to_string(tokenIndex));
     }
-    j["TokenProcessed"] = status.processing;
-    j["TokenInstalled"] = status.installation;
     j["TokenType"] = getTokenTypeAsString(
         std::get<0>(status.tokenTypesSubtypes[tokenIndex]));
     j["TokenSubType"] = getTokenSubtypeAsString(
         std::get<1>(status.tokenTypesSubtypes[tokenIndex]));
+    // Deprecated, keeping for backward compatibility
+    j["AdditionalInfo"] = "None";
 }
 
 } // namespace redfish::debug_token::unified

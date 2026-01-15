@@ -23,9 +23,11 @@
 #include "debug_token/base.hpp"
 #include "dot/base.hpp"
 #include "dot/dot_utils.hpp"
+#include "utils/dbus_utils.hpp"
 
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 
 #include <format>
 #include <memory>
@@ -33,6 +35,52 @@
 
 namespace redfish
 {
+
+/**
+ * @brief Fetches debug token status properties from D-Bus
+ *
+ * Retrieves InstallationStatus and ProcessingStatus properties from the
+ * debug token D-Bus interface and adds them to the response.
+ *
+ * @param asyncResp Response object to populate
+ * @param debugTokenService D-Bus service name
+ * @param debugTokenObjectPath D-Bus object path
+ */
+inline void fetchDebugTokenStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& debugTokenService,
+    const std::string& debugTokenObjectPath)
+{
+    dbus::utility::getAllProperties(
+        debugTokenService, debugTokenObjectPath,
+        std::string(debug_token::debugTokenStatusIntf),
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Failed to get debug token properties: {}",
+                                 ec.message());
+                return;
+            }
+
+            bool installationStatus = false;
+            bool processingStatus = false;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties,
+                "InstallationStatus", installationStatus, "ProcessingStatus",
+                processingStatus);
+
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR("Failed to unpack debug token properties");
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TokensInstalled"] =
+                installationStatus;
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TokensProcessed"] =
+                processingStatus;
+        });
+}
 
 /**
  * @brief Adds OEM properties for Unified Debug Token to TrustedComponent
@@ -73,19 +121,24 @@ inline void addTrustedComponentOemProperties(
             std::string targetChassisId =
                 std::format("{}{}", PLATFORMDEVICEPREFIX, componentID);
 
-            bool componentFound = false;
-            for (const auto& [path, _] : resp)
+            std::string debugTokenObjectPath;
+            std::string debugTokenService;
+            for (const auto& [path, serviceMap] : resp)
             {
                 std::string pathComponentId =
                     std::filesystem::path(path).filename().string();
                 if (targetChassisId == pathComponentId)
                 {
-                    componentFound = true;
+                    debugTokenObjectPath = path;
+                    if (!serviceMap.empty())
+                    {
+                        debugTokenService = serviceMap.front().first;
+                    }
                     break;
                 }
             }
 
-            if (!componentFound)
+            if (debugTokenObjectPath.empty() || debugTokenService.empty())
             {
                 BMCWEB_LOG_DEBUG(
                     "Debug token status interface not found for component: {}",
@@ -122,6 +175,9 @@ inline void addTrustedComponentOemProperties(
 
             oemNvidia["DebugTokens"]["@odata.id"] =
                 std::format("{}/Oem/Nvidia/DebugTokens", basePath);
+
+            fetchDebugTokenStatus(asyncResp, debugTokenService,
+                                  debugTokenObjectPath);
         });
 }
 
