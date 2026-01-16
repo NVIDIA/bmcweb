@@ -512,9 +512,12 @@ inline void afterSystemGetSubTree(
                 {
                     BMCWEB_LOG_DEBUG("Found UUID, now get its properties.");
 
+#if defined(BMCWEB_ENABLE_BIOS) || defined(BMCWEB_ENABLE_UUID_FROM_PLATFORM_CHASSIS_NAME)
+                    sdbusplus::message::object_path uuidPath(path);
+#endif
+
 #ifdef BMCWEB_ENABLE_BIOS
                     // Make sure to get SMBIOS UUID
-                    sdbusplus::message::object_path uuidPath(path);
                     if (uuidPath.filename() == "bios")
                     {
                         sdbusplus::asio::getAllProperties(
@@ -528,7 +531,6 @@ inline void afterSystemGetSubTree(
                     }
 #endif
 #ifdef BMCWEB_ENABLE_UUID_FROM_PLATFORM_CHASSIS_NAME
-                    sdbusplus::message::object_path uuidPath(path);
                     if (uuidPath.filename() == PLATFORMCHASSISNAME)
                     {
                         sdbusplus::asio::getAllProperties(
