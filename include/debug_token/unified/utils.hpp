@@ -18,15 +18,167 @@
 
 #include <nlohmann/json.hpp>
 
+#include <array>
 #include <cstdint>
-#include <stdexcept>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
-#include <unordered_map>
 #include <vector>
 
 namespace redfish::debug_token::unified
 {
+
+// Token type mapping: Redfish name <-> D-Bus enum string
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 19>
+    tokenTypeMap = {{
+        {"FRC", "com.nvidia.DebugToken.Common.Types.FRC"},
+        {"CRCS", "com.nvidia.DebugToken.Common.Types.CRCS"},
+        {"CRDT", "com.nvidia.DebugToken.Common.Types.CRDT"},
+        {"DebugFirmwareRunning",
+         "com.nvidia.DebugToken.Common.Types.DebugFirmwareRunning"},
+        {"DebugFirmwareUnlock",
+         "com.nvidia.DebugToken.Common.Types.DebugFirmwareUnlock"},
+        {"OTPDumpEnable", "com.nvidia.DebugToken.Common.Types.OTPDumpEnable"},
+        {"JtagUnlock", "com.nvidia.DebugToken.Common.Types.JtagUnlock"},
+        {"HardwareUnlock", "com.nvidia.DebugToken.Common.Types.HardwareUnlock"},
+        {"RuntimeDebugUnlock",
+         "com.nvidia.DebugToken.Common.Types.RuntimeDebugUnlock"},
+        {"FeatureUnlock", "com.nvidia.DebugToken.Common.Types.FeatureUnlock"},
+        {"MTDT", "com.nvidia.DebugToken.Common.Types.MTDT"},
+        {"CcplexArmJtagDebugCont",
+         "com.nvidia.DebugToken.Common.Types.CcplexArmJtagDebugCont"},
+        {"NVJtagControl", "com.nvidia.DebugToken.Common.Types.NVJtagControl"},
+        {"DiagnosticBoot", "com.nvidia.DebugToken.Common.Types.DiagnosticBoot"},
+        {"BpmpFirmwareDebugFS",
+         "com.nvidia.DebugToken.Common.Types.BpmpFirmwareDebugFS"},
+        {"FwDebugKnobs", "com.nvidia.DebugToken.Common.Types.FwDebugKnobs"},
+        {"FirewallLifting",
+         "com.nvidia.DebugToken.Common.Types.FirewallLifting"},
+        {"Verbosity", "com.nvidia.DebugToken.Common.Types.Verbosity"},
+        {"RAS", "com.nvidia.DebugToken.Common.Types.RAS"},
+    }};
+
+// Token subtype mapping: Redfish name <-> D-Bus enum string
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 85>
+    tokenSubtypeMap = {
+        {{"OOBHub", "com.nvidia.DebugToken.Common.SubTypes.OOBHub"},
+         {"RAS", "com.nvidia.DebugToken.Common.SubTypes.RAS"},
+         {"Pcore", "com.nvidia.DebugToken.Common.SubTypes.Pcore"},
+         {"PscFirmware", "com.nvidia.DebugToken.Common.SubTypes.PscFirmware"},
+         {"MB1", "com.nvidia.DebugToken.Common.SubTypes.MB1"},
+         {"MB2", "com.nvidia.DebugToken.Common.SubTypes.MB2"},
+         {"BpmpFirmware", "com.nvidia.DebugToken.Common.SubTypes.BpmpFirmware"},
+         {"BpmpIst", "com.nvidia.DebugToken.Common.SubTypes.BpmpIst"},
+         {"BpmpDiag", "com.nvidia.DebugToken.Common.SubTypes.BpmpDiag"},
+         {"MSEQ", "com.nvidia.DebugToken.Common.SubTypes.MSEQ"},
+         {"C2C", "com.nvidia.DebugToken.Common.SubTypes.C2C"},
+         {"ATF", "com.nvidia.DebugToken.Common.SubTypes.ATF"},
+         {"RMM", "com.nvidia.DebugToken.Common.SubTypes.RMM"},
+         {"PscFmc", "com.nvidia.DebugToken.Common.SubTypes.PscFmc"},
+         {"EnableSensitiveLogging",
+          "com.nvidia.DebugToken.Common.SubTypes.EnableSensitiveLogging"},
+         {"Dbgen", "com.nvidia.DebugToken.Common.SubTypes.Dbgen"},
+         {"Niden", "com.nvidia.DebugToken.Common.SubTypes.Niden"},
+         {"Spiden", "com.nvidia.DebugToken.Common.SubTypes.Spiden"},
+         {"Spniden", "com.nvidia.DebugToken.Common.SubTypes.Spniden"},
+         {"JtagEnable", "com.nvidia.DebugToken.Common.SubTypes.JtagEnable"},
+         {"DeviceenApbap",
+          "com.nvidia.DebugToken.Common.SubTypes.DeviceenApbap"},
+         {"DeviceenAxiap",
+          "com.nvidia.DebugToken.Common.SubTypes.DeviceenAxiap"},
+         {"Rlpiden", "com.nvidia.DebugToken.Common.SubTypes.Rlpiden"},
+         {"Rtpiden", "com.nvidia.DebugToken.Common.SubTypes.Rtpiden"},
+         {"NvcpuUcfApb2ctlpDbgen",
+          "com.nvidia.DebugToken.Common.SubTypes.NvcpuUcfApb2ctlpDbgen"},
+         {"NvcpuUcfElaEn",
+          "com.nvidia.DebugToken.Common.SubTypes.NvcpuUcfElaEn"},
+         {"EcProbesEn", "com.nvidia.DebugToken.Common.SubTypes.EcProbesEn"},
+         {"EnableCswp", "com.nvidia.DebugToken.Common.SubTypes.EnableCswp"},
+         {"DftAccessAllowed",
+          "com.nvidia.DebugToken.Common.SubTypes.DftAccessAllowed"},
+         {"BpmpDiagnosticBoot",
+          "com.nvidia.DebugToken.Common.SubTypes.BpmpDiagnosticBoot"},
+         {"CPUDiagnosticBoot",
+          "com.nvidia.DebugToken.Common.SubTypes.CPUDiagnosticBoot"},
+         {"BpmpFwDebugfs",
+          "com.nvidia.DebugToken.Common.SubTypes.BpmpFwDebugfs"},
+         {"MseqEnableSbeReporting",
+          "com.nvidia.DebugToken.Common.SubTypes.MseqEnableSbeReporting"},
+         {"GroupB", "com.nvidia.DebugToken.Common.SubTypes.GroupB"},
+         {"GroupC", "com.nvidia.DebugToken.Common.SubTypes.GroupC"},
+         {"VBIOS", "com.nvidia.DebugToken.Common.SubTypes.VBIOS"},
+         {"FSPRT", "com.nvidia.DebugToken.Common.SubTypes.FSPRT"},
+         {"OOBHubRT", "com.nvidia.DebugToken.Common.SubTypes.OOBHubRT"},
+         {"NetIR", "com.nvidia.DebugToken.Common.SubTypes.NetIR"},
+         {"PCIe", "com.nvidia.DebugToken.Common.SubTypes.PCIe"},
+         {"FBFALCON", "com.nvidia.DebugToken.Common.SubTypes.FBFALCON"},
+         {"CTCHBI", "com.nvidia.DebugToken.Common.SubTypes.CTCHBI"},
+         {"BuildInfo", "com.nvidia.DebugToken.Common.SubTypes.BuildInfo"},
+         {"DataTables", "com.nvidia.DebugToken.Common.SubTypes.DataTables"},
+         {"PreltssmDevinit",
+          "com.nvidia.DebugToken.Common.SubTypes.PreltssmDevinit"},
+         {"PostltssmDevinit",
+          "com.nvidia.DebugToken.Common.SubTypes.PostltssmDevinit"},
+         {"PrimaryImage", "com.nvidia.DebugToken.Common.SubTypes.PrimaryImage"},
+         {"UEFIx86", "com.nvidia.DebugToken.Common.SubTypes.UEFIx86"},
+         {"UEFIArm", "com.nvidia.DebugToken.Common.SubTypes.UEFIArm"},
+         {"Duck", "com.nvidia.DebugToken.Common.SubTypes.Duck"},
+         {"InforomRO", "com.nvidia.DebugToken.Common.SubTypes.InforomRO"},
+         {"DevInit", "com.nvidia.DebugToken.Common.SubTypes.DevInit"},
+         {"ExtensionImage",
+          "com.nvidia.DebugToken.Common.SubTypes.ExtensionImage"},
+         {"MSE", "com.nvidia.DebugToken.Common.SubTypes.MSE"},
+         {"RomDirectory", "com.nvidia.DebugToken.Common.SubTypes.RomDirectory"},
+         {"GspRm", "com.nvidia.DebugToken.Common.SubTypes.GspRm"},
+         {"MemQual", "com.nvidia.DebugToken.Common.SubTypes.MemQual"},
+         {"GlobalFunctionalDebug",
+          "com.nvidia.DebugToken.Common.SubTypes.GlobalFunctionalDebug"},
+         {"SpeedoKappaIddq",
+          "com.nvidia.DebugToken.Common.SubTypes.SpeedoKappaIddq"},
+         {"ECCEnable", "com.nvidia.DebugToken.Common.SubTypes.ECCEnable"},
+         {"ReducedGlobalFunctionalDebug",
+          "com.nvidia.DebugToken.Common.SubTypes.ReducedGlobalFunctionalDebug"},
+         {"ECCUnlock", "com.nvidia.DebugToken.Common.SubTypes.ECCUnlock"},
+         {"Bar0DecouplerUnlock",
+          "com.nvidia.DebugToken.Common.SubTypes.Bar0DecouplerUnlock"},
+         {"I2ccAccess", "com.nvidia.DebugToken.Common.SubTypes.I2ccAccess"},
+         {"ECCPoisonDisable",
+          "com.nvidia.DebugToken.Common.SubTypes.ECCPoisonDisable"},
+         {"NvlinkGlobalHulk",
+          "com.nvidia.DebugToken.Common.SubTypes.NvlinkGlobalHulk"},
+         {"LowerRomProtection",
+          "com.nvidia.DebugToken.Common.SubTypes.LowerRomProtection"},
+         {"RecreateInforomRW",
+          "com.nvidia.DebugToken.Common.SubTypes.RecreateInforomRW"},
+         {"PrcKnobEn", "com.nvidia.DebugToken.Common.SubTypes.PrcKnobEn"},
+         {"Nuke", "com.nvidia.DebugToken.Common.SubTypes.Nuke"},
+         {"ArchFunctionalTests",
+          "com.nvidia.DebugToken.Common.SubTypes.ArchFunctionalTests"},
+         {"SsgDebug", "com.nvidia.DebugToken.Common.SubTypes.SsgDebug"},
+         {"CxlDebug", "com.nvidia.DebugToken.Common.SubTypes.CxlDebug"},
+         {"VideDebug", "com.nvidia.DebugToken.Common.SubTypes.VideDebug"},
+         {"GlobalFunctionalDebugMinimal",
+          "com.nvidia.DebugToken.Common.SubTypes.GlobalFunctionalDebugMinimal"},
+         {"IstDebug", "com.nvidia.DebugToken.Common.SubTypes.IstDebug"},
+         {"PxucGlobalHulk",
+          "com.nvidia.DebugToken.Common.SubTypes.PxucGlobalHulk"},
+         {"NvlinkErrorInjectionEnable",
+          "com.nvidia.DebugToken.Common.SubTypes.NvlinkErrorInjectionEnable"},
+         {"NvlinkDebugApiEnable",
+          "com.nvidia.DebugToken.Common.SubTypes.NvlinkDebugApiEnable"},
+         {"NetIRUnitTestEnable",
+          "com.nvidia.DebugToken.Common.SubTypes.NetIRUnitTestEnable"},
+         {"NvlinkMissionDebugGmt",
+          "com.nvidia.DebugToken.Common.SubTypes.NvlinkMissionDebugGmt"},
+         {"PxucDebugApiEnable",
+          "com.nvidia.DebugToken.Common.SubTypes.PxucDebugApiEnable"},
+         {"PxucErrorInjectionEnable",
+          "com.nvidia.DebugToken.Common.SubTypes.PxucErrorInjectionEnable"},
+         {"PxucMissionDebugGmt",
+          "com.nvidia.DebugToken.Common.SubTypes.PxucMissionDebugGmt"},
+         {"EnableGspTaskDebug",
+          "com.nvidia.DebugToken.Common.SubTypes.EnableGspTaskDebug"}}};
 
 /**
  * @brief Represents the status of NSM debug tokens
@@ -42,12 +194,14 @@ struct TokenStatus
      *
      * @param installationStatus Whether the token is installed
      * @param processingStatus Whether the token is being processed
-     * @param tokenTypeSubtypeList Vector of token type/subtype pairs
+     * @param tokenTypeSubtypeList Vector of token type string/subtype string
+     * array pairs
      * @param deviceID Device ID associated with the token
      */
     explicit TokenStatus(
         bool installationStatus, bool processingStatus,
-        const std::vector<std::tuple<uint32_t, uint32_t>>& tokenTypeSubtypeList,
+        const std::vector<std::tuple<std::string, std::vector<std::string>>>&
+            tokenTypeSubtypeList,
         const std::string& deviceID) :
         installation(installationStatus), processing(processingStatus),
         tokenTypesSubtypes(tokenTypeSubtypeList), tokenDeviceID(deviceID)
@@ -55,71 +209,119 @@ struct TokenStatus
 
     bool installation;
     bool processing;
-    std::vector<std::tuple<uint32_t, uint32_t>> tokenTypesSubtypes;
+    std::vector<std::tuple<std::string, std::vector<std::string>>>
+        tokenTypesSubtypes;
     std::string tokenDeviceID;
 };
 
 /**
- * @brief Converts a numeric NSM token type to its string representation
+ * @brief Maps a Redfish erase type string to its D-Bus enum representation
  *
- * @param tokenType The numeric token type value
- * @return std::string The string representation of the token type, or the
- * numeric value as string if not found
+ * @param eraseType The Redfish erase type string
+ * @return std::optional<std::string> The full D-Bus enum string, or
+ * std::nullopt if invalid
  */
-inline std::string getTokenTypeAsString(const uint32_t& tokenType)
+inline std::optional<std::string> mapEraseTypeToDbusEnum(
+    const std::string& eraseType)
 {
-    const static std::unordered_map<uint32_t, std::string> typeMapping{
-        {0, "None"},
-        {1, "DebugFirmwareUnlock"},
-        {2, "OTPDumpEnable"},
-        {4, "RAS"}};
-    if (typeMapping.contains(tokenType))
+    static constexpr std::array<std::pair<std::string_view, std::string_view>,
+                                3>
+        eraseTypeMap = {{
+            {"TokenType", "com.nvidia.DebugToken.Action.EraseType.TokenType"},
+            {"EraseAll", "com.nvidia.DebugToken.Action.EraseType.EraseAll"},
+            {"EraseAllAndRatchetCounterIncreased",
+             "com.nvidia.DebugToken.Action.EraseType."
+             "EraseAllAndRatchetCounterIncreased"},
+        }};
+
+    for (const auto& [key, value] : eraseTypeMap)
     {
-        return typeMapping.at(tokenType);
+        if (key == eraseType)
+        {
+            return std::string(value);
+        }
     }
-    return std::to_string(tokenType);
+    return std::nullopt;
 }
 
 /**
- * @brief Converts a numeric NSM token subtype to its string representation
+ * @brief Maps a Redfish token type string to its D-Bus enum representation
  *
- * @param tokenSubtype The numeric token subtype value
- * @return std::string The string representation of the token subtype, or the
- * numeric value as string if not found
+ * @param tokenType The Redfish token type string
+ * @return std::optional<std::string> The full D-Bus enum string, or
+ * std::nullopt if invalid
  */
-inline std::string getTokenSubtypeAsString(const uint32_t& tokenSubtype)
+inline std::optional<std::string> mapTokenTypeToDbusEnum(
+    const std::string& tokenType)
 {
-    const static std::unordered_map<uint32_t, std::string> subtypeMapping{
-        {0, "None"}};
-    if (subtypeMapping.contains(tokenSubtype))
+    for (const auto& [key, value] : tokenTypeMap)
     {
-        return subtypeMapping.at(tokenSubtype);
+        if (key == tokenType)
+        {
+            return std::string(value);
+        }
     }
-    return std::to_string(tokenSubtype);
+    return std::nullopt;
 }
 
 /**
- * @brief Converts a string NSM token type to its numeric representation
+ * @brief Maps a D-Bus token type enum string to its Redfish representation
  *
- * @param tokenType The string token type value
- * @return uint32_t The numeric representation of the token type, or 0 if not
- * found
+ * @param dbusEnum The full D-Bus enum string
+ * @return std::optional<std::string> The Redfish name, or std::nullopt if
+ * invalid
  */
-inline uint32_t getTokenTypeAsUint32(const std::string& tokenType)
+inline std::optional<std::string> mapDbusEnumToTokenType(
+    const std::string& dbusEnum)
 {
-    const static std::unordered_map<std::string, uint32_t> typeMapping{
-        {"None", 0},
-        {"DebugFirmwareUnlock", 1},
-        {"OTPDumpEnable", 2},
-        {"RAS", 4},
-        {"EraseAllAndRatchetCounterIncreased", 0xFFFFFFFE},
-        {"EraseAll", 0xFFFFFFFF},
-    };
-    if (typeMapping.contains(tokenType))
+    for (const auto& [key, value] : tokenTypeMap)
     {
-        return typeMapping.at(tokenType);
+        if (value == dbusEnum)
+        {
+            return std::string(key);
+        }
     }
-    return 0;
+    return std::nullopt;
+}
+
+/**
+ * @brief Maps a Redfish token subtype string to its D-Bus enum representation
+ *
+ * @param tokenSubtype The Redfish token subtype string
+ * @return std::optional<std::string> The full D-Bus enum string, or
+ * std::nullopt if invalid
+ */
+inline std::optional<std::string> mapTokenSubtypeToDbusEnum(
+    const std::string& tokenSubtype)
+{
+    for (const auto& [key, value] : tokenSubtypeMap)
+    {
+        if (key == tokenSubtype)
+        {
+            return std::string(value);
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Maps a D-Bus token subtype enum string to its Redfish representation
+ *
+ * @param dbusEnum The full D-Bus enum string
+ * @return std::optional<std::string> The Redfish name, or std::nullopt if
+ * invalid
+ */
+inline std::optional<std::string> mapDbusEnumToTokenSubtype(
+    const std::string& dbusEnum)
+{
+    for (const auto& [key, value] : tokenSubtypeMap)
+    {
+        if (value == dbusEnum)
+        {
+            return std::string(key);
+        }
+    }
+    return std::nullopt;
 }
 
 /**
@@ -128,12 +330,19 @@ inline uint32_t getTokenTypeAsUint32(const std::string& tokenType)
  *
  * Returns token types that can be used for individual token operations,
  * excluding None and the special erase-all types.
+ * This list is from the Redfish schema TokenType enum.
  *
  * @return std::vector<std::string> List of allowable token type strings
  */
 inline std::vector<std::string> getAllowableTokenTypes()
 {
-    return {"DebugFirmwareUnlock", "OTPDumpEnable", "RAS"};
+    std::vector<std::string> types;
+    types.reserve(tokenTypeMap.size());
+    for (const auto& [key, value] : tokenTypeMap)
+    {
+        types.emplace_back(key);
+    }
+    return types;
 }
 
 /**
@@ -147,12 +356,32 @@ inline void tokenStatusToJson(const TokenStatus& status, nlohmann::json& j)
     j["ProcessingStatus"] = status.processing ? "Processed" : "NotProcessed";
     j["TokenInstalled"] = status.installation;
     j["DeviceID"] = status.tokenDeviceID;
-    nlohmann::json tokens;
-    for (const auto& [tokenType, tokenSubtype] : status.tokenTypesSubtypes)
+    nlohmann::json tokens = nlohmann::json::array();
+
+    for (const auto& [tokenType, tokenSubtypes] : status.tokenTypesSubtypes)
     {
+        std::optional<std::string> redfishTokenType =
+            mapDbusEnumToTokenType(tokenType);
+        if (!redfishTokenType.has_value())
+        {
+            continue;
+        }
+
         nlohmann::json token;
-        token["TokenType"] = getTokenTypeAsString(tokenType);
-        token["TokenSubtype"] = getTokenSubtypeAsString(tokenSubtype);
+        token["TokenType"] = redfishTokenType.value();
+
+        nlohmann::json subtypesArray = nlohmann::json::array();
+        for (const auto& subtype : tokenSubtypes)
+        {
+            std::optional<std::string> redfishSubtype =
+                mapDbusEnumToTokenSubtype(subtype);
+            if (redfishSubtype.has_value())
+            {
+                subtypesArray.push_back(redfishSubtype.value());
+            }
+        }
+        token["TokenSubTypes"] = std::move(subtypesArray);
+
         tokens.push_back(std::move(token));
     }
     j["Tokens"] = std::move(tokens);
@@ -161,23 +390,42 @@ inline void tokenStatusToJson(const TokenStatus& status, nlohmann::json& j)
 /**
  * @brief Converts a specific token from TokenStatus to JSON format
  *
- * @param status The NSM token status containing the token information
+ * Token types and subtypes are D-Bus enum strings that are validated and
+ * converted to Redfish names. Invalid enum values are logged and skipped.
+ *
+ * @param status The token status containing the token information
  * @param tokenIndex The index of the specific token to convert
  * @param j The JSON object to populate with the token information
- * @throws std::runtime_error If the tokenIndex is out of bounds
  */
-inline void tokenStatusToJson(const TokenStatus& status, uint32_t tokenIndex,
+inline void tokenStatusToJson(const TokenStatus& status, size_t tokenIndex,
                               nlohmann::json& j)
 {
     if (tokenIndex >= status.tokenTypesSubtypes.size())
     {
-        throw std::runtime_error(
-            "Invalid index: " + std::to_string(tokenIndex));
+        return;
     }
-    j["TokenType"] = getTokenTypeAsString(
-        std::get<0>(status.tokenTypesSubtypes[tokenIndex]));
-    j["TokenSubType"] = getTokenSubtypeAsString(
-        std::get<1>(status.tokenTypesSubtypes[tokenIndex]));
+
+    const auto& [tokenType, tokenSubtypes] =
+        status.tokenTypesSubtypes[tokenIndex];
+    std::optional<std::string> redfishTokenType =
+        mapDbusEnumToTokenType(tokenType);
+    if (!redfishTokenType.has_value())
+    {
+        return;
+    }
+    j["TokenType"] = redfishTokenType.value();
+
+    nlohmann::json subtypesArray = nlohmann::json::array();
+    for (const auto& subtype : tokenSubtypes)
+    {
+        std::optional<std::string> redfishSubtype =
+            mapDbusEnumToTokenSubtype(subtype);
+        if (redfishSubtype.has_value())
+        {
+            subtypesArray.push_back(redfishSubtype.value());
+        }
+    }
+    j["TokenSubTypes"] = std::move(subtypesArray);
     // Deprecated, keeping for backward compatibility
     j["AdditionalInfo"] = "None";
 }

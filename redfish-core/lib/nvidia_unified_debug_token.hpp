@@ -297,7 +297,9 @@ inline void handleUnifiedEraseToken(
     {
         return;
     }
-    std::string valueToMap;
+    std::string eraseTypeEnum;
+    std::string tokenTypeEnum;
+
     if (eraseType == "TokenType")
     {
         if (!tokenType.has_value())
@@ -307,12 +309,34 @@ inline void handleUnifiedEraseToken(
                 "TokenType");
             return;
         }
-        valueToMap = tokenType.value();
+        std::optional<std::string> tokenTypeOpt =
+            unified::mapTokenTypeToDbusEnum(*tokenType);
+        if (!tokenTypeOpt.has_value())
+        {
+            BMCWEB_LOG_ERROR("Invalid token type: {}", *tokenType);
+            messages::actionParameterValueNotInList(
+                asyncResp->res, *tokenType, "TokenType",
+                "NvidiaTrustedComponent.EraseToken");
+            return;
+        }
+        eraseTypeEnum = "com.nvidia.DebugToken.Action.EraseType.TokenType";
+        tokenTypeEnum = tokenTypeOpt.value();
     }
     else if (eraseType == "EraseAll" ||
              eraseType == "EraseAllAndRatchetCounterIncreased")
     {
-        valueToMap = eraseType;
+        std::optional<std::string> eraseTypeOpt =
+            unified::mapEraseTypeToDbusEnum(eraseType);
+        if (!eraseTypeOpt.has_value())
+        {
+            BMCWEB_LOG_ERROR("Failed to map erase type: {}", eraseType);
+            messages::actionParameterValueNotInList(
+                asyncResp->res, eraseType, "EraseType",
+                "NvidiaTrustedComponent.EraseToken");
+            return;
+        }
+        eraseTypeEnum = eraseTypeOpt.value();
+        tokenTypeEnum = "com.nvidia.DebugToken.Common.Types.None";
     }
     else
     {
@@ -321,18 +345,12 @@ inline void handleUnifiedEraseToken(
             "NvidiaTrustedComponent.EraseToken");
         return;
     }
+
     std::string targetChassisId =
         std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    uint32_t tokenTypeUint32 = unified::getTokenTypeAsUint32(valueToMap);
-    if (tokenTypeUint32 == 0)
-    {
-        messages::actionParameterValueNotInList(asyncResp->res, valueToMap,
-                                                "TokenType", "EraseToken");
-        return;
-    }
     unified::action::Handler::startOperation(
         targetChassisId, unified::action::Operation::EraseToken,
-        tokenTypeUint32,
+        std::make_pair(eraseTypeEnum, tokenTypeEnum),
         std::bind_front(&eraseInstallCallback, asyncResp, chassisId,
                         componentId));
 }
@@ -526,7 +544,6 @@ inline void handleUnifiedInstallToken(
         std::bind_front(&installAssociationEndpointCallback, std::cref(req),
                         asyncResp, chassisId, componentId, targetChassisId));
 }
-
 /**
  * @brief Handles GET request for EraseTokenActionInfo
  *

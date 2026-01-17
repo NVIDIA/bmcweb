@@ -358,15 +358,17 @@ inline void deviceEraseCallback(
  *
  * @param[in] aggregator Shared pointer to EraseTokenAggregator.
  * @param[in] chassisId Chassis identifier for the NSM device.
- * @param[in] tokenTypeUint32 Token type value as uint32_t.
+ * @param[in] eraseType Erase type enum string.
+ * @param[in] tokenType Token type enum string.
  */
 inline void eraseTokenForDevice(
     const std::shared_ptr<EraseTokenAggregator>& aggregator,
-    const std::string& chassisId, uint32_t tokenTypeUint32)
+    const std::string& chassisId, const std::string& eraseType,
+    const std::string& tokenType)
 {
     debug_token::unified::action::Handler::startOperation(
         chassisId, debug_token::unified::action::Operation::EraseToken,
-        tokenTypeUint32,
+        std::make_pair(eraseType, tokenType),
         std::bind_front(&deviceEraseCallback, aggregator, chassisId));
 }
 
@@ -374,13 +376,15 @@ inline void eraseTokenForDevice(
  * @brief Handle subtree response for aggregated erase token operation
  *
  * @param[in] aggregator Shared pointer to EraseTokenAggregator.
- * @param[in] tokenTypeUint32 Token type value as uint32_t.
+ * @param[in] eraseType Erase type enum string.
+ * @param[in] tokenType Token type enum string.
  * @param[in] ec Error code from D-Bus operation.
  * @param[in] subtree Response from getSubTree containing debug token objects.
  */
 inline void handleEraseTokenSubtreeResponse(
     const std::shared_ptr<EraseTokenAggregator>& aggregator,
-    uint32_t tokenTypeUint32, const boost::system::error_code& ec,
+    const std::string& eraseType, const std::string& tokenType,
+    const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
     if (ec)
@@ -415,7 +419,7 @@ inline void handleEraseTokenSubtreeResponse(
             continue;
         }
 
-        eraseTokenForDevice(aggregator, chassisId, tokenTypeUint32);
+        eraseTokenForDevice(aggregator, chassisId, eraseType, tokenType);
     }
 }
 
@@ -423,10 +427,12 @@ inline void handleEraseTokenSubtreeResponse(
  * @brief Initiate aggregated erase token operation across all NSM devices
  *
  * @param[in] task Shared pointer to Redfish TaskData.
- * @param[in] tokenTypeUint32 Token type value as uint32_t.
+ * @param[in] eraseType D-Bus erase type enum string (fully qualified).
+ * @param[in] tokenType D-Bus token type enum string (fully qualified).
  */
 inline void startAggregatedEraseToken(
-    const std::shared_ptr<task::TaskData>& task, uint32_t tokenTypeUint32)
+    const std::shared_ptr<task::TaskData>& task, const std::string& eraseType,
+    const std::string& tokenType)
 {
     auto aggregator = std::make_shared<EraseTokenAggregator>(task);
 
@@ -435,8 +441,8 @@ inline void startAggregatedEraseToken(
 
     dbus::utility::getSubTree(
         std::string(debug_token::debugTokenBasePath), 0, debugTokenInterfaces,
-        std::bind_front(&handleEraseTokenSubtreeResponse, aggregator,
-                        tokenTypeUint32));
+        std::bind_front(&handleEraseTokenSubtreeResponse, aggregator, eraseType,
+                        tokenType));
 }
 
 /**
@@ -472,16 +478,18 @@ inline void debugTokenManagementEraseTokenHandler(
         return;
     }
 
-    if (eraseType != "TokenType" && eraseType != "EraseAll" &&
-        eraseType != "EraseAllAndRatchetCounterIncreased")
+    std::optional<std::string> eraseTypeOpt =
+        debug_token::unified::mapEraseTypeToDbusEnum(eraseType);
+    if (!eraseTypeOpt.has_value())
     {
+        BMCWEB_LOG_ERROR("Failed to map erase type: {}", eraseType);
         messages::actionParameterValueNotInList(
             asyncResp->res, eraseType, "EraseType",
             "NvidiaDebugTokenManagement.EraseToken");
         return;
     }
 
-    std::string valueToMap;
+    std::string tokenTypeEnum = "com.nvidia.DebugToken.Common.Types.None";
     if (eraseType == "TokenType")
     {
         if (!tokenType.has_value())
@@ -491,27 +499,25 @@ inline void debugTokenManagementEraseTokenHandler(
                 "TokenType");
             return;
         }
-        valueToMap = *tokenType;
-    }
-    else
-    {
-        valueToMap = eraseType;
-    }
-    uint32_t tokenTypeUint32 =
-        debug_token::unified::getTokenTypeAsUint32(valueToMap);
-    if (tokenTypeUint32 == 0 && valueToMap != "None")
-    {
-        messages::actionParameterValueNotInList(
-            asyncResp->res, valueToMap, "TokenType",
-            "NvidiaDebugTokenManagement.EraseToken");
-        return;
+
+        std::optional<std::string> tokenTypeOpt =
+            debug_token::unified::mapTokenTypeToDbusEnum(*tokenType);
+        if (!tokenTypeOpt.has_value())
+        {
+            BMCWEB_LOG_ERROR("Invalid token type: {}", *tokenType);
+            messages::actionParameterValueNotInList(
+                asyncResp->res, *tokenType, "TokenType",
+                "NvidiaDebugTokenManagement.EraseToken");
+            return;
+        }
+        tokenTypeEnum = tokenTypeOpt.value();
     }
 
     constexpr uint32_t debugTokenTaskTimeoutSec = 300;
     std::shared_ptr<task::TaskData> task =
         debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
 
-    startAggregatedEraseToken(task, tokenTypeUint32);
+    startAggregatedEraseToken(task, eraseTypeOpt.value(), tokenTypeEnum);
 }
 
 /**

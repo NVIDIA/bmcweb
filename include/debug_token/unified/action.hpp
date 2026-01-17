@@ -47,7 +47,8 @@ enum class Operation
 };
 
 using Argument =
-    std::variant<std::monostate, uint32_t, std::shared_ptr<MemoryFD>>;
+    std::variant<std::monostate, uint32_t, std::shared_ptr<MemoryFD>,
+                 std::pair<std::string, std::string>>;
 
 using Result = std::variant<std::monostate, NsmResult, TokenStatus>;
 using ResultCallback = std::function<void(Result)>;
@@ -257,8 +258,9 @@ class Handler : public std::enable_shared_from_this<Handler>
             case Operation::EraseToken:
             {
                 createMatch();
-                uint32_t* tokenType = std::get_if<uint32_t>(&argument);
-                if (tokenType == nullptr)
+                std::pair<std::string, std::string>* eraseParams =
+                    std::get_if<std::pair<std::string, std::string>>(&argument);
+                if (eraseParams == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Invalid argument");
                     generalErrorHandler();
@@ -267,7 +269,7 @@ class Handler : public std::enable_shared_from_this<Handler>
                 crow::connections::systemBus->async_method_call(
                     asyncHandler, service, objectPath,
                     std::string(debugTokenActionIntf), "EraseToken",
-                    *tokenType);
+                    eraseParams->first, eraseParams->second);
                 break;
             }
 
@@ -526,7 +528,8 @@ class Handler : public std::enable_shared_from_this<Handler>
         bool installationStatus = false;
         bool processingStatus = false;
         std::string tokenDeviceID;
-        std::vector<std::tuple<uint32_t, uint32_t>> tokenTypesSubtypes;
+        std::vector<std::tuple<std::string, std::vector<std::string>>>
+            tokenTypesSubtypes;
         const bool success = sdbusplus::unpackPropertiesNoThrow(
             dbus_utils::UnpackErrorPrinter(), propertiesMap,
             "InstallationStatus", installationStatus, "ProcessingStatus",
