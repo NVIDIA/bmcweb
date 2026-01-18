@@ -395,10 +395,100 @@ inline void processSensorThresholdValues(
     }
 }
 
+inline void processAsyncSensorThresholdValues(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const std::string& objectPath)
+{
+    std::optional<double> maxAllowableOperatingValue;
+    std::optional<double> minAllowableOperatingValue;
+    std::optional<nlohmann::json> thresholdsObj;
+
+    // Read MaxAllowableOperatingValue and MinAllowableOperatingValue
+    if (!json_util::readJsonAction(
+            req, asyncResp->res, "MaxAllowableOperatingValue",
+            maxAllowableOperatingValue, "MinAllowableOperatingValue",
+            minAllowableOperatingValue, "Thresholds", thresholdsObj))
+    {
+        return;
+    }
+
+    std::vector<std::tuple<std::string, std::variant<bool, uint32_t, double>>>
+        properties;
+    std::string propertyName;
+    std::string interfaceName;
+
+    if (maxAllowableOperatingValue)
+    {
+        BMCWEB_LOG_DEBUG("MaxAllowableOperatingValue: {}",
+                         *maxAllowableOperatingValue);
+        propertyName = "MaxAllowableValue";
+        properties.emplace_back(propertyName, *maxAllowableOperatingValue);
+        interfaceName = "xyz.openbmc_project.Sensor.Value";
+    }
+
+    if (minAllowableOperatingValue)
+    {
+        BMCWEB_LOG_DEBUG("MinAllowableOperatingValue: {}",
+                         *minAllowableOperatingValue);
+        propertyName = "MinAllowableValue";
+        properties.emplace_back(propertyName, *minAllowableOperatingValue);
+        interfaceName = "xyz.openbmc_project.Sensor.Value";
+    }
+
+    if (thresholdsObj)
+    {
+        std::optional<nlohmann::json> lowerCritical;
+
+        if (!redfish::json_util::readJson(*thresholdsObj, asyncResp->res,
+                                          "LowerCritical", lowerCritical))
+        {
+            return;
+        }
+
+        if (lowerCritical)
+        {
+            std::optional<double> readingValue;
+            if (redfish::json_util::readJson(*lowerCritical, asyncResp->res,
+                                             "Reading", readingValue))
+            {
+                if (readingValue)
+                {
+                    BMCWEB_LOG_DEBUG("Thresholds.LowerCritical.Reading: {}",
+                                     *readingValue);
+                    propertyName = "CriticalLow";
+                    properties.emplace_back(propertyName, *readingValue);
+                    interfaceName =
+                        "xyz.openbmc_project.Sensor.Threshold.Critical";
+                }
+            }
+        }
+    }
+    if (properties.empty())
+    {
+        BMCWEB_LOG_ERROR("Patch properties not found");
+        messages::propertyMissing(asyncResp->res,
+                                  "Threshold patchable properties not found");
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("Performing Patch using Set Async Method Call for {}",
+                     propertyName);
+
+    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+        asyncResp, std::chrono::seconds(60), serviceName, objectPath,
+        interfaceName, propertyName,
+        std::variant<std::vector<
+            std::tuple<std::string, std::variant<bool, uint32_t, double>>>>(
+            properties),
+        nvidia_async_operation_utils::PatchThresholdCallback{asyncResp});
+}
+
 inline void findSensorServiceAndPathInChassis(
     const std::string& chassisId, const std::string& sensorId,
     std::function<void(const boost::system::error_code& ec, bool chassisFound,
-                       std::optional<std::pair<std::string, std::string>>)>&&
+                       std::optional<std::tuple<std::string, std::string,
+                                                std::vector<std::string>>>)>&&
         callback)
 {
     dbus::utility::getSubTreePaths(
@@ -455,8 +545,8 @@ inline void findSensorServiceAndPathInChassis(
                     {
                         const auto& service = sensorIt->second.front();
                         callback({}, true,
-                                 std::make_pair(service.first,
-                                                sensorIt->first));
+                                 std::make_tuple(service.first, sensorIt->first,
+                                                 service.second));
                         return;
                     }
 
@@ -640,7 +730,8 @@ inline void handleSensorPatchAfterSetup(
         chassisId, sensorId,
         [&req, asyncResp, sensorId, chassisId](
             const boost::system::error_code& ec, bool chassisFound,
-            const std::optional<std::pair<std::string, std::string>>& svcPath) {
+            const std::optional<std::tuple<
+                std::string, std::string, std::vector<std::string>>>& svcPath) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -658,9 +749,19 @@ inline void handleSensorPatchAfterSetup(
                 return;
             }
 
-            const auto& [serviceName, objectPath] = *svcPath;
-            nvidia_sensor_utils::processSensorThresholdValues(
-                req, asyncResp, serviceName, objectPath);
+            const auto& [serviceName, objectPath, interfaces] = *svcPath;
+
+            if (std::find(interfaces.begin(), interfaces.end(),
+                          "com.nvidia.Async.Set") != interfaces.end())
+            {
+                nvidia_sensor_utils::processAsyncSensorThresholdValues(
+                    req, asyncResp, serviceName, objectPath);
+            }
+            else
+            {
+                nvidia_sensor_utils::processSensorThresholdValues(
+                    req, asyncResp, serviceName, objectPath);
+            }
         });
 }
 
