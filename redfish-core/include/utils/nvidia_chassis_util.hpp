@@ -2111,6 +2111,48 @@ inline void setChassisWriteProtectProtectEnable(
 }
 
 template <typename Callback>
+inline void checkAssociatedChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, Callback&& callback,
+    const dbus::utility::MapperGetSubTreePathsResponse& chassisPaths)
+{
+    auto foundFlag = std::make_shared<bool>(false);
+
+    // Loop through all chassis paths to check their associations
+    for (const std::string& chassisPath : chassisPaths)
+    {
+        dbus::utility::getAssociationEndPoints(
+            chassisPath + "/chassis",
+            [asyncResp, chassisId, callback, foundFlag,
+             chassisPath](const boost::system::error_code& ec,
+                          const dbus::utility::MapperEndPoints& endpoints) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("No association endpoint found for {}: {}",
+                                     chassisPath, ec);
+                    return;
+                }
+
+                for (const std::string& endpoint : endpoints)
+                {
+                    if (endpoint.ends_with(chassisId))
+                    {
+                        if (!*foundFlag)
+                        {
+                            *foundFlag = true;
+                            BMCWEB_LOG_DEBUG(
+                                "Found associated chassis endpoint: {}",
+                                endpoint);
+                            callback(std::optional<std::string>(endpoint));
+                        }
+                        return;
+                    }
+                }
+            });
+    }
+}
+
+template <typename Callback>
 inline void validLeakDetectionCallback(
     const boost::system::error_code& ec,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2139,10 +2181,13 @@ inline void validLeakDetectionCallback(
         if (chassisName == chassisId)
         {
             chassisPath = chassis;
-            break;
+            callback(chassisPath);
+            return;
         }
     }
-    callback(chassisPath);
+
+    // If not found in direct paths, check associated chassis
+    checkAssociatedChassis(asyncResp, chassisId, callback, chassisPaths);
 }
 
 template <typename Callback>
@@ -2150,8 +2195,9 @@ void getValidLeakDetectionPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, Callback&& callback)
 {
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Configuration.VoltageLeakDetector"};
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Configuration.VoltageLeakDetector",
+        "xyz.openbmc_project.Inventory.Item.LeakDetector"};
 
     // Get the Chassis Collection
     dbus::utility::getSubTreePaths(

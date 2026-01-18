@@ -39,6 +39,104 @@ constexpr std::array<std::string_view, 1> leakDetectorInventoryInterfaces = {
 constexpr std::array<std::string_view, 2> leakDetectorStateInterfaces = {
     leakDetectorStateInterface, leakDetectorOpStatusInterface};
 
+inline std::string getDetectorState(const std::string& detectorState)
+{
+    if (detectorState ==
+        "xyz.openbmc_project.State.LeakDetector.DetectorStateEnum.OK")
+    {
+        return "OK";
+    }
+    if (detectorState ==
+        "xyz.openbmc_project.State.LeakDetector.DetectorStateEnum.Warning")
+    {
+        return "Warning";
+    }
+    if (detectorState ==
+        "xyz.openbmc_project.State.LeakDetector.DetectorStateEnum.Critical")
+    {
+        return "Critical";
+    }
+    // Unknown or others
+    return "";
+}
+
+inline std::string getOperationalStatus(const std::string& operationalStatus)
+{
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.None")
+    {
+        return "None";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Absent")
+    {
+        return "Absent";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Deferring")
+    {
+        return "Deferring";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Degraded")
+    {
+        return "Degraded";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Disabled")
+    {
+        return "Disabled";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Enabled")
+    {
+        return "Enabled";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.StandbyOffline")
+    {
+        return "StandbyOffline";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Starting")
+    {
+        return "Starting";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.UnavailableOffline")
+    {
+        return "UnavailableOffline";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Updating")
+    {
+        return "Updating";
+    }
+    if (operationalStatus ==
+        "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Fault")
+    {
+        return "Fault";
+    }
+    // Unknown or others
+    return "";
+}
+
+inline std::string getLeakDetectorType(const std::string& leakDetectorType)
+{
+    if (leakDetectorType ==
+        "xyz.openbmc_project.Inventory.Item.LeakDetector.LeakDetectorTypeEnum.FloatSwitch")
+    {
+        return "FloatSwitch";
+    }
+    if (leakDetectorType ==
+        "xyz.openbmc_project.Inventory.Item.LeakDetector.LeakDetectorTypeEnum.Moisture")
+    {
+        return "Moisture";
+    }
+    // Unknown or others
+    return "";
+}
+
 inline void getValidLeakDetectorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& leakDetectorId,
@@ -116,8 +214,9 @@ inline void afterDetectorStatePropertyGet(
 
     if (detectorState != nullptr)
     {
-        asyncResp->res.jsonValue["DetectorState"] = *detectorState;
-        asyncResp->res.jsonValue["Status"]["Health"] = *detectorState;
+        std::string mappedState = getDetectorState(*detectorState);
+        asyncResp->res.jsonValue["DetectorState"] = mappedState;
+        asyncResp->res.jsonValue["Status"]["Health"] = mappedState;
     }
 }
 
@@ -150,7 +249,8 @@ inline void afterDetectorStatusPropertyGet(
 
     if (detectorOpStatus != nullptr)
     {
-        asyncResp->res.jsonValue["Status"]["State"] = *detectorOpStatus;
+        std::string mappedStatus = getOperationalStatus(*detectorOpStatus);
+        asyncResp->res.jsonValue["Status"]["State"] = mappedStatus;
     }
 }
 
@@ -248,8 +348,8 @@ inline void getLeakDetectorItem(
 
             if (leakDetectorType != nullptr)
             {
-                asyncResp->res.jsonValue["LeakDetectorType"] =
-                    *leakDetectorType;
+                std::string mappedType = getLeakDetectorType(*leakDetectorType);
+                asyncResp->res.jsonValue["LeakDetectorType"] = mappedType;
             }
         });
 }
