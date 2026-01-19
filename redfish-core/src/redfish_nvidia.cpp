@@ -67,6 +67,7 @@
 #include "nvidia_unified_debug_token.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
+#include "nvidia_write_protect_domains.hpp"
 #include "pcieslots.hpp"
 #include "ports.hpp"
 #include "secure_boot.hpp"
@@ -160,6 +161,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSwitchPortHistogramCollection(app);
         requestRoutesSwitchPortHistogram(app);
         requestRoutesSwitchPortHistogramBuckets(app);
+        requestRoutesWriteProtectDomain(app);
     }
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)

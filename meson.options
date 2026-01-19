@@ -442,6 +442,15 @@ option(
                 ''',
 )
 
+# BMCWEB_REDFISH_ALLOW_FW_INVENTORY_PATCH
+option(
+    'redfish-allow-fw-inventory-patch',
+    type: 'feature',
+    value: 'enabled',
+    description: '''Enables the WriteProtected property on firmware inventory
+                    components to be PATCHable''',
+)
+
 # BMCWEB_REDFISH_ALLOW_SIMPLE_UPDATE
 option(
     'redfish-allow-simple-update',
@@ -1322,7 +1331,7 @@ option(
     'redfish-routes-metricreport',
     type: 'feature',
     value: 'enabled',
-    description: '''enable the redfish route 
+    description: '''enable the redfish route
     /redfish/v1/TelemetryService/MetricReportDefinitions/
     /redfish/v1/TelemetryService/MetricReportDefinitions/<str>
     /redfish/v1/TelemetryService/MetricReports/

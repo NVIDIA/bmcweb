@@ -24,6 +24,7 @@
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_write_protect_domains_util.hpp"
 #include "utils/redfish_response_utils.hpp"
 #include "utils/time_utils.hpp"
 
@@ -2352,6 +2353,40 @@ inline void populateLastIntrusionDetected(
         });
 }
 
+inline void afterGetAssociatedDomains(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subTree)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    if (subTree.empty())
+    {
+        return;
+    }
+
+    const auto domainUri = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/Nvidia/WriteProtectDomains", chassisId);
+    auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oem["WriteProtectDomains"]["@odata.id"] = domainUri;
+}
+
+inline void populateWriteProtectDomainLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    write_protect_domains::getAssociatedDomains(
+        chassisId,
+        std::bind_front(afterGetAssociatedDomains, asyncResp, chassisId));
+}
+
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, [[maybe_unused]] const std::string& path,
@@ -2472,6 +2507,7 @@ inline void handleChassisGetAllProperties(
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
         oem["@odata.type"] = "#NvidiaChassis.v1_12_0.NvidiaChassis";
+        populateWriteProtectDomainLink(asyncResp, chassisId);
 
         if (writeProtected != nullptr)
         {

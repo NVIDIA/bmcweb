@@ -126,6 +126,7 @@ feature_options = [
     'redfish-aggregation',
     'redfish-aggregation-prefix-removal',
     'redfish-allow-deprecated-power-thermal',
+    'redfish-allow-fw-inventory-patch',
     'redfish-allow-simple-update',
     'redfish-bmc-journal',
     'redfish-cables',

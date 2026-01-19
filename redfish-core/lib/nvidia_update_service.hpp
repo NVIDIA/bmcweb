@@ -2861,6 +2861,42 @@ inline void handleUpdateServiceSoftwareInventoryGet(
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
 }
 
+inline void tryInventoryPatchAfterGetSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<std::string>& swId, bool writeProtected,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& obj : subtree)
+    {
+        const std::string& path = obj.first;
+        sdbusplus::message::object_path objPath(path);
+        if (objPath.filename() != *swId)
+        {
+            continue;
+        }
+
+        if (obj.second.empty())
+        {
+            continue;
+        }
+        fw_util::patchFwWriteProtectedStatus(
+            asyncResp, swId, obj.second[0].first, writeProtected);
+
+        return;
+    }
+    // Couldn't find an object with that name.  return
+    // an error
+    BMCWEB_LOG_DEBUG("Input swID {} not found!", *swId);
+    messages::resourceNotFound(
+        asyncResp->res, "SoftwareInventory.v1_4_0.SoftwareInventory", *swId);
+}
+
 inline void handleUpdateServiceFirmwareInventoryPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2880,56 +2916,17 @@ inline void handleUpdateServiceFirmwareInventoryPatch(
         return;
     }
 
-    if (writeProtected)
+    if (!writeProtected)
     {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, swId, writeProtected](
-                const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>>&
-                    subtree) {
-                if (ec)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                for (const std::pair<
-                         std::string,
-                         std::vector<
-                             std::pair<std::string, std::vector<std::string>>>>&
-                         obj : subtree)
-                {
-                    const std::string& path = obj.first;
-                    sdbusplus::message::object_path objPath(path);
-                    if (objPath.filename() != *swId)
-                    {
-                        continue;
-                    }
-
-                    if (obj.second.empty())
-                    {
-                        continue;
-                    }
-                    fw_util::patchFwWriteProtectedStatus(
-                        asyncResp, swId, obj.second[0].first, *writeProtected);
-
-                    return;
-                }
-                // Couldn't find an object with that name.  return
-                // an error
-                BMCWEB_LOG_DEBUG("Input swID {} not found!", *swId);
-                messages::resourceNotFound(
-                    asyncResp->res,
-                    "SoftwareInventory.v1_4_0.SoftwareInventory", *swId);
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-            "/xyz/openbmc_project/software/", static_cast<int32_t>(0),
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Software.Settings"});
+        return;
     }
+
+    static constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Software.Settings"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/software/", 0, interfaces,
+        std::bind_front(tryInventoryPatchAfterGetSubTree, asyncResp, swId,
+                        *writeProtected));
 }
 
 inline void handleUpdateServiceSoftwareInventoryCollectionGet(
@@ -3064,10 +3061,13 @@ inline void requestRoutesNvidiaUpdateService(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleUpdateServiceSoftwareInventoryCollectionGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/")
-        .privileges(redfish::privileges::patchUpdateService)
-        .methods(boost::beast::http::verb::patch)(std::bind_front(
-            handleUpdateServiceFirmwareInventoryPatch, std::ref(app)));
+    if constexpr (BMCWEB_REDFISH_ALLOW_FW_INVENTORY_PATCH)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/")
+            .privileges(redfish::privileges::patchUpdateService)
+            .methods(boost::beast::http::verb::patch)(std::bind_front(
+                handleUpdateServiceFirmwareInventoryPatch, std::ref(app)));
+    }
 
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/")
         .privileges(redfish::privileges::patchUpdateService)
