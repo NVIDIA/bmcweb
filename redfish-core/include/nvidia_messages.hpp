@@ -20,6 +20,7 @@
 #include "error_messages.hpp"
 #include "registries/oem/nvidia_resource_event_message_registry.hpp"
 #include "registries/oem/nvidia_update_message_registry.hpp"
+#include "registries/openbmc_message_registry.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -255,4 +256,19 @@ inline nlohmann::json imageCopyCompleted(std::string_view arg1)
     return getLogNvidia(
         redfish::registries::NvidiaUpdate::Index::imageCopyCompleted, args);
 }
+
+inline nlohmann::json serviceRestart(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    size_t index = static_cast<size_t>(
+        redfish::registries::Openbmc::Index::serviceRestart);
+    if (index >= redfish::registries::Openbmc::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::Openbmc::header,
+                              redfish::registries::Openbmc::registry, index,
+                              args);
+}
+
 } // namespace redfish::messages

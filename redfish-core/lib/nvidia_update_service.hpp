@@ -401,6 +401,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::activateSuccessful(arg1, arg2);
     }
+    if (msgId == "OpenBMC.0.5.ServiceRestart")
+    {
+        return messages::serviceRestart(arg1);
+    }
 
     return {};
 }
