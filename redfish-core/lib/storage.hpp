@@ -683,7 +683,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
     const std::string& path = drive->first;
     const dbus::utility::MapperServiceMap& connectionNames = drive->second;
 
-    asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_7_0.Drive";
+    asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_17_0.Drive";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/1/Drives/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, driveId);
@@ -874,7 +874,7 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/Drives/{}", chassisId, driveName);
 
-        asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_7_0.Drive";
+        asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_17_0.Drive";
         asyncResp->res.jsonValue["Name"] = driveName;
         asyncResp->res.jsonValue["Id"] = driveName;
         // default it to Enabled
