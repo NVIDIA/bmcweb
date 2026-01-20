@@ -589,7 +589,7 @@ inline void getPowerBreakThrottleData(
                     "xyz.openbmc_project.Inventory.Item.Accelerator")
                 {
                     json["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+                        "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics";
                 }
                 else
                 {
@@ -1208,7 +1208,7 @@ inline void getProcessorPerformanceData(
             nlohmann::json& json = aResp->res.jsonValue;
             const std::string_view metricType =
                 (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
-                    ? "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics"
+                    ? "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics"
                     : "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
 
             json["Oem"]["Nvidia"]["@odata.type"] = metricType;
@@ -1448,7 +1448,7 @@ inline void getPowerSystemInputsData(
                     "xyz.openbmc_project.Inventory.Item.Accelerator")
                 {
                     json["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+                        "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics";
                 }
                 else
                 {
@@ -1502,7 +1502,7 @@ inline void getMemorySpareChannelPresenceData(
             if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+                    "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics";
             }
             else
             {
@@ -1544,7 +1544,7 @@ inline void getMemoryPageRetirementCountData(
             if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+                    "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics";
             }
             else
             {
@@ -1727,6 +1727,18 @@ inline void getGPMMetricsData(
             const double* pcieTxBandwidthGbps = nullptr;
             const std::vector<double>* nvdecInstanceUtil = nullptr;
             const std::vector<double>* nvjpgInstanceUtil = nullptr;
+            const std::vector<double>* nvEncInstanceUtil = nullptr;
+            const double* nvEncUtilizationPercent = nullptr;
+            const double* hostMemoryCacheHitPercent = nullptr;
+            const double* hostMemoryCacheMissPercent = nullptr;
+            const double* peerMemoryCacheHitPercent = nullptr;
+            const double* peerMemoryCacheMissPercent = nullptr;
+            const double* dramMemoryCacheHitPercent = nullptr;
+            const double* dramMemoryCacheMissPercent = nullptr;
+            const double* c2CRawTxGbps = nullptr;
+            const double* c2CRawRxGbps = nullptr;
+            const double* c2CDataTxGbps = nullptr;
+            const double* c2CDataRxGbps = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), resp, "FP16ActivityPercent",
@@ -1744,7 +1756,18 @@ inline void getGPMMetricsData(
                 integerActivityUtil, "DMMAUtilizationPercent", dmmaUtil,
                 "HMMAUtilizationPercent", hmmaUtil, "IMMAUtilizationPercent",
                 immaUtil, "NVDecInstanceUtilizationPercent", nvdecInstanceUtil,
-                "NVJpgInstanceUtilizationPercent", nvjpgInstanceUtil);
+                "NVJpgInstanceUtilizationPercent", nvjpgInstanceUtil,
+                "NVEncInstanceUtilizationPercent", nvEncInstanceUtil,
+                "NVEncUtilizationPercent", nvEncUtilizationPercent,
+                "HostMemoryCacheHitPercent", hostMemoryCacheHitPercent,
+                "HostMemoryCacheMissPercent", hostMemoryCacheMissPercent,
+                "PeerMemoryCacheHitPercent", peerMemoryCacheHitPercent,
+                "PeerMemoryCacheMissPercent", peerMemoryCacheMissPercent,
+                "DRAMMemoryCacheHitPercent", dramMemoryCacheHitPercent,
+                "DRAMMemoryCacheMissPercent", dramMemoryCacheMissPercent,
+                "C2CRawTxBandwidthGbps", c2CRawTxGbps, "C2CRawRxBandwidthGbps",
+                c2CRawRxGbps, "C2CDataTxBandwidthGbps", c2CDataTxGbps,
+                "C2CDataRxBandwidthGbps", c2CDataRxGbps);
 
             if (!success)
             {
@@ -1985,6 +2008,130 @@ inline void getGPMMetricsData(
                                  "for NVJpgUtilizationPercent");
                 messages::internalError(aResp->res);
                 return;
+            }
+
+            if (nvEncInstanceUtil != nullptr)
+            {
+                std::vector<double> nvEncInstanceUtilization{};
+                for (auto val : *nvEncInstanceUtil)
+                {
+                    nvEncInstanceUtilization.push_back(val);
+                }
+                json["Oem"]["Nvidia"]["NVEncInstanceUtilizationPercent"] =
+                    nvEncInstanceUtilization;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for NVEncInstanceUtilizationPercent");
+            }
+            if (nvEncUtilizationPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["NVEncUtilizationPercent"] =
+                    *nvEncUtilizationPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for NVEncUtilizationPercent");
+            }
+            if (hostMemoryCacheHitPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["HostMemoryCacheHitPercent"] =
+                    *hostMemoryCacheHitPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for HostMemoryCacheHitPercent");
+            }
+            if (hostMemoryCacheMissPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["HostMemoryCacheMissPercent"] =
+                    *hostMemoryCacheMissPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for HostMemoryCacheMissPercent");
+            }
+            if (peerMemoryCacheHitPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["PeerMemoryCacheHitPercent"] =
+                    *peerMemoryCacheHitPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for PeerMemoryCacheHitPercent");
+            }
+            if (peerMemoryCacheMissPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["PeerMemoryCacheMissPercent"] =
+                    *peerMemoryCacheMissPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for PeerMemoryCacheMissPercent");
+            }
+            if (dramMemoryCacheHitPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["DRAMMemoryCacheHitPercent"] =
+                    *dramMemoryCacheHitPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for DRAMCacheHitPercent");
+            }
+            if (dramMemoryCacheMissPercent != nullptr)
+            {
+                json["Oem"]["Nvidia"]["DRAMMemoryCacheMissPercent"] =
+                    *dramMemoryCacheMissPercent;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for DRAMCacheMissPercent");
+            }
+            if (c2CRawTxGbps != nullptr)
+            {
+                json["Oem"]["Nvidia"]["C2CRawTxBandwidthGbps"] = *c2CRawTxGbps;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for C2CRawTxBandwidthGbps");
+            }
+            if (c2CRawRxGbps != nullptr)
+            {
+                json["Oem"]["Nvidia"]["C2CRawRxBandwidthGbps"] = *c2CRawRxGbps;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for C2CRawRxBandwidthGbps");
+            }
+            if (c2CDataTxGbps != nullptr)
+            {
+                json["Oem"]["Nvidia"]["C2CDataTxBandwidthGbps"] =
+                    *c2CDataTxGbps;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for C2CDataTxBandwidthGbps");
+            }
+            if (c2CDataRxGbps != nullptr)
+            {
+                json["Oem"]["Nvidia"]["C2CDataRxBandwidthGbps"] =
+                    *c2CDataRxGbps;
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for C2CDataRxBandwidthGbps");
             }
         });
 }
