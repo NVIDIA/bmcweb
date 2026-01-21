@@ -59,7 +59,7 @@ using DOTResultType =
  * @param asyncResp Async response object to populate with error result
  * @param status Operation status string from async operation
  * @param resultPtr Pointer to DOTResultType variant (may be nullptr)
- * @param actionName Name of the DOT action (e.g., "Install", "CAKBypass")
+ * @param actionName Name of the DOT action (e.g., "Install")
  */
 inline void handleDOTErrorResult(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -603,11 +603,6 @@ inline void afterDOTResourceDiscovery(
                             ["target"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.GetInfo",
         chassisId, componentId);
-
-    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.CAKBypass"]
-                            ["target"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.CAKBypass",
-        chassisId, componentId);
 }
 
 /**
@@ -1070,52 +1065,6 @@ inline bool parseKeyStructure(
         return false;
     }
     return true;
-}
-
-/**
- * @brief Process DOT service discovery for CAK Bypass operation
- *
- * Callback invoked after DBus discovery for DOT services. Validates that the
- * component exists and supports DOT operations, then initiates the CAK Bypass
- * operation via D-Bus.
- *
- * @param asyncResp Async response object for error reporting
- * @param componentId The trusted component identifier
- * @param ec Error code from DBus discovery operation
- * @param resp DBus subtree response containing discovered DOT objects
- */
-inline void afterDOTCAKBypassServiceDiscovery(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& componentId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& resp)
-{
-    auto servicePath =
-        findDOTServiceAndPath(asyncResp, componentId, "CAKBypass", ec, resp);
-    if (!servicePath.has_value())
-    {
-        return;
-    }
-
-    const auto& [dotService, path] = *servicePath;
-
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass: Calling Bypass on service '{}' at path '{}'",
-        dotService, path);
-
-    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
-        DOTResultType>(
-        asyncResp, std::chrono::seconds(60), dotService, path,
-        std::string(dot::dotActionIntf), "Bypass",
-        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
-            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
-            {
-                BMCWEB_LOG_DEBUG("DOT CAKBypass succeeded");
-                messages::success(asyncResp->res);
-                return;
-            }
-
-            handleDOTErrorResult(asyncResp, status, resultPtr, "CAKBypass");
-        });
 }
 
 /**
@@ -1709,49 +1658,6 @@ inline void afterChassisValidationForDOTInstall(
 }
 
 /**
- * @brief Handle DOT CAK Bypass action request
- *
- * Entry point for DOT CAK Bypass action endpoint. Validates the request,
- * chassis, and component before initiating the bypass operation that skips
- * CAK authentication requirements.
- *
- * @param app Crow application reference
- * @param req HTTP request object
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTCAKBypassAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKBypass action called - Chassis: '{}', Component: '{}'",
-        chassisId, componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT CAKBypass: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationWithDOTDiscovery, asyncResp,
-                        chassisId, componentId,
-                        std::bind_front(afterDOTCAKBypassServiceDiscovery,
-                                        asyncResp, componentId)));
-}
-
-/**
  * @brief Handle DOT CAKRotate action request
  *
  * Entry point for DOT CAKRotate action endpoint. Validates the request,
@@ -2329,13 +2235,6 @@ inline void requestRoutesNvidiaOemDOT(App& app)
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTInstallAction, std::ref(app)));
-
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.CAKBypass")
-        .privileges(redfish::privileges::postChassis)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleDOTCAKBypassAction, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
