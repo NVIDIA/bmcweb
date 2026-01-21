@@ -4271,6 +4271,12 @@ inline void handleComputerSystemPatch(
     if (bootSourceOverrideTargetAllowableValues || sku || uuid ||
         bootSourceOverrideEnabledAllowableValues || biosVersion || serialNumber)
     {
+        if (req.session == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Session is null");
+            messages::insufficientPrivilege(asyncResp->res);
+            return;
+        }
         privilege_utils::isBiosPrivilege(
             req.session->username,
             [asyncResp, sku, uuid, bootSourceOverrideTargetAllowableValues](

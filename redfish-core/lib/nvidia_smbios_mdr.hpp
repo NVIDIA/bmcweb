@@ -139,6 +139,12 @@ inline void pushSmbiosTablePrivilegeCheck(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [&req, asyncResp](const boost::system::error_code& ec, bool isBios) {

@@ -1007,6 +1007,12 @@ inline void handleTruststoreCertificatesCollectionPost(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1193,6 +1199,12 @@ inline void handleTruststoreCertificatesDelete(
                                    systemName);
         return;
     }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1258,6 +1270,12 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(req.session->username, [&reqFixedTar,
                                                              asyncResp](
                                                                 const boost::
@@ -1471,6 +1489,12 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
     // Check if the request has host interface privilege
     // The redfish host interface will be prevented to accesss the OEM
     // FRU
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [productManufacturer, productSerialNumber, productPartNumber,

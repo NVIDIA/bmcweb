@@ -156,6 +156,12 @@ inline void handleSecureBootPatch(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(req.session->username, [secureBootCurrentBoot,
                                                              secureBootEnable,
                                                              secureBootMode,

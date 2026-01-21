@@ -301,6 +301,12 @@ inline void handleSecureBootDatabaseResetKeys(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -393,6 +399,12 @@ inline void handleCertificateCollectionPost(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -569,6 +581,12 @@ inline void handleCertificateDelete(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -690,6 +708,12 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -843,6 +867,12 @@ inline void handleSignatureDelete(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,

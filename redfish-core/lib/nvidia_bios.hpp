@@ -2272,6 +2272,12 @@ inline void handleBiosServicePut(
                                    systemName);
         return;
     }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
     crow::connections::systemBus->async_method_call(
         [&req,
          asyncResp](const boost::system::error_code& ec,
@@ -2340,6 +2346,12 @@ inline void handleBiosServicePatch(
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
         return;
     }
     crow::connections::systemBus->async_method_call(
@@ -2652,6 +2664,12 @@ inline void handleBiosAttrRegistryPut(
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(asyncResp->res);
         return;
     }
     crow::connections::systemBus->async_method_call(

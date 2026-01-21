@@ -247,6 +247,12 @@ inline void handleBootOptionCollectionPost(
     {
         return;
     }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [newBootOptionReference, newBootOptionEnabled, optBootOptionDescription,
@@ -435,6 +441,12 @@ inline void handleBootOptionPatch(
     {
         return;
     }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [newBootOptionEnabled, aResp, bootOptionName](
@@ -476,6 +488,12 @@ inline void handleBootOptionDelete(
         return;
     }
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [aResp, bootOptionName](const boost::system::error_code& ec,

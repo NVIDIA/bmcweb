@@ -688,6 +688,12 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
         BMCWEB_LOG_ERROR("Not a Valid JSON");
         return;
     }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1238,6 +1244,12 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     profileData.assign(profileStr.begin(), profileStr.end());
     memFd->write(profileData);
 
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1411,6 +1423,12 @@ inline void handlePatchProfilesStatus(
         return;
     }
     std::string requestedStatus = *factoryResetStatus;
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
