@@ -381,8 +381,8 @@ inline void getDriveProgress(
     sdbusplus::asio::getProperty<uint8_t>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.Progress", "Progress",
-        [asyncResp, operationName](const boost::system::error_code& ec,
-                                   const uint8_t prog) {
+        [asyncResp, operationName,
+         path](const boost::system::error_code& ec, const uint8_t prog) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("fail to get drive progress");
@@ -396,7 +396,16 @@ inline void getDriveProgress(
             {
                 obj["OperationName"] = *operationName;
             }
-            obj["AssociatedTask"]["@odata.id"] = taskUri;
+
+            //  The change follows the Redfish spec. The AssociatedTask property
+            //  is a link to the task associated with the operation.
+            // https://www.dmtf.org/sites/default/files/standards/documents/DSP2046_2024.2.html
+            sdbusplus::message::object_path objectPath(path);
+            std::string driveId = objectPath.filename();
+            if (!taskUri[driveId].empty())
+            {
+                obj["AssociatedTask"]["@odata.id"] = taskUri[driveId];
+            }
 
             asyncResp->res.jsonValue["Operations"].emplace_back(std::move(obj));
         });
