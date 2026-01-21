@@ -1559,8 +1559,10 @@ inline void handleUpdateServiceFirmwareInventoryCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/UpdateService/FirmwareInventory";
     asyncResp->res.jsonValue["Name"] = "Software Inventory Collection";
-    const std::array<const std::string_view, 1> iface = {
-        "xyz.openbmc_project.Software.Version"};
+    const std::array<const std::string_view, 3> iface = {
+        "xyz.openbmc_project.Software.Version",
+        "xyz.openbmc_project.State.Decorator.Health",
+        "xyz.openbmc_project.State.Decorator.OperationalStatus"};
 
     redfish::collection_util::getCollectionMembers(
         asyncResp,
