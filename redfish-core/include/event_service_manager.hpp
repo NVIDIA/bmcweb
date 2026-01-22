@@ -138,12 +138,8 @@ class EventServiceManager
 
     ~EventServiceManager()
     {
-        // Save any pending changes on shutdown
+        // Save any pending changes
         persistEventIdIfDirty();
-        if (persistTimer)
-        {
-            persistTimer->cancel();
-        }
     }
 
     explicit EventServiceManager()
