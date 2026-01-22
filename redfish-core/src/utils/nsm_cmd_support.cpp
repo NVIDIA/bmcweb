@@ -47,7 +47,7 @@ namespace nsm_command_support
 void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& bmcId)
 {
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_5_0.ActionInfo";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Managers/" + bmcId + "/Oem/Nvidia/NSMRawCommandActionInfo";
     asyncResp->res.jsonValue["Name"] = "NSMRawCommand Action Info";
@@ -56,11 +56,11 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         {{{"Name", "DeviceIdentificationId"},
           {"Required", true},
           {"DataType", "Number"},
-          {"AllowableValues", {0, 1, 2, 3, 4, 5}}},
+          {"AllowableNumbers", {"0:5:1"}}},
          {{"Name", "DeviceRoleId"},
           {"Required", false},
           {"DataType", "Number"},
-          {"AllowableValues", {0, 1, 2}}},
+          {"AllowableNumbers", {"0:2:1"}}},
          {{"Name", "DeviceInstanceId"},
           {"Required", true},
           {"DataType", "Number"}},
@@ -82,8 +82,8 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
          {{"Name", "MsgFormatVersion"},
           {"Required", false},
           {"DataType", "Number"},
-          {"AllowableValues", {1, 2}},
-          {"DefaultValue", 1}}});
+          {"AllowableNumbers", {"1:2:1"}},
+          {"DefaultValue", "1"}}});
 }
 
 bool parseRequestJson(const crow::Request& req,
