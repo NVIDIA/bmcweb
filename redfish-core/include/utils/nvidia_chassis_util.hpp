@@ -33,6 +33,10 @@
 #include <nlohmann/json.hpp>
 #include <openbmc_dbus_rest.hpp>
 
+#include <array>
+#include <chrono>
+#include <ctime>
+#include <limits>
 #include <memory>
 #include <string>
 #include <variant>
@@ -2242,6 +2246,67 @@ inline void doLeakDetectionPolicyGet(
         boost::urls::format("/redfish/v1/Chassis/{}/Oem/Nvidia/Policies",
                             chassisId);
 }
+inline std::optional<std::string> epochSecondsToRfc3339(uint64_t epochSeconds)
+{
+    // Guard against time_t overflow (important if time_t is 32-bit)
+    if (epochSeconds >
+        static_cast<uint64_t>(std::numeric_limits<std::time_t>::max()))
+    {
+        return std::nullopt;
+    }
+
+    const std::time_t t = static_cast<std::time_t>(epochSeconds);
+
+    std::tm utc{};
+    if (gmtime_r(&t, &utc) == nullptr)
+    {
+        return std::nullopt;
+    }
+
+    // "YYYY-MM-DDTHH:MM:SSZ" is 20 chars (+ '\0')
+    std::array<char, 32> buf{};
+    const size_t n =
+        std::strftime(buf.data(), buf.size(), "%Y-%m-%dT%H:%M:%SZ", &utc);
+    if (n == 0)
+    {
+        return std::nullopt;
+    }
+
+    return std::string(buf.data(), n);
+}
+
+inline void populateLastIntrusionDetected(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    dbus::utility::getProperty<uint64_t>(
+        "xyz.openbmc_project.IntrusionSensor",
+        "/xyz/openbmc_project/Chassis/Intrusion",
+        "xyz.openbmc_project.Time.EpochTime", "Elapsed",
+        [asyncResp, chassisPath](const boost::system::error_code& ec,
+                                 const uint64_t& epochSeconds) {
+            if (ec)
+            {
+                return;
+            }
+
+            std::optional<std::string> formattedTimestamp =
+                epochSecondsToRfc3339(epochSeconds);
+            if (!formattedTimestamp)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["LastIntrusionDetected"] =
+                    nullptr;
+                BMCWEB_LOG_WARNING(
+                    "Failed to convert epoch seconds to RFC3339 for {}",
+                    chassisPath);
+                return;
+            }
+
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["LastIntrusionDetected"] =
+                *formattedTimestamp;
+        });
+}
 
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3176,6 +3241,8 @@ inline void populateChassisLinksOemAndStatus(
     if (chassisId == BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT)
     {
         redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
+        redfish::nvidia_chassis_utils::populateLastIntrusionDetected(
+            asyncResp, objPath);
     }
 #endif
     // get network adapter
