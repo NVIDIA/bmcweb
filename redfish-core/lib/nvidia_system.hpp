@@ -110,7 +110,7 @@ inline void handleSystemProcessorDiagCapabilitiesActionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + systemName +
         "/Oem/Nvidia/ProcessorDiagCapabilitiesActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_5_0.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagMode Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagModeActionInfo";
 
@@ -119,7 +119,7 @@ inline void handleSystemProcessorDiagCapabilitiesActionGet(
 
     parameter["Name"] = "DiagMode";
     parameter["Required"] = true;
-    parameter["DataType"] = "boolean";
+    parameter["DataType"] = "Boolean";
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("Enable");
     allowableValues.emplace_back("Disable");
@@ -179,7 +179,7 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
         std::string("/redfish/v1/Systems/")
             .append(systemName)
             .append("/Oem/Nvidia/ProcessorDiagSysConfigActionInfo");
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_5_0.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagSysConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagSysConfigActionInfo";
 
@@ -190,10 +190,9 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
         parameter["Name"] = "ConfigType";
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
-        nlohmann::json::array_t allowableValues;
-        allowableValues.emplace_back(0);
-        allowableValues.emplace_back(1);
-        parameter["AllowableValues"] = std::move(allowableValues);
+        nlohmann::json::array_t allowableNumbers;
+        allowableNumbers.emplace_back("0:1:1");
+        parameter["AllowableNumbers"] = std::move(allowableNumbers);
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -203,7 +202,7 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -214,7 +213,7 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
         parameter["DataType"] = "NumberArray";
         parameter["ArraySizeMaximum"] = 199;
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -271,7 +270,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         std::string("/redfish/v1/Systems/")
             .append(systemName)
             .append("/Oem/Nvidia/ProcessorDiagTidConfigActionInfo");
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_5_0.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagTidConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagTidConfigActionInfo";
 
@@ -283,7 +282,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -293,7 +292,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -303,7 +302,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 65535;
+        parameter["MaximumValue"] = 65535;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -313,7 +312,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -323,7 +322,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["Required"] = true;
         parameter["DataType"] = "Number";
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
@@ -334,7 +333,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
         parameter["DataType"] = "NumberArray";
         parameter["ArraySizeMaximum"] = 194;
         parameter["MinimumValue"] = 0;
-        parameter["MaximunValue"] = 255;
+        parameter["MaximumValue"] = 255;
         parameters.emplace_back(std::move(parameter));
     }
 
