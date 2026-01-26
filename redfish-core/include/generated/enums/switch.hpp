@@ -3,7 +3,7 @@
 #pragma once
 #include <nlohmann/json.hpp>
 
-namespace switch
+namespace rf_switch
 {
 // clang-format off
 
