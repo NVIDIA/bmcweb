@@ -116,15 +116,19 @@ inline bool onSpiEvent(const boost::system::error_code& ec,
     if (status != nullptr)
     {
         BMCWEB_LOG_DEBUG("Status changed to {}", *status);
-        if (*status != "xyz.openbmc_project.Common.Progress.Status.InProgress")
+        if (*status !=
+            "xyz.openbmc_project.Common.Progress.OperationStatus.InProgress")
         {
-            if (*status == "xyz.openbmc_project.Common.Progress.Status.Aborted")
+            if (*status ==
+                "xyz.openbmc_project.Common.Progress.OperationStatus.Aborted")
             {
                 std::string index = std::to_string(taskData->index);
                 taskData->messages.emplace_back(messages::taskAborted(index));
                 taskData->state = "Aborted";
             }
-            if (*status == "xyz.openbmc_project.Common.Progress.Status.Failed")
+            else if (
+                *status ==
+                "xyz.openbmc_project.Common.Progress.OperationStatus.Failed")
             {
                 taskData->messages.emplace_back(messages::internalError());
                 taskData->state = "Exception";
