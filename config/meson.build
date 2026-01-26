@@ -274,11 +274,6 @@ conf_data.set(
     string_options_string + int_options_string + feature_options_string,
 )
 
-conf_data.set_quoted(
-    'ROT_CHASSIS_ALLOWLIST_JSON',
-    join_paths(package_datadir, 'rot_chassis_properties_allowlist.json'),
-)
-
 conf_data.set('BMCWEB_TLS_CACERT_PATH', get_option('tls-cacert-path'))
 
 conf_h_dep = declare_dependency(

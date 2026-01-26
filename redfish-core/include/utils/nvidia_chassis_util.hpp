@@ -2794,355 +2794,6 @@ inline void getChassisRelatedItem(
         });
 }
 
-enum class InBandOption
-{
-    BackgroundCopyStatus,
-    setBackgroundCopyEnabled,
-    setInBandEnabled,
-};
-
-inline AllowListMap getRoTChassisAllowListMap()
-{
-    using Json = nlohmann::json;
-    namespace fs = std::filesystem;
-    static std::map<std::string, std::vector<std::string>> allowListMap{};
-
-    if (not allowListMap.empty())
-    {
-        return allowListMap;
-    }
-
-    std::string configPath(BMCWEB_FW_ROT_CHASSIS_ALLOWLIST_JSON);
-    if (!fs::exists(configPath))
-    {
-        BMCWEB_LOG_ERROR("The file doesn't exist: {}", configPath);
-        return allowListMap;
-    }
-    BMCWEB_LOG_DEBUG("Found config file path {}", configPath);
-
-    std::ifstream jsonFile(configPath);
-    auto data = Json::parse(jsonFile, nullptr, false);
-    if (data.is_discarded())
-    {
-        BMCWEB_LOG_ERROR("Unable to parse json data {}", configPath);
-        return allowListMap;
-    }
-
-    allowListMap = data.get<std::map<std::string, std::vector<std::string>>>();
-    return allowListMap;
-}
-
-/**
- *@brief Function to check if the chassis id belongs in
- *       the allow list for the property
- *
- * @param chassisId   Chassis Id
- * @param property   Chassis property to check for
- *
- * @return bool True if the id is present in the allow list,
- *              False otherwise
- */
-inline bool isChassisIdInAllowList(const std::string& chassisId,
-                                   const std::string& property)
-{
-    const auto& allowListMap = getRoTChassisAllowListMap();
-    if (!allowListMap.contains(property))
-    {
-        return false;
-    }
-    return (std::find(allowListMap.at(property).begin(),
-                      allowListMap.at(property).end(), chassisId) !=
-            allowListMap.at(property).end());
-}
-
-/**
- *@brief handles all calls to ERoT mctp UUID for
- *      setBackgroundCopyEnabled, setInBandEnabled,
- *      and getBackgroundCopyAndInBandInfo
- *
- * @param req   Pointer to object holding request data
- * @param asyncResp   Pointer to object holding response data
- * @param chassisUUID  Chassis UUID
- * @param option Determines which method will be called
- * @param enabled Enable or disable the background copy
- * @param chassisID  Chassis ID
-
- *
- * @return None.
- */
-
-inline void handleMctpInBandActions(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisUUID, const InBandOption option,
-    bool enabled = false, const std::string& chassisId = "")
-{
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "org.freedesktop.DBus.ObjectManager"};
-
-    switch (option)
-    {
-        case InBandOption::BackgroundCopyStatus:
-        {
-            nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-            oem["@odata.type"] = "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
-
-            redfish::getChassisListForInBand(
-                asyncResp,
-                [asyncResp, chassisId](const std::vector<std::string>&
-                                           inbandUpdatePolicyAllowList) {
-                    updateInBandEnabled(asyncResp, inbandUpdatePolicyAllowList,
-                                        chassisId);
-                });
-
-            break;
-        }
-        case InBandOption::setInBandEnabled:
-        {
-            redfish::getChassisListForInBand(
-                asyncResp, [asyncResp, enabled, chassisId](
-                               const std::vector<std::string>&
-                                   inbandUpdatePolicyAllowList) {
-                    auto itAllowList =
-                        std::find(inbandUpdatePolicyAllowList.begin(),
-                                  inbandUpdatePolicyAllowList.end(), chassisId);
-                    if (itAllowList != inbandUpdatePolicyAllowList.end())
-                    {
-                        enableInBand(asyncResp, enabled, chassisId);
-                    }
-                    else
-                    {
-                        messages::propertyUnknown(asyncResp->res,
-                                                  "InbandUpdatePolicyEnabled");
-                    }
-                });
-            return;
-        }
-        case InBandOption::setBackgroundCopyEnabled:
-        {
-            // This case is handled in the nested switch statement below
-            break;
-        }
-        default:
-        {
-            // Handle unexpected enum values
-            BMCWEB_LOG_DEBUG("Unexpected InBandOption enum value: {}",
-                             static_cast<int>(option));
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    }
-
-    dbus::utility::getDbusObject(
-        "/au/com/codeconstruct/mctp1", interfaces,
-        [&req, asyncResp, chassisId, chassisUUID, option,
-         enabled](const boost::system::error_code& ec,
-                  const dbus::utility::MapperGetObject& resp) mutable {
-            if (ec || resp.empty())
-            {
-                BMCWEB_LOG_WARNING(
-                    "DBUS response error during getting of service name: {}",
-                    ec);
-                return;
-            }
-            auto chassisProcessed = std::make_shared<bool>(false);
-            for (const auto& it : resp)
-            {
-                if (*chassisProcessed)
-                {
-                    return;
-                }
-                std::string serviceName = it.first;
-                crow::connections::systemBus->async_method_call(
-                    [&req, asyncResp, chassisUUID, serviceName, option, enabled,
-                     chassisId,
-                     chassisProcessed](const boost::system::error_code& ec2,
-                                       const dbus::utility::ManagedObjectType&
-                                           managedObjects) {
-                        if (ec2)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "DBUS response error for MCTP.Control");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        const uint8_t* eid = nullptr;
-                        const std::string* uuid = nullptr;
-                        const std::vector<uint8_t>* supportedMsgTypes = nullptr;
-                        bool foundEID = false;
-
-                        for (const auto& objectPath : managedObjects)
-                        {
-                            bool isMctpEp = false;
-                            for (const auto& interfaceMap : objectPath.second)
-                            {
-                                if (interfaceMap.first ==
-                                    "xyz.openbmc_project.Common.UUID")
-                                {
-                                    for (const auto& propertyMap :
-                                         interfaceMap.second)
-                                    {
-                                        if (propertyMap.first == "UUID")
-                                        {
-                                            uuid = std::get_if<std::string>(
-                                                &propertyMap.second);
-                                        }
-                                    }
-                                }
-
-                                if (interfaceMap.first ==
-                                    "xyz.openbmc_project.MCTP.Endpoint")
-                                {
-                                    isMctpEp = true;
-                                    for (const auto& propertyMap :
-                                         interfaceMap.second)
-                                    {
-                                        if (propertyMap.first == "EID")
-                                        {
-                                            eid = std::get_if<uint8_t>(
-                                                &propertyMap.second);
-                                        }
-                                        else if (propertyMap.first ==
-                                                 "SupportedMessageTypes")
-                                        {
-                                            supportedMsgTypes = std::get_if<
-                                                std::vector<uint8_t>>(
-                                                &propertyMap.second);
-                                        }
-                                    }
-                                }
-                            }
-
-                            // only check EID and UUID if it's a MCTP
-                            // endpoint
-                            if (!isMctpEp)
-                            {
-                                continue;
-                            }
-
-                            // only check EID if it's a MCTP endpoint
-                            if (eid == nullptr)
-                            {
-                                BMCWEB_LOG_DEBUG(
-                                    "handleMctpInBandActions: EID not found");
-                                continue;
-                            }
-                            if (uuid && (*uuid) == chassisUUID &&
-                                supportedMsgTypes)
-                            {
-                                if (std::find(supportedMsgTypes->begin(),
-                                              supportedMsgTypes->end(),
-                                              mctpTypeVDMIANA) !=
-                                    supportedMsgTypes->end())
-                                {
-                                    foundEID = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (foundEID and not *chassisProcessed)
-                        {
-                            *chassisProcessed = true;
-                            switch (option)
-                            {
-                                case InBandOption::BackgroundCopyStatus:
-                                {
-                                    const auto& allowListMap =
-                                        getRoTChassisAllowListMap();
-                                    nlohmann::json& oem =
-                                        asyncResp->res
-                                            .jsonValue["Oem"]["Nvidia"];
-                                    oem["@odata.type"] =
-                                        "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
-
-                                    // Calling the following methods,
-                                    // updateInBandEnabled,
-                                    // updateBackgroundCopyEnabled, and
-                                    // updateBackgroundCopyStatus
-                                    // asynchronously, may cause
-                                    // unpredictable behavior. These methods
-                                    // use 'mctp-vdm-util', which is not
-                                    // designed to handle more than one
-                                    // request at the same time. Running
-                                    // more than one command simultaneously
-                                    // may result in output from a previous
-                                    // (or another) request. The fix
-                                    // addresses this issue by changing the
-                                    // way the functions are called,
-                                    // simulating synchronous execution by
-                                    // invoking each command sequentially
-                                    // instead of simultaneously.
-
-                                    uint32_t endpointId = *eid;
-                                    if (allowListMap.empty())
-                                    {
-                                        break;
-                                    }
-
-                                    std::vector<std::string>
-                                        automaticBackgroundCopyAllowList{};
-                                    std::vector<std::string>
-                                        backgroundCopyStatusAllowList{};
-
-                                    if (allowListMap.contains(
-                                            "AutomaticBackgroundCopyEnabled"))
-                                    {
-                                        automaticBackgroundCopyAllowList =
-                                            allowListMap.at(
-                                                "AutomaticBackgroundCopyEnabled");
-                                    }
-                                    if (allowListMap.contains(
-                                            "BackgroundCopyStatus"))
-                                    {
-                                        backgroundCopyStatusAllowList =
-                                            allowListMap.at(
-                                                "BackgroundCopyStatus");
-                                    }
-                                    updateBackgroundCopyEnabled(
-                                        req, asyncResp, endpointId,
-                                        automaticBackgroundCopyAllowList,
-                                        chassisId,
-                                        [&req, asyncResp, endpointId,
-                                         backgroundCopyStatusAllowList,
-                                         chassisId]() {
-                                            updateBackgroundCopyStatus(
-                                                req, asyncResp, endpointId,
-                                                backgroundCopyStatusAllowList,
-                                                chassisId);
-                                        });
-                                    break;
-                                }
-                                case InBandOption::setBackgroundCopyEnabled:
-                                    if (isChassisIdInAllowList(
-                                            chassisId,
-                                            "AutomaticBackgroundCopyEnabled"))
-                                    {
-                                        enableBackgroundCopy(req, asyncResp,
-                                                             *eid, enabled,
-                                                             chassisId);
-                                        break;
-                                    }
-                                    messages::propertyUnknown(
-                                        asyncResp->res,
-                                        "AutomaticBackgroundCopyEnabled");
-                                    return;
-                                case InBandOption::setInBandEnabled:
-                                    return;
-                                default:
-                                    BMCWEB_LOG_DEBUG(
-                                        "Invalid enum provided for inNand mctp access");
-                                    break;
-                            }
-                        }
-                    },
-                    serviceName, "/au/com/codeconstruct/mctp1",
-                    "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
-            }
-        });
-}
-
 /**
  * @brief Retrieves Oem BootStatus code for the chassis endpoint
  * @param asyncResp   Pointer to object holding response data
@@ -3236,82 +2887,81 @@ inline void getOemBootStatus(
 }
 
 /**
- *@brief Sets the background copy for particular chassis
- *
- * @param req   Pointer to object holding request data
- * @param asyncResp   Pointer to object holding response data
- * @param chassisUUID  Chassis ID
- * @param enabled Enable or disable the background copy
- *
- * @return None.
- */
-inline void setBackgroundCopyEnabled(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& chassisUUID, bool enabled)
-{
-    handleMctpInBandActions(req, asyncResp, chassisUUID,
-                            InBandOption::setBackgroundCopyEnabled, enabled,
-                            chassisId);
-}
-
-/**
  *@brief Sets in-band for particular chassis
  *
- * @param req   Pointer to object holding request data
  * @param asyncResp   Pointer to object holding response data
- * @param chassisUUID  Chassis ID
+ * @param chassisId  Chassis ID
+ * @param enabled Enable or disable the in-band
  *
  * @return None.
  */
 inline void setInBandEnabled(
-    const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& chassisUUID, bool enabled)
+    const std::string& chassisId, bool enabled)
 {
-    handleMctpInBandActions(req, asyncResp, chassisUUID,
-                            InBandOption::setInBandEnabled, enabled, chassisId);
+    redfish::getChassisListForInBand(
+        asyncResp,
+        [asyncResp, enabled, chassisId](
+            const std::vector<std::string>& inbandUpdatePolicyAllowList) {
+            auto itAllowList =
+                std::find(inbandUpdatePolicyAllowList.begin(),
+                          inbandUpdatePolicyAllowList.end(), chassisId);
+            if (itAllowList != inbandUpdatePolicyAllowList.end())
+            {
+                enableInBand(asyncResp, enabled, chassisId);
+            }
+            else
+            {
+                messages::propertyUnknown(asyncResp->res,
+                                          "InbandUpdatePolicyEnabled");
+            }
+        });
 }
 
 /**
  *@brief Gets background copy and in-band info for particular chassis
  *
- * @param req   Pointer to object holding request data
  * @param asyncResp   Pointer to object holding response data
- * @param chassisUUID  Chassis UUID
- * @param chassisID  Chassis ID
+ * @param chassisId  Chassis ID
  *
  * @return None.
  */
 inline void getBackgroundCopyAndInBandInfo(
-    const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisUUID, const std::string& chassisId)
+    const std::string& chassisId)
 {
-    handleMctpInBandActions(req, asyncResp, chassisUUID,
-                            InBandOption::BackgroundCopyStatus, false,
-                            chassisId);
+    nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oem["@odata.type"] = "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
+
+    redfish::getChassisListForInBand(
+        asyncResp,
+        [asyncResp, chassisId](
+            const std::vector<std::string>& inbandUpdatePolicyAllowList) {
+            updateInBandEnabled(asyncResp, inbandUpdatePolicyAllowList,
+                                chassisId);
+        });
+
+    populateBackgroundCopyPolicy(asyncResp, chassisId);
 }
 
 /**
  * @brief Get the Chassis UUID
  *
- * @param req - Pointer to object holding request data
  * @param asyncResp - Pointer to object holding response data
  * @param connectionName - connection name
  * @param path - D-Bus path
- * @param isERoT - true: ERoT resource. false: not a ERoT
+ *
+ * @return None.
  */
-inline void getChassisUUID(const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getChassisUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
-                           const std::string& path, bool isERoT = false)
+                           const std::string& path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.UUID", "UUID",
-        [&req, asyncResp, isERoT, path](const boost::system::error_code& ec,
-                                        const std::string& chassisUUID) {
+        [asyncResp, path](const boost::system::error_code& ec,
+                          const std::string& chassisUUID) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for UUID");
@@ -3319,14 +2969,6 @@ inline void getChassisUUID(const crow::Request& req,
                 return;
             }
             asyncResp->res.jsonValue["UUID"] = chassisUUID;
-
-            if (isERoT)
-            {
-                auto chassisId =
-                    sdbusplus::message::object_path(path).filename();
-                getBackgroundCopyAndInBandInfo(req, asyncResp, chassisUUID,
-                                               chassisId);
-            }
         });
 }
 

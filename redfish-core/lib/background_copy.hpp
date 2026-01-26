@@ -20,321 +20,204 @@
 #include "error_messages.hpp"
 #include "mctp_vdm_util_wrapper.hpp"
 #include "nvidia_error_messages.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
 
-#include <regex>
+#include <sdbusplus/message/native_types.hpp>
+
+#include <functional>
+
+static constexpr std::string_view chassisDBusPath =
+    "/xyz/openbmc_project/inventory/system/chassis/";
+
+static constexpr std::string_view imageCopyPolicyInterface =
+    "com.nvidia.ImageCopyPolicy";
+
 /**
- *@brief updates AutomaticBackgroundCopyEnabled property
+ * @brief Callback for image copy policy patch operation
  *
- * @param req - Pointer to object holding request data
- * @param asyncResp - Pointer to object holding response data
- * @param endpointId the EID which is used
- * by mctp-vdm-util tool to call request on MCTP
- * @param allowList - List containing allowable chassis Ids
- * @param chassisId - chassisId
- * @param[in] callback - A callback function to be called after update
- *AutomaticBackgroundCopyEnabled property
- * @return
+ * @param asyncResp Pointer to object holding response data
+ * @param objectPath D-Bus object path being updated
+ * @param status Async operation status result
  */
-inline void updateBackgroundCopyEnabled(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
-    const auto& allowList, const std::string& chassisId,
-    const std::function<void()>& callback = {})
+inline void patchImageCopyPolicyCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& status)
 {
-    MctpVdmUtil mctpVdmUtilWrapper(endpointId);
+    using namespace redfish::nvidia_async_operation_utils;
 
-    auto responseCallback =
-        [callback]([[maybe_unused]] const crow::Request& reqIn,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-                   [[maybe_unused]] uint32_t endpointIdIn,
-                   const std::string& stdOut,
-                   [[maybe_unused]] const std::string& stdErr,
-                   const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
-        {
-            return;
-        }
-        nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
-
-        std::string rxTemplate = "(.|\n)*RX:( \\d\\d){9} 01(.|\n)*";
-        if (std::regex_match(stdOut, std::regex(rxTemplate)))
-        {
-            oem["AutomaticBackgroundCopyEnabled"] = true;
-        }
-        else
-        {
-            oem["AutomaticBackgroundCopyEnabled"] = false;
-        }
-
-        if (callback)
-        {
-            callback();
-        }
-
-        return;
-    };
-    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
-        allowList.end())
+    if (status == asyncStatusValueSuccess)
     {
-        if (callback)
-        {
-            callback();
-        }
+        BMCWEB_LOG_INFO(
+            "Successfully updated ImageCopyPolicy for object path '{}'",
+            objectPath);
+        redfish::messages::success(asyncResp->res);
+        return;
+    }
+
+    BMCWEB_LOG_ERROR(
+        "Failed to update ImageCopyPolicy for object path '{}': status={}",
+        objectPath, status);
+
+    if (status == asyncStatusValueWriteFailure)
+    {
+        redfish::messages::operationFailed(asyncResp->res);
+    }
+    else if (status == asyncStatusValueUnavailable)
+    {
+        std::string errBusy = "0x50A";
+        std::string errBusyResolution =
+            "ImageCopyPolicy Command failed with error busy, please try after 60 seconds";
+        redfish::messages::asyncError(asyncResp->res, errBusy,
+                                      errBusyResolution);
+    }
+    else if (status == asyncStatusValueTimeout)
+    {
+        std::string errTimeout = "0x600";
+        std::string errTimeoutResolution =
+            "Settings may/maynot have applied, please check get response before patching";
+        redfish::messages::asyncError(asyncResp->res, errTimeout,
+                                      errTimeoutResolution);
     }
     else
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_STATUS,
-                               std::monostate(), req, asyncResp,
-                               responseCallback);
+        redfish::messages::internalError(asyncResp->res);
     }
 }
 
 /**
- *@brief Updates status of background copy property pending or completed.
+ * @brief Callback to handle ImageCopyPolicy property retrieval result
  *
- * @param req - Pointer to object holding request data
- * @param asyncResp - Pointer to object holding response data
- * @param endpointId the EID which is used by mctp-vdm-util tool to call request
- *on MCTP
- * @param allowList - List containing allowable chassis Ids
- * @param chassisId - chassisId
- * @param[in] callback - A callback function to be called after update
- *BackgroundCopyStatus property
- *
- * @return
+ * @param asyncResp Pointer to object holding response data
+ * @param objectPath D-Bus object path being queried
+ * @param ec Error code from the D-Bus property get call
+ * @param propertyValue The ImageCopyPolicy property value
  */
-inline void updateBackgroundCopyStatusPending(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
-    const auto& allowList, const std::string& chassisId,
-    const std::function<void()>& callback = {})
+inline void getImageCopyPolicyCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const boost::system::error_code& ec,
+    const std::string& propertyValue)
 {
-    MctpVdmUtil mctpVdmUtilWrapper(endpointId);
-    auto bgCopyQueryResponseCallback =
-        [callback]([[maybe_unused]] const crow::Request& reqIn,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-                   [[maybe_unused]] uint32_t endpointIdIn,
-                   const std::string& stdOut,
-                   [[maybe_unused]] const std::string& stdErr,
-                   const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
-        {
-            return;
-        }
-        std::string rxTemplatePending = "(.|\n)*RX:( \\d\\d){9} 02(.|\n)*";
-        nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
-        if (std::regex_match(stdOut, std::regex(rxTemplatePending)))
-        {
-            oem["BackgroundCopyStatus"] = "Pending";
-        }
-        else
-        {
-            oem["BackgroundCopyStatus"] = "Completed";
-        }
-
-        if (callback)
-        {
-            callback();
-        }
-
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Failed to get the ImageCopyPolicy property for object path '{}': {}",
+            objectPath, ec.message());
+        redfish::messages::resourceErrorsDetectedFormatError(
+            asyncResp->res, objectPath, ec.message());
         return;
-    };
-    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
-        allowList.end())
-    {
-        if (callback)
-        {
-            callback();
-        }
     }
-    else
+
+    if (!asyncResp->res.jsonValue.contains("Oem"))
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PENDING,
-                               std::monostate(), req, asyncResp,
-                               std::move(bgCopyQueryResponseCallback));
+        asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
+    }
+    if (!asyncResp->res.jsonValue["Oem"].contains("Nvidia"))
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
+    }
+
+    nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+
+    if (propertyValue ==
+        "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Automatic")
+    {
+        oem["AutomaticBackgroundCopyEnabled"] = true;
+    }
+
+    if (propertyValue ==
+        "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Manual")
+    {
+        oem["AutomaticBackgroundCopyEnabled"] = false;
     }
 }
 
 /**
- *@brief Updates status of background copy property
+ *@brief Populates the AutomaticBackgroundCopyEnabled property based on
+ * ImageCopyPolicy
  *
- * @param req - Pointer to object holding request data
- * @param asyncResp - Pointer to object holding response data
- * @param endpointId the EID which is used
- * by mctp-vdm-util tool to call request on MCTP
- * @param allowList - List containing allowable chassis Ids
- * @param chassisId - chassisId
- * @param[in] callback - A callback function to be called after update
- *BackgroundCopyStatus property
+ * @param asyncResp Pointer to object holding response data
+ * @param chassisId chassisId
  *
- * @return
+ * @return None.
  */
-inline void updateBackgroundCopyStatus(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
-    const auto& allowList, const std::string& chassisId,
-    const std::function<void()>& callback = {})
+inline void populateBackgroundCopyPolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
-    MctpVdmUtil mctpVdmUtilWrapper(endpointId);
-    auto bgCopyQueryResponseCallback =
-        [callback, allowList, chassisId, &req, asyncResp, endpointId](
-            [[maybe_unused]] const crow::Request& reqIn,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-            [[maybe_unused]] uint32_t endpointIdIn, const std::string& stdOut,
-            [[maybe_unused]] const std::string& stdErr,
-            const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
-        {
-            redfish::messages::internalError(asyncRespIn->res);
-            return;
-        }
+    sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
+    objectPath /= chassisId;
 
-        std::string rxTemplateCompleted = "(.|\n)*RX:( \\d\\d){9} 01(.|\n)*";
-        std::string rxTemplateInProgress = "(.|\n)*RX:( \\d\\d){9} 02(.|\n)*";
-        if (std::regex_match(stdOut, std::regex(rxTemplateCompleted)))
-        {
-            updateBackgroundCopyStatusPending(req, asyncResp, endpointId,
-                                              allowList, chassisId);
-        }
-        else if (std::regex_match(stdOut, std::regex(rxTemplateInProgress)))
-        {
-            nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
-            oem["BackgroundCopyStatus"] = "InProgress";
-
-            if (callback)
+    dbus::utility::getDbusObject(
+        objectPath, std::array<std::string_view, 1>{imageCopyPolicyInterface},
+        [asyncResp, objectPath](const boost::system::error_code& ec,
+                                const dbus::utility::MapperGetObject& object) {
+            if (ec)
             {
-                callback();
+                BMCWEB_LOG_DEBUG(
+                    "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist",
+                    objectPath.str);
+                return;
             }
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR(
-                "Invalid response for background_copy_query_progress: {}",
-                stdOut);
-        }
-        return;
-    };
 
-    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
-        allowList.end())
-    {
-        if (callback)
-        {
-            callback();
-        }
-    }
-    else
-    {
-        mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS, std::monostate(),
-            req, asyncResp, bgCopyQueryResponseCallback);
-    }
+            const std::string& service = object.front().first;
+
+            dbus::utility::getProperty<std::string>(
+                *crow::connections::systemBus, service, objectPath,
+                std::string(imageCopyPolicyInterface), "ImageCopyPolicy",
+                std::bind_front(getImageCopyPolicyCallback, asyncResp,
+                                objectPath.str));
+        });
 }
 
 /**
- *@brief Enable or Disable background copy
+ *@brief Updates the background copy policy (Automatic or Manual)
  *
- * @param req - Pointer to object holding request data
- * @param asyncResp - Pointer to object holding response data
- * @param endpointId the EID which is used
- * by mctp-vdm-util tool to call request on MCTP
- * @param enabled Enable or disable the background copy
+ * @param asyncResp Pointer to object holding response data
+ * @param enabled Enable (Automatic) or disable (Manual) the background copy
  * @param chassisID Chassis Id
  *
- * @return exit code form mctp-vdm-tool.
+ * @return None.
  */
-inline void enableBackgroundCopy(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
-    bool enabled, const std::string& chassisId)
+inline void updateBackgroundCopyPolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool enabled,
+    const std::string& chassisId)
 {
-    MctpVdmUtil mctpVdmUtilWrapper(endpointId);
+    sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
+    objectPath /= chassisId;
 
-    auto responseCallback =
-        [enabled, chassisId](
-            [[maybe_unused]] const crow::Request& reqIn,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-            [[maybe_unused]] uint32_t endpointIdIn,
-            [[maybe_unused]] const std::string& stdOut,
-            [[maybe_unused]] const std::string& stdErr,
-            const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode != 0)
-        {
-            const std::string errorMessage =
-                (enabled) ? "MCTP Command Failure: Background Copy Enable"
-                          : "MCTP Command Failure: Background Copy Disable";
-
-            redfish::messages::resourceErrorsDetectedFormatError(
-                asyncRespIn->res, "/redfish/v1/Chassis/" + chassisId,
-                errorMessage);
-            return;
-        }
-        if (asyncRespIn->res.jsonValue.empty())
-        {
-            redfish::messages::success(asyncRespIn->res);
-        }
-    };
-
-    if (enabled)
-    {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_ENABLE,
-                               std::monostate(), req, asyncResp,
-                               responseCallback);
-    }
-    else
-    {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_DISABLE,
-                               std::monostate(), req, asyncResp,
-                               responseCallback);
-    }
-}
-
-/**
- *@brief Execute backgroundcopy_init command
- *
- * @param req - Pointer to object holding request data
- * @param asyncResp - Pointer to object holding response data
- * @param endpointId the EID which is used
- * @param inventoryURI - inventory uri
- * by mctp-vdm-util tool to call request on MCTP
- *
- * @return exit code form mctp-vdm-tool.
- */
-inline void initBackgroundCopy(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
-    const std::string& inventoryURI)
-{
-    MctpVdmUtil mctpVdmUtilWrapper(endpointId);
-    auto responseCallback =
-        [inventoryURI](
-            [[maybe_unused]] const crow::Request& reqIn,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-            [[maybe_unused]] uint32_t endpointIdIn,
-            [[maybe_unused]] const std::string& stdOut,
-            [[maybe_unused]] const std::string& stdErr,
-            const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode != 0)
-        {
-            redfish::messages::resourceErrorsDetectedFormatError(
-                asyncRespIn->res, inventoryURI,
-                "MCTP Command Failure: Background Copy Init");
-            // remove ExtendedInfo messages which contains success message entry
-            // in the response
-            if (asyncRespIn->res.jsonValue.contains("@Message.ExtendedInfo"))
+    dbus::utility::getDbusObject(
+        objectPath, std::array<std::string_view, 1>{imageCopyPolicyInterface},
+        [asyncResp, chassisId, objectPath,
+         enabled](const boost::system::error_code& ec,
+                  const dbus::utility::MapperGetObject& object) {
+            if (ec)
             {
-                asyncRespIn->res.jsonValue.erase("@Message.ExtendedInfo");
+                BMCWEB_LOG_ERROR(
+                    "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist",
+                    objectPath.str);
+                redfish::messages::resourceErrorsDetectedFormatError(
+                    asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
+                    ec.message());
+                return;
             }
-            return;
-        }
-        // update success if message is response is not filled
-        if (asyncRespIn->res.jsonValue.empty())
-        {
-            redfish::messages::success(asyncRespIn->res);
-        }
-    };
-    BMCWEB_LOG_INFO("Initializing background init for inventoryURI:{}",
-                    inventoryURI);
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT,
-                           std::monostate(), req, asyncResp, responseCallback);
+
+            const std::string& service = object.front().first;
+
+            std::string policyValue =
+                enabled
+                    ? "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Automatic"
+                    : "com.nvidia.ImageCopyPolicy.ImageCopyPolicyState.Manual";
+
+            BMCWEB_LOG_DEBUG(
+                "Updating ImageCopyPolicy for object path '{}' to '{}'",
+                objectPath.str, policyValue);
+
+            redfish::nvidia_async_operation_utils::
+                doGenericSetAsyncAndGatherResult(
+                    asyncResp, std::chrono::seconds(60), service, objectPath,
+                    std::string(imageCopyPolicyInterface), "ImageCopyPolicy",
+                    std::variant<std::string>(policyValue),
+                    std::bind_front(patchImageCopyPolicyCallback, asyncResp,
+                                    objectPath.str));
+        });
 }

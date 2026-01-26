@@ -282,6 +282,9 @@ inline void getEROTChassis(const crow::Request& req,
         [&req, asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
+            [[maybe_unused]] const auto& reqRef = req;
+            [[maybe_unused]] const auto cpuEROT = isCpuEROT;
+
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -448,6 +451,9 @@ inline void getEROTChassis(const crow::Request& req,
                 firmware_info::updateIrreversibleConfigEnabled(asyncResp,
                                                                chassisId);
 
+                redfish::nvidia_chassis_utils::getBackgroundCopyAndInBandInfo(
+                    asyncResp, chassisId);
+
                 // Might have 2+ services to support different properties
                 for (const auto& connectionName : connectionNames)
                 {
@@ -458,8 +464,7 @@ inline void getEROTChassis(const crow::Request& req,
                         if (interface == "xyz.openbmc_project.Common.UUID")
                         {
                             redfish::nvidia_chassis_utils::getChassisUUID(
-                                req, asyncResp, connectionName.first, path,
-                                true);
+                                asyncResp, connectionName.first, path);
                         }
                         else if (
                             interface ==
@@ -530,10 +535,6 @@ inline void getEROTChassis(const crow::Request& req,
                     {
                         manual_boot::bootModeQuery(req, asyncResp, chassisId);
                     }
-                }
-                else
-                {
-                    (void)isCpuEROT;
                 }
                 return;
             }
@@ -689,7 +690,6 @@ inline void handleEROTChassisPatch(
     {
         return;
     }
-
     std::optional<nlohmann::json> oemObject;
 
     if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oemObject))
@@ -697,15 +697,19 @@ inline void handleEROTChassisPatch(
         return;
     }
 
-    std::optional<nlohmann::json> oemNvidiaObject;
-
     if (!oemObject.has_value())
     {
         return;
     }
 
+    std::optional<nlohmann::json> oemNvidiaObject;
     if (!json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
                              oemNvidiaObject))
+    {
+        return;
+    }
+
+    if (!oemNvidiaObject.has_value())
     {
         return;
     }
@@ -713,12 +717,6 @@ inline void handleEROTChassisPatch(
     std::optional<bool> backgroundCopyEnabled;
     std::optional<bool> inBandEnabled;
     std::optional<bool> manualBootModeEnabled;
-
-    if (!oemNvidiaObject.has_value())
-    {
-        return;
-    }
-
     if (!json_util::readJson(
             *oemNvidiaObject, asyncResp->res, "ManualBootModeEnabled",
             manualBootModeEnabled, "AutomaticBackgroundCopyEnabled",
@@ -746,72 +744,18 @@ inline void handleEROTChassisPatch(
     {
         return;
     }
-    const std::array<const char*, 1> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
-    crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, chassisId(std::string(chassisId)),
-         backgroundCopyEnabled,
-         inBandEnabled](const boost::system::error_code& ec,
-                        const dbus::utility::GetSubTreeType& subtree) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            // Iterate over all retrieved ObjectPaths.
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     object : subtree)
-            {
-                const std::string& path = object.first;
-                const std::vector<
-                    std::pair<std::string, std::vector<std::string>>>&
-                    connectionNames = object.second;
 
-                sdbusplus::message::object_path objPath(path);
-                if (objPath.filename() != chassisId)
-                {
-                    continue;
-                }
+    if (backgroundCopyEnabled.has_value())
+    {
+        updateBackgroundCopyPolicy(asyncResp, backgroundCopyEnabled.value(),
+                                   chassisId);
+    }
 
-                for (const auto& connection : connectionNames)
-                {
-                    sdbusplus::asio::getProperty<std::string>(
-                        *crow::connections::systemBus, connection.first, path,
-                        "xyz.openbmc_project.Common.UUID", "UUID",
-                        [&req, asyncResp, chassisId(std::string(chassisId)),
-                         backgroundCopyEnabled,
-                         inBandEnabled](const boost::system::error_code ec1,
-                                        const std::string& chassisUUID) {
-                            if (ec1)
-                            {
-                                return;
-                            }
-
-                            if (backgroundCopyEnabled.has_value())
-                            {
-                                redfish::nvidia_chassis_utils::
-                                    setBackgroundCopyEnabled(
-                                        req, asyncResp, chassisId, chassisUUID,
-                                        backgroundCopyEnabled.value());
-                            }
-
-                            if (inBandEnabled.has_value())
-                            {
-                                redfish::nvidia_chassis_utils::setInBandEnabled(
-                                    req, asyncResp, chassisId, chassisUUID,
-                                    inBandEnabled.value());
-                            }
-                        });
-                }
-            }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+    if (inBandEnabled.has_value())
+    {
+        redfish::nvidia_chassis_utils::setInBandEnabled(asyncResp, chassisId,
+                                                        inBandEnabled.value());
+    }
 }
 
 inline void requestRoutesEROTChassisDOT(App& app)
