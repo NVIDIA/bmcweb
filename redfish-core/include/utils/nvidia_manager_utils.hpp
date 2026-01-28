@@ -711,14 +711,21 @@ inline void getRestrictionModeHandler(
 inline void getRestrictionModeIfSsifPresent(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
 {
-    if (ec || subtree.empty())
+    if (ec)
     {
         BMCWEB_LOG_DEBUG(
-            "DBUS getSubTree error or SSIF interface not found: {}", ec);
+            "DBUS getSubTreePaths error getting SSIF interface: {}", ec);
         return;
     }
+
+    if (subTreePaths.empty())
+    {
+        BMCWEB_LOG_DEBUG("SSIF interface not found");
+        return;
+    }
+
     dbus::utility::getDbusObject(
         restrictionModePath, restrictionModeInterfaceArray,
         std::bind_front(getRestrictionModeHandler, asyncResp,
@@ -734,8 +741,8 @@ inline void getRestrictionModeIfSsifPresent(
 inline void
     getRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/Ipmi/Channel", 0, ssifInterfaceArray,
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/Ipmi", 0, ssifInterfaceArray,
         std::bind_front(getRestrictionModeIfSsifPresent, asyncResp));
 }
 
@@ -780,15 +787,23 @@ inline void setRestrictionModeHandler(
 inline void setRestrictionModeIfSsifPresent(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& mode, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
 {
-    if (ec || subtree.empty())
+    if (ec)
     {
         BMCWEB_LOG_DEBUG(
-            "DBUS getSubTree error or SSIF interface not found: {}", ec);
+            "DBUS getSubTreePaths error getting SSIF interface: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (subTreePaths.empty())
+    {
+        BMCWEB_LOG_DEBUG("SSIF interface not found");
         messages::resourceNotFound(asyncResp->res, "RestrictionMode", "SSIF");
         return;
     }
+
     std::string dbusMode = dbusRestrictionModeFromRedfish(mode);
     if (dbusMode.empty())
     {
@@ -814,8 +829,8 @@ inline void
     setRestrictionMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& mode)
 {
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/Ipmi/Channel", 0, ssifInterfaceArray,
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/Ipmi", 0, ssifInterfaceArray,
         std::bind_front(setRestrictionModeIfSsifPresent, asyncResp, mode));
 }
 
