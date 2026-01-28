@@ -839,6 +839,12 @@ inline void afterGetDimmData(
                     // Link association to parent chassis
                     redfish::nvidia_memory::getMemoryChassisLink(asyncResp,
                                                                  path);
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        // Get DRAM refresh threshold sensors for
+                        // DramRefreshAboveThreshold property
+                        getDramRefreshSensors(asyncResp, path);
+                    }
                     // Nvidia Added Code End
                 }
                 else if (interface ==

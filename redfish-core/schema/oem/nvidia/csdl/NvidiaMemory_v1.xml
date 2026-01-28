@@ -38,6 +38,11 @@
           <Annotation Term="OData.Description" String="An indication whether row-remapping is pending."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether row-remapping is pending."/>
         </Property>
+        <Property Name="DramRefreshAboveThreshold" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether DRAM refresh rate is above the threshold."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether DRAM refresh rate is above the threshold. The value shall be true when the performance state is Normal, and false when the performance state is Throttled or Degraded."/>
+        </Property>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
