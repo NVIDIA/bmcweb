@@ -21,11 +21,56 @@
 #include "mctp_vdm_util_wrapper.hpp"
 #include "nvidia_dbus_utility.hpp"
 #include "nvidia_error_messages.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
 
 static const std::string chassisDbusPath =
     "/xyz/openbmc_project/inventory/system/chassis/";
 
-static const uint16_t errorCodeUnsupportedCommand = 5;
+static const std::string inbandUpdatePolicyInterface =
+    "com.nvidia.InbandUpdatePolicy";
+
+/**
+ * @brief Callback for in-band update policy patch operation
+ */
+class PatchInbandUpdatePolicyCallback
+{
+  public:
+    explicit PatchInbandUpdatePolicyCallback(
+        std::shared_ptr<bmcweb::AsyncResp> respIn, std::string objectPathIn) :
+        resp(std::move(respIn)), objectPath(std::move(objectPathIn))
+    {}
+
+    void operator()(const std::string& status) const
+    {
+        using namespace redfish::nvidia_async_operation_utils;
+
+        if (status == asyncStatusValueSuccess)
+        {
+            BMCWEB_LOG_INFO(
+                "Successfully updated InbandUpdatePolicy for object path '{}'",
+                objectPath);
+            redfish::messages::success(resp->res);
+            return;
+        }
+
+        BMCWEB_LOG_ERROR(
+            "Failed to update InbandUpdatePolicy for object path '{}': status={}",
+            objectPath, status);
+
+        if (status == asyncStatusValueWriteFailure)
+        {
+            redfish::messages::operationFailed(resp->res);
+        }
+        else
+        {
+            redfish::messages::internalError(resp->res);
+        }
+    }
+
+  private:
+    std::shared_ptr<bmcweb::AsyncResp> resp;
+    std::string objectPath;
+};
 
 /**
  *@brief Updates InbandUpdatePolicyEnabled property
@@ -57,7 +102,7 @@ inline void updateInBandEnabled(
 
     dbus::utility::getProperty<std::string>(
         *crow::connections::systemBus, "xyz.openbmc_project.NSM", objectPath,
-        "com.nvidia.InbandUpdatePolicy", "InbandUpdatePolicy",
+        inbandUpdatePolicyInterface, "InbandUpdatePolicy",
         [asyncResp, callback](const boost::system::error_code& ec,
                               const std::string& propertyValue) {
             if (ec)
@@ -104,50 +149,6 @@ inline void updateInBandEnabled(
 }
 
 /**
- *@brief Check and handle in-band update policy error code
- *
- * @param asyncResp - Pointer to object holding response data
- * @param objectPath - D-Bus object path for the chassis
- *
- * @return None
- */
-inline void checkInBandUpdateError(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objectPath)
-{
-    dbus::utility::getProperty<std::tuple<uint16_t, std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.NSM", objectPath,
-        "com.nvidia.InbandUpdatePolicy", "ErrorCode",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::tuple<uint16_t, std::string>& property) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("error_code = {}", ec);
-                redfish::messages::internalError(asyncResp->res);
-                return;
-            }
-
-            uint16_t errorCode = std::get<0>(property);
-
-            if (errorCode == 0)
-            {
-                redfish::messages::success(asyncResp->res);
-                return;
-            }
-
-            if (errorCode == errorCodeUnsupportedCommand)
-            {
-                std::string errorMessage = std::get<1>(property);
-                redfish::messages::operationNotAllowed(asyncResp->res,
-                                                       errorMessage);
-                return;
-            }
-
-            redfish::messages::internalError(asyncResp->res);
-        });
-}
-
-/**
  *@brief Enable or Disable in-band update policy
  *
  * @param asyncResp - Pointer to object holding response data
@@ -161,23 +162,39 @@ inline void enableInBand(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     std::string objectPath = chassisDbusPath + chassisId;
 
-    dbus::utility::async_method_call(
-        [asyncResp, chassisId,
-         objectPath](const boost::system::error_code& ec) {
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{inbandUpdatePolicyInterface},
+        [asyncResp, chassisId, objectPath,
+         enabled](const boost::system::error_code& ec,
+                  const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR(
+                    "The D-Bus object that implements the InbandUpdatePolicy interface at object path '{}' does not exist",
+                    objectPath);
                 redfish::messages::resourceErrorsDetectedFormatError(
                     asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
                     ec.message());
                 return;
             }
 
-            if (asyncResp->res.jsonValue.empty())
-            {
-                checkInBandUpdateError(asyncResp, objectPath);
-            }
-        },
-        "xyz.openbmc_project.NSM", objectPath, "com.nvidia.InbandUpdatePolicy",
-        "UpdatePolicy", enabled);
+            const std::string& service = object.front().first;
+
+            std::string policyValue =
+                enabled
+                    ? "com.nvidia.InbandUpdatePolicy.InbandPolicyState.Enabled"
+                    : "com.nvidia.InbandUpdatePolicy.InbandPolicyState.Disabled";
+
+            BMCWEB_LOG_DEBUG(
+                "Updating InbandUpdatePolicy for object path '{}' to '{}'",
+                objectPath, policyValue);
+
+            redfish::nvidia_async_operation_utils::
+                doGenericSetAsyncAndGatherResult(
+                    asyncResp, std::chrono::seconds(10), service, objectPath,
+                    inbandUpdatePolicyInterface, "InbandUpdatePolicy",
+                    std::variant<std::string>(policyValue),
+                    PatchInbandUpdatePolicyCallback{asyncResp, objectPath});
+        });
 }
