@@ -21,6 +21,7 @@
 #include "ossl_random.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "resource_messages.hpp"
 #include "str_utility.hpp"
 #include "task.hpp"
 #include "task_messages.hpp"
@@ -1118,7 +1119,28 @@ inline void processUpdateRequest(
         BMCWEB_LOG_ERROR(
             "Failed to parse multipart with direct memfd write: {}",
             static_cast<int>(parseResult));
-        messages::internalError(asyncResp->res);
+        if (parseResult == ParserError::ERROR_OUT_OF_MEMORY)
+        {
+            asyncResp->res.result(
+                boost::beast::http::status::internal_server_error);
+
+            size_t bodySizeKB = (req.body().size() + 1023) / 1024;
+            std::string errorMsg =
+                "Insufficient memory availability to complete the request. Need more '" +
+                std::to_string(bodySizeKB) + "' KB of free memory.";
+
+            auto message = redfish::messages::resourceErrorsDetected(
+                "BMC Memory", errorMsg);
+            message["MessageSeverity"] = "Critical";
+            message["Resolution"] =
+                "Retry firmware update operation; if it persists, reboot BMC.";
+            redfish::messages::addMessageToErrorJson(asyncResp->res.jsonValue,
+                                                     message);
+        }
+        else
+        {
+            messages::internalError(asyncResp->res);
+        }
         fwUpdateInProgress = false;
         return;
     }

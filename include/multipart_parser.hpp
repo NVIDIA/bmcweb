@@ -4,6 +4,7 @@
 
 #include "http_request.hpp"
 
+#include <errno.h>
 #include <unistd.h>
 
 #include <boost/beast/http/fields.hpp>
@@ -31,7 +32,8 @@ enum class ParserError
     ERROR_UNEXPECTED_END_OF_INPUT,
     ERROR_OUT_OF_RANGE,
     ERROR_FILE_OPEN,
-    ERROR_FILE_WRITE
+    ERROR_FILE_WRITE,
+    ERROR_OUT_OF_MEMORY
 };
 
 enum class State
@@ -380,8 +382,19 @@ class MultipartParser
                             // Write directly to file descriptor (e.g., memfd)
                             ssize_t written = write(
                                 targetFd, &buffer[partDataMark], chunkSize);
+                            int error = errno;
                             if (written != static_cast<ssize_t>(chunkSize))
                             {
+                                BMCWEB_LOG_ERROR(
+                                    "Error writing to file descriptor: {}",
+                                    error);
+                                if (error == ENOSPC)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Out of memory: Failed to write {} bytes to file descriptor {} (ENOSPC)",
+                                        chunkSize, targetFd);
+                                    return ParserError::ERROR_OUT_OF_MEMORY;
+                                }
                                 return ParserError::ERROR_FILE_WRITE;
                             }
                         }
