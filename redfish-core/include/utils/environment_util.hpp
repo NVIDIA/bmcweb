@@ -534,6 +534,139 @@ inline void getPowerWattsEnergyJoules(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+// Helper function to get temperature reading from a sensor path
+inline void getTemperatureCelsiusBySensorPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& sensorPath)
+{
+    sdbusplus::message::object_path objPath(sensorPath);
+    const std::string sensorName = objPath.filename();
+
+    const std::array<const char*, 1> sensorInterfaces = {
+        "xyz.openbmc_project.Sensor.Value"};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisID, sensorName, sensorPath](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("Failed to find service for sensor {}",
+                                 sensorPath);
+                return;
+            }
+
+            const std::string& service = object.front().first;
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, chassisID,
+                 sensorName](const boost::system::error_code& ec2,
+                             const std::variant<double>& value) {
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_DEBUG("Failed to get temperature value");
+                        return;
+                    }
+                    const double* reading = std::get_if<double>(&value);
+                    if (reading == nullptr || std::isnan(*reading))
+                    {
+                        return;
+                    }
+
+                    std::string sensorURI =
+                        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/{}",
+                                            chassisID, sensorName)
+                            .buffer();
+
+                    asyncResp->res.jsonValue["TemperatureCelsius"] = {
+                        {"Reading", *reading},
+                        {"DataSourceUri", sensorURI},
+                    };
+                },
+                service, sensorPath, "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Sensor.Value", "Value");
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
+        sensorInterfaces);
+}
+
+// Get primary temperature sensor for Chassis EnvironmentMetrics
+// Uses primary_temperature_sensor association to get the correct sensor
+inline void getTemperatureCelsius(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& chassisPath)
+{
+    // First try primary_temperature_sensor association
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisID,
+         chassisPath](const boost::system::error_code& ec,
+                      std::variant<std::vector<std::string>>& resp) {
+            std::string sensorPath;
+
+            if (!ec)
+            {
+                std::vector<std::string>* data =
+                    std::get_if<std::vector<std::string>>(&resp);
+                if (data != nullptr && !data->empty())
+                {
+                    // Use primary temperature sensor
+                    sensorPath = data->front();
+                    BMCWEB_LOG_DEBUG(
+                        "Using primary_temperature_sensor for chassis {}: {}",
+                        chassisID, sensorPath);
+                }
+            }
+
+            // If no primary sensor found, fall back to all_sensors
+            if (sensorPath.empty())
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     chassisID](const boost::system::error_code& ec2,
+                                std::variant<std::vector<std::string>>& resp2) {
+                        if (ec2)
+                        {
+                            return;
+                        }
+                        std::vector<std::string>* data2 =
+                            std::get_if<std::vector<std::string>>(&resp2);
+                        if (data2 == nullptr)
+                        {
+                            return;
+                        }
+                        // Find first temperature sensor (fallback behavior)
+                        for (const std::string& endpoint : *data2)
+                        {
+                            if (endpoint.find("/temperature/") !=
+                                std::string::npos)
+                            {
+                                sdbusplus::message::object_path endpointPath(
+                                    endpoint);
+                                getTemperatureCelsiusBySensorPath(
+                                    asyncResp, chassisID, endpoint);
+                                return;
+                            }
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/all_sensors",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+                return;
+            }
+
+            // Get temperature from primary sensor
+            getTemperatureCelsiusBySensorPath(asyncResp, chassisID, sensorPath);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        chassisPath + "/primary_temperature_sensor",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
 inline void getPowerReadings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& objPath,
@@ -1409,7 +1542,8 @@ inline void getSensorDataByService(
 inline void getSensorDataService(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     [[maybe_unused]] const std::string& service, const std::string& chassisId,
-    const std::string& objPath, const std::string& resourceType)
+    const std::string& objPath, const std::string& resourceType,
+    bool isSupportPowerLimit = false)
 {
     BMCWEB_LOG_DEBUG("Get sensor service.");
 
@@ -1417,7 +1551,7 @@ inline void getSensorDataService(
         "xyz.openbmc_project.Sensor.Value"};
     // Process sensor reading
     crow::connections::systemBus->async_method_call(
-        [aResp, chassisId, resourceType, objPath](
+        [aResp, chassisId, resourceType, objPath, isSupportPowerLimit](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 object) {
@@ -1434,7 +1568,8 @@ inline void getSensorDataService(
                     interfaces.end())
                 {
                     getSensorDataByService(aResp, serviceEntry, chassisId,
-                                           objPath, resourceType);
+                                           objPath, resourceType,
+                                           isSupportPowerLimit);
                 }
             }
         },
@@ -1442,6 +1577,85 @@ inline void getSensorDataService(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
         sensorInterfaces);
+}
+
+// Helper function to query all_sensors association for processor metrics
+inline void queryAllSensorsForProcessorMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& resourceType, const std::string& chassisId,
+    const std::string& chassisPath, bool skipTemperatureSensors,
+    bool isSupportPowerLimit = false)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, resourceType, chassisId, skipTemperatureSensors,
+         isSupportPowerLimit](const boost::system::error_code& e,
+                              std::variant<std::vector<std::string>>& resp) {
+            if (e)
+            {
+                BMCWEB_LOG_ERROR("Failed to get all sensors: {}", e.message());
+                messages::internalError(aResp->res);
+                return;
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            for (const std::string& sensorPath : *data)
+            {
+                // Skip temperature sensors if primary was found
+                // to avoid overwriting the correct DataSourceUri
+                if (skipTemperatureSensors &&
+                    sensorPath.find("/temperature/") != std::string::npos)
+                {
+                    continue;
+                }
+                getSensorDataService(aResp, "", chassisId, sensorPath,
+                                     resourceType, isSupportPowerLimit);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_sensors",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+// Helper function to query primary_temperature_sensor, then all_sensors
+inline void queryPrimaryTempAndAllSensors(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& resourceType, const std::string& chassisId,
+    const std::string& chassisPath, bool isSupportPowerLimit = false)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, resourceType, chassisId, chassisPath, isSupportPowerLimit](
+            const boost::system::error_code& primaryEc,
+            std::variant<std::vector<std::string>>& primaryResp) {
+            bool foundPrimary = false;
+            if (!primaryEc)
+            {
+                std::vector<std::string>* primarySensors =
+                    std::get_if<std::vector<std::string>>(&primaryResp);
+                if (primarySensors != nullptr && !primarySensors->empty())
+                {
+                    // Use the primary temperature sensor
+                    BMCWEB_LOG_DEBUG("Using primary_temperature_sensor: {}",
+                                     primarySensors->front());
+                    getSensorDataService(aResp, "", chassisId,
+                                         primarySensors->front(), resourceType,
+                                         isSupportPowerLimit);
+                    foundPrimary = true;
+                }
+            }
+            // Query all_sensors for power, energy, voltage sensors
+            // (skip temperature if primary was found)
+            queryAllSensorsForProcessorMetrics(aResp, resourceType, chassisId,
+                                               chassisPath, foundPrimary,
+                                               isSupportPowerLimit);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        chassisPath + "/primary_temperature_sensor",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 inline void getEnvironmentMetricsDataByService(
@@ -1475,33 +1689,11 @@ inline void getEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisId = chassisName;
-            crow::connections::systemBus->async_method_call(
-                [aResp, service, resourceType, chassisId, isSupportPowerLimit](
-                    const boost::system::error_code& e,
-                    std::variant<std::vector<std::string>>& resp2) {
-                    if (e)
-                    {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    std::vector<std::string>* data2 =
-                        std::get_if<std::vector<std::string>>(&resp2);
-                    if (data2 == nullptr)
-                    {
-                        return;
-                    }
-                    for (const std::string& sensorPath : *data2)
-                    {
-                        getSensorDataByService(aResp, service, chassisId,
-                                               sensorPath, resourceType,
-                                               isSupportPowerLimit);
-                    }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                chassisPath + "/all_sensors", "org.freedesktop.DBus.Properties",
-                "Get", "xyz.openbmc_project.Association", "endpoints");
+
+            // Query primary temperature sensor first, then all sensors
+            // (fixes NVBug 5229182 - ensures correct DataSourceUri)
+            queryPrimaryTempAndAllSensors(aResp, resourceType, chassisId,
+                                          chassisPath, isSupportPowerLimit);
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
         "org.freedesktop.DBus.Properties", "Get",
@@ -2349,6 +2541,7 @@ inline void populateEnvironmentMetricsOemAndData(
 
     getfanSpeedsPercent(asyncResp, chassisId);
     getPowerWattsEnergyJoules(asyncResp, chassisId, validChassisPath);
+    getTemperatureCelsius(asyncResp, chassisId, validChassisPath);
 
     const std::array<std::string_view, 2> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
