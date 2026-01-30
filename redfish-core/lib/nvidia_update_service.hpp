@@ -1153,24 +1153,6 @@ inline bool preCheckMultipartUpdateServiceReq(
         }
         return false;
     }
-
-    std::error_code spaceInfoError;
-    const std::filesystem::space_info spaceInfo = std::filesystem::space(
-        std::string(BMCWEB_UPDATE_SERVICE_IMAGE_LOCATION), spaceInfoError);
-    if (!spaceInfoError)
-    {
-        if (spaceInfo.free < req.body().size())
-        {
-            BMCWEB_LOG_ERROR(
-                "Insufficient storage space. Required: {} Available: {}",
-                req.body().size(), spaceInfo.free);
-            // std::string resolution =
-            //     "Reset the baseboard and retry the operation.";
-            messages::insufficientStorage(asyncResp->res);
-            return false;
-        }
-    }
-
     return true;
 }
 
