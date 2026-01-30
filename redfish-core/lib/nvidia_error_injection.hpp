@@ -47,7 +47,7 @@ using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
 using ErrorInjectionPatchMap =
-    std::map<std::string, std::variant<bool, uint32_t>>;
+    std::map<std::string, std::variant<bool, uint32_t, std::vector<uint8_t>>>;
 
 inline ErrorInjectionPatchMap parseErrorInjectionJson(
     const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
@@ -61,7 +61,11 @@ inline ErrorInjectionPatchMap parseErrorInjectionJson(
         {"PCIeErrors", {}},
         {"NVLinkErrors", {}},
         {"ThermalErrors", {}},
-        {"FatalErrors", {}}};
+        {"FatalErrors", {}},
+        {"PortRecoveryErrors", {}},
+        {"USBBridgeEmulationErrors", {}},
+        {"LeakDetectionErrors", {}},
+        {"GPIOSpoofingErrors", {}}};
     if (!redfish::json_util::readJsonAction(
             req, aResp->res, "ErrorInjectionModeEnabled",
             errorInjectionModeEnabled, "ErrorInjectionCapabilities",
@@ -80,12 +84,16 @@ inline ErrorInjectionPatchMap parseErrorInjectionJson(
             capabilities["PCIeErrors"], "NVLinkErrors",
             capabilities["NVLinkErrors"], "ThermalErrors",
             capabilities["ThermalErrors"], "FatalErrors",
-            capabilities["FatalErrors"]))
+            capabilities["FatalErrors"], "PortRecoveryErrors",
+            capabilities["PortRecoveryErrors"], "USBBridgeEmulationErrors",
+            capabilities["USBBridgeEmulationErrors"], "LeakDetectionErrors",
+            capabilities["LeakDetectionErrors"], "GPIOSpoofingErrors",
+            capabilities["GPIOSpoofingErrors"]))
     {
         for (auto& [name, json] : capabilities)
         {
             std::optional<bool> enabled;
-            std::optional<uint32_t> faultBitmap;
+            std::optional<std::string> faultBitmap;
             if (json && redfish::json_util::readJson(
                             *json, aResp->res, "Enabled", enabled,
                             "FaultBitmap", faultBitmap))
@@ -94,9 +102,56 @@ inline ErrorInjectionPatchMap parseErrorInjectionJson(
                 {
                     properties[name + "_Enabled"] = *enabled;
                 }
-                else if (faultBitmap)
+                if (faultBitmap)
                 {
-                    properties[name + "_FaultBitmap"] = *faultBitmap;
+                    BMCWEB_LOG_DEBUG("Parsing FaultBitmap: '{}'", *faultBitmap);
+                    std::string hexStr = *faultBitmap;
+                    std::vector<uint8_t> byteArray;
+
+                    if (hexStr.size() >= 2 && hexStr[0] == '0' &&
+                        (hexStr[1] == 'x' || hexStr[1] == 'X'))
+                    {
+                        hexStr = hexStr.substr(2);
+                    }
+
+                    if (hexStr.empty())
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "FaultBitmap hex string is empty after removing prefix");
+                        messages::propertyValueIncorrect(
+                            aResp->res, "FaultBitmap", *faultBitmap);
+                        return properties;
+                    }
+
+                    if (hexStr.size() % 2 != 0)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "FaultBitmap hex string has odd length: {}",
+                            hexStr);
+                        messages::propertyValueIncorrect(
+                            aResp->res, "FaultBitmap", *faultBitmap);
+                        return properties;
+                    }
+
+                    try
+                    {
+                        for (size_t i = 0; i < hexStr.size(); i += 2)
+                        {
+                            std::string byteStr = hexStr.substr(i, 2);
+                            uint8_t byte = static_cast<uint8_t>(
+                                std::stoul(byteStr, nullptr, 16));
+                            byteArray.push_back(byte);
+                        }
+                    }
+                    catch (const std::exception& e)
+                    {
+                        BMCWEB_LOG_ERROR("Failed to parse FaultBitmap '{}': {}",
+                                         *faultBitmap, e.what());
+                        messages::propertyValueIncorrect(
+                            aResp->res, "FaultBitmap", *faultBitmap);
+                        return properties;
+                    }
+                    properties[name + "_FaultBitmap"] = byteArray;
                 }
             }
         }
@@ -186,7 +241,7 @@ inline void getErrorInjectionPayloadData(
                 aResp->res.jsonValue["ErrorInjectionCapabilities"][capability];
             aResp->res.jsonValue["Actions"]["#NvidiaErrorInjection.Activate"]
                                 ["target"] =
-                "/redfish/v1/Systems/" +
+                "/redfish/v1/Chassis/" +
                 baseUri.substr(baseUri.find_last_of('/') + 1) +
                 "/Oem/Nvidia/ErrorInjection/Actions/" +
                 "NvidiaErrorInjection.Activate";
@@ -194,18 +249,28 @@ inline void getErrorInjectionPayloadData(
             {
                 if (property.first == "Payload")
                 {
-                    const uint32_t* payload =
-                        std::get_if<uint32_t>(&property.second);
+                    const std::vector<uint8_t>* payload =
+                        std::get_if<std::vector<uint8_t>>(&property.second);
                     if (payload == nullptr)
                     {
-                        BMCWEB_LOG_ERROR("Get Enabled property failed");
+                        BMCWEB_LOG_ERROR("Get Payload property failed");
                         messages::internalError(aResp->res);
                         return;
                     }
                     std::ostringstream oss;
                     oss << "0x";
-                    oss << std::hex << std::uppercase << std::setfill('0');
-                    oss << std::setw(8) << *payload;
+                    if (payload->empty())
+                    {
+                        oss << "00";
+                    }
+                    else
+                    {
+                        oss << std::hex << std::uppercase << std::setfill('0');
+                        for (const uint8_t& byte : *payload)
+                        {
+                            oss << std::setw(2) << static_cast<int>(byte);
+                        }
+                    }
                     json["FaultBitmap"] = oss.str();
                 }
             }
@@ -241,7 +306,7 @@ inline void getErrorInjectionData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
             json["@odata.type"] =
-                "#NvidiaErrorInjection.v1_1_0.NvidiaErrorInjection";
+                "#NvidiaErrorInjection.v1_2_0.NvidiaErrorInjection";
             json["@odata.id"] = baseUri + "/Oem/Nvidia/ErrorInjection";
             json["Id"] = "ErrorInjection";
             json["Name"] = baseUri.substr(baseUri.find_last_of('/') + 1) +
@@ -277,15 +342,24 @@ inline void getErrorInjectionData(
                 }
             }
             std::vector<std::string> capabilities = {
-                "MemoryErrors", "PCIeErrors", "NVLinkErrors", "ThermalErrors",
-                "FatalErrors"};
+                "MemoryErrors",
+                "PCIeErrors",
+                "NVLinkErrors",
+                "ThermalErrors",
+                "FatalErrors",
+                "PortRecoveryErrors",
+                "USBBridgeEmulationErrors",
+                "LeakDetectionErrors",
+                "GPIOSpoofingErrors"};
             for (auto& cap : capabilities)
             {
                 std::string capPath = objPath;
                 capPath += "/";
                 capPath += cap;
                 getErrorInjectionCapabilityData(aResp, cap, service, capPath);
-                if (cap == "FatalErrors")
+                if (cap == "FatalErrors" || cap == "PortRecoveryErrors" ||
+                    cap == "USBBridgeEmulationErrors" ||
+                    cap == "LeakDetectionErrors" || cap == "GPIOSpoofingErrors")
                 {
                     std::string payloadPath = objPath;
                     payloadPath += "/";
@@ -327,16 +401,21 @@ inline void patchErrorInjectionData(
             std::string property = name.substr(name.find_last_of('_') + 1);
             if (property == "FaultBitmap")
             {
-                const uint32_t* faultBitmap = std::get_if<uint32_t>(&value);
+                const std::vector<uint8_t>* faultBitmap =
+                    std::get_if<std::vector<uint8_t>>(&value);
                 if (faultBitmap == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Get FaultBitmap property failed");
                     messages::internalError(aResp->res);
                     return;
                 }
-                std::vector<std::tuple<std::string, uint32_t>> payload;
-                payload.emplace_back("FaultBitMap", *faultBitmap);
-                payload.emplace_back("errorInjectionId", 4);
+
+                using PayloadVariant =
+                    std::variant<bool, uint32_t, double, std::vector<uint8_t>>;
+                std::vector<std::tuple<std::string, PayloadVariant>> payload;
+                payload.emplace_back("FaultBitMap",
+                                     PayloadVariant{*faultBitmap});
+
                 std::string payloadPath = path;
                 payloadPath += "/";
                 payloadPath += errorInjectionType;
@@ -345,9 +424,8 @@ inline void patchErrorInjectionData(
                         aResp, std::chrono::seconds(60), service, payloadPath,
                         "com.nvidia.ErrorInjection.ErrorInjectionPayload",
                         "Payload",
-                        std::variant<
-                            std::vector<std::tuple<std::string, uint32_t>>>{
-                            payload},
+                        std::variant<std::vector<
+                            std::tuple<std::string, PayloadVariant>>>{payload},
                         redfish::nvidia_async_operation_utils::
                             PatchErrorInjectionPayloadCallback{aResp});
             }
@@ -827,7 +905,7 @@ inline void postChassisErrorInjectionData(
             }
             // Object not found
             messages::resourceNotFound(
-                aResp->res, "#NvidiaErrorInjection.v1_1_0.NvidiaErrorInjection",
+                aResp->res, "#NvidiaErrorInjection.v1_2_0.NvidiaErrorInjection",
                 chassisId);
         },
         "xyz.openbmc_project.ObjectMapper",
