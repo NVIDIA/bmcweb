@@ -243,15 +243,17 @@ inline void getCableProperties(
                 fetchCableInventoryProperties(asyncResp, service,
                                               cableObjectPath);
             }
-            else if (
-                interface ==
-                "xyz.openbmc_project.Inventory.Decorator.VendorInformation")
-            {
-                fetchCBCOemProperties(asyncResp, service, cableObjectPath);
-            }
             // Nvidia code ends here
         }
     }
+
+    // Nvidia code starts here
+    // Fetch CBC OEM properties. The function queries ObjectMapper internally
+    // to find all services providing VendorInformation on this path, including
+    // services like CBCTrayTopologyParser that may not have been included in
+    // the original GetSubTree query (which filtered by Cable interface).
+    fetchCBCOemProperties(asyncResp, cableObjectPath);
+    // Nvidia code ends here
 }
 
 inline void afterHandleCableGet(

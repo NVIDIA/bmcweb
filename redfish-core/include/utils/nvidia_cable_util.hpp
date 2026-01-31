@@ -30,7 +30,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
-#include <array>
+#include <cstdint>
 #include <string_view>
 
 namespace redfish
@@ -66,84 +66,135 @@ inline void updateCableNameProperty(
     }
 }
 
-// Structure for parsing CBC Tray Topology data.
-// Matching the CBC FRU specification used by GB200 Chassis
-struct TrayTopology
-{
-    uint8_t revision;
-    uint8_t reserved1;
-    uint8_t chassisSlotNumber;
-    uint8_t trayIndex;
-    uint8_t topologyId;
-    uint8_t reserved2;
-    uint8_t reserved3;
-    uint8_t reserved4;
-};
+// Minimum supported revision for CBC Tray Topology data
+constexpr uint8_t trayTopologyMinRevision = 2;
 
-inline void fetchCBCOemProperties(
+/**
+ * @brief Helper to fetch CBC OEM properties from a specific service.
+ *
+ * Tries to read decoded tray topology properties from the given service.
+ * Only the CBCTrayTopologyParser service will have these properties.
+ *
+ * @param[in,out] asyncResp       Async HTTP response.
+ * @param[in]     service         D-Bus service name.
+ * @param[in]     cableObjectPath D-Bus object path of the cable.
+ */
+inline void fetchCBCOemPropertiesFromService(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& cableObjectPath)
 {
-    constexpr size_t trayTopologyStringLength = 16;
-    constexpr size_t trayTopologyTokenLength = 2;
-    constexpr size_t trayTopologyByteLength = 8;
-    constexpr uint8_t trayTopologyMinRevision = 2;
+    constexpr std::string_view vendorInfoInterface =
+        "xyz.openbmc_project.Inventory.Decorator.VendorInformation";
 
-    sdbusplus::asio::getProperty<std::string>(
+    dbus::utility::getAllProperties(
         *crow::connections::systemBus, service, cableObjectPath,
-        "xyz.openbmc_project.Inventory.Decorator.VendorInformation",
-        "CustomField1",
-        [asyncResp, cableObjectPath](const boost::system::error_code& ec,
-                                     const std::string& property) {
+        std::string(vendorInfoInterface),
+        [asyncResp, cableObjectPath,
+         service](const boost::system::error_code& ec,
+                  const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
-                    "No CustomField1 for CBC {}, skipping OEM properties",
-                    cableObjectPath);
+                    "Failed to get VendorInformation properties for CBC {} from service {}: {}",
+                    cableObjectPath, service, ec.message());
                 return;
             }
 
-            // CBC FRU matching GB200 Fru topology that it is 8 bytes (string
-            // length 16)
-            if (property.length() != trayTopologyStringLength)
+            // Try to unpack the decoded properties exposed by
+            // CBCTrayTopologyParser
+            const uint8_t* chassisPhysicalSlotNumber = nullptr;
+            const uint8_t* computeTrayIndex = nullptr;
+            const uint8_t* revisionId = nullptr;
+            const uint8_t* topologyId = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties,
+                "ChassisPhysicalSlotNumber", chassisPhysicalSlotNumber,
+                "ComputeTrayIndex", computeTrayIndex, "RevisionId", revisionId,
+                "TopologyId", topologyId);
+
+            if (!success)
             {
-                BMCWEB_LOG_DEBUG("CBC Tray ID string length is invalid for {}",
-                                 cableObjectPath);
+                BMCWEB_LOG_DEBUG(
+                    "Failed to unpack CBC properties for {} from service {}",
+                    cableObjectPath, service);
                 return;
             }
 
-            std::array<uint8_t, trayTopologyByteLength> byteArray{};
-            for (size_t i = 0; i < trayTopologyByteLength; i++)
+            // Check if the decoded properties are available from this service.
+            // Only the CBCTrayTopologyParser service will have these properties.
+            if (chassisPhysicalSlotNumber == nullptr ||
+                computeTrayIndex == nullptr || revisionId == nullptr ||
+                topologyId == nullptr)
             {
-                byteArray[i] = static_cast<uint8_t>(
-                    std::stoi(property.substr((i * trayTopologyTokenLength),
-                                              trayTopologyTokenLength),
-                              nullptr, 16));
-            }
-
-            TrayTopology trayTopology{};
-            if (sizeof(trayTopology) > byteArray.size())
-            {
-                BMCWEB_LOG_ERROR(
-                    "CBC Tray ID data is shorter than TrayTopology size");
+                BMCWEB_LOG_DEBUG(
+                    "Decoded CBC properties not available for {} from service {}",
+                    cableObjectPath, service);
                 return;
             }
-            std::memcpy(&trayTopology, byteArray.data(), sizeof(trayTopology));
 
-            if (trayTopology.revision < trayTopologyMinRevision)
+            // Validate revision - must be at least trayTopologyMinRevision
+            if (*revisionId < trayTopologyMinRevision)
             {
-                BMCWEB_LOG_DEBUG("CBC Tray ID revision must be >= {} for {}",
-                                 static_cast<int>(trayTopologyMinRevision),
-                                 cableObjectPath);
+                BMCWEB_LOG_DEBUG(
+                    "CBC Tray ID revision {} must be >= {} for {}",
+                    static_cast<int>(*revisionId),
+                    static_cast<int>(trayTopologyMinRevision), cableObjectPath);
                 return;
             }
 
             auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
             oem["@odata.type"] = "#NvidiaCable.v0_7_0.NvidiaCBC";
-            oem["ChassisPhysicalSlotNumber"] = trayTopology.chassisSlotNumber;
-            oem["ComputeTrayIndex"] = trayTopology.trayIndex;
-            oem["RevisionId"] = trayTopology.revision;
-            oem["TopologyId"] = trayTopology.topologyId;
+            oem["ChassisPhysicalSlotNumber"] = *chassisPhysicalSlotNumber;
+            oem["ComputeTrayIndex"] = *computeTrayIndex;
+            oem["RevisionId"] = *revisionId;
+            oem["TopologyId"] = *topologyId;
+        });
+}
+
+/**
+ * @brief Fetch CBC OEM properties from the VendorInformation interface.
+ *
+ * Queries the ObjectMapper for all services that provide VendorInformation
+ * on the given cable path, then tries to read decoded tray topology properties
+ * from each. The CBCTrayTopologyParser D-Bus service exposes these decoded
+ * properties (ChassisPhysicalSlotNumber, ComputeTrayIndex, RevisionId,
+ * TopologyId), while other services may only have raw CustomField1.
+ *
+ * @param[in,out] asyncResp       Async HTTP response.
+ * @param[in]     cableObjectPath D-Bus object path of the cable.
+ */
+inline void fetchCBCOemProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cableObjectPath)
+{
+    constexpr std::array<std::string_view, 1> vendorInfoInterfaces = {
+        "xyz.openbmc_project.Inventory.Decorator.VendorInformation"};
+
+    // Query ObjectMapper for all services providing VendorInformation on this
+    // path. This finds services like CBCTrayTopologyParser that may not have
+    // been included in the original GetSubTree query (which filtered by Cable
+    // interface).
+    dbus::utility::getDbusObject(
+        cableObjectPath, vendorInfoInterfaces,
+        [asyncResp,
+         cableObjectPath](const boost::system::error_code& ec,
+                          const dbus::utility::MapperGetObject& objectMap) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "No VendorInformation services found for cable {}: {}",
+                    cableObjectPath, ec.message());
+                return;
+            }
+
+            // Try to fetch decoded CBC properties from each service.
+            // Only CBCTrayTopologyParser will have them.
+            for (const auto& [service, interfaces] : objectMap)
+            {
+                fetchCBCOemPropertiesFromService(asyncResp, service,
+                                                 cableObjectPath);
+            }
         });
 }
 
