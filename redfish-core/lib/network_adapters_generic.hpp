@@ -1434,19 +1434,14 @@ inline void
             return;
         }
 
-        auto addNvidiaType = BMCWEB_NVIDIA_OEM_PROPERTIES;
+        auto addNvidiaType = false;
 
         static const std::map<std::string, std::optional<std::string>>
             pcieErrorsProperties{
                 {"ceCount", "CorrectableErrorCount"},
                 {"feCount", "FatalErrorCount"},
                 {"nonfeCount", "NonFatalErrorCount"},
-                {"UnsupportedRequestCount", std::nullopt},
                 {"L0ToRecoveryCount", std::nullopt},
-                {"ReplayCount", std::nullopt},
-                {"ReplayRolloverCount", std::nullopt},
-                {"NAKSentCount", std::nullopt},
-                {"NAKReceivedCount", std::nullopt},
             };
         for (const auto& property : properties)
         {
