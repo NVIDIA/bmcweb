@@ -60,7 +60,7 @@ static constexpr std::array<std::pair<std::string_view, std::string_view>, 19>
     }};
 
 // Token subtype mapping: Redfish name <-> D-Bus enum string
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 85>
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 87>
     tokenSubtypeMap = {
         {{"OOBHub", "com.nvidia.DebugToken.Common.SubTypes.OOBHub"},
          {"RAS", "com.nvidia.DebugToken.Common.SubTypes.RAS"},
@@ -107,6 +107,8 @@ static constexpr std::array<std::pair<std::string_view, std::string_view>, 85>
           "com.nvidia.DebugToken.Common.SubTypes.MseqEnableSbeReporting"},
          {"GroupB", "com.nvidia.DebugToken.Common.SubTypes.GroupB"},
          {"GroupC", "com.nvidia.DebugToken.Common.SubTypes.GroupC"},
+         {"SMA", "com.nvidia.DebugToken.Common.SubTypes.MCU"},
+         {"CPLD", "com.nvidia.DebugToken.Common.SubTypes.CPLD"},
          {"VBIOS", "com.nvidia.DebugToken.Common.SubTypes.VBIOS"},
          {"FSPRT", "com.nvidia.DebugToken.Common.SubTypes.FSPRT"},
          {"OOBHubRT", "com.nvidia.DebugToken.Common.SubTypes.OOBHubRT"},
