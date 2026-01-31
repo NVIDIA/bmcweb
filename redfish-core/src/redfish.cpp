@@ -136,7 +136,6 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesCable(app);
         requestRoutesCableCollection(app);
-        requestRoutesCableAssembly(app);
     }
 
     requestRoutesSystemLogServiceCollection(app);
