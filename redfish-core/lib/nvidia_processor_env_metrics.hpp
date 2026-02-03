@@ -99,7 +99,6 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             {
                 return;
             }
-
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 // update Edpp Setpoint
@@ -107,12 +106,14 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                     oemObject && json_util::readJson(*oemObject, asyncResp->res,
                                                      "Nvidia", oemNvidiaObject))
                 {
-                    if (std::optional<nlohmann::json> edppObject;
+                    if (std::optional<nlohmann::json> edppObject,
+                        basePowerWatts;
                         oemNvidiaObject &&
-                        json_util::readJson(*oemNvidiaObject, asyncResp->res,
-                                            "EDPpPercent", edppObject,
-                                            "PowerLimitPersistency",
-                                            powerLimitPersistency))
+                        json_util::readJson(
+                            *oemNvidiaObject, asyncResp->res, "EDPpPercent",
+                            edppObject, "PowerLimitPersistency",
+                            powerLimitPersistency, "GPUBasePowerWatts",
+                            basePowerWatts))
                     {
                         if (edppObject)
                         {
@@ -166,6 +167,28 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                                 lambdaProcessorId, *setPoint,
                                                 false, objectPath, serviceMap);
                                     });
+                            }
+                        }
+                        if (basePowerWatts)
+                        {
+                            std::optional<uint32_t> basePowerWattsValue;
+                            std::optional<bool> persistency;
+                            if (json_util::readJson(*basePowerWatts,
+                                                    asyncResp->res, "SetPoint",
+                                                    basePowerWattsValue,
+                                                    "Persistency", persistency))
+                            {
+                                redfish::nvidia_env_utils::patchBasePowerWatts(
+                                    asyncResp, processorId,
+                                    *basePowerWattsValue,
+                                    persistency.value_or(false));
+                            }
+                            else
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Cannot read values from BasePowerWatts tag");
+                                messages::internalError(asyncResp->res);
+                                return;
                             }
                         }
                     }
