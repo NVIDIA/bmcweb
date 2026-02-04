@@ -188,20 +188,18 @@ inline void handleCpuDebugTokenResourceInfo(
     const std::string resourceUri = std::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken", systemName);
 
-    getCpuEid(asyncResp, [&req, asyncResp, systemName,
-                          resourceUri](uint32_t eid) {
+    std::string resUri(req.url().buffer());
+    getCpuEid(asyncResp, [asyncResp, systemName, resourceUri,
+                          resUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::DEBUG_TOKEN_QUERY, std::monostate(), req,
-            asyncResp,
+            MctpVdmUtilCommand::DEBUG_TOKEN_QUERY, std::monostate(), asyncResp,
             [systemName, resourceUri,
-             asyncResp](const crow::Request& req1,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        uint32_t, const std::string& stdOut, const std::string&,
-                        const boost::system::error_code& ec, int errorCode) {
+             resUri](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                     uint32_t, const std::string& stdOut, const std::string&,
+                     const boost::system::error_code& ec, int errorCode) {
                 auto& resJson = asyncResp1->res.jsonValue;
                 resJson["TokenType"] = "CRCS";
-                std::string resUri{req1.url().buffer()};
                 resJson["@odata.type"] =
                     "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
                 resJson["@odata.id"] = resUri;
@@ -365,15 +363,14 @@ inline void handleCpuDisableToken(
                                    systemName);
         return;
     }
-    getCpuEid(asyncResp, [&req, asyncResp, systemName](uint32_t eid) {
+    std::string resUri(req.url().buffer());
+    getCpuEid(asyncResp, [asyncResp, systemName, resUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::DEBUG_TOKEN_ERASE, std::monostate(), req,
-            asyncResp,
-            [](const crow::Request& reqParam,
-               const std::shared_ptr<bmcweb::AsyncResp>& aResp, uint32_t,
-               const std::string& stdOut, const std::string&,
-               const boost::system::error_code& ec, int errorCode) {
+            MctpVdmUtilCommand::DEBUG_TOKEN_ERASE, std::monostate(), asyncResp,
+            [resUri](const std::shared_ptr<bmcweb::AsyncResp>& aResp, uint32_t,
+                     const std::string& stdOut, const std::string&,
+                     const boost::system::error_code& ec, int errorCode) {
                 if (ec || errorCode)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
@@ -410,8 +407,7 @@ inline void handleCpuDisableToken(
                         return;
                     }
                     messages::resourceErrorsDetectedFormatError(
-                        aResp->res, reqParam.url().buffer(),
-                        "VDM command error");
+                        aResp->res, resUri, "VDM command error");
                 }
                 catch (std::exception&)
                 {
@@ -604,15 +600,15 @@ inline void handleCpuInstallToken(
     }
     auto dataVector =
         std::vector<uint8_t>(binaryData.begin(), binaryData.end());
-    getCpuEid(asyncResp, [&req, asyncResp, systemName,
-                          dataVector](uint32_t eid) {
+    std::string resUri(req.url().buffer());
+    getCpuEid(asyncResp, [asyncResp, systemName, dataVector,
+                          resUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::DEBUG_TOKEN_INSTALL, dataVector, req, asyncResp,
-            [](const crow::Request& req1,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1, uint32_t,
-               const std::string& stdOut, const std::string&,
-               const boost::system::error_code& ec, int errorCode) {
+            MctpVdmUtilCommand::DEBUG_TOKEN_INSTALL, dataVector, asyncResp,
+            [resUri](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                     uint32_t, const std::string& stdOut, const std::string&,
+                     const boost::system::error_code& ec, int errorCode) {
                 if (ec || errorCode)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
@@ -649,7 +645,7 @@ inline void handleCpuInstallToken(
                         return;
                     }
                     messages::resourceErrorsDetectedFormatError(
-                        asyncResp1->res, req1.url().buffer(),
+                        asyncResp1->res, resUri,
                         getVdmDebugTokenInstallErrorDescription(vdmCode));
                 }
                 catch (std::exception&)

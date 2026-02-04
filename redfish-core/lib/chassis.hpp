@@ -935,6 +935,36 @@ inline void handleChassisGet(
         asyncResp, chassisId);
 }
 
+// Nvidia clone of handleChassisGet without req parameter
+inline void handleChassisGetNoRequestParameter(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    constexpr std::array<std::string_view, 4> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis",
+        "xyz.openbmc_project.Inventory.Item.Component",
+        "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
+
+    // Nvidia modified parameter from  chassisInterfaces to interfaces
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        std::bind_front(handleChassisGetSubTree, asyncResp, chassisId));
+
+    // by default, platform intrusion component is not specified,
+    // so we need to get the intrusion data from the chassis
+#ifndef BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT
+    constexpr std::array<std::string_view, 1> interfaces2 = {
+        "xyz.openbmc_project.Chassis.Intrusion"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0, interfaces2,
+        std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
+#endif
+    redfish::nvidia_chassis::getChassisOemNvidiaProperties(
+        asyncResp, chassisId);
+}
+
 inline void handleChassisPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

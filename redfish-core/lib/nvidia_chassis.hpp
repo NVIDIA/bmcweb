@@ -18,9 +18,9 @@
 namespace redfish
 {
 // Forward declarations
-void handleChassisGet(App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisId);
+void handleChassisGetNoRequestParameter(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId);
 void handleChassisPatch(App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& chassisId);
@@ -45,17 +45,16 @@ inline void handleChassisGetPreCheck(
         return;
     }
     redfish::nvidia_chassis_utils::isEROTChassis(
-        chassisId,
-        [&app, &req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
+        chassisId, [asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
             if (isEROT)
             {
                 BMCWEB_LOG_DEBUG(" EROT chassis");
-                getEROTChassis(req, asyncResp, chassisId, isCpuEROT);
+                getEROTChassis(asyncResp, chassisId, isCpuEROT);
             }
             else
             {
                 // Call standard chassis handler for non-EROT chassis
-                handleChassisGet(app, req, asyncResp, chassisId);
+                handleChassisGetNoRequestParameter(asyncResp, chassisId);
             }
         });
 }

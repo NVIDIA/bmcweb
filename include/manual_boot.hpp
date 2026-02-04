@@ -11,12 +11,11 @@ namespace redfish
 namespace manual_boot
 {
 
-inline void bootModeQuery(const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void bootModeQuery(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& chassisId)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [&req, asyncResp, chassisId](
+        [asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
             if (!endpoints || endpoints->empty())
@@ -35,9 +34,8 @@ inline void bootModeQuery(const crow::Request& req,
             MctpVdmUtil mctpVdmUtilWrapper(eid);
             MctpVdmUtilCommand cmd = MctpVdmUtilCommand::BOOTMODE_QUERY;
             mctpVdmUtilWrapper.run(
-                cmd, std::monostate(), req, asyncResp,
+                cmd, std::monostate(), asyncResp,
                 [chassisId](
-                    const crow::Request&,
                     const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
@@ -88,12 +86,11 @@ inline void bootModeQuery(const crow::Request& req,
         chassisId);
 }
 
-inline void bootModeSet(const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void bootModeSet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& chassisId, bool enabled)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [&req, asyncResp, chassisId,
+        [asyncResp, chassisId,
          enabled](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                       endpoints) {
             if (!endpoints || endpoints->empty())
@@ -111,9 +108,8 @@ inline void bootModeSet(const crow::Request& req,
                 enabled ? MctpVdmUtilCommand::BOOTMODE_ENABLE
                         : MctpVdmUtilCommand::BOOTMODE_DISABLE;
             mctpVdmUtilWrapper.run(
-                cmd, std::monostate(), req, asyncResp,
+                cmd, std::monostate(), asyncResp,
                 [chassisId](
-                    const crow::Request&,
                     const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
@@ -158,12 +154,11 @@ inline void bootModeSet(const crow::Request& req,
         chassisId);
 }
 
-inline void bootAp(const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void bootAp(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisId)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [&req, asyncResp, chassisId](
+        [asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
             if (!endpoints || endpoints->empty())
@@ -176,9 +171,8 @@ inline void bootAp(const crow::Request& req,
                 static_cast<uint32_t>(endpoints->begin()->getMctpEid());
             MctpVdmUtil mctpVdmUtilWrapper(eid);
             mctpVdmUtilWrapper.run(
-                MctpVdmUtilCommand::BOOT_AP, std::monostate(), req, asyncResp,
+                MctpVdmUtilCommand::BOOT_AP, std::monostate(), asyncResp,
                 [chassisId](
-                    const crow::Request&,
                     const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {

@@ -621,18 +621,16 @@ inline void getChassisOEMComponentProtected(
  * @param asyncResp - Pointer to object holding response data
  * @param chassisId - chassis id
  */
-inline void getEROTChassis(const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& chassisId, bool isCpuEROT)
 {
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, chassisId(std::string(chassisId)),
+        [asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
-            [[maybe_unused]] const auto& reqRef = req;
             [[maybe_unused]] const auto cpuEROT = isCpuEROT;
 
             if (ec)
@@ -883,7 +881,7 @@ inline void getEROTChassis(const crow::Request& req,
                 {
                     if (isCpuEROT)
                     {
-                        manual_boot::bootModeQuery(req, asyncResp, chassisId);
+                        manual_boot::bootModeQuery(asyncResp, chassisId);
                     }
                 }
                 return;
@@ -987,7 +985,7 @@ inline void handleEROTChassisPatch(
                                              "ERoT manualBootModeEnabled");
                 return;
             }
-            manual_boot::bootModeSet(req, asyncResp, chassisId,
+            manual_boot::bootModeSet(asyncResp, chassisId,
                                      *manualBootModeEnabled);
         }
     }
@@ -1209,7 +1207,7 @@ inline void requestRoutesEROTChassisManualBootMode(App& app)
                 {
                     return;
                 }
-                manual_boot::bootAp(req, asyncResp, chassisId);
+                manual_boot::bootAp(asyncResp, chassisId);
             });
 }
 

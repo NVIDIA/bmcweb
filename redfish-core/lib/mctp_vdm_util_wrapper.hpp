@@ -78,10 +78,9 @@ struct MctpVdmUtilProgressStatusResponse
 };
 
 using ResponseCallback = std::function<void(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>&,
-    uint32_t /* endpointId */, const std::string& /* stdOut*/,
-    const std::string& /* stdErr*/, const boost::system::error_code& /* ec */,
-    int /*errorCode */)>;
+    const std::shared_ptr<bmcweb::AsyncResp>&, uint32_t /* endpointId */,
+    const std::string& /* stdOut*/, const std::string& /* stdErr*/,
+    const boost::system::error_code& /* ec */, int /*errorCode */)>;
 
 using MctpVdmUtilData = std::variant<std::monostate, std::vector<uint8_t>>;
 
@@ -192,7 +191,6 @@ struct MctpVdmUtil
      * @return none.
      */
     void run(MctpVdmUtilCommand mctpVdmUtilcommand, MctpVdmUtilData data,
-             const crow::Request& req,
              const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
              ResponseCallback responseCallback) const
     {
@@ -255,7 +253,7 @@ struct MctpVdmUtil
 
         // Completion callback
         proc->async_wait(
-            [&req, asyncResp, proc, outPipe, errPipe, stdOutStr, stdErrStr,
+            [asyncResp, proc, outPipe, errPipe, stdOutStr, stdErrStr,
              respCallback = std::move(responseCallback),
              endpointId = this->endpointId, command = this->command](
                 const boost::system::error_code& ec, int exitCode) mutable {
@@ -272,8 +270,8 @@ struct MctpVdmUtil
                             command, ec.message());
                     }
                 }
-                respCallback(req, asyncResp, endpointId, *stdOutStr, *stdErrStr,
-                             ec, exitCode);
+                respCallback(asyncResp, endpointId, *stdOutStr, *stdErrStr, ec,
+                             exitCode);
             });
     }
 };
