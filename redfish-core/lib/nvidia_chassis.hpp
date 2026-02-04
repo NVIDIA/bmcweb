@@ -223,8 +223,6 @@ inline void afterChassisSetRecoveryModeInterfacesFound(
 
     if (paths.empty())
     {
-        messages::resourceNotFound(asyncResp->res, "Action",
-                                   "NvidiaChassis.SetRecoveryMode");
         return;
     }
 
