@@ -67,8 +67,18 @@ inline std::string getDetectorState(const std::string& detectorState)
     {
         return "Critical";
     }
+    if (detectorState ==
+        "xyz.openbmc_project.State.LeakDetector.DetectorStateEnum.Absent")
+    {
+        return "Absent";
+    }
+    if (detectorState ==
+        "xyz.openbmc_project.State.LeakDetector.DetectorStateEnum.Unavailable")
+    {
+        return "Unavailable";
+    }
     // Unknown or others
-    return "";
+    return "Unavailable";
 }
 
 inline std::string getOperationalStatus(const std::string& operationalStatus)
