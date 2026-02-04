@@ -3,10 +3,10 @@
 #pragma once
 #include <nlohmann/json.hpp>
 
-// clang-format off
-
 namespace switch
 {
+// clang-format off
+
 enum class TargetType{
     Invalid,
     FabricPort,
