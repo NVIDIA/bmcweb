@@ -721,7 +721,10 @@ inline void handleDOTInstallActionInfo(
                           {"Name", "LockDisable"},
                           {"Required", false}});
     parameters.push_back({{"DataType", "Number"},
-                          {"Name", "MinimumSecurityVersion"},
+                          {"Name", "VendorMinimumSecurityVersion"},
+                          {"Required", false}});
+    parameters.push_back({{"DataType", "Number"},
+                          {"Name", "OwnerMinimumSecurityVersion"},
                           {"Required", false}});
 
     handleDOTActionInfo(asyncResp, chassisId, componentId, "Install",
@@ -1189,7 +1192,8 @@ inline void afterDOTGetInfoServiceDiscovery(
  * @param lakEcdsaKey LAK ECDSA key data
  * @param lakLmsKey LAK LMS key data
  * @param lockDisable Lock disable flag
- * @param minSvn Minimum security version number
+ * @param ownerMinSvn OEM MIN_SVN value (0-255)
+ * @param vendorMinSvn VENDOR MIN_SVN value (0-255)
  * @param ec Error code from DBus discovery operation
  * @param resp DBus subtree response containing discovered DOT objects
  */
@@ -1198,8 +1202,8 @@ inline void afterDOTCAKInstallServiceDiscovery(
     const std::string& componentId, const std::string& cakAuthEnum,
     const std::string& cakEcdsaKey, const std::string& cakLmsKey,
     const std::string& lakAuthEnum, const std::string& lakEcdsaKey,
-    const std::string& lakLmsKey, bool lockDisable, uint32_t minSvn,
-    const boost::system::error_code& ec,
+    const std::string& lakLmsKey, bool lockDisable, uint8_t ownerMinSvn,
+    uint8_t vendorMinSvn, const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& resp)
 {
     auto servicePath =
@@ -1226,7 +1230,7 @@ inline void afterDOTCAKInstallServiceDiscovery(
             handleDOTErrorResult(asyncResp, status, resultPtr, "Install");
         },
         cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
-        lakLmsKey, lockDisable, minSvn);
+        lakLmsKey, lockDisable, ownerMinSvn, vendorMinSvn);
 }
 
 /**
@@ -1600,15 +1604,42 @@ inline void afterChassisValidationForDOTInstall(
     std::optional<nlohmann::json> cakKeyOpt;
     std::optional<bool> lockDisableOpt;
     std::optional<nlohmann::json> lakKeyOpt;
-    std::optional<int64_t> minSecurityVersionOpt;
+    std::optional<int64_t> vendorMinSecurityVersionOpt;
+    std::optional<int64_t> ownerMinSecurityVersionOpt;
 
     if (!json_util::readJsonAction(
             req, asyncResp->res, "CAKKey", cakKeyOpt, "LockDisable",
-            lockDisableOpt, "LAKKey", lakKeyOpt, "MinimumSecurityVersion",
-            minSecurityVersionOpt))
+            lockDisableOpt, "LAKKey", lakKeyOpt, "VendorMinimumSecurityVersion",
+            vendorMinSecurityVersionOpt, "OwnerMinimumSecurityVersion",
+            ownerMinSecurityVersionOpt))
     {
         return;
     }
+
+    if (ownerMinSecurityVersionOpt.has_value() &&
+        (ownerMinSecurityVersionOpt.value() < 0 ||
+         ownerMinSecurityVersionOpt.value() > 255))
+    {
+        messages::actionParameterValueOutOfRange(
+            asyncResp->res, "Install", "OwnerMinimumSecurityVersion",
+            std::to_string(ownerMinSecurityVersionOpt.value()));
+        return;
+    }
+
+    if (vendorMinSecurityVersionOpt.has_value() &&
+        (vendorMinSecurityVersionOpt.value() < 0 ||
+         vendorMinSecurityVersionOpt.value() > 255))
+    {
+        messages::actionParameterValueOutOfRange(
+            asyncResp->res, "Install", "VendorMinimumSecurityVersion",
+            std::to_string(vendorMinSecurityVersionOpt.value()));
+        return;
+    }
+
+    uint8_t ownerMinSvn =
+        static_cast<uint8_t>(ownerMinSecurityVersionOpt.value_or(0));
+    uint8_t vendorMinSvn =
+        static_cast<uint8_t>(vendorMinSecurityVersionOpt.value_or(0));
 
     std::string cakAuthScheme;
     std::string cakEcdsaKey;
@@ -1652,11 +1683,11 @@ inline void afterChassisValidationForDOTInstall(
     constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(
-            afterDOTCAKInstallServiceDiscovery, asyncResp, componentId,
-            cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum, lakEcdsaKey,
-            lakLmsKey, lockDisableOpt.value_or(false),
-            static_cast<uint32_t>(minSecurityVersionOpt.value_or(0))));
+        std::bind_front(afterDOTCAKInstallServiceDiscovery, asyncResp,
+                        componentId, cakAuthEnum, cakEcdsaKey, cakLmsKey,
+                        lakAuthEnum, lakEcdsaKey, lakLmsKey,
+                        lockDisableOpt.value_or(false), ownerMinSvn,
+                        vendorMinSvn));
 }
 
 /**
