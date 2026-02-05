@@ -2521,7 +2521,7 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_6_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_12_0.NvidiaChassis";
 
         if (writeProtected != nullptr)
         {
