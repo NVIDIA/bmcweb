@@ -203,6 +203,7 @@ inline void handleMessageRegistryGet(
     // Nvidia code starts here
     if (registryMatch == "BiosAttributeRegistry")
     {
+        asyncResp->res.jsonValue.erase("@Redfish.Copyright");
         if constexpr (BMCWEB_BIOS)
         {
             asyncResp->res.jsonValue.erase("RegistryPrefix");
