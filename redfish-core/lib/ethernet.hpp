@@ -1587,7 +1587,6 @@ inline bool parseAddresses(
                         "SubnetMask", subnetMask //
                         ))
                 {
-                    messages::propertyValueFormatError(res, *obj, pathString);
                     return false;
                 }
             }
@@ -1829,8 +1828,6 @@ inline void handleIPv6StaticAddressesPatch(
                     "PrefixLength", prefixLength  //
                     ))
             {
-                messages::propertyValueFormatError(asyncResp->res, thisJsonCopy,
-                                                   pathString);
                 return;
             }
 
