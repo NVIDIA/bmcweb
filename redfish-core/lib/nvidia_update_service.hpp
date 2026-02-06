@@ -533,32 +533,37 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
     return false;
 }
 
-inline void getDriveChassisID(
+inline static void getRelatedItemsDrive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& driveId, const std::string& path,
-    const std::string& driveStorLink)
+    const sdbusplus::message::object_path& objPath)
 {
+    // Drive is expected to be under a Chassis
+    // Only add Chassis/Drives link, not Storage/Drives link
+    std::string driveId = objPath.filename();
+    std::string drivePath = objPath.str;
+
     dbus::utility::getAssociationEndPoints(
-        path + "/chassis",
-        [asyncResp, driveId, path,
-         driveStorLink](const boost::system::error_code& ec,
-                        const dbus::utility::MapperEndPoints& resp) {
+        drivePath + "/chassis",
+        [asyncResp, driveId](const boost::system::error_code& ec,
+                             const dbus::utility::MapperEndPoints& resp) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("Error in chassis ID association ");
+                BMCWEB_LOG_ERROR("Error in chassis ID association: {}", ec);
                 return;
             }
 
             if (resp.empty())
             {
-                BMCWEB_LOG_DEBUG("No chassis ID association ");
+                BMCWEB_LOG_DEBUG("No chassis ID association for drive {}",
+                                 driveId);
                 return;
             }
 
             // Find the chassisId that contains this driveId
             sdbusplus::message::object_path chassisPath(resp[0]);
-            auto chassisId = chassisPath.filename();
+            std::string chassisId = chassisPath.filename();
 
+            // Build Chassis drive link only (no Storage link)
             std::string driveLink = "/redfish/v1/Chassis/";
             driveLink.append(chassisId).append("/Drives/").append(driveId);
 
@@ -567,53 +572,14 @@ inline void getDriveChassisID(
             nlohmann::json& relatedItemCount =
                 asyncResp->res.jsonValue["RelatedItem@odata.count"];
 
-            if (!relatedItemAlreadyPresent(relatedItem, driveStorLink))
+            // Add chassis drive link
+            if (!relatedItemAlreadyPresent(relatedItem, driveLink))
             {
-                // Add chassis drive link
                 relatedItem.push_back({{"@odata.id", driveLink}});
-                // Add storage drive link
-                relatedItem.push_back({{"@odata.id", driveStorLink}});
             }
+
             relatedItemCount = relatedItem.size();
         });
-}
-
-inline static void getRelatedItemsDrive(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const sdbusplus::message::object_path& objPath)
-{
-    // Drive is expected to be under a Chassis
-    crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code& ec,
-                         const std::vector<std::string>& objects) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                return;
-            }
-
-            for (const auto& object : objects)
-            {
-                sdbusplus::message::object_path path(object);
-                std::string itemPath =
-                    "/redfish/v1/"
-                    "Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/"
-                    "Storage/" +
-                    path.filename() + "/Drives/" + objPath.filename();
-
-                getDriveChassisID(aResp, objPath.filename(), objPath.str,
-                                  itemPath);
-                break;
-            }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<std::string, 1>{
-            "xyz.openbmc_project.Inventory.Item.Storage"});
 }
 
 inline static void getRelatedItemsStorageController(
