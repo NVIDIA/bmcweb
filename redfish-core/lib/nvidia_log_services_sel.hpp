@@ -600,7 +600,11 @@ inline void handleSelEntryDeletion(
                             entryId = getEntryIdFromSelId(
                                 interfaceMap.second,
                                 static_cast<uint32_t>(std::stoul(selRecordId)));
-                            deleteDbusSELEntry(entryId, asyncResp);
+                            if (!entryId.empty())
+                            {
+                                deleteDbusSELEntry(entryId, asyncResp);
+                                break;
+                            }
                         }
                         catch ([[maybe_unused]] const std::runtime_error& e)
                         {
