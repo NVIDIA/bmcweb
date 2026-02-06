@@ -3342,18 +3342,22 @@ inline void populateChassisLinksOemAndStatus(
     // Link association to parent chassis
     redfish::chassis_utils::getChassisLinksContainedBy(asyncResp, objPath);
     // get physical security data by default
-#ifndef BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT
-    redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
-#else
-    // if platform intrusion component is specified, get the intrusion data from
-    // the platform intrusion component
-    if (chassisId == BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT)
+    if constexpr (!BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT_ENABLED)
     {
         redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
-        redfish::nvidia_chassis_utils::populateLastIntrusionDetected(
-            asyncResp, objPath);
     }
-#endif
+    else
+    {
+        // if platform intrusion component is specified, get the intrusion data
+        // from the platform intrusion component
+        // NOLINTNEXTLINE(readability-container-size-empty)
+        if (chassisId == BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT)
+        {
+            redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
+            redfish::nvidia_chassis_utils::populateLastIntrusionDetected(
+                asyncResp, objPath);
+        }
+    }
     // get network adapter
     redfish::nvidia_chassis_utils::getNetworkAdapters(asyncResp, path,
                                                       interfaces2, chassisId);
