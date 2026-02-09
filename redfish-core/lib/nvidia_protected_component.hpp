@@ -165,8 +165,20 @@ inline void updateSlotProperties(
                     if (const std::string* value =
                             std::get_if<std::string>(&val))
                     {
-                        asyncResp->res.jsonValue["BuildType"] =
-                            getStrAfterLastDot(*value);
+                        std::string buildType = getStrAfterLastDot(*value);
+                        if (buildType == "Development")
+                        {
+                            asyncResp->res.jsonValue["BuildType"] =
+                                "Development";
+                        }
+                        else if (buildType == "Release")
+                        {
+                            asyncResp->res.jsonValue["BuildType"] = "Release";
+                        }
+                        else
+                        {
+                            asyncResp->res.jsonValue["BuildType"] = nullptr;
+                        }
                     }
                     else
                     {
