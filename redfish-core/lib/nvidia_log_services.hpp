@@ -1318,8 +1318,8 @@ constexpr long long int maxFileSize()
     }
     else
     {
-        // Arbitrary max size of 20MB to accommodate BMC dumps
-        return 20LL * 1024LL * 1024LL;
+        // Arbitrary max size of 64MB to accommodate BMC dumps
+        return 64LL * 1024LL * 1024LL;
     }
 }
 
