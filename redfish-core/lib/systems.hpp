@@ -1031,6 +1031,64 @@ inline void getBootProgressLastStateTime(
 }
 
 /**
+ * @brief Process DOT CAK initialization state from DBus property
+ */
+inline void processDotCakInitializationState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& cakState)
+{
+    if (ec)
+    {
+        // Optional property; ignore when not present.
+        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+        return;
+    }
+
+    // Map the platform's BootProgressOem enum values to Redfish enum values.
+    std::string redfishValue;
+    if (cakState == "EarlyBoot")
+    {
+        redfishValue = "EarlyBoot";
+    }
+    else if (cakState == "Waiting")
+    {
+        redfishValue = "Waiting";
+    }
+    else if (cakState == "Complete")
+    {
+        redfishValue = "Complete";
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("Unexpected BootProgressOem value from D-Bus: {}",
+                         cakState);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["DOTCAKInitialization"] =
+        redfishValue;
+}
+
+inline void getDotCakInitialization(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if constexpr (!BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)
+    {
+        return;
+    }
+
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Boot.Raw",
+        "/xyz/openbmc_project/state/boot/cak0",
+        "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& cakState) {
+            processDotCakInitializationState(asyncResp, ec, cakState);
+        });
+}
+
+/**
  * @brief Retrieves boot override type over DBUS and fills out the response
  *
  * @param[in] asyncResp         Shared pointer for generating response message.
@@ -3746,7 +3804,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem";
+            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
@@ -3823,7 +3881,7 @@ inline void handleComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem";
+            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
@@ -3835,6 +3893,11 @@ inline void handleComputerSystemGet(
                                     "/Oem/Nvidia/SystemConfigProfile",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
         }
+    }
+
+    if constexpr (BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)
+    {
+        getDotCakInitialization(asyncResp);
     }
 
     if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
