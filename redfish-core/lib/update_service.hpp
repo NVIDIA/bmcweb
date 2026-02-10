@@ -187,9 +187,9 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
         if (state->ends_with("Invalid") || state->ends_with("Failed"))
         {
-            taskData->state = "Exception";
-            taskData->status = "Warning";
             taskData->messages.emplace_back(messages::taskAborted(index));
+            taskData->finishTask();
+            taskData->state = "Exception";
             fwUpdateInProgress = false;
             return task::completed;
         }
@@ -224,6 +224,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
         if (state->ends_with("Active"))
         {
             taskData->messages.emplace_back(messages::taskCompletedOK(index));
+            taskData->finishTask();
             taskData->state = "Completed";
             fwUpdateInProgress = false;
             return task::completed;
