@@ -540,14 +540,25 @@ inline void afterLeakDetectorPolicyProperties(
 
     if (reactionDelaySeconds != nullptr)
     {
-        if (std::isfinite(*reactionDelaySeconds))
+        if (!std::isfinite(*reactionDelaySeconds))
         {
-            asyncResp->res.jsonValue["ReactionDelaySeconds"] =
-                static_cast<int64_t>(*reactionDelaySeconds);
+            BMCWEB_LOG_ERROR("Reaction delay value is invalid: non-finite");
+            messages::propertyValueOutOfRange(
+                asyncResp->res, "non-finite value", "ReactionDelaySeconds");
+        }
+        else if (*reactionDelaySeconds < 0)
+        {
+            BMCWEB_LOG_ERROR("Reaction delay value is invalid: negative ({})",
+                             *reactionDelaySeconds);
+            messages::propertyValueOutOfRange(
+                asyncResp->res,
+                std::to_string(static_cast<int64_t>(*reactionDelaySeconds)),
+                "ReactionDelaySeconds");
         }
         else
         {
-            BMCWEB_LOG_WARNING("Reaction delay value is invalid");
+            asyncResp->res.jsonValue["ReactionDelaySeconds"] =
+                static_cast<int64_t>(*reactionDelaySeconds);
         }
     }
 }
@@ -790,6 +801,19 @@ inline void handleLeakDetectorPatch(
             messages::propertyValueNotInList(
                 asyncResp->res, *policyProperties.warningReactionType,
                 "WarningReactionType");
+            return;
+        }
+    }
+
+    // Validate reactionDelaySeconds if provided
+    if (policyProperties.reactionDelaySeconds)
+    {
+        if (!std::isfinite(*policyProperties.reactionDelaySeconds) ||
+            *policyProperties.reactionDelaySeconds < 0)
+        {
+            messages::propertyValueOutOfRange(
+                asyncResp->res, *policyProperties.reactionDelaySeconds,
+                "ReactionDelaySeconds");
             return;
         }
     }
