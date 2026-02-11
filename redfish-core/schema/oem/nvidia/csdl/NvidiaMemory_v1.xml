@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaMemory  v1.0.0                                            -->
+<!--# Redfish OEM Schema:  NvidiaMemory  v1.1.0                                            -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -38,10 +38,15 @@
           <Annotation Term="OData.Description" String="An indication whether row-remapping is pending."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether row-remapping is pending."/>
         </Property>
-        <Property Name="DramRefreshAboveThreshold" Type="Edm.Boolean">
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemory.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaMemory" BaseType="NvidiaMemory.v1_0_0.NvidiaMemory">
+        <Property Name="DRAMRefreshRateAboveThreshold" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An indication whether DRAM refresh rate is above the threshold."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether DRAM refresh rate is above the threshold. The value shall be true when the performance state is Normal, and false when the performance state is Throttled or Degraded."/>
+          <Annotation Term="OData.Description" String="An indication of whether the DRAM refresh rate is above the 1x threshold for soldered or SODIMM LPDDR5."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the DRAM thermal and refresh rate throttle reporting shows the refresh rate is above the 1x threshold for soldered or SODIMM LPDDR5. The value shall be `true` when the DRAM refresh rate is above 1x threshold, and `false` below it."/>
         </Property>
       </ComplexType>
     </Schema>
