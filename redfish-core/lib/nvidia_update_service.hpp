@@ -32,6 +32,7 @@
 #include "redfish_aggregator.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
+#include "utility.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/sw_utils.hpp"
@@ -1744,9 +1745,32 @@ inline void handleCommitImagePost(
 
         for (auto& target : targetsCollection)
         {
-            sdbusplus::message::object_path objectPath(target);
+            // Validate that the target is a proper Redfish FirmwareInventory
+            // path (same style as processUrl() in update_service.hpp)
+            boost::system::result<boost::urls::url_view> url =
+                boost::urls::parse_origin_form(target);
+            if (!url)
+            {
+                BMCWEB_LOG_ERROR("Invalid target path: '{}'", target);
+                boost::urls::url_view targetURL(target);
+                messages::resourceMissingAtURI(asyncResp->res, targetURL);
+                hasInvalidTargets = true;
+                continue;
+            }
+            std::string firmwareId;
+            if (!crow::utility::readUrlSegments(
+                    *url, "redfish", "v1", "UpdateService", "FirmwareInventory",
+                    std::ref(firmwareId)))
+            {
+                BMCWEB_LOG_ERROR("Invalid target path: '{}'", target);
+                boost::urls::url_view targetURL(target);
+                messages::resourceMissingAtURI(asyncResp->res, targetURL);
+                hasInvalidTargets = true;
+                continue;
+            }
+
             std::string inventoryPathIn =
-                "/xyz/openbmc_project/software/" + objectPath.filename();
+                "/xyz/openbmc_project/software/" + firmwareId;
             std::pair<bool, CommitImageValueEntry> result =
                 getAllowableValue(inventoryPathIn);
 
