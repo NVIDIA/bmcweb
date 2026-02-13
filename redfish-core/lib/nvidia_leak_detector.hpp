@@ -304,7 +304,6 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
         "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors/{}",
         chassisId, leakDetectorId);
     resp.jsonValue["Status"]["State"] = "Enabled";
-    resp.jsonValue["Status"]["Health"] = "OK";
 
     std::string leakDetectorName(leakDetectorId);
     std::replace(leakDetectorName.begin(), leakDetectorName.end(), '_', ' ');
@@ -342,7 +341,6 @@ inline void afterDetectorStatePropertyGet(
     {
         std::string mappedState = getDetectorState(*detectorState);
         asyncResp->res.jsonValue["DetectorState"] = mappedState;
-        asyncResp->res.jsonValue["Status"]["Health"] = mappedState;
     }
 }
 
