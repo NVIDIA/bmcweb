@@ -52,38 +52,85 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/redfish/v1/Managers/" + bmcId + "/Oem/Nvidia/NSMRawCommandActionInfo";
     asyncResp->res.jsonValue["Name"] = "NSMRawCommand Action Info";
     asyncResp->res.jsonValue["Id"] = "NSMRawCommandActionInfo";
-    asyncResp->res.jsonValue["Parameters"] = nlohmann::json::array(
-        {{{"Name", "DeviceIdentificationId"},
-          {"Required", true},
-          {"DataType", "Number"},
-          {"AllowableNumbers", {"0:5:1"}}},
-         {{"Name", "DeviceRoleId"},
-          {"Required", false},
-          {"DataType", "Number"},
-          {"AllowableNumbers", {"0:2:1"}}},
-         {{"Name", "DeviceInstanceId"},
-          {"Required", true},
-          {"DataType", "Number"}},
-         {{"Name", "IsLongRunning"},
-          {"Required", false},
-          {"DataType", "Boolean"}},
-         {{"Name", "MessageType"}, {"Required", true}, {"DataType", "Number"}},
-         {{"Name", "CommandCode"}, {"Required", true}, {"DataType", "Number"}},
-         {{"Name", "DataSizeBytes"},
-          {"Required", true},
-          {"DataType", "Number"},
-          {"MinimumValue", 0},
-          {"MaximumValue", 65535}},
-         {{"Name", "Data"},
-          {"Required", false},
-          {"DataType", "NumberArray"},
-          {"MinimumValue", 0},
-          {"MaximumValue", 255}},
-         {{"Name", "MsgFormatVersion"},
-          {"Required", false},
-          {"DataType", "Number"},
-          {"AllowableNumbers", {"1:2:1"}},
-          {"DefaultValue", "1"}}});
+    nlohmann::json::array_t parameters;
+    {
+        nlohmann::json obj;
+        nlohmann::json::array_t allowableNumbers;
+        allowableNumbers.emplace_back("0:5:1");
+        obj["Name"] = "DeviceIdentificationId";
+        obj["Required"] = true;
+        obj["DataType"] = "Number";
+        obj["AllowableNumbers"] = std::move(allowableNumbers);
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        nlohmann::json::array_t allowableNumbers;
+        allowableNumbers.emplace_back("0:2:1");
+        obj["Name"] = "DeviceRoleId";
+        obj["Required"] = false;
+        obj["DataType"] = "Number";
+        obj["AllowableNumbers"] = std::move(allowableNumbers);
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "DeviceInstanceId";
+        obj["Required"] = true;
+        obj["DataType"] = "Number";
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "IsLongRunning";
+        obj["Required"] = false;
+        obj["DataType"] = "Boolean";
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "MessageType";
+        obj["Required"] = true;
+        obj["DataType"] = "Number";
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "CommandCode";
+        obj["Required"] = true;
+        obj["DataType"] = "Number";
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "DataSizeBytes";
+        obj["Required"] = true;
+        obj["DataType"] = "Number";
+        obj["MinimumValue"] = 0;
+        obj["MaximumValue"] = 65535;
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        obj["Name"] = "Data";
+        obj["Required"] = false;
+        obj["DataType"] = "NumberArray";
+        obj["MinimumValue"] = 0;
+        obj["MaximumValue"] = 255;
+        parameters.emplace_back(std::move(obj));
+    }
+    {
+        nlohmann::json obj;
+        nlohmann::json::array_t allowableNumbers;
+        allowableNumbers.emplace_back("1:2:1");
+        obj["Name"] = "MsgFormatVersion";
+        obj["Required"] = false;
+        obj["DataType"] = "Number";
+        obj["AllowableNumbers"] = std::move(allowableNumbers);
+        obj["DefaultValue"] = "1";
+        parameters.emplace_back(std::move(obj));
+    }
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
 bool parseRequestJson(const crow::Request& req,
