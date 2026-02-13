@@ -20,6 +20,7 @@
 #include "log_services.hpp"
 #include "message_registries.hpp"
 #include "nvidia_log_services_sel.hpp"
+#include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/log_services_util.hpp"
@@ -95,7 +96,6 @@ inline void populateXIDLogServiceFromSubtree(
         asyncResp->res.jsonValue["Description"] = "XID Log Service";
         asyncResp->res.jsonValue["Id"] = "XID";
         asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
-
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();
 
@@ -118,6 +118,7 @@ inline void populateXIDLogServiceFromSubtree(
                     messages::internalError(asyncResp->res);
                     return;
                 }
+                BMCWEB_LOG_DEBUG("PrettyName: {}", chassisName);
                 // Call Phosphor-logging GetStats method to get
                 // LatestEntryTimestamp and LatestEntryID
                 crow::connections::systemBus->async_method_call(
@@ -172,23 +173,31 @@ inline void requestRoutesChassisXIDLogService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/LogServices/XID/")
         .privileges(redfish::privileges::getLogService)
-        .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& chassisId) {
-                const std::array<std::string_view, 2> interfaces = {
-                    "xyz.openbmc_project.Inventory.Item.Board",
-                    "xyz.openbmc_project.Inventory.Item.Chassis"};
-                dbus::utility::getSubTree(
-                    "/xyz/openbmc_project/inventory", 0, interfaces,
-                    [asyncResp, chassisId(std::string(chassisId))](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::MapperGetSubTreeResponse&
-                            subtree) {
-                        populateXIDLogServiceFromSubtree(asyncResp, ec,
-                                                         chassisId, subtree);
-                    });
-            });
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
+            BMCWEB_LOG_DEBUG("requestRoutesChassisXIDLogService enter");
+            const std::array<std::string_view, 2> interfaces = {
+                "xyz.openbmc_project.Inventory.Item.Board",
+                "xyz.openbmc_project.Inventory.Item.Chassis"};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, interfaces,
+                [asyncResp, chassisId(std::string(chassisId))](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    BMCWEB_LOG_DEBUG(
+                        "requestRoutesChassisXIDLogService respHandler enter");
+                    populateXIDLogServiceFromSubtree(asyncResp, ec, chassisId,
+                                                     subtree);
+                });
+        });
 }
 
 inline void requestRoutesChassisXIDLogEntryCollection(App& app)
@@ -196,10 +205,14 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/LogServices/XID/Entries/")
         .privileges(redfish::privileges::getLogEntryCollection)
         .methods(
-            boost::beast::http::verb::get)([](const crow::Request&,
-                                              const std::shared_ptr<
-                                                  bmcweb::AsyncResp>& asyncResp,
-                                              const std::string& chassisId) {
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
             const std::array<std::string_view, 2> interfaces = {
                 "xyz.openbmc_project.Inventory.Item.Board",
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
@@ -257,10 +270,8 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
-
                                     BMCWEB_LOG_DEBUG("PrettyName: {}",
                                                      chassisName);
-
                                     // Call the function to get XID log entries
                                     getXIDLogEntries(asyncResp, chassisId,
                                                      chassisName);
