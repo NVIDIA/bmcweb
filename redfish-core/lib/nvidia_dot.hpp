@@ -2573,7 +2573,7 @@ inline void afterChassisValidationForDOTRecovery(
     }
 
     constexpr size_t dotBlobSize = 1024;
-    constexpr size_t maxBase64Size = dotBlobSize * 4 / 3;
+    constexpr size_t maxBase64Size = ((dotBlobSize + 2) / 3) * 4;
     if (dotDataBase64.size() > maxBase64Size)
     {
         BMCWEB_LOG_ERROR(
