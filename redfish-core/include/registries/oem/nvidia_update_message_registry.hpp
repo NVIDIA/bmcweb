@@ -262,19 +262,6 @@ static constexpr std::array registry =
             },
             "None.",
         }},
-    MessageEntry{
-        "StageSuccessful",
-        {
-            "Indicates that image is successfully staged on the device",
-            "Device %1 successfully staged with image %2.",
-            "OK",
-            2,
-            {
-                "string",
-                "string",
-            },
-            "None.",
-        }},
 
 };
 
@@ -298,7 +285,6 @@ enum class Index
     imageCopyCompleted = 15,
     recoveryStarted = 16,
     recoverySuccessful = 17,
-    stageSuccessful = 18,
 };
 }; // struct nvidia_update
 

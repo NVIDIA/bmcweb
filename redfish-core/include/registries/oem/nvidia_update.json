@@ -104,15 +104,6 @@
             "Resolution": "None.",
             "Severity": "OK"
         },
-        "StageSuccessful": {
-            "Description": "Indicates that image is successfully staged on the device",
-            "Message": "Device %1 successfully staged with image %2.",
-            "MessageSeverity": "OK",
-            "NumberOfArgs": 2,
-            "ParamTypes": ["string", "string"],
-            "Resolution": "None.",
-            "Severity": "OK"
-        },
         "DOTActionResponseError": {
             "Description": "Indicates that an error occured for the requested DOT command.",
             "Message": "Requested DOT action has resulted in error of type '%1'.",

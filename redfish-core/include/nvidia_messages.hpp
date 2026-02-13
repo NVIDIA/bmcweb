@@ -207,15 +207,6 @@ inline nlohmann::json firmwareNotInRecovery(std::string_view arg1)
         redfish::registries::NvidiaUpdate::Index::firmwareNotInRecovery, args);
 }
 
-inline nlohmann::json stageSuccessful(std::string_view arg1,
-                                      std::string_view arg2)
-{
-    (void)arg2;
-    std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(
-        redfish::registries::NvidiaUpdate::Index::stageSuccessful, args);
-}
-
 inline nlohmann::json bmcDriverErrorsDetected(
     std::string_view arg1, std::string_view arg2, std::string_view arg3)
 {

@@ -1945,10 +1945,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
 
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
-            {
-                redfish::fw_util::getFWSlotInformation(asyncResp, obj.first);
-            }
+            redfish::fw_util::getFWSlotInformation(asyncResp, obj.first);
         }
         if (!statusService.empty())
         {

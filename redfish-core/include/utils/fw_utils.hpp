@@ -760,21 +760,15 @@ inline void getFWSlotInformation(
         "endpoints",
         [asyncResp, objectPath](const boost::system::error_code& ec,
                                 const std::vector<std::string>& objPaths) {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSoftwareInventory.v1_2_0.NvidiaSoftwareInventory";
             if (ec)
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["StageOnlyUpdateOptionSupported"] =
-                    false;
                 return;
             }
 
             if (!objPaths.empty())
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["StageOnlyUpdateOptionSupported"] =
-                    true;
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaSoftwareInventory.v1_2_0.NvidiaSoftwareInventory";
                 populateSlotInfo(asyncResp, objPaths.front(),
                                  "ActiveFirmwareSlot");
             }
