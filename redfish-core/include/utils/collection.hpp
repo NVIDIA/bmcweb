@@ -75,6 +75,14 @@ inline void handleCollectionMembers(
     }
 
     nlohmann::json& members = asyncResp->res.jsonValue[jsonKeyName];
+    nlohmann::json::array_t* membersArr =
+        members.get_ptr<nlohmann::json::array_t*>();
+
+    if (membersArr == nullptr)
+    {
+        members = nlohmann::json::array();
+        membersArr = members.get_ptr<nlohmann::json::array_t*>();
+    }
 
     for (const std::string& leaf : pathNames)
     {
@@ -82,9 +90,9 @@ inline void handleCollectionMembers(
         crow::utility::appendUrlPieces(url, leaf);
         nlohmann::json::object_t member;
         member["@odata.id"] = std::move(url);
-        members.emplace_back(std::move(member));
+        membersArr->emplace_back(std::move(member));
     }
-    asyncResp->res.jsonValue[jsonCountKeyName] = members.size();
+    asyncResp->res.jsonValue[jsonCountKeyName] = membersArr->size();
 }
 
 /**
