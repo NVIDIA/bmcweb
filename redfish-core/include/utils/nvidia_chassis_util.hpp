@@ -24,6 +24,7 @@
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/time_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
@@ -34,9 +35,6 @@
 #include <openbmc_dbus_rest.hpp>
 
 #include <array>
-#include <chrono>
-#include <ctime>
-#include <limits>
 #include <memory>
 #include <string>
 #include <variant>
@@ -2331,65 +2329,25 @@ inline void doLeakDetectionPolicyGet(
         boost::urls::format("/redfish/v1/Chassis/{}/Oem/Nvidia/Policies",
                             chassisId);
 }
-inline std::optional<std::string> epochSecondsToRfc3339(uint64_t epochSeconds)
-{
-    // Guard against time_t overflow (important if time_t is 32-bit)
-    if (epochSeconds >
-        static_cast<uint64_t>(std::numeric_limits<std::time_t>::max()))
-    {
-        return std::nullopt;
-    }
-
-    const std::time_t t = static_cast<std::time_t>(epochSeconds);
-
-    std::tm utc{};
-    if (gmtime_r(&t, &utc) == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    // "YYYY-MM-DDTHH:MM:SSZ" is 20 chars (+ '\0')
-    std::array<char, 32> buf{};
-    const size_t n =
-        std::strftime(buf.data(), buf.size(), "%Y-%m-%dT%H:%M:%SZ", &utc);
-    if (n == 0)
-    {
-        return std::nullopt;
-    }
-
-    return std::string(buf.data(), n);
-}
 
 inline void populateLastIntrusionDetected(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<uint64_t>(
         "xyz.openbmc_project.IntrusionSensor",
         "/xyz/openbmc_project/Chassis/Intrusion",
         "xyz.openbmc_project.Time.EpochTime", "Elapsed",
-        [asyncResp, chassisPath](const boost::system::error_code& ec,
-                                 const uint64_t& epochSeconds) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const uint64_t& epochSeconds) {
             if (ec)
             {
-                return;
-            }
-
-            std::optional<std::string> formattedTimestamp =
-                epochSecondsToRfc3339(epochSeconds);
-            if (!formattedTimestamp)
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["Nvidia"]["LastIntrusionDetected"] =
-                    nullptr;
-                BMCWEB_LOG_WARNING(
-                    "Failed to convert epoch seconds to RFC3339 for {}",
-                    chassisPath);
+                BMCWEB_LOG_WARNING("getLastIntrusionDetected DBUS error: {}",
+                                   ec);
                 return;
             }
 
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LastIntrusionDetected"] =
-                *formattedTimestamp;
+                redfish::time_utils::getDateTimeUint(epochSeconds);
         });
 }
 
@@ -3355,7 +3313,7 @@ inline void populateChassisLinksOemAndStatus(
         {
             redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
             redfish::nvidia_chassis_utils::populateLastIntrusionDetected(
-                asyncResp, objPath);
+                asyncResp);
         }
     }
     // get network adapter
