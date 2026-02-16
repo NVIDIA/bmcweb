@@ -56,10 +56,8 @@ using DbusVariantType = std::variant<
     std::vector<std::tuple<std::string, std::string>>,
     std::vector<std::tuple<std::string, std::vector<std::string>>>,
     std::vector<std::tuple<uint32_t, std::vector<uint32_t>>>,
-    std::vector<std::tuple<uint32_t, size_t>>,
-#if __SIZEOF_SIZE_T__ != 4
+    std::vector<std::tuple<uint32_t, uint64_t>>,
     std::vector<std::tuple<uint32_t, uint32_t>>,
-#endif
     std::vector<std::tuple<sdbusplus::message::object_path, std::string,
                            std::string, std::string>>,
     std::vector<uint8_t>,
