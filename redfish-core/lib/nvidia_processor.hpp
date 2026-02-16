@@ -594,7 +594,7 @@ inline void getPowerBreakThrottleData(
                 else
                 {
                     json["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+                        "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
                 }
                 if (property.first == "Value")
                 {
@@ -1209,7 +1209,7 @@ inline void getProcessorPerformanceData(
             const std::string_view metricType =
                 (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
                     ? "#NvidiaProcessorMetrics.v1_5_0.NvidiaGPUProcessorMetrics"
-                    : "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+                    : "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
 
             json["Oem"]["Nvidia"]["@odata.type"] = metricType;
 
@@ -1453,7 +1453,7 @@ inline void getPowerSystemInputsData(
                 else
                 {
                     json["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+                        "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
                 }
                 if (property.first == "Status")
                 {
@@ -1507,7 +1507,7 @@ inline void getMemorySpareChannelPresenceData(
             else
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+                    "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
             }
             json["Oem"]["Nvidia"]["MemorySpareChannelPresence"] =
                 *memorySpareChannelPresence;
@@ -1517,30 +1517,78 @@ inline void getMemorySpareChannelPresenceData(
 }
 
 // TODO: move to oem
-inline void getMemoryPageRetirementCountData(
+inline void getMetricValueSensorData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath, const std::string& deviceType)
+    const std::string& sensorPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
-        [aResp, objPath, deviceType](const boost::system::error_code& ec,
-                                     const std::variant<uint32_t>& property) {
+    sdbusplus::message::object_path objPath(sensorPath);
+    std::string sensorName = objPath.filename();
+
+    // Maps D-Bus sensor names to Redfish OEM property names. Backend sensor
+    // names are decoupled from the Redfish schema so that changes to sensor
+    // naming in pldm or other providers do not affect the Redfish mockup or
+    // schema compliance.
+    struct MetricMapping
+    {
+        std::string_view sensorName;
+        std::string_view redfishProperty;
+    };
+    static constexpr std::array<MetricMapping, 4> metricMappings = {{
+        {"CpuUptime", "CPUUptime"},
+        {"PowerBRKAssertionTime", "PowerBrakeAssertionDuration"},
+        {"PageRetirementCount", "MemoryPageRetirementCount"},
+        {"TjMaxDramIndex", "TjMaxDramIndex"},
+    }};
+
+    std::string_view redfishProperty;
+    for (const auto& mapping : metricMappings)
+    {
+        if (sensorName.find(mapping.sensorName) != std::string::npos)
+        {
+            redfishProperty = mapping.redfishProperty;
+            break;
+        }
+    }
+    if (redfishProperty.empty())
+    {
+        return;
+    }
+
+    dbus::utility::getAllProperties(
+        service, sensorPath, "xyz.openbmc_project.Metric.Value",
+        [aResp, deviceType, redfishProp = std::string(redfishProperty)](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error");
-                messages::internalError(aResp->res);
+                BMCWEB_LOG_DEBUG("DBUS response error for Metric.Value: {}",
+                                 ec.message());
                 return;
             }
-            nlohmann::json& json = aResp->res.jsonValue;
 
-            const uint32_t* memoryPageRetirementCount =
-                std::get_if<uint32_t>(&property);
-            if (memoryPageRetirementCount == nullptr)
+            const double* value = nullptr;
+            const std::string* unit = nullptr;
+            for (const auto& [key, variant] : properties)
+            {
+                if (key == "Value")
+                {
+                    value = std::get_if<double>(&variant);
+                }
+                else if (key == "Unit")
+                {
+                    unit = std::get_if<std::string>(&variant);
+                }
+            }
+            if (value == nullptr)
             {
                 BMCWEB_LOG_ERROR(
-                    "Null value returned for MemoryPageRetirementCount");
+                    "Null value returned for Metric.Value property {}",
+                    redfishProp);
                 messages::internalError(aResp->res);
                 return;
             }
+
+            nlohmann::json& json = aResp->res.jsonValue;
             if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
@@ -1549,14 +1597,29 @@ inline void getMemoryPageRetirementCountData(
             else
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+                    "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
             }
-            json["Oem"]["Nvidia"]["MemoryPageRetirementCount"] =
-                *memoryPageRetirementCount;
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "Get",
-        "com.nvidia.MemoryPageRetirementCount", "MemoryPageRetirementCount");
+
+            if (unit != nullptr &&
+                *unit == "xyz.openbmc_project.Metric.Value.Unit.Seconds")
+            {
+                uint64_t nanoseconds =
+                    static_cast<uint64_t>(*value * 1000.0 * 1000.0 * 1000.0);
+                std::optional<std::string> duration =
+                    time_utils::toDurationStringFromNano(nanoseconds);
+                if (duration)
+                {
+                    json["Oem"]["Nvidia"][redfishProp] = *duration;
+                }
+            }
+            else
+            {
+                json["Oem"]["Nvidia"][redfishProp] =
+                    static_cast<int64_t>(*value);
+            }
+        });
 }
+
 // TODO: move to oem
 inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
@@ -2906,66 +2969,37 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void getNumericSensorMetric(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath, const std::string& deviceType)
+inline void getMetricValueSensorMetric(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
-        [aResp, service, deviceType,
-         objPath](const boost::system::error_code& ec,
-                  std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/measured_by",
+        [aResp, deviceType](const boost::system::error_code& ec,
+                            const dbus::utility::MapperEndPoints& metricPaths) {
             if (ec)
             {
-                // No state sensors attached.
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            constexpr std::array<std::string_view, 1> metricInterfaces = {
+                "xyz.openbmc_project.Metric.Value"};
+            for (const std::string& metricPath : metricPaths)
             {
-                messages::internalError(aResp->res);
-                return;
-            }
-            for (const std::string& sensorPath : *data)
-            {
-                BMCWEB_LOG_DEBUG("Numeric Sensor Object Path {}", sensorPath);
-
-                const std::array<const char*, 1> sensorInterfaces = {
-                    "com.nvidia.MemoryPageRetirementCount"};
-                // Process sensor reading
-                crow::connections::systemBus->async_method_call(
-                    [aResp, sensorPath, deviceType](
-                        const boost::system::error_code& getObjectError,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
-                        if (getObjectError)
+                dbus::utility::getDbusObject(
+                    metricPath, metricInterfaces,
+                    [aResp, metricPath,
+                     deviceType](const boost::system::error_code& ec2,
+                                 const dbus::utility::MapperGetObject& object) {
+                        if (ec2 || object.empty())
                         {
-                            // The path does not implement any numeric sensor
-                            // interfaces.
                             return;
                         }
-
-                        for (const auto& [serviceName, interfaces] : object)
-                        {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
-                                    "com.nvidia.MemoryPageRetirementCount") !=
-                                interfaces.end())
-                            {
-                                getMemoryPageRetirementCountData(
-                                    aResp, serviceName, sensorPath, deviceType);
-                            }
-                        }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                    sensorInterfaces);
+                        const auto& [serviceName, interfaces] = *object.begin();
+                        getMetricValueSensorData(aResp, serviceName, metricPath,
+                                                 deviceType);
+                    });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getStateSensorMetric(
@@ -3175,8 +3209,7 @@ inline void getProcessorMetricsData(
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
                         getStateSensorMetric(aResp, service, path, deviceType);
-                        getNumericSensorMetric(aResp, service, path,
-                                               deviceType);
+                        getMetricValueSensorMetric(aResp, path, deviceType);
                     }
                 }
                 return;
