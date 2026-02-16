@@ -54,8 +54,11 @@ inline std::string nanoSecToDurationString(std::chrono::nanoseconds ns)
 
     if (seconds.count() != 0 || ns.count() != 0)
     {
-        fmt += std::to_string(seconds.count()) + ".";
-        fmt += details::padZeros(ns.count(), 9);
+        fmt += std::to_string(seconds.count());
+        if (ns.count() != 0)
+        {
+            fmt += "." + details::padZeros(ns.count(), 9);
+        }
         fmt += "S";
     }
     else if (fmt == "PT")
