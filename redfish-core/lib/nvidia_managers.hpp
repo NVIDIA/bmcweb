@@ -1629,6 +1629,12 @@ inline void extendManagerOEM(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     checkAndAddDOTBackupDataLink(asyncResp, managerId);
 
+    if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
+    {
+        oemNvidia["DOT"]["@odata.id"] =
+            std::format("/redfish/v1/Managers/{}/Oem/Nvidia/DOT", managerId);
+    }
+
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)

@@ -1301,6 +1301,14 @@ option(
     description: 'nvidia Dbus log entry handling implementation',
 )
 
+# BMCWEB_NVIDIA_DOT_KEYD_SUPPORT
+option(
+    'nvidia-dot-keyd-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable DOT keyd Redfish endpoints for CAK management',
+)
+
 # BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
 option(
     'enable-unused-upstream-code',
