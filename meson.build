@@ -377,8 +377,8 @@ libexec = get_option('prefix') + '/' + get_option('libexecdir')
 
 summary(
     {
-        'prefix' : get_option('prefix'),
-        'bindir' : bindir,
+        'prefix': get_option('prefix'),
+        'bindir': bindir,
         'systemd unit directory': systemd_system_unit_dir,
     },
     section: 'Directories',

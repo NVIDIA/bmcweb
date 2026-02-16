@@ -84,8 +84,7 @@ static void checkAssociationEndpointsForInstance(
     const std::pair<sdbusplus::message::object_path,
                     dbus::utility::DBusInterfacesMap>& object,
     const std::string& objectPath, const std::string& certificateID,
-    const boost::system::error_code& ec,
-    std::variant<std::vector<std::string>>& resp)
+    const boost::system::error_code& ec, const std::vector<std::string>& data)
 {
     if (ec)
     {
@@ -95,17 +94,7 @@ static void checkAssociationEndpointsForInstance(
         return;
     }
 
-    std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&resp);
-    if (data == nullptr)
-    {
-        BMCWEB_LOG_ERROR(
-            "No associated inventory object found for object={} in checkAssociationEndpointsForInstance",
-            objectPath);
-        return;
-    }
-
-    const std::string& associatedInventoryPath = data->front();
+    const std::string& associatedInventoryPath = data.front();
     if (objectPath == associatedInventoryPath)
     {
         // Certificates is of collection of slot and it's
@@ -359,8 +348,7 @@ static void handleChassisCertificateInstanceGet(
 static void checkAssociationEndpointsForCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const std::string& chassisID,
-    const boost::system::error_code& ec,
-    std::variant<std::vector<std::string>>& resp)
+    const boost::system::error_code& ec, const std::vector<std::string>& data)
 {
     if (ec)
     {
@@ -370,23 +358,13 @@ static void checkAssociationEndpointsForCollection(
         return;
     }
 
-    std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&resp);
-    if (data == nullptr)
-    {
-        BMCWEB_LOG_ERROR(
-            "No associated inventory object found for object={} in checkAssociationEndpointsForCollection",
-            objectPath);
-        return;
-    }
-
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     if (!members.is_array())
     {
         members = nlohmann::json::array();
     }
 
-    const std::string& associatedInventoryPath = data->front();
+    const std::string& associatedInventoryPath = data.front();
     if (objectPath == associatedInventoryPath)
     {
         boost::urls::url certUrl = boost::urls::format(

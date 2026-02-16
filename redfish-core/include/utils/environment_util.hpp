@@ -2690,25 +2690,21 @@ inline void getfanSpeedsPercent(
                         validPath + "/chassis",
                         [asyncResp, chassisID, &fanList, sensorName, validPath,
                          connectionName](const boost::system::error_code& ec1,
-                                         std::variant<std::vector<std::string>>&
-                                             association) {
+                                         const std::vector<std::string>& data) {
                             if (ec1)
                             {
                                 BMCWEB_LOG_ERROR("{} : {}", validPath,
                                                  ec1.message());
                                 return;
                             }
-                            std::vector<std::string>* data =
-                                std::get_if<std::vector<std::string>>(
-                                    &association);
-                            if (data == nullptr || data->empty())
+                            if (data.empty())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "{} : No chassis association found",
                                     validPath);
                                 return;
                             }
-                            std::filesystem::path chassisPath(data->front());
+                            std::filesystem::path chassisPath(data.front());
                             std::string sensorChassisID =
                                 chassisPath.filename();
                             if (sensorChassisID == chassisID)

@@ -265,8 +265,7 @@ endforeach
 intrusion_component = get_option('platform-chassis-intrusion-component')
 intrusion_component_enabled = intrusion_component != ''
 feature_options_string += (
-    'constexpr const bool BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT_ENABLED=' +
-    intrusion_component_enabled.to_string() + ';\n'
+    'constexpr const bool BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT_ENABLED=' + intrusion_component_enabled.to_string() + ';\n'
 )
 
 conf_data.set('MESON_INSTALL_PREFIX', get_option('prefix'))

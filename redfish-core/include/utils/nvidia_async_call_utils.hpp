@@ -50,7 +50,7 @@ template <typename CallAsyncStatusInfo>
 void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                        const std::string& status)
 {
-    using ValueType = CallAsyncStatusInfo::Value;
+    using ValueType = typename CallAsyncStatusInfo::Value;
     if constexpr (std::is_same_v<ValueType, void>)
     {
         if (status != asyncStatusValueInProgress)

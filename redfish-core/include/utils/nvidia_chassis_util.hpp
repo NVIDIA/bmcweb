@@ -1062,7 +1062,7 @@ inline void getOemBaseboardChassisAssert(
                 BMCWEB_LOG_DEBUG("Cannot get association");
                 return;
             }
-            const std::string& fruPath = data->front();
+            const std::string& fruPath = assoc.front();
             dbus::utility::async_method_call(
                 [aResp{aResp},
                  fruPath](const boost::system::error_code& ec2,

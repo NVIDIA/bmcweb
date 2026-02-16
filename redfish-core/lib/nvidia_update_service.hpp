@@ -417,7 +417,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
         interfacesProperties;
     sdbusplus::message::object_path objPath;
     m.read(objPath, interfacesProperties);
-    const std::unordered_map<std::string, std::string>* additionalData =
+    const std::vector<std::pair<std::string, std::string>>* additionalData =
         nullptr;
     for (auto interface : interfacesProperties)
     {
@@ -433,7 +433,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                 if (propertyMap.first == "AdditionalData")
                 {
                     additionalData = std::get_if<
-                        std::unordered_map<std::string, std::string>>(
+                        std::vector<std::pair<std::string, std::string>>>(
                         &propertyMap.second);
 
                     if (additionalData != nullptr)
