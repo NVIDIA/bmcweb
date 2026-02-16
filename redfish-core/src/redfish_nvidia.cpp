@@ -31,6 +31,7 @@
 #include "nvidia_log_services_fdr.hpp"
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
+#include "nvidia_manager_dot.hpp"
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
@@ -304,6 +305,11 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesTrustedComponents(app);
     requestRoutesNvidiaOemDOT(app);
     requestRoutesDOTBackupDataCollection(app);
+
+    if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
+    {
+        requestRoutesManagerDOT(app);
+    }
 
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {
