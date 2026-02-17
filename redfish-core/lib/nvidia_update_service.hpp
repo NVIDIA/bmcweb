@@ -2376,6 +2376,8 @@ inline void forwardImage(
                 data += "Content-Type: application/octet-stream\r\n\r\n";
                 data += formpart.content;
                 data += "\r\n";
+                formpart.content.clear();
+                formpart.content.shrink_to_fit();
                 hasUpdateFile = true;
             }
             else if (param.second == "UpdateParameters")
