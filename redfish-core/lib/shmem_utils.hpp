@@ -551,6 +551,15 @@ inline void metricsReplacementsNonPlatformMetrics(
                     gpuId.insert(number);
                 }
             }
+            if (allowProcessorId)
+            {
+                std::regex processorPattern(std::string(processor) + "(\\d+)");
+                if (std::regex_search(property, match, processorPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    processorId.insert(number);
+                }
+            }
             if (allowRetimerId)
             {
                 std::regex pcieRetimerPattern(std::string(retimer) + "(\\d+)");
@@ -782,9 +791,6 @@ inline void metricsReplacementsNonPlatformMetrics(
                 {"Values", devCountCpuId},
             });
         }
-    }
-    if (deviceType == "CpuProcessorMetrics")
-    {
         if (allowProcessorId)
         {
             nlohmann::json devCountProcessorId = nlohmann::json::array();
@@ -797,6 +803,9 @@ inline void metricsReplacementsNonPlatformMetrics(
                 {"Values", devCountProcessorId},
             });
         }
+    }
+    if (deviceType == "CpuProcessorMetrics")
+    {
         if (allowCoreId)
         {
             nlohmann::json devCountCoreId = nlohmann::json::array();
