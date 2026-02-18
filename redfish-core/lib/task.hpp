@@ -242,6 +242,10 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
     void finishTask()
     {
+        if (endTime.has_value())
+        {
+            return;
+        }
         endTime = std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now());
         // nvidia code
