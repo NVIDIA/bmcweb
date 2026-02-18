@@ -503,7 +503,7 @@ inline void getChassisReplaceable(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Replaceable",
         "FieldReplaceable",
-        [asyncResp](const boost::system::error_code& ec, const bool property) {
+        [asyncResp](const boost::system::error_code& ec, const bool& property) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error for Replaceable");
