@@ -703,7 +703,7 @@ static inline void getPCIeDeviceFunction(
         }
 
         asyncResp->res.jsonValue = {
-            {"@odata.type", "#PCIeFunction.v1_2_0.PCIeFunction"},
+            {"@odata.type", "#PCIeFunction.v1_6_0.PCIeFunction"},
             {"@odata.id", pcieFunctionURI},
             {"Name", "PCIe Function"},
             {"Id", function},
@@ -784,6 +784,15 @@ static inline void getPCIeDeviceFunction(
                 if (value != nullptr)
                 {
                     asyncResp->res.jsonValue["SubsystemVendorId"] = *value;
+                }
+            }
+            else if (propertyName == "Function" + function + "BusNumber")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    asyncResp->res.jsonValue["BusNumber"] = *value;
                 }
             }
         }

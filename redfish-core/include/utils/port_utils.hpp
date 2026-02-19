@@ -267,6 +267,11 @@ inline std::string getPortType(const std::string& portType)
         return "DownstreamPort";
     }
     if (portType ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortType.EndpointPort")
+    {
+        return "UpstreamPort";
+    }
+    if (portType ==
         "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortType.InterswitchPort")
     {
         return "InterswitchPort";
@@ -275,6 +280,11 @@ inline std::string getPortType(const std::string& portType)
         "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortType.ManagementPort")
     {
         return "ManagementPort";
+    }
+    if (portType ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortType.RootPort")
+    {
+        return "UpstreamPort";
     }
     if (portType ==
         "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortType.UnconfiguredPort")
@@ -287,6 +297,22 @@ inline std::string getPortType(const std::string& portType)
         return "UpstreamPort";
     }
     // Unknown or others
+    return "";
+}
+
+// Helper to convert ClockMode D-Bus enum to Redfish string
+inline std::string getClockModeString(const std::string& dbusClockMode)
+{
+    if (dbusClockMode ==
+        "xyz.openbmc_project.PCIe.PCIeClockMode.ClockMode.CommonClockMode")
+    {
+        return "CommonClock";
+    }
+    if (dbusClockMode ==
+        "xyz.openbmc_project.PCIe.PCIeClockMode.ClockMode.SeparateClockMode")
+    {
+        return "SeparateClock";
+    }
     return "";
 }
 
@@ -338,12 +364,59 @@ inline void addOEMPCIePortProperties(
                 nvidia::nsm_utils::tryConvertToInt64(*value);
             addNvidiaType = true;
         }
+        else if (propertyName == "MaxReadRequestSizeBytes")
+        {
+            const size_t* value = std::get_if<size_t>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for MaxReadRequestSizeBytes");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["MaxReadRequestSizeBytes"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "MaxPayloadSizeBytes")
+        {
+            const size_t* value = std::get_if<size_t>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for MaxPayloadSizeBytes");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["MaxPayloadSizeBytes"] =
+                *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "CommonClockMode")
+        {
+            const std::string* value =
+                std::get_if<std::string>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for CommonClockMode");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string clockMode = getClockModeString(*value);
+            if (!clockMode.empty())
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["ClockMode"] =
+                    clockMode;
+                addNvidiaType = true;
+            }
+        }
     }
 
     if (addNvidiaType)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaPort.v1_4_0.NvidiaPCIePort";
+            "#NvidiaPort.v1_5_0.NvidiaPCIePort";
     }
 }
 
