@@ -220,6 +220,15 @@ class MultipartParser
                             FormPart& fp = mime_fields.back();
                             fp.isUpdateFile = true;
 
+                            // Reserve using the full body length as an
+                            // upper bound to avoid repeated capacity
+                            // doubling during large file appends.
+                            if (!skipFileContent && targetFd < 0 &&
+                                filePath.empty())
+                            {
+                                fp.content.reserve(len);
+                            }
+
                             // If we wanted to write directly to file in this
                             // parse:
                             if (!filePath.empty() && !skipFileContent)
