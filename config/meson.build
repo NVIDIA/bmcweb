@@ -97,6 +97,7 @@ feature_options = [
     'nic-configuration-update',
     'nsm-raw-command-enable',
     'ntp',
+    'nvidia-dot-cak-initialization',
     'nvidia-api-metrics',
     'nvidia-bootentryid',
     'nvidia-device-status-from-association',

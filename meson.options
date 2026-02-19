@@ -835,6 +835,12 @@ option(
     description: 'Enables feature to opt-in to TLS-Authentication at runtime.',
 )
 option(
+    'nvidia-dot-cak-initialization',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Expose DOT CAK initialization state in Systems OEM.',
+)
+option(
     'host-os-features',
     type: 'feature',
     value: 'enabled',

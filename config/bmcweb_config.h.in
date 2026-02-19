@@ -27,6 +27,7 @@ constexpr std::string_view PLATFORMCHASSISNAME = @PLATFORM_CHASSIS_NAME@;
 constexpr std::string_view HOSTIFACECHANNEL = @HOST_IFACE_CHANNEL@;
 constexpr std::string_view FWUUIDMAPPINGJSON = @FW_UUID_MAPPING_JSON@;
 
+
 constexpr std::string_view NETWORKADAPTERPREFIX = @NETWORK_ADAPTER_PREFIX@;
 constexpr std::string_view NETWORKADAPTERLINKPREFIX = @NETWORK_ADAPTER_LINK_PREFIX@;
 
