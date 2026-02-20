@@ -4107,6 +4107,7 @@ struct PCIeErrorsPropertyList
     const double* nakReceivedCount = nullptr;
     const double* unsupportedRequestCount = nullptr;
     const double* badTLPCount = nullptr;
+    const double* fcTimeoutErrors = nullptr;
 };
 
 /**
@@ -4304,6 +4305,11 @@ inline void populatePCIeErrors(
     {
         asyncResp->res.jsonValue["PCIeErrors"]["BadTLPCount"] =
             nvidia::nsm_utils::tryConvertToInt64(*propertyList.badTLPCount);
+    }
+    if (propertyList.fcTimeoutErrors != nullptr)
+    {
+        asyncResp->res.jsonValue["PCIeErrors"]["FlowControlTimeoutErrors"] =
+            nvidia::nsm_utils::tryConvertToInt64(*propertyList.fcTimeoutErrors);
     }
 }
 
@@ -4614,7 +4620,8 @@ inline void getFabricsPortMetricsData(
                 "UnsupportedRequestCount",
                 pcieErrorsPropertyList.unsupportedRequestCount, "BadTLPCount",
                 pcieErrorsPropertyList.badTLPCount, "ReceiverErrorCount",
-                pcieErrorsPropertyList.receiverErrorCount);
+                pcieErrorsPropertyList.receiverErrorCount, "FCTimeoutErrors",
+                pcieErrorsPropertyList.fcTimeoutErrors);
 
             if (!success)
             {
