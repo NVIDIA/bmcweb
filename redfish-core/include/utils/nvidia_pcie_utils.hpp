@@ -710,89 +710,29 @@ static inline void getPCIeDeviceFunction(
             {"FunctionId", std::stoi(function)},
             {"Links", {{"PCIeDevice", {{"@odata.id", pcieDeviceURI}}}}}};
 
+        const std::string functionPrefix = "Function" + function;
+        static const boost::container::flat_set<std::string> validProperties = {
+            "DeviceId",    "VendorId",          "FunctionType",
+            "DeviceClass", "ClassCode",         "RevisionId",
+            "SubsystemId", "SubsystemVendorId", "BusNumber"};
+
         for (const auto& property : pcieDevProperties)
         {
             const std::string& propertyName = property.first;
-            if (propertyName == "Function" + function + "DeviceId")
+            if (propertyName.starts_with(functionPrefix))
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
+                std::string dbusPropertyNameSuffix =
+                    propertyName.substr(functionPrefix.size());
+
+                if (validProperties.contains(dbusPropertyNameSuffix))
                 {
-                    asyncResp->res.jsonValue["DeviceId"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "VendorId")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["VendorId"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "FunctionType")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["FunctionType"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "DeviceClass")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["DeviceClass"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "ClassCode")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["ClassCode"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "RevisionId")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["RevisionId"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "SubsystemId")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["SubsystemId"] = *value;
-                }
-            }
-            else if (propertyName ==
-                     "Function" + function + "SubsystemVendorId")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["SubsystemVendorId"] = *value;
-                }
-            }
-            else if (propertyName == "Function" + function + "BusNumber")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["BusNumber"] = *value;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue[dbusPropertyNameSuffix] =
+                            *value;
+                    }
                 }
             }
         }

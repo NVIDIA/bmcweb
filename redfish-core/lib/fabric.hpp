@@ -3948,24 +3948,24 @@ inline void requestRoutesEndpoint(App& app)
  * @param[in]       cdrErrors       Shared pointer to CDR errors vector.
  * @param[in]       laneIndex       Index of the lane.
  * @param[in]       totalLanes      Total number of lanes.
- * @param[in]       ec2             Error code from property get.
+ * @param[in]       ec              Error code from property get.
  * @param[in]       cdrErrorCount   CDR error count value.
  */
 inline void handleLaneCDRErrorCallback(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::shared_ptr<size_t>& remainingCount,
     const std::shared_ptr<std::vector<uint64_t>>& cdrErrors, size_t laneIndex,
-    size_t totalLanes, const boost::system::error_code& ec2,
+    size_t totalLanes, const boost::system::error_code& ec,
     const uint64_t& cdrErrorCount)
 {
-    if (!ec2 && laneIndex < totalLanes)
+    if (!ec && laneIndex < totalLanes)
     {
         (*cdrErrors)[laneIndex] = cdrErrorCount;
     }
-    else if (ec2)
+    else if (ec)
     {
         BMCWEB_LOG_DEBUG("Failed to get CDRErrorCount for lane {}: {}",
-                         laneIndex, ec2.message());
+                         laneIndex, ec.message());
     }
 
     (*remainingCount)--;
@@ -4010,14 +4010,14 @@ inline void processLanePaths(
             continue;
         }
 
-        sdbusplus::asio::getProperty<uint64_t>(
-            *crow::connections::systemBus, service, lanePath,
-            "xyz.openbmc_project.PCIe.PCIeLaneError", "CDRErrorCount",
+        dbus::utility::getProperty<uint64_t>(
+            service, lanePath, "xyz.openbmc_project.PCIe.PCIeLaneError",
+            "CDRErrorCount",
             [asyncResp, remainingCount, cdrErrors, laneIndex,
-             totalLanes](const boost::system::error_code& ec2,
+             totalLanes](const boost::system::error_code& ec,
                          const uint64_t& cdrErrorCount) {
                 handleLaneCDRErrorCallback(asyncResp, remainingCount, cdrErrors,
-                                           laneIndex, totalLanes, ec2,
+                                           laneIndex, totalLanes, ec,
                                            cdrErrorCount);
             });
     }
@@ -4039,10 +4039,10 @@ inline void getPerLaneTelemetryData(
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaPortMetrics.v1_8_0.NvidiaPortMetrics";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, service,
          portObjPath](const boost::system::error_code& ec,
-                      std::variant<std::vector<std::string>>& resp) {
+                      std::vector<std::string>& lanePaths) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("No associated_lanes for port {}: {}",
@@ -4050,16 +4050,14 @@ inline void getPerLaneTelemetryData(
                 return;
             }
 
-            std::vector<std::string>* lanePaths =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (lanePaths == nullptr || lanePaths->empty())
+            if (lanePaths.empty())
             {
                 BMCWEB_LOG_DEBUG("No lane paths found for port {}",
                                  portObjPath);
                 return;
             }
 
-            processLanePaths(asyncResp, service, *lanePaths);
+            processLanePaths(asyncResp, service, lanePaths);
         },
         "xyz.openbmc_project.ObjectMapper", portObjPath + "/associated_lanes",
         "org.freedesktop.DBus.Properties", "Get",
@@ -4518,8 +4516,8 @@ inline void getFabricsPortMetricsData(
         getPerLaneTelemetryData(asyncResp, service, objPath);
     }
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, "",
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp](const boost::system::error_code ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
