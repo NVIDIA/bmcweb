@@ -902,6 +902,12 @@ inline void requestRoutesManager(App& app)
                 boost::urls::format(
                     "/redfish/v1/Managers/{}/EthernetInterfaces",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
+            if constexpr (BMCWEB_MANAGER_USB_PORTS)
+            {
+                asyncResp->res.jsonValue["USBPorts"]["@odata.id"] =
+                    boost::urls::format("/redfish/v1/Managers/{}/USBPorts",
+                                        BMCWEB_REDFISH_MANAGER_URI_NAME);
+            }
             manager_utils::getServiceIdentification(asyncResp, false);
 
             if constexpr (BMCWEB_VM_NBDPROXY)

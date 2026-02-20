@@ -12,6 +12,7 @@
 #include "host_interface.hpp"
 #include "leak_detection.hpp"
 #include "log_services_manufacturing_test.hpp"
+#include "manager_usb_ports.hpp"
 #include "memory.hpp"
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
@@ -386,6 +387,11 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesTaskUpdate(app);
     requestRoutesNvidiaChassisDriveName(app);
     requestRoutesNvidiaDrive(app);
+
+    if constexpr (BMCWEB_MANAGER_USB_PORTS)
+    {
+        manager_usb_ports::requestRoutesManagerUSBPorts(app);
+    }
 }
 
 } // namespace redfish

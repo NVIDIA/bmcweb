@@ -115,6 +115,7 @@ feature_options = [
     'nvidia-retimer-debugmode',
     'nvidia-uuid-from-platform-chassis-name',
     'nvidia-host-management-network-access',
+    'manager-usb-ports',
     'patch-ssh',
     'platform-metrics',
     'power-control-type-percentage',

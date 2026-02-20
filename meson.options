@@ -723,6 +723,12 @@ option(
     description: 'Enable OEM Host management NIC.',
 )
 option(
+    'manager-usb-ports',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable USB port enable/disable control at Managers/{id}/USBPorts.',
+)
+option(
     'nvidia-bootentryid',
     type: 'feature',
     value: 'disabled',
