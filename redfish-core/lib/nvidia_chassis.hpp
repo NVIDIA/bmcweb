@@ -269,13 +269,17 @@ inline void getChassisOemNvidiaProperties(
         "/xyz/openbmc_project/inventory", 0, spiInterfaces,
         std::bind_front(afterChassisSpiInterfacesFound, asyncResp, chassisId));
 
-    // Detect and add SetRecoveryMode action
-    std::array<std::string_view, 1> recoveryInterfaces{
-        "com.nvidia.SetRecoveryMode"};
-    dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, recoveryInterfaces,
-        std::bind_front(afterChassisSetRecoveryModeInterfacesFound, asyncResp,
-                        chassisId));
+    // Detect and add SetRecoveryMode action for non-platform chassis.
+    // Platform chassis uses SetCPURecoveryMode instead.
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
+    {
+        std::array<std::string_view, 1> recoveryInterfaces{
+            "com.nvidia.SetRecoveryMode"};
+        dbus::utility::getSubTreePaths(
+            "/xyz/openbmc_project/inventory", 0, recoveryInterfaces,
+            std::bind_front(afterChassisSetRecoveryModeInterfacesFound,
+                            asyncResp, chassisId));
+    }
 }
 
 /**
