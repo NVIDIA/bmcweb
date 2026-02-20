@@ -17,6 +17,7 @@
 #pragma once
 
 #include "dbus_utility.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/system/error_code.hpp>
 
@@ -96,6 +97,14 @@ inline void handleChassisOemNvidiaSetRecoveryMode(
     const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    // SetRecoveryMode accepts only empty body or empty JSON object {}; fail if
+    // any parameters or other JSON is given.
+    if (!json_util::requireEmptyOrEmptyJsonObject(
+            asyncResp->res, req.body(), "NvidiaChassis.SetRecoveryMode"))
     {
         return;
     }

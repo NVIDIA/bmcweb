@@ -52,6 +52,49 @@ namespace json_util
  */
 bool processJsonFromRequest(crow::Response& res, const crow::Request& req,
                             nlohmann::json& reqJson);
+
+/**
+ * @brief Validates that the request body is either empty or an empty JSON
+ *        object {}. For use with Redfish actions that accept no parameters.
+ *
+ * @param[io]  res         Response object (filled with error message on
+ *                        failure)
+ * @param[in]  body        Request body string
+ * @param[in]  actionName  Action name for error reporting (e.g.
+ *                        "NvidiaChassis.SetRecoveryMode")
+ *
+ * @return true if body is empty or {}, false when body is invalid (malformed
+ *         JSON, non-object, or has parameters); response is filled on false.
+ */
+inline bool requireEmptyOrEmptyJsonObject(
+    crow::Response& res, std::string_view body, std::string_view actionName)
+{
+    if (body.empty())
+    {
+        return true;
+    }
+    nlohmann::json bodyJson = nlohmann::json::parse(body, nullptr, false);
+    if (bodyJson.is_discarded())
+    {
+        messages::malformedJSON(res);
+        return false;
+    }
+    const nlohmann::json::object_t* obj =
+        bodyJson.get_ptr<const nlohmann::json::object_t*>();
+    if (obj == nullptr)
+    {
+        messages::unrecognizedRequestBody(res);
+        return false;
+    }
+    if (!obj->empty())
+    {
+        messages::actionParameterNotSupported(res, obj->begin()->first,
+                                              actionName);
+        return false;
+    }
+    return true;
+}
+
 namespace details
 {
 
