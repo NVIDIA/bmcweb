@@ -10,9 +10,11 @@
 #include "error_messages.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
 #include <boost/beast/http/verb.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message/types.hpp>
 
 namespace redfish
@@ -387,6 +389,14 @@ inline void handleChassisSetCPURecoveryModePost(
     const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    // SetCPURecoveryMode accepts only empty body or empty JSON object {}; fail
+    // if any parameters or other JSON is given.
+    if (!json_util::requireEmptyOrEmptyJsonObject(
+            asyncResp->res, req.body(), "NvidiaChassis.SetCPURecoveryMode"))
     {
         return;
     }
