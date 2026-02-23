@@ -1155,6 +1155,8 @@ inline void extendUpdateServiceGet(
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaUpdateService.v1_4_0.NvidiaUpdateService";
         debug_token::getErasePolicy(
             [asyncResp](const std::optional<bool>& erasePolicy) {
                 if (erasePolicy)
