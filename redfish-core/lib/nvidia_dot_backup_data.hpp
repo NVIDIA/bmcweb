@@ -271,7 +271,7 @@ inline void afterDOTBlobServiceDiscovery(
     }
 
     const auto& [service, blobPath] = *servicePath;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec2,
                     const sdbusplus::message::unix_fd& unixfd) {
             afterDOTBlobGetBlob(asyncResp, ec2, unixfd);

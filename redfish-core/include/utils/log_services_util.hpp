@@ -102,7 +102,7 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
                                             Callback&& callback)
 {
     dbus::utility::getProperty<std::map<std::string, std::vector<std::string>>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
+        "xyz.openbmc_project.Dump.Manager",
         "/xyz/openbmc_project/dump/oem_allowable_values",
         "com.nvidia.Dump.AllowableValues", "OEMDataTypeAllowableValues",
         [dumpType,

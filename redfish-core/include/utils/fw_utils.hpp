@@ -100,8 +100,8 @@ inline void populateFirmwareInformation(
     const std::string& activeVersionPropName, const bool populateLinkToImages)
 {
     // Used later to determine running (known on Redfish as active) FW images
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/software/functional",
         "xyz.openbmc_project.Association", "endpoints",
         [aResp, fwVersionPurpose, activeVersionPropName,
@@ -808,10 +808,9 @@ inline void getFWSlotInformation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath)
 {
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, serviceObjectMapper,
-        objectPath + "/ActiveSlot", "xyz.openbmc_project.Association",
-        "endpoints",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        serviceObjectMapper, objectPath + "/ActiveSlot",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objectPath](const boost::system::error_code& ec,
                                 const std::vector<std::string>& objPaths) {
             if (ec)
@@ -827,10 +826,9 @@ inline void getFWSlotInformation(
                                  "ActiveFirmwareSlot");
             }
 
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus, serviceObjectMapper,
-                objectPath + "/InactiveSlot", "xyz.openbmc_project.Association",
-                "endpoints",
+            dbus::utility::getProperty<std::vector<std::string>>(
+                serviceObjectMapper, objectPath + "/InactiveSlot",
+                "xyz.openbmc_project.Association", "endpoints",
                 [asyncResp](const boost::system::error_code& ec2,
                             const std::vector<std::string>& innerObjPaths) {
                     if (ec2)
@@ -890,8 +888,8 @@ inline void getFwUpdateableStatus(
     {
         inventoryPath = "/xyz/openbmc_project/software/";
     }
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/software/updateable",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, fwId,

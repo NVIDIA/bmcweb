@@ -1159,9 +1159,9 @@ inline void isComponentEnabled(
             return;
         }
 
-        sdbusplus::asio::getProperty<bool>(
-            *crow::connections::systemBus, services[0].first, path,
-            "xyz.openbmc_project.Object.Enable", "Enabled",
+        dbus::utility::getProperty<bool>(
+            services[0].first, path, "xyz.openbmc_project.Object.Enable",
+            "Enabled",
             [asyncResp, endpointComponent, callback](
                 const boost::system::error_code& ec, const bool& enabled) {
                 if (ec)

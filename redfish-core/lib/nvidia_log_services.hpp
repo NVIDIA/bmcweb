@@ -247,9 +247,8 @@ inline void onServiceStarted(sdbusplus::message_t& msg)
 
     if (!newOwner.empty())
     {
-        sdbusplus::asio::getProperty<bool>(*crow::connections::systemBus,
-                                           service, objpath, interface,
-                                           property, handleInitProperty);
+        dbus::utility::getProperty<bool>(service, objpath, interface, property,
+                                         handleInitProperty);
     }
 }
 
@@ -272,9 +271,8 @@ inline void registerApiMetricsSignal()
             onServiceStarted);
 
     // Get initial value after match is set up
-    sdbusplus::asio::getProperty<bool>(*crow::connections::systemBus, service,
-                                       objpath, interface, property,
-                                       handleInitProperty);
+    dbus::utility::getProperty<bool>(service, objpath, interface, property,
+                                     handleInitProperty);
 }
 
 } // namespace api_metrics
@@ -348,9 +346,9 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
                             BMCWEB_LOG_DEBUG(
                                 "XID Looking for PrettyName on service {} path {}",
                                 connectionName, path);
-                            sdbusplus::asio::getProperty<std::string>(
-                                *crow::connections::systemBus, connectionName,
-                                path, "xyz.openbmc_project.Inventory.Item",
+                            dbus::utility::getProperty<std::string>(
+                                connectionName, path,
+                                "xyz.openbmc_project.Inventory.Item",
                                 "PrettyName",
                                 [asyncResp, chassisId(std::string(chassisId))](
                                     const boost::system::error_code& ec2,
@@ -423,8 +421,8 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
 
     if (retimerDebugModeEnabled)
     {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
+        dbus::utility::setProperty(
+            "xyz.openbmc_project.Dump.Manager",
             "/xyz/openbmc_project/dump/retimer",
             "xyz.openbmc_project.Dump.DebugMode", "DebugMode",
             *retimerDebugModeEnabled,
@@ -467,10 +465,9 @@ inline void handleLogServicesDumpServicePatch(
 
     if (apiMetricsEnabled)
     {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, api_metrics::service,
-            api_metrics::objpath, api_metrics::interface, api_metrics::property,
-            *apiMetricsEnabled,
+        dbus::utility::setProperty(
+            api_metrics::service, api_metrics::objpath, api_metrics::interface,
+            api_metrics::property, *apiMetricsEnabled,
             [asyncResp](const boost::system::error_code& ec) {
                 api_metrics::handleSetProperty(asyncResp, ec);
             });
@@ -982,10 +979,9 @@ inline void extendLogServiceOEMGet(
     {
         if constexpr (BMCWEB_NVIDIA_API_METRICS)
         {
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus, api_metrics::service,
-                api_metrics::objpath, api_metrics::interface,
-                api_metrics::property,
+            dbus::utility::getProperty<bool>(
+                api_metrics::service, api_metrics::objpath,
+                api_metrics::interface, api_metrics::property,
                 std::bind_front(api_metrics::handleGetProperty, asyncResp));
         } // BMCWEB_NVIDIA_API_METRICS
     }
@@ -993,8 +989,8 @@ inline void extendLogServiceOEMGet(
     {
         if constexpr (BMCWEB_NVIDIA_RETIMER_DEBUGMODE)
         {
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<bool>(
+
                 "xyz.openbmc_project.Dump.Manager",
                 "/xyz/openbmc_project/dump/retimer",
                 "xyz.openbmc_project.Dump.DebugMode", "DebugMode",
@@ -1291,8 +1287,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
 
                     if (autoClearResolvedLogEnabled)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             "xyz.openbmc_project.Logging",
                             "/xyz/openbmc_project/logging",
                             "xyz.openbmc_project.Logging.Namespace",

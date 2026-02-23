@@ -177,10 +177,9 @@ inline void handleManagedEntityGetRequest(
         callback = std::bind_front(afterGetManagedEntityProperties, asyncResp,
                                    groupId, entityId);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.ManagedEntity",
-        std::move(callback));
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.ManagedEntity", std::move(callback));
 }
 
 inline void handleManagedEntityCollectionGetRequest(

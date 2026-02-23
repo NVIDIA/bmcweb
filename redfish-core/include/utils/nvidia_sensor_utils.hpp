@@ -255,9 +255,8 @@ inline void setThresholdReadingProperty(
     const std::string& propertyName, const std::string& serviceName,
     const std::string& objectPath)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, serviceName, objectPath, interfaceName,
-        propertyName, readingValue,
+    dbus::utility::setProperty(
+        serviceName, objectPath, interfaceName, propertyName, readingValue,
         [asyncResp, serviceName, objectPath, interfaceName,
          propertyName](const boost::system::error_code& ec) {
             if (ec)

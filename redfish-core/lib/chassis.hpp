@@ -805,7 +805,7 @@ inline void handleChassisGetSubTree(
             }
 
             dbus::utility::getAllProperties(
-                *crow::connections::systemBus, connectionName, path,
+                connectionName, path,
                 "xyz.openbmc_project.Inventory.Decorator.Asset",
                 [asyncResp, chassisId, path, connectionName, interfaces2](
                     const boost::system::error_code&,
@@ -827,8 +827,8 @@ inline void handleChassisGetSubTree(
                     asyncResp, path, interfaces2);
             }
 
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, connectionName, path, "",
+            dbus::utility::getAllProperties(
+                connectionName, path, "",
                 [asyncResp, chassisId, connectionName, path, interfaces2](
                     [[maybe_unused]] const boost::system::error_code& ec3,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {

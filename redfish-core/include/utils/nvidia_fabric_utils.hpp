@@ -302,9 +302,8 @@ inline void updateSwitchPowerModeData(
             }
             for (const auto& path : resp)
             {
-                sdbusplus::asio::getAllProperties(
-                    *crow::connections::systemBus, service, path,
-                    "xyz.openbmc_project.Object.Enable",
+                dbus::utility::getAllProperties(
+                    service, path, "xyz.openbmc_project.Object.Enable",
                     [path, asyncResp](
                         const boost::system::error_code& ec1,
                         const dbus::utility::DBusPropertiesMap& properties) {

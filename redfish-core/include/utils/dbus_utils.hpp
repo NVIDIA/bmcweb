@@ -4,6 +4,7 @@
 
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
 #include "logging.hpp"
 #include "nvidia_dbus_utils.hpp"
 
@@ -62,9 +63,8 @@ void setDbusProperty(
     std::string interfaceStr(interface);
     std::string dbusPropertyStr(dbusProperty);
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processNameStr, path.str, interfaceStr,
-        dbusPropertyStr, prop,
+    dbus::utility::setProperty(
+        processNameStr, path.str, interfaceStr, dbusPropertyStr, prop,
         [asyncResp, redfishPropertyNameStr = std::string{redfishPropertyName},
          jsonProp = nlohmann::json(prop)](const boost::system::error_code& ec,
                                           const sdbusplus::message_t& msg) {
@@ -85,9 +85,8 @@ void setDbusPropertyAction(
     std::string interfaceStr(interface);
     std::string dbusPropertyStr(dbusProperty);
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processNameStr, path.str, interfaceStr,
-        dbusPropertyStr, prop,
+    dbus::utility::setProperty(
+        processNameStr, path.str, interfaceStr, dbusPropertyStr, prop,
         [asyncResp,
          redfishActionParameterName = std::string{redfishActionParameterName},
          jsonProp = nlohmann::json(prop),

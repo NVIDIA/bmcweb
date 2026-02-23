@@ -106,9 +106,8 @@ inline void populateXIDLogServiceFromSubtree(
         const std::string inventoryItemInterface =
             "xyz.openbmc_project.Inventory.Item";
 
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, connectionName, path,
-            inventoryItemInterface, "PrettyName",
+        dbus::utility::getProperty<std::string>(
+            connectionName, path, inventoryItemInterface, "PrettyName",
             [asyncResp, chassisId(std::string(chassisId))](
                 const boost::system::error_code& ec1,
                 const std::string& chassisName) {
@@ -256,9 +255,9 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                       inventoryItemInterface) !=
                             interfaces2.end())
                         {
-                            sdbusplus::asio::getProperty<std::string>(
-                                *crow::connections::systemBus, connectionName,
-                                path, inventoryItemInterface, "PrettyName",
+                            dbus::utility::getProperty<std::string>(
+                                connectionName, path, inventoryItemInterface,
+                                "PrettyName",
                                 [asyncResp, chassisId(std::string(chassisId))](
                                     const boost::system::error_code&
                                         prettyNameError,

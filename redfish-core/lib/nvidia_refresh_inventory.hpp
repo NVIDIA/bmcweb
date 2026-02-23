@@ -82,7 +82,7 @@ inline void afterRefreshInventorySubtree(
         foundMatch = true;
         const std::string& service = serviceMap[0].first;
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp, path](const boost::system::error_code& ec2) {
                 if (ec2)
                 {

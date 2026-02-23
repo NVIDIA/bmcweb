@@ -241,24 +241,22 @@ inline void addChassisLink(nlohmann::json& links, const std::string& key,
 
 inline void handleCableConnectingEndpoints(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
-    std::variant<std::vector<std::string>>& resp)
+    const boost::system::error_code& ec, const std::vector<std::string>& resp)
 {
     if (ec)
     {
         return; // no switches = no failures
     }
-    std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&resp);
-    if (data == nullptr || data->empty())
+    if (resp.empty())
     {
         return;
     }
-    std::ranges::sort(*data, AlphanumLess<std::string>());
-    sdbusplus::message::object_path objPathUp(data->front());
+    std::vector<std::string> sortedData = resp;
+    std::ranges::sort(sortedData, AlphanumLess<std::string>());
+    sdbusplus::message::object_path objPathUp(sortedData.front());
     addChassisLink(asyncResp->res.jsonValue["Links"], "UpstreamChassis",
                    objPathUp);
-    sdbusplus::message::object_path objPathDown(data->back());
+    sdbusplus::message::object_path objPathDown(sortedData.back());
     addChassisLink(asyncResp->res.jsonValue["Links"], "DownstreamChassis",
                    objPathDown);
 }
@@ -292,13 +290,12 @@ inline void fetchCableInventoryProperties(
                                        locationContext);
         });
 
-    dbus::utility::async_method_call(
-        [asyncResp](const boost::system::error_code& ec1,
-                    std::variant<std::vector<std::string>>& resp1) {
-            handleCableConnectingEndpoints(asyncResp, ec1, resp1);
-        },
+    dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", cableObjectPath + "/connecting",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp](const boost::system::error_code& ec1,
+                    const std::vector<std::string>& resp1) {
+            handleCableConnectingEndpoints(asyncResp, ec1, resp1);
+        });
 }
 } // namespace redfish

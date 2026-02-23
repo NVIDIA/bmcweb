@@ -698,8 +698,8 @@ inline void getRestrictionModeHandler(
         return;
     }
     const std::string& service = object.begin()->first;
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, path, interface, property,
+    dbus::utility::getProperty<std::string>(
+        service, path, interface, property,
         std::bind_front(populateRestrictionModeData, asyncResp));
 }
 

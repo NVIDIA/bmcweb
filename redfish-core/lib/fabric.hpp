@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "nvidia_dbus_utility.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -2140,9 +2141,9 @@ inline void switchPostResetType(
     const std::string conName = *inventoryService;
     if (resetAsyncIntfImp)
     {
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, conName, objectPath,
-            "xyz.openbmc_project.Control.Reset", "ResetType",
+        dbus::utility::getProperty<std::string>(
+            conName, objectPath, "xyz.openbmc_project.Control.Reset",
+            "ResetType",
             [resp, resetType, switchId, conName,
              objectPath](const boost::system::error_code ec,
                          const std::string& property) {
@@ -2187,9 +2188,9 @@ inline void switchPostResetType(
     }
     else if (resetIntfImp)
     {
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, conName, objectPath,
-            "xyz.openbmc_project.Control.Processor.Reset", "ResetType",
+        dbus::utility::getProperty<std::string>(
+            conName, objectPath, "xyz.openbmc_project.Control.Processor.Reset",
+            "ResetType",
             [resp, resetType, switchId, conName,
              objectPath](const boost::system::error_code ec,
                          const std::string& property) {
@@ -2498,7 +2499,7 @@ inline void requestRoutesPort(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp{asyncResp}, fabricId, switchId,
                  portId](const boost::system::error_code ec,
                          const std::vector<std::string>& objects) {
@@ -2516,7 +2517,7 @@ inline void requestRoutesPort(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portId](
                                 const boost::system::error_code ec3,
                                 std::variant<std::vector<std::string>>& resp3) {
@@ -4010,9 +4011,9 @@ inline void processLanePaths(
             continue;
         }
 
-        sdbusplus::asio::getProperty<uint64_t>(
-            *crow::connections::systemBus, service, lanePath,
-            "xyz.openbmc_project.PCIe.PCIeLaneError", "CDRErrorCount",
+        dbus::utility::getProperty<uint64_t>(
+            service, lanePath, "xyz.openbmc_project.PCIe.PCIeLaneError",
+            "CDRErrorCount",
             [asyncResp, remainingCount, cdrErrors, laneIndex,
              totalLanes](const boost::system::error_code& ec2,
                          const uint64_t& cdrErrorCount) {
@@ -4039,7 +4040,7 @@ inline void getPerLaneTelemetryData(
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaPortMetrics.v1_8_0.NvidiaPortMetrics";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, service,
          portObjPath](const boost::system::error_code& ec,
                       std::variant<std::vector<std::string>>& resp) {
@@ -4524,8 +4525,8 @@ inline void getFabricsPortMetricsData(
         getPerLaneTelemetryData(asyncResp, service, objPath);
     }
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, "",
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp](const boost::system::error_code ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)

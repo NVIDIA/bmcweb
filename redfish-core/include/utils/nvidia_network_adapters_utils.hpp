@@ -160,9 +160,8 @@ inline void readProtectionPropertyFromDbus(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& networkAdapterPath)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, networkAdapterPath,
-        "com.nvidia.DeviceProtection",
+    dbus::utility::getAllProperties(
+        service, networkAdapterPath, "com.nvidia.DeviceProtection",
         [aResp, networkAdapterPath](
             const boost::system::error_code& e,
             const dbus::utility::DBusPropertiesMap& properties) {

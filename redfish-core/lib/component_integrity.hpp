@@ -478,8 +478,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                              object : subtree)
                     {
                         auto objPathString = object.first;
-                        sdbusplus::asio::getProperty<bool>(
-                            *crow::connections::systemBus,
+                        dbus::utility::getProperty<bool>(
                             object.second[0].first, objPathString,
                             "xyz.openbmc_project.Object.Enable", "Enabled",
                             [asyncResp, objPathString,

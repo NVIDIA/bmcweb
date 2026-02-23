@@ -152,9 +152,8 @@ inline void doBMCGracefulRestart(
     const char* destProperty = "RequestedBMCTransition";
 
     // Create the D-Bus variant for D-Bus call.
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processName, objectPath, interfaceName,
-        destProperty, propertyValue,
+    dbus::utility::setProperty(
+        processName, objectPath, interfaceName, destProperty, propertyValue,
         [asyncResp](const boost::system::error_code& ec) {
             // Use "Set" method to set the property value.
             if (ec)
@@ -179,9 +178,8 @@ inline void doBMCForceRestart(
     const char* destProperty = "RequestedBMCTransition";
 
     // Create the D-Bus variant for D-Bus call.
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processName, objectPath, interfaceName,
-        destProperty, propertyValue,
+    dbus::utility::setProperty(
+        processName, objectPath, interfaceName, destProperty, propertyValue,
         [asyncResp](const boost::system::error_code& ec) {
             // Use "Set" method to set the property value.
             if (ec)
@@ -605,8 +603,8 @@ inline void setActiveFirmwareImage(
             // Only support Immediate
             // An addition could be a Redfish Setting like
             // ActiveSoftwareImageApplyTime and support OnReset
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, getBMCUpdateServiceName(),
+            dbus::utility::setProperty(
+                getBMCUpdateServiceName(),
                 "/xyz/openbmc_project/software/" + firmwareId,
                 "xyz.openbmc_project.Software.RedundancyPriority", "Priority",
                 static_cast<uint8_t>(0),
@@ -782,7 +780,7 @@ inline void getManagerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "xyz.openbmc_project.Inventory.Decorator.Asset")
             {
                 dbus::utility::getAllProperties(
-                    *crow::connections::systemBus, connectionName, managerPath,
+                    connectionName, managerPath,
                     "xyz.openbmc_project.Inventory.Decorator.Asset",
                     std::bind_front(getPhysicalAssets, asyncResp));
             }

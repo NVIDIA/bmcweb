@@ -107,8 +107,7 @@ inline void handleTemperatureReadingsCelsius(
     for (const auto& [service, sensorPath] : sensorsServiceAndPath)
     {
         dbus::utility::getAllProperties(
-            *crow::connections::systemBus, service, sensorPath,
-            "xyz.openbmc_project.Sensor.Value",
+            service, sensorPath, "xyz.openbmc_project.Sensor.Value",
             [asyncResp, chassisId,
              sensorPath](const boost::system::error_code& ec1,
                          const dbus::utility::DBusPropertiesMap& properties) {

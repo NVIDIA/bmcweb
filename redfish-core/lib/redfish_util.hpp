@@ -235,7 +235,7 @@ void getPortNumber(const std::string& socketPath, CallbackFunc&& callback)
 {
     dbus::utility::getProperty<
         std::vector<std::tuple<std::string, std::string>>>(
-        *crow::connections::systemBus, "org.freedesktop.systemd1", socketPath,
+        "org.freedesktop.systemd1", socketPath,
         "org.freedesktop.systemd1.Socket", "Listen",
         [callback = std::forward<CallbackFunc>(callback)](
             const boost::system::error_code& ec,
@@ -314,8 +314,8 @@ inline void handleAccountLocked(
 
             if (userLocked)
             {
-                sdbusplus::asio::getProperty<uint32_t>(
-                    *crow::connections::systemBus,
+                dbus::utility::getProperty<uint32_t>(
+
                     "xyz.openbmc_project.User.Manager",
                     "/xyz/openbmc_project/user",
                     "xyz.openbmc_project.User.AccountPolicy",
@@ -363,10 +363,9 @@ inline void getComponentFirmwareVersion(
 {
     const std::string serviceObjectMapper = "xyz.openbmc_project.ObjectMapper";
 
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, serviceObjectMapper,
-        objectPath + "/parent_chassis", "xyz.openbmc_project.Association",
-        "endpoints",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        serviceObjectMapper, objectPath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [serviceObjectMapper,
          asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& innerObjPaths) {
@@ -384,11 +383,10 @@ inline void getComponentFirmwareVersion(
             {
                 const std::string& firstElement = innerObjPaths.front();
 
-                sdbusplus::asio::getProperty<
+                dbus::utility::getProperty<
                     std::
                         vector<std::
-                                   string>>(*crow::connections::systemBus,
-                                            serviceObjectMapper,
+                                   string>>(serviceObjectMapper,
                                             firstElement + "/activation",
                                             "xyz.openbmc_project.Association",
                                             "endpoints",
@@ -481,7 +479,7 @@ inline void getComponentFirmwareVersion(
                                                                               if (!serviceObjectSoftware
                                                                                        .empty())
                                                                               {
-                                                                                  sdbusplus::asio::getProperty<
+                                                                                  dbus::utility::getProperty<
                                                                                       std::
                                                                                           string>(
                                                                                       *crow::connections::

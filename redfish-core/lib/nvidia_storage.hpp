@@ -190,8 +190,8 @@ inline void getDrivePortProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getAllProperties(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.PortInfo",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -236,9 +236,8 @@ inline void getDriveVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& connectionName,
                             const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Software.Version", "Version",
+    dbus::utility::getProperty<std::string>(
+        connectionName, path, "xyz.openbmc_project.Software.Version", "Version",
         [asyncResp, path](const boost::system::error_code& ec,
                           const std::string& version) {
             if (ec)
@@ -253,9 +252,8 @@ inline void getDriveFWVersion(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Software.Version", "Version",
+    dbus::utility::getProperty<std::string>(
+        connectionName, path, "xyz.openbmc_project.Software.Version", "Version",
         [asyncResp, path](const boost::system::error_code& ec,
                           const std::string& version) {
             if (ec)
@@ -271,8 +269,8 @@ inline void getDriveLocationContext(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
         [asyncResp, path](const boost::system::error_code& ec,
@@ -291,8 +289,8 @@ inline void getDriveLocation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp, path](const boost::system::error_code& ec,
                           const std::string& location) {
@@ -304,8 +302,8 @@ inline void getDriveLocation(
                 .jsonValue["PhysicalLocation"]["PartLocation"]["ServiceLabel"] =
                 location;
         });
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
         [asyncResp,
          path](const boost::system::error_code& ec, const std::string& type) {
@@ -323,8 +321,8 @@ inline void getDriveStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& path, const std::string& sw)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<bool>(
+        connectionName, path,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp, path,
          sw](const boost::system::error_code& ec, const bool functional) {
@@ -356,9 +354,9 @@ inline void getDriveSmartWarning(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Nvme.Status", "SmartWarnings",
+    dbus::utility::getProperty<std::string>(
+        connectionName, path, "xyz.openbmc_project.Nvme.Status",
+        "SmartWarnings",
         [asyncResp, connectionName,
          path](const boost::system::error_code& ec4, const std::string& sw) {
             if (ec4)
@@ -375,9 +373,8 @@ inline void getDriveProgress(
     const std::string& connectionName, const std::string& path,
     const std::optional<std::string>& operationName)
 {
-    sdbusplus::asio::getProperty<uint8_t>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Common.Progress", "Progress",
+    dbus::utility::getProperty<uint8_t>(
+        connectionName, path, "xyz.openbmc_project.Common.Progress", "Progress",
         [asyncResp, operationName,
          path](const boost::system::error_code& ec, const uint8_t prog) {
             if (ec)
@@ -412,9 +409,8 @@ inline void getDriveOperation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Nvme.Operation", "Operation",
+    dbus::utility::getProperty<std::string>(
+        connectionName, path, "xyz.openbmc_project.Nvme.Operation", "Operation",
         [asyncResp, connectionName,
          path](const boost::system::error_code& ec5, const std::string& op) {
             if (ec5)
@@ -743,9 +739,8 @@ inline void handleDriveSanitizetActionInfoGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus, service, path, interface,
-                "SanitizeCapability",
+            dbus::utility::getProperty<std::vector<std::string>>(
+                service, path, interface, "SanitizeCapability",
                 [asyncResp](const boost::system::error_code& ec,
                             const std::vector<std::string>& cap) {
                     if (ec)

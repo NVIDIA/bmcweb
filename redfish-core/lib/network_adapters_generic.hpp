@@ -2083,9 +2083,8 @@ inline void networkAdapterPostResetType(
     }
 
     const std::string conName = *inventoryService;
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, conName, objectPath,
-        "xyz.openbmc_project.Control.Reset", "ResetType",
+    dbus::utility::getProperty<std::string>(
+        conName, objectPath, "xyz.openbmc_project.Control.Reset", "ResetType",
         [resp, resetType, networkAdapterId, conName, objectPath](
             const boost::system::error_code ec, const std::string& property) {
             if (ec)
@@ -2318,8 +2317,8 @@ inline void getPortAddressData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, "",
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp,
          objPath](const boost::system::error_code& e,
                   const dbus::utility::DBusPropertiesMap& properties) {
@@ -2424,8 +2423,8 @@ inline void getNDFData(
                     {{"@odata.id", assignablePhysicalNetworkPortsOdataId}});
 
             std::string connectionName = object.front().first;
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, connectionName, sensorPath, "",
+            dbus::utility::getAllProperties(
+                connectionName, sensorPath, "",
                 [asyncResp, connectionName, sensorPath](
                     const boost::system::error_code& e,
                     const dbus::utility::DBusPropertiesMap& properties) {

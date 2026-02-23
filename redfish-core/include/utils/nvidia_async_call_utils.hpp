@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "dbus_utility.hpp"
 #include "nvidia_async_set_utils.hpp"
 
 #include <boost/asio/steady_timer.hpp>
@@ -50,8 +51,7 @@ template <typename CallAsyncStatusInfo>
 void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                        const std::string& status)
 {
-    using ValueType = typename CallAsyncStatusInfo::Value;
-    if constexpr (std::is_same_v<ValueType, void>)
+    if constexpr (std::is_same_v<typename CallAsyncStatusInfo::Value, void>)
     {
         if (status != asyncStatusValueInProgress)
         {
@@ -64,12 +64,11 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
     if (status != asyncStatusValueInProgress)
     {
         std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
-
-        dbus::utility::getProperty<ValueType>(
-            statusInfo->service, statusInfo->object, statusInfo->valueInterface,
-            statusInfo->valueProperty,
-            [weakStatusInfo, status](const boost::system::error_code& ec,
-                                     const ValueType& value) {
+        dbus::utility::async_method_call(
+            [weakStatusInfo,
+             status](const boost::system::error_code ec,
+                     const std::variant<typename CallAsyncStatusInfo::Value>&
+                         value) {
                 auto statInfo = weakStatusInfo.lock();
                 if (!statInfo || statInfo->completed)
                 {
@@ -85,7 +84,9 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                     reportErrorAndCancel(statInfo);
                     return;
                 }
-                if (status != asyncStatusValueSuccess)
+                const auto valuePtr =
+                    std::get_if<typename CallAsyncStatusInfo::Value>(&value);
+                if (valuePtr == nullptr && status != asyncStatusValueSuccess)
                 {
                     BMCWEB_LOG_INFO(
                         "Call Async: Failed to get value from variant for non-success status");
@@ -93,9 +94,12 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                     return;
                 }
                 statInfo->completed = true;
-                statInfo->callback(status, &value);
+                statInfo->callback(status, valuePtr);
                 statInfo->timeoutTimer.cancel();
-            });
+            },
+            statusInfo->service, statusInfo->object,
+            "org.freedesktop.DBus.Properties", "Get",
+            statusInfo->valueInterface, statusInfo->valueProperty);
     }
 }
 
@@ -276,10 +280,11 @@ class CallAsyncMethodCall
                 statusInfo->object, statusInfo->statusInterface),
             CallAsyncStatusChanged<CallAsyncStatusInfo>{statusInfo});
 
-        dbus::utility::getProperty<std::string>(
+        dbus::utility::async_method_call(
+            CallAsyncGetStatus<CallAsyncStatusInfo>{statusInfo},
             statusInfo->service, statusInfo->object,
-            statusInfo->statusInterface, statusInfo->statusProperty,
-            CallAsyncGetStatus<CallAsyncStatusInfo>{statusInfo});
+            "org.freedesktop.DBus.Properties", "Get",
+            statusInfo->statusInterface, statusInfo->statusProperty);
     }
 
   private:

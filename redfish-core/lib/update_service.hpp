@@ -134,9 +134,9 @@ inline void activateImage(const std::string& objPath,
                           const std::string& service)
 {
     BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Software.Activation", "RequestedActivation",
+    dbus::utility::setProperty(
+        service, objPath, "xyz.openbmc_project.Software.Activation",
+        "RequestedActivation",
         "xyz.openbmc_project.Software.Activation.RequestedActivations.Active",
         [](const boost::system::error_code& ec) {
             if (ec)

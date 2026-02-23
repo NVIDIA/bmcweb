@@ -461,8 +461,7 @@ inline void getErrorInjectionService(
 {
     std::string eiPath = path;
     eiPath += "/ErrorInjection";
-    dbus::utility::getDbusObject(
-        eiPath, std::array<std::string_view, 0>(),
+    dbus::utility::async_method_call(
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperServiceMap& serviceMap) {
@@ -484,7 +483,11 @@ inline void getErrorInjectionService(
                 handler(service, eiPath);
                 return;
             }
-        });
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", eiPath,
+        std::array<const char*, 0>());
 }
 
 template <typename Handler>
@@ -864,19 +867,13 @@ inline void getActivateCapableErrorTypes(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& eiObjPath, Handler&& handler)
 {
-    if (!redfish::setUpRedfishRoute(app, req, aResp))
-    {
-        return;
-    }
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<std::string_view, 3>{
-            "xyz.openbmc_project.Inventory.Item.Board",
-            "xyz.openbmc_project.Inventory.Item.Chassis",
-            "xyz.openbmc_project.Inventory.Item.Component"},
-        [chassisId,
-         aResp](const boost::system::error_code& ec,
-                const dbus::utility::MapperGetSubTreePathsResponse& paths) {
+        eiObjPath, 0,
+        std::array<std::string_view, 1>{
+            "com.nvidia.ErrorInjection.ActivateErrorInjectionPayloadAsync"},
+        [aResp, handler{std::forward<Handler>(handler)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -890,13 +887,8 @@ inline void getActivateCapableErrorTypes(
                 errorTypes.emplace_back(
                     path.substr(path.find_last_of('/') + 1));
             }
-<<<<<<< HEAD
             handler(errorTypes);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        std::array<const char*, 1>{
-            "com.nvidia.ErrorInjection.ActivateErrorInjectionPayloadAsync"});
+        });
 }
 
 inline void getChassisActivateActionInfo(
@@ -976,13 +968,6 @@ inline void postChassisErrorInjectionData(
                            activateErrorInjectionPayload(aResp, errorPath);
                        });
                });
-=======
-            // Object not found
-            messages::resourceNotFound(
-                aResp->res, "#NvidiaErrorInjection.v1_2_0.NvidiaErrorInjection",
-                chassisId);
-        });
->>>>>>> GetSubtreePaths
 }
 
 inline void requestRoutesErrorInjection(App& app)

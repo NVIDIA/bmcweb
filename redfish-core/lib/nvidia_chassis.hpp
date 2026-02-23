@@ -130,8 +130,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     if (hostState ==
                         "xyz.openbmc_project.State.Host.HostState.Running")
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             "xyz.openbmc_project.State.Host", objectPath,
                             "xyz.openbmc_project.State.Host",
                             "RequestedHostTransition",

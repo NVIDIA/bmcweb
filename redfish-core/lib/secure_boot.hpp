@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "nlohmann/json.hpp"
 
 #include <app.hpp>
@@ -53,8 +54,8 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/SecureBoot/SecureBootDatabases";
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.SecureBoot",
         [aResp](const boost::system::error_code& ec,
@@ -237,8 +238,7 @@ inline void handleSecureBootPatch(
 
         if (!secureBootCurrentBootStr.empty())
         {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus,
+            dbus::utility::setProperty(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.SecureBoot", "CurrentBoot",
@@ -255,8 +255,7 @@ inline void handleSecureBootPatch(
 
         if (secureBootEnable)
         {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus,
+            dbus::utility::setProperty(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.SecureBoot", "PendingEnable",
@@ -273,8 +272,7 @@ inline void handleSecureBootPatch(
 
         if (!secureBootModeStr.empty())
         {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus,
+            dbus::utility::setProperty(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.SecureBoot", "Mode",

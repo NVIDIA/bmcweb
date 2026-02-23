@@ -119,10 +119,9 @@ inline void handlePSURedundancyGetRequest(
         callback = std::bind_front(afterGetPsuRedundancyProperties, asyncResp,
                                    redfishUri, dbusPath);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PSURedundancy",
-        std::move(callback));
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.PSURedundancy", std::move(callback));
 }
 
 inline void handlePSURedundancyPatchRequest(

@@ -902,9 +902,9 @@ inline void getSensorMap(
                                 uint32_t, uint64_t, double, bool>,
                    uint64_t, sdbusplus::message::object_path>>;
 
-    sdbusplus::asio::getProperty<sensorMap>(
-        *crow::connections::systemBus, serviceName, objectPath,
-        "xyz.openbmc_project.Sensor.Aggregation", "SensorMetrics",
+    dbus::utility::getProperty<sensorMap>(
+        serviceName, objectPath, "xyz.openbmc_project.Sensor.Aggregation",
+        "SensorMetrics",
         [asyncResp, staleSensorUpperLimit,
          requestTimestamp](const boost::system::error_code& ec,
                            const sensorMap& sensorMetrics) {
@@ -992,9 +992,8 @@ inline void getPlatforMetricsFromSensorMap(
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
         BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
     asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
-    sdbusplus::asio::getProperty<uint32_t>(
-        *crow::connections::systemBus, serviceName, objectPath,
-        "xyz.openbmc_project.Sensor.Aggregation",
+    dbus::utility::getProperty<uint32_t>(
+        serviceName, objectPath, "xyz.openbmc_project.Sensor.Aggregation",
         "BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND",
         [asyncResp, objectPath, serviceName,
          requestTimestamp](const boost::system::error_code& ec,

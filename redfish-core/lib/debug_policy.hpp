@@ -156,9 +156,8 @@ inline void debugPropertiesGet(
             debugPropertiesFill(asyncResp->res, prop);
         };
 
-    sdbusplus::asio::getAllProperties(*crow::connections::systemBus, svc, path,
-                                      policy::impl::remoteDebugIntfc,
-                                      propCallback);
+    dbus::utility::getAllProperties(svc, path, policy::impl::remoteDebugIntfc,
+                                    propCallback);
 }
 
 using findDebugInterfaceCallback =
@@ -247,10 +246,9 @@ inline void debugPropertySet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& svc,
     const std::string& path, const std::string& prop, unsigned value)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, svc, path,
-        "xyz.openbmc_project.Control.Processor.RemoteDebug", prop, value,
-        [asyncResp, prop](const boost::system::error_code& ec) {
+    dbus::utility::setProperty(
+        svc, path, "xyz.openbmc_project.Control.Processor.RemoteDebug", prop,
+        value, [asyncResp, prop](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", prop, ec);

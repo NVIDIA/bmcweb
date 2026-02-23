@@ -233,8 +233,8 @@ inline void getProcessorSummary(
     };
 
     // Get the Presence of CPU
-    dbus::utility::getProperty<bool>(*crow::connections::systemBus, service,
-                                     path, "xyz.openbmc_project.Inventory.Item",
+    dbus::utility::getProperty<bool>(service, path,
+                                     "xyz.openbmc_project.Inventory.Item",
                                      "Present", std::move(getCpuPresenceState));
 
     dbus::utility::getAllProperties(
@@ -518,9 +518,9 @@ inline void afterSystemGetSubTree(
                         sdbusplus::message::object_path uuidPath(path);
                         if (uuidPath.filename() == BMCWEB_PLATFORM_CHASSIS_NAME)
                         {
-                            sdbusplus::asio::getAllProperties(
-                                *crow::connections::systemBus, connection.first,
-                                path, "xyz.openbmc_project.Common.UUID",
+                            dbus::utility::getAllProperties(
+                                connection.first, path,
+                                "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
                                     const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
@@ -535,9 +535,9 @@ inline void afterSystemGetSubTree(
                         sdbusplus::message::object_path uuidPath(path);
                         if (uuidPath.filename() == "bios")
                         {
-                            sdbusplus::asio::getAllProperties(
-                                *crow::connections::systemBus, connection.first,
-                                path, "xyz.openbmc_project.Common.UUID",
+                            dbus::utility::getAllProperties(
+                                connection.first, path,
+                                "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
                                     const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
@@ -551,7 +551,7 @@ inline void afterSystemGetSubTree(
                          "xyz.openbmc_project.Inventory.Item.System")
                 {
                     dbus::utility::getAllProperties(
-                        *crow::connections::systemBus, connection.first, path,
+                        connection.first, path,
                         "xyz.openbmc_project.Inventory.Decorator.Asset",
                         [asyncResp](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
@@ -865,8 +865,8 @@ inline std::string dbusToRfBootProgress(
              "OEM")
     {
         rfBpLastState = "OEM";
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
+        dbus::utility::getProperty<std::string>(
+            "xyz.openbmc_project.State.Host",
             "/xyz/openbmc_project/state/host0",
             "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
             [aResp](const boost::system::error_code& ec,
@@ -1396,8 +1396,8 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
 
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/auto_reboot",
         "xyz.openbmc_project.Control.Boot.RebootPolicy", "AutoReboot",
         [aResp, isSettingsUrl](const boost::system::error_code& ec,
@@ -1417,8 +1417,7 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 {
                     // If AutomaticRetry (AutoReboot) is enabled see how many
                     // attempts are left
-                    sdbusplus::asio::getProperty<uint32_t>(
-                        *crow::connections::systemBus,
+                    dbus::utility::getProperty<uint32_t>(
                         "xyz.openbmc_project.State.Host",
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
@@ -1570,8 +1569,7 @@ inline void getAutomaticRetryPolicy(
                 {
                     // If AutomaticRetry (AutoReboot) is enabled see how many
                     // attempts are left
-                    sdbusplus::asio::getProperty<uint32_t>(
-                        *crow::connections::systemBus,
+                    dbus::utility::getProperty<uint32_t>(
                         "xyz.openbmc_project.State.Host",
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
@@ -1737,8 +1735,8 @@ inline void getPowerRestorePolicy(
 inline void getPowerOnDelaySeconds(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<uint64_t>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getProperty<uint64_t>(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/power_restore_policy",
         "xyz.openbmc_project.Control.Power.RestorePolicy", "PowerRestoreDelay",
         [asyncResp](const boost::system::error_code& ec,
@@ -2272,9 +2270,8 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                      const std::string& interface, const std::string& property,
                      T& value)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, path, interface, property,
-        value,
+    dbus::utility::setProperty(
+        service, path, interface, property, value,
         [aResp, property, value, path, service,
          interface](const boost::system::error_code& ec) {
             if (ec)
@@ -2822,8 +2819,7 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
             // Valid Power Mode object found, now read the mode properties
             dbus::utility::getAllProperties(
-                *crow::connections::systemBus, service, path,
-                "xyz.openbmc_project.Control.Power.Mode",
+                service, path, "xyz.openbmc_project.Control.Power.Mode",
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const dbus::utility::DBusPropertiesMap& properties) {
@@ -3258,7 +3254,7 @@ inline void getIdlePowerSaver(
 
             // Valid IdlePowerSaver object found, now read the current values
             dbus::utility::getAllProperties(
-                *crow::connections::systemBus, service, path,
+                service, path,
                 "xyz.openbmc_project.Control.Power.IdlePowerSaver",
                 [asyncResp](
                     const boost::system::error_code& ec2,
@@ -4006,8 +4002,7 @@ inline void handleComputerSystemGet(
                     // Chassis. we want to identify the "root" Chassis of
                     // the HMC by making only two queries and without having
                     // to attempt to parse the Topology.
-                    sdbusplus::asio::getProperty<std::vector<std::string>>(
-                        *crow::connections::systemBus,
+                    dbus::utility::getProperty<std::vector<std::string>>(
                         "xyz.openbmc_project.ObjectMapper", path + "/chassis",
                         "xyz.openbmc_project.Association", "endpoints",
                         [asyncResp](const boost::system::error_code& ec1,

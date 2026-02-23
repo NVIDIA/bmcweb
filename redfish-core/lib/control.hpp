@@ -489,10 +489,9 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisID,
                             const std::string& chassisPath)
 {
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_sensors", "xyz.openbmc_project.Association",
-        "endpoints",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_sensors",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisID,
          chassisPath](const boost::system::error_code& ec,
                       const std::vector<std::string>& resp) {
@@ -735,8 +734,8 @@ inline void changePowerCapEnable(
             }
             for (const auto& element : objInfo)
             {
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus, element.first, path,
+                dbus::utility::setProperty(
+                    element.first, path,
                     "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
                     enabled,
                     [asyncResp, path,

@@ -53,8 +53,8 @@ inline void updateInBandEnabled(
     std::string objectPath = std::string(chassisDbusPath) + chassisId;
 
     dbus::utility::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.NSM", objectPath,
-        "com.nvidia.InbandUpdatePolicy", "InbandUpdatePolicy",
+        "xyz.openbmc_project.NSM", objectPath, "com.nvidia.InbandUpdatePolicy",
+        "InbandUpdatePolicy",
         [asyncResp, callback](const boost::system::error_code& ec,
                               const std::string& propertyValue) {
             if (ec)

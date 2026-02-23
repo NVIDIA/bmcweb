@@ -428,8 +428,8 @@ inline void getChassisLocationType(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
@@ -450,8 +450,8 @@ inline void getChassisLocationCode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
@@ -472,8 +472,8 @@ inline void getChassisLocationContext(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
         [asyncResp](const boost::system::error_code& ec,
@@ -494,8 +494,8 @@ inline void getChassisReplaceable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<bool>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Replaceable",
         "FieldReplaceable",
         [asyncResp](const boost::system::error_code& ec, const bool& property) {

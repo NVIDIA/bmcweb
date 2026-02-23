@@ -118,8 +118,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     auto setBootOrderFunc = [aResp, bootOrder, isSettingsResource]() {
         if (!isSettingsResource)
         {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus,
+            dbus::utility::setProperty(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
@@ -136,8 +135,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
         else
         {
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<std::vector<std::string>>(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
@@ -177,8 +175,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         }
                     }
 
-                    sdbusplus::asio::setProperty(
-                        *crow::connections::systemBus,
+                    dbus::utility::setProperty(
                         "xyz.openbmc_project.BIOSConfigManager",
                         "/xyz/openbmc_project/bios_config/manager",
                         "xyz.openbmc_project.BIOSConfig.BootOrder",
@@ -230,8 +227,8 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get boot order parameters");
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.BootOrder",
         [aResp, isSettingsResource](
@@ -331,8 +328,8 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 template <typename CallbackFunc>
 inline void getChassisNMIStatus(CallbackFunc&& callback)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/Control/ChassisCapabilities",
         "xyz.openbmc_project.Control.ChassisCapabilities", "ChassisNMIEnabled",
         [callback](const boost::system::error_code& ec, const bool enabledNmi) {

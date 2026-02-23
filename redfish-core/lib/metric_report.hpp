@@ -170,10 +170,10 @@ inline void requestRoutesMetricReport(App& app)
                             return;
                         }
 
-                        sdbusplus::asio::getProperty<
+                        dbus::utility::getProperty<
                             telemetry::TimestampReadings>(
-                            *crow::connections::systemBus, telemetry::service,
-                            reportPath, telemetry::reportInterface, "Readings",
+                            telemetry::service, reportPath,
+                            telemetry::reportInterface, "Readings",
                             [asyncResp,
                              id](const boost::system::error_code& ec2,
                                  const telemetry::TimestampReadings& ret) {

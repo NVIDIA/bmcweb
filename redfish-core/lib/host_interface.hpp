@@ -174,10 +174,10 @@ inline void setCredentialBootstrap(
 
             const std::string& biosService = objType.begin()->first;
 
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, biosService,
-                redfish::biosConfigObj, redfish::biosConfigIface, property,
-                flag, [asyncResp](const boost::system::error_code& ec1) {
+            dbus::utility::setProperty(
+                biosService, redfish::biosConfigObj, redfish::biosConfigIface,
+                property, flag,
+                [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
@@ -192,8 +192,8 @@ inline void setInterfaceEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId, const bool& interfaceEnabled)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Network",
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId,
         "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled",
         interfaceEnabled, [asyncResp](const boost::system::error_code& ec) {

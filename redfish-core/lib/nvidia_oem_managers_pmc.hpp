@@ -101,9 +101,8 @@ inline void processPowerComplianceManagerGetRequest(
                        const dbus::utility::DBusPropertiesMap&)>
         callback = std::bind_front(afterGetPowerComplianceManagerProperties,
                                    asyncResp);
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        "/com/nvidia/state/power_compliance",
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", "/com/nvidia/state/power_compliance",
         "com.Nvidia.State.PowerCompliance", std::move(callback));
 }
 
@@ -303,9 +302,8 @@ inline void handlePowerComplianceGetRequest(
         callback = std::bind_front(afterGetPowerComplianceProperties, asyncResp,
                                    managerId);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        "/com/nvidia/state/power_compliance",
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", "/com/nvidia/state/power_compliance",
         "com.Nvidia.State.PowerCompliance", std::move(callback));
 }
 

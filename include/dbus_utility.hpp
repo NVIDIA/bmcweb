@@ -176,6 +176,28 @@ void getProperty(sdbusplus::asio::connection& /*conn*/,
                 std::move(callback));
 }
 
+template <typename PropertyType, typename Handler>
+void setProperty(const std::string& service, const std::string& objectPath,
+                 const std::string& interface, const std::string& propertyName,
+                 PropertyType&& propertyValue, Handler&& handler)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, service, objectPath, interface,
+        propertyName, std::forward<PropertyType>(propertyValue),
+        std::forward<Handler>(handler));
+}
+
+template <typename PropertyType, typename Handler>
+void setProperty(sdbusplus::asio::connection& /*conn*/,
+                 const std::string& service, const std::string& objectPath,
+                 const std::string& interface, const std::string& propertyName,
+                 PropertyType&& propertyValue, Handler&& handler)
+{
+    setProperty(service, objectPath, interface, propertyName,
+                std::forward<PropertyType>(propertyValue),
+                std::forward<Handler>(handler));
+}
+
 void getAllProperties(sdbusplus::asio::connection& /*conn*/,
                       const std::string& service, const std::string& objectPath,
                       const std::string& interface,

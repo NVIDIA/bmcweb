@@ -328,9 +328,8 @@ inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
             // Set the property, with handler to check error responses
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, service, path, interface,
-                property, value,
+            dbus::utility::setProperty(
+                service, path, interface, property, value,
                 [aResp, property, interface,
                  service](const boost::system::error_code& ec2,
                           const sdbusplus::message_t& msg) {

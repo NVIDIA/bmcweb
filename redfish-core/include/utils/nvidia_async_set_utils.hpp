@@ -19,6 +19,7 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 
 #include <systemd/sd-bus.h>
 
@@ -135,7 +136,7 @@ class SetAsyncGetStatus
     {}
 
     void operator()(const boost::system::error_code ec,
-                    const std::string& status)
+                    const std::variant<std::string>& status)
     {
         auto statusInfo = weakStatusInfo.lock();
         if (!statusInfo || statusInfo->completed)
@@ -152,14 +153,24 @@ class SetAsyncGetStatus
         }
         else
         {
-            BMCWEB_LOG_INFO("Set Async : Status from Get Status Call : {}",
-                            status);
+            const std::string* statusString = std::get_if<std::string>(&status);
 
-            if (status != asyncStatusValueInProgress)
+            if (statusString == nullptr)
             {
-                statusInfo->completed = true;
-                statusInfo->callback(status);
-                statusInfo->timeoutTimer.cancel();
+                BMCWEB_LOG_ERROR("Set Async : Error in GetStatus Call");
+                reportErrorAndCancel(statusInfo);
+            }
+            else
+            {
+                BMCWEB_LOG_INFO("Set Async : Status from Get Status Call : {}",
+                                *statusString);
+
+                if (*statusString != asyncStatusValueInProgress)
+                {
+                    statusInfo->completed = true;
+                    statusInfo->callback(*statusString);
+                    statusInfo->timeoutTimer.cancel();
+                }
             }
         }
     }
@@ -300,10 +311,11 @@ class SetAsyncMethodCall
                 statusInfo->object, statusInfo->interface),
             SetAsyncStatusChanged<SetAsyncStatusInfo>{statusInfo});
 
-        ::dbus::utility::getProperty<std::string>(
-            statusInfo->service, statusInfo->object, statusInfo->interface,
-            statusInfo->property,
-            SetAsyncGetStatus<SetAsyncStatusInfo>{statusInfo});
+        dbus::utility::async_method_call(
+            SetAsyncGetStatus<SetAsyncStatusInfo>{statusInfo},
+            statusInfo->service, statusInfo->object,
+            "org.freedesktop.DBus.Properties", "Get", statusInfo->interface,
+            statusInfo->property);
     }
 
   private:
@@ -335,7 +347,7 @@ void doSetAsyncAndGatherResult(
             crow::connections::systemBus->get_io_context()),
         .completed{}});
 
-    ::dbus::utility::async_method_call(
+    dbus::utility::async_method_call(
         SetAsyncMethodCall<SetAsyncStatusInfo>{statusInfo}, statusInfo->service,
         object, setAsyncInterface, setAsyncMethod, interface, property,
         std::forward<Value>(value));

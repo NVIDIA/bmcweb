@@ -36,9 +36,8 @@ inline void getBmcAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                             const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get BMC Asset Data");
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {

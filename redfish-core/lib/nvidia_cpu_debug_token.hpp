@@ -529,9 +529,9 @@ inline void handleCpuGenerateToken(
                     boost::asio::post(
                         crow::connections::systemBus->get_io_context(),
                         [] { match.reset(nullptr); });
-                    sdbusplus::asio::getProperty<std::vector<uint8_t>>(
-                        *crow::connections::systemBus, spdmBusName, path,
-                        spdmResponderIntf, "SignedMeasurements",
+                    dbus::utility::getProperty<std::vector<uint8_t>>(
+                        spdmBusName, path, spdmResponderIntf,
+                        "SignedMeasurements",
                         [asyncResp](const boost::system::error_code ec3,
                                     const std::vector<uint8_t>& meas) {
                             if (ec3)

@@ -134,9 +134,9 @@ inline void handleLeakDetectorPolicyPathsGet(
             continue;
         }
 
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, entityMangerServiceName,
-            leakDetectorPath, voltageLeakDetectorConfigInterface,
+        dbus::utility::getAllProperties(
+            entityMangerServiceName, leakDetectorPath,
+            voltageLeakDetectorConfigInterface,
             [asyncResp](
                 const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& propertiesList) {

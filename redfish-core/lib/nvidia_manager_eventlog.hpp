@@ -189,8 +189,8 @@ inline void managerEventLogEntryGet(
 
     // DBus implementation of EventLog/Entries
     // Make call to Logging Service to find all log entry objects
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Logging",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/entry/" + entryID, "",
         [asyncResp, entryID](const boost::system::error_code& ec,
                              const dbus::utility::DBusPropertiesMap& resp) {

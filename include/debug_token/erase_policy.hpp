@@ -79,9 +79,9 @@ static inline void getPathCallback(
     }
     std::function<void(const boost::system::error_code&, const std::string&)>
         handler = std::bind_front(dbusGetHandler, std::move(callback));
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, path,
-        std::string(erasePolicyIntf), "Policy", handler);
+    dbus::utility::getProperty<std::string>(
+        service, path, std::string(erasePolicyIntf), "Policy",
+        std::move(handler));
 }
 
 /*
@@ -125,9 +125,8 @@ static inline void setPathCallback(
     std::string dbusValue = std::string(erasePolicyEnumPrefix) + erasePolicy;
     std::function<void(const boost::system::error_code&)> handler =
         std::bind_front(dbusSetHandler, asyncResp);
-    sdbusplus::asio::setProperty(*crow::connections::systemBus, service, path,
-                                 std::string(erasePolicyIntf), "Policy",
-                                 dbusValue, handler);
+    dbus::utility::setProperty(service, path, std::string(erasePolicyIntf),
+                               "Policy", dbusValue, handler);
 }
 
 /*

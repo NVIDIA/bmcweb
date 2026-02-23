@@ -62,9 +62,8 @@ inline void getDbusResultFd(const std::string& serviceName,
 {
     BMCWEB_LOG_DEBUG("Reading result FD from {} path={} iface={} prop={}",
                      serviceName, objectPath.str, interface, property);
-    sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
-        *crow::connections::systemBus, serviceName, objectPath, interface,
-        property,
+    dbus::utility::getProperty<sdbusplus::message::unix_fd>(
+        serviceName, objectPath, interface, property,
         [asyncResp](const boost::system::error_code& ec,
                     const sdbusplus::message::unix_fd& fd) {
             streamFdResponse(asyncResp, ec, fd);

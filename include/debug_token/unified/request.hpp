@@ -309,7 +309,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             spdmTokenTypeToMeasurementIndex(this->type)};
         std::function<void(const boost::system::error_code&)> handler =
             std::bind_front(&Handler::methodHandler, this, shared_from_this());
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             handler, service, objectPath, spdmResponderIntf, "Refresh",
             static_cast<uint8_t>(0), std::vector<uint8_t>(), indices,
             static_cast<uint32_t>(0));
@@ -471,10 +471,9 @@ class Handler : public std::enable_shared_from_this<Handler>
             errorHandler(self, "DBus error: " + ec.message());
             return;
         }
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, spdmBusName, spdmObjectPath,
-            std::string(spdmResponderIntf), "Status",
-            std::bind_front(&Handler::getStatusHandler, this, self));
+        dbus::utility::getProperty<std::string>(
+            spdmBusName, spdmObjectPath, std::string(spdmResponderIntf),
+            "Status", std::bind_front(&Handler::getStatusHandler, this, self));
     }
 
     /**

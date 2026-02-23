@@ -44,7 +44,7 @@
 namespace nvidia_cables
 {
 
-constexpr std::array<const char*, 2> cableAssemblyInterfaces = {
+constexpr std::array<std::string_view, 2> cableAssemblyInterfaces = {
     "xyz.openbmc_project.Inventory.Item.Cable",
     "xyz.openbmc_project.Inventory.Item.CableCartridge"};
 constexpr std::array<std::string_view, 1> vendorInformationInterfaces = {
@@ -551,17 +551,13 @@ inline void handleCableAssemblyGet(
     }
 
     BMCWEB_LOG_DEBUG("Cable Assembly doGet enter for {}", cableId);
-
-    dbus::utility::async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, cableAssemblyInterfaces,
         [asyncResp,
          cableId](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
             handleCableAssemblySubtree(asyncResp, cableId, ec, subtree);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, cableAssemblyInterfaces);
+        });
 }
 
 /**

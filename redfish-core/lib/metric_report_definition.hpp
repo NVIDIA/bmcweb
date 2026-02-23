@@ -949,10 +949,10 @@ inline void setReadingParams(
         }
     }
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
-        getDbusReportPath(reportId), "xyz.openbmc_project.Telemetry.Report",
-        "ReadingParameters", readingParams,
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Telemetry", getDbusReportPath(reportId),
+        "xyz.openbmc_project.Telemetry.Report", "ReadingParameters",
+        readingParams,
         [asyncResp, reportId](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -1017,10 +1017,9 @@ inline void setReportEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
     bool enabled)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
-        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
-        "Enabled", enabled,
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
+        "xyz.openbmc_project.Telemetry.Report", "Enabled", enabled,
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
             formatMessageOnError(asyncResp->res, id, ec);
         });
@@ -1130,10 +1129,10 @@ inline void setReportUpdates(
                                          "ReportUpdates");
         return;
     }
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
-        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
-        "ReportUpdates", dbusReportUpdates,
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
+        "xyz.openbmc_project.Telemetry.Report", "ReportUpdates",
+        dbusReportUpdates,
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
             if (!formatMessageOnError(asyncResp->res, id, ec))
             {
@@ -1178,10 +1177,10 @@ inline void setReportActions(
         return;
     }
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
-        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
-        "ReportActions", dbusReportActions,
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
+        "xyz.openbmc_project.Telemetry.Report", "ReportActions",
+        dbusReportActions,
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
             if (!formatMessageOnError(asyncResp->res, id, ec))
             {

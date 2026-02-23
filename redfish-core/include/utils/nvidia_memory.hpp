@@ -81,9 +81,8 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         if (std::find(interfaces.begin(), interfaces.end(),
                       "com.nvidia.MemoryPerformance") != interfaces.end())
         {
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus, service, path,
-                "com.nvidia.MemoryPerformance", "Value",
+            dbus::utility::getProperty<std::string>(
+                service, path, "com.nvidia.MemoryPerformance", "Value",
                 [aResp](const boost::system::error_code& ec1,
                         const std::string& property) {
                     populatePerformanceData(aResp, ec1, property);

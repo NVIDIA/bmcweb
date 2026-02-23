@@ -1025,8 +1025,7 @@ inline void requestRoutesTrigger(App& app)
                     return;
                 }
                 dbus::utility::getAllProperties(
-                    *crow::connections::systemBus, telemetry::service,
-                    telemetry::getDbusTriggerPath(id),
+                    telemetry::service, telemetry::getDbusTriggerPath(id),
                     telemetry::triggerInterface,
                     [asyncResp,
                      id](const boost::system::error_code& ec,

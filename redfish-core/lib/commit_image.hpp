@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
@@ -785,8 +786,8 @@ inline void handleInventoryPathLookup(
 
     // Query inventory association endpoints
     dbus::utility::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        inventoryObjectPath, "xyz.openbmc_project.Association", "endpoints",
+        "xyz.openbmc_project.ObjectMapper", inventoryObjectPath,
+        "xyz.openbmc_project.Association", "endpoints",
         [state, softwarePath](const boost::system::error_code& ec,
                               const std::vector<std::string>& invEndpoints) {
             handleInventoryEndpoints(state, softwarePath, ec, invEndpoints);
@@ -1000,9 +1001,8 @@ class ImageCopyStatusMonitor :
     void queryStatus()
     {
         dbus::utility::getProperty<std::string>(
-            *crow::connections::systemBus, "xyz.openbmc_project.NSM",
-            chassisDBusPath, std::string(imageCopyInterface),
-            "ImageCopyRequestStatus",
+            "xyz.openbmc_project.NSM", chassisDBusPath,
+            std::string(imageCopyInterface), "ImageCopyRequestStatus",
             [self = shared_from_this(),
              ctx = aggregationCtx](const boost::system::error_code& ec,
                                    const std::string& status) {
@@ -1110,8 +1110,8 @@ class ImageCopyStatusMonitor :
     void readErrorCode()
     {
         dbus::utility::getProperty<std::string>(
-            *crow::connections::systemBus, "xyz.openbmc_project.NSM",
-            chassisDBusPath, std::string(imageCopyInterface), "ErrorCode",
+            "xyz.openbmc_project.NSM", chassisDBusPath,
+            std::string(imageCopyInterface), "ErrorCode",
             [self = shared_from_this(),
              ctx = aggregationCtx](const boost::system::error_code& ec,
                                    const std::string& errorCode) {
@@ -1195,7 +1195,7 @@ inline void initiateImageCopy(
     auto monitor = std::make_shared<ImageCopyStatusMonitor>(
         aggregationCtx, chassisName, chassisDBusPath, objectPaths);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [self = aggregationCtx, chassisName, objectPaths,
          monitor](const boost::system::error_code& ec) {
             if (ec)

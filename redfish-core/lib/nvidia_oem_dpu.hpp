@@ -327,10 +327,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             }
 
             // Single method call implementation
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, objectInfo.service,
-                objectInfo.obj, objectInfo.propertyInfo.intf,
-                objectInfo.propertyInfo.prop, propertyValue,
+            dbus::utility::setProperty(
+                objectInfo.service, objectInfo.obj,
+                objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop,
+                propertyValue,
                 [asyncResp](const boost::system::error_code& errorCode) {
                     if (errorCode)
                     {
@@ -637,9 +637,8 @@ inline void getIsOemNvidiaRshimEnable(
         return;
     }
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, systemdServiceBf, rshimSystemdObjBf,
-        systemdUnitIntfBf, "ActiveState",
+    dbus::utility::getProperty<std::string>(
+        systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, "ActiveState",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& rshimActiveState) {
             if (ec)
@@ -1052,8 +1051,7 @@ inline void handleTruststoreCertificatesCollectionPost(
 
                     if (owner)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             truststoreBiosService, objectPath,
                             "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [asyncResp](const boost::system::error_code& ec3) {
@@ -1170,9 +1168,8 @@ inline void handleTruststoreCertificatesGet(
     asyncResp->res.jsonValue["Id"] = certId;
     asyncResp->res.jsonValue["Name"] = "TruststoreBios Certificate";
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, truststoreBiosService,
-        truststoreBiosPath + "/" + certId, "",
+    dbus::utility::getAllProperties(
+        truststoreBiosService, truststoreBiosPath + "/" + certId, "",
         [asyncResp,
          certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -1314,9 +1311,8 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
 {
     // Check if the OEM FRU is enabled
     // OEM FRU only available when the "Enabled" property is true
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/control/oem_fru",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/control/oem_fru",
         "xyz.openbmc_project.Object.Enable", "Enabled",
         [asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
@@ -1334,9 +1330,8 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                 return;
             }
             // Fetch all properties of the OEM FRU object
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, oemFruService, oemFruObj,
-                oemFruIntf,
+            dbus::utility::getAllProperties(
+                oemFruService, oemFruObj, oemFruIntf,
                 [asyncResp{asyncResp}](
                     const boost::system::error_code& errorCode,
                     const dbus::utility::DBusPropertiesMap& propertyList) {
@@ -1508,8 +1503,7 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                 // Check if the OEM FRU is enabled
                 // OEM FRU only available when the "Enabled" property is
                 // true
-                sdbusplus::asio::getProperty<bool>(
-                    *crow::connections::systemBus,
+                dbus::utility::getProperty<bool>(
                     "xyz.openbmc_project.Settings",
                     "/xyz/openbmc_project/control/oem_fru",
                     "xyz.openbmc_project.Object.Enable", "Enabled",
@@ -2026,9 +2020,8 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 }
                 socForceReset["target"] = bluefield::socForceResetTraget;
                 bluefield::handleGetOemFru(app, asyncResp);
-                sdbusplus::asio::getAllProperties(
-                    *crow::connections::systemBus, bluefield::dpuFruObj,
-                    bluefield::dpuFruPath,
+                dbus::utility::getAllProperties(
+                    bluefield::dpuFruObj, bluefield::dpuFruPath,
                     "xyz.openbmc_project.Inventory.Host.BfFruInfo",
                     [asyncResp](const boost::system::error_code ec,
                                 const dbus::utility::DBusPropertiesMap&

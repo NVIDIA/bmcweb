@@ -464,9 +464,8 @@ inline void setProfileProperty(
     const std::string& profileNumber, const std::string& interface,
     const std::string& property, const std::string& value)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, profileService,
-        profilePath + profileNumber, interface, property, value,
+    dbus::utility::setProperty(
+        profileService, profilePath + profileNumber, interface, property, value,
         [aResp, property, value, payload = std::move(payload),
          profileNumber](const boost::system::error_code& ec) mutable {
             if (ec)
@@ -859,17 +858,15 @@ inline void handleGetProfileInfo(
         "#NvidiaSystemProfile.v1_0_0.NvidiaSystemProfile";
     aResp->res.jsonValue["Name"] = "SystemProfile";
     aResp->res.jsonValue["Id"] = profileNumber;
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, profileService,
-        profilePath + profileNumber, statusIntrf,
+    dbus::utility::getAllProperties(
+        profileService, profilePath + profileNumber, statusIntrf,
         [aResp,
          profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
             getProfileStatusInfo(ec, properties, aResp, profileNumber);
         });
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, profileService,
-        profilePath + profileNumber, configurationIntrf,
+    dbus::utility::getAllProperties(
+        profileService, profilePath + profileNumber, configurationIntrf,
         [aResp,
          profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
@@ -1070,17 +1067,15 @@ inline void handleGetProfilesStatus(
     aResp->res.jsonValue["Name"] = "Profiles status";
     aResp->res.jsonValue["Description"] =
         "Nvidia Profiles management information";
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, profileService, profilePath + "manager",
-        pendingListIntrf,
+    dbus::utility::getAllProperties(
+        profileService, profilePath + "manager", pendingListIntrf,
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             handleGetProfilesStatusPendingList(ec, properties, aResp);
         });
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, profileService, profilePath + "manager",
-        managerIntrf,
+    dbus::utility::getAllProperties(
+        profileService, profilePath + "manager", managerIntrf,
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             handleGetProfilesManagerStatus(ec, properties, aResp);
@@ -1336,9 +1331,9 @@ inline void setProfileFactoryResetStatus(
     task::Payload&& payload, const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& factoryResetStatus, bool isBiosUser)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, profileService, profileManagerPath.str,
-        managerIntrf, "FactoryResetStatus", factoryResetStatus,
+    dbus::utility::setProperty(
+        profileService, profileManagerPath.str, managerIntrf,
+        "FactoryResetStatus", factoryResetStatus,
         [payload = std::move(payload), aResp,
          isBiosUser](const boost::system::error_code& ec) mutable {
             callbackSetFactorResetProperty(std::move(payload), ec, aResp,
@@ -1612,8 +1607,8 @@ inline void handleGetProfileCaCertificate(
     }
     BMCWEB_LOG_DEBUG("getCertificateProperties Path={} certId={} certURl={}",
                      path, service, certs::certPropIntf);
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, path, certs::certPropIntf,
+    dbus::utility::getAllProperties(
+        service, path, certs::certPropIntf,
         [asyncResp,
          certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {

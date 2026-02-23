@@ -3332,8 +3332,7 @@ inline void requestRoutesCrashdumpFile(App& app)
                             "attachment");
                     };
                 dbus::utility::getAllProperties(
-                    *crow::connections::systemBus, crashdumpObject,
-                    crashdumpPath + std::string("/") + logID,
+                    crashdumpObject, crashdumpPath + std::string("/") + logID,
                     crashdumpInterface, std::move(getStoredLogCallback));
             });
 }

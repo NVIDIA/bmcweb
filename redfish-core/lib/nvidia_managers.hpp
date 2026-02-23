@@ -191,9 +191,8 @@ inline void doBMCGracefulShutdown(
     const char* destProperty = "RequestedBMCTransition";
 
     // Create the D-Bus variant for D-Bus call.
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processName, objectPath, interfaceName,
-        destProperty, propertyValue,
+    dbus::utility::setProperty(
+        processName, objectPath, interfaceName, destProperty, propertyValue,
         [asyncResp](const boost::system::error_code& ec) {
             // Use "Set" method to set the property value.
             if (ec)
@@ -731,10 +730,10 @@ inline void patchFencingPrivilege(
     }
 
     // Set the property, with handler to check error responses
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, serviceName, objPath,
-        "xyz.openbmc_project.GpuOobRecovery.Server", "SMBPBIFencingState",
-        privilege, [resp, privilegeType](boost::system::error_code& ec) {
+    dbus::utility::setProperty(
+        serviceName, objPath, "xyz.openbmc_project.GpuOobRecovery.Server",
+        "SMBPBIFencingState", privilege,
+        [resp, privilegeType](boost::system::error_code& ec) {
             if (!ec)
             {
                 BMCWEB_LOG_DEBUG("Set SMBPBI privilege  property succeeded");
@@ -761,10 +760,9 @@ inline void getFabricManagerInfo(
 inline void getIsCommandShellEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/ipmi/sol/eth0", "xyz.openbmc_project.Ipmi.SOL",
-        "Enable",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/ipmi/sol/eth0",
+        "xyz.openbmc_project.Ipmi.SOL", "Enable",
         [asyncResp](const boost::system::error_code& ec, const bool& isEnable) {
             if (ec)
             {
@@ -1486,8 +1484,8 @@ inline void extendManagerGet(
                     // "root" Chassis of the HMC by making only two
                     // queries and without having to attempt to parse
                     // the Topology.
-                    sdbusplus::asio::getProperty<std::vector<std::string>>(
-                        *crow::connections::systemBus,
+                    dbus::utility::getProperty<std::vector<std::string>>(
+
                         "xyz.openbmc_project.ObjectMapper", path + "/chassis",
                         "xyz.openbmc_project.Association", "endpoints",
                         [asyncResp](

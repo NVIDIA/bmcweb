@@ -205,9 +205,8 @@ inline void getFDRServiceState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     constexpr const char* interfaceName = "org.freedesktop.systemd1.Unit";
     constexpr const char* property = "SubState";
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, serviceName, fdrServiceObjectPath,
-        interfaceName, property,
+    dbus::utility::getProperty<std::string>(
+        serviceName, fdrServiceObjectPath, interfaceName, property,
         [aResp](const boost::system::error_code& ec,
                 const std::string& serviceState) {
             if (ec)

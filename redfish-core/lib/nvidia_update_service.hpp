@@ -22,6 +22,7 @@
 #include "background_copy.hpp"
 #include "commit_image.hpp"
 #include "component_integrity.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
 #include "multipart_parser.hpp"
@@ -253,10 +254,9 @@ inline void checkInitialActivationState(
                 return;
             }
 
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus, mapperResponse.begin()->first,
-                objPath.str, "xyz.openbmc_project.Software.Activation",
-                "Activation",
+            dbus::utility::getProperty<std::string>(
+                mapperResponse.begin()->first, objPath.str,
+                "xyz.openbmc_project.Software.Activation", "Activation",
                 [task](const boost::system::error_code& ec2,
                        const std::string& activation) {
                     if (!ec2 && (activation.ends_with("Invalid") ||
@@ -587,7 +587,7 @@ inline static void getRelatedItemsStorageController(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const sdbusplus::message::object_path& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          const std::vector<std::string>& objects) {
             if (ec)
@@ -793,7 +793,7 @@ inline static void getRelatedItemsOther(
     const sdbusplus::message::object_path& association)
 {
     // Find supported device types.
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, association](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -1126,7 +1126,7 @@ inline void extendUpdateServiceGet(
     }
 
     auto getUpdateStatus = std::make_shared<BMCStatusAsyncResp>(asyncResp);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, getUpdateStatus](
             const boost::system::error_code& errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -1170,10 +1170,9 @@ inline void extendUpdateServiceGet(
             return;
         });
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
-        "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
-        "CurrentBMCState",
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.BMC", "/xyz/openbmc_project/state/bmc0",
+        "xyz.openbmc_project.State.BMC", "CurrentBMCState",
         [getUpdateStatus](const boost::system::error_code& ec,
                           const std::string& bmcState) mutable {
             if (ec)
@@ -1185,10 +1184,9 @@ inline void extendUpdateServiceGet(
             return;
         });
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0", "xyz.openbmc_project.State.Host",
-        "CurrentHostState",
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "CurrentHostState",
         [getUpdateStatus](const boost::system::error_code& ec,
                           const std::string& hostState) mutable {
             if (ec)
@@ -1260,7 +1258,7 @@ inline void computeDigest(const crow::Request& req,
                           const std::string& hashComputeObjPath,
                           const std::string& swId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, &req, hashComputeObjPath, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -1414,7 +1412,7 @@ inline void computeDigest(const crow::Request& req,
             task::Payload payload(req);
             task->payload.emplace(std::move(payload));
             computeDigestInProgress = true;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [task](const boost::system::error_code& ec3) {
                     if (ec3)
                     {
@@ -1855,7 +1853,7 @@ inline void handlePublicKeyExchangePost(
     }
 
     // Call SCP service
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -1865,7 +1863,7 @@ inline void handlePublicKeyExchangePost(
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec2,
                             const std::string& selfPublicKeyStr) {
                     if (ec2 || selfPublicKeyStr.empty())
@@ -1934,7 +1932,7 @@ inline void handleRevokeAllRemoteServerPublicKeysPost(
     BMCWEB_LOG_DEBUG("RemoteServerIP: {}", remoteServerIP);
 
     // Call SCP service
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -2701,7 +2699,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                     asyncResp->res.jsonValue["Status"]["Conditions"] =
                         nlohmann::json::array();
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, swId, path, searchPath](
                         const boost::system::error_code& errorCode,
                         const boost::container::flat_map<

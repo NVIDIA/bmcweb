@@ -115,8 +115,8 @@ inline void setClearVariables(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& path, const bool requestToClear)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::setProperty(
+        service, path,
         "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables", "Clear",
         requestToClear,
         [aResp, path, service](const boost::system::error_code& ec) {
@@ -254,8 +254,8 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                    requestToClear, subtree);
         });
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/boot",
         "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear", true,
         [aResp](const boost::system::error_code& ec) {
@@ -268,8 +268,8 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             BMCWEB_LOG_DEBUG("Boot override CMOSClear update done.");
         });
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/boot",
         "xyz.openbmc_project.Object.Enable", "Enabled", true,
         [aResp](const boost::system::error_code& ec) {
@@ -1168,8 +1168,8 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     }
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable",
         baseBiosTable,
@@ -1589,8 +1589,7 @@ inline void setBiosCurrentOrPendingAttr(
                     }
                     if (biosFlag)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             "xyz.openbmc_project.BIOSConfigManager",
                             "/xyz/openbmc_project/bios_config/manager",
                             "xyz.openbmc_project.BIOSConfig.Manager",
@@ -1608,10 +1607,9 @@ inline void setBiosCurrentOrPendingAttr(
                                 messages::success(asyncResp->res);
                             });
                     }
-                    sdbusplus::asio::setProperty(
-                        *crow::connections::systemBus, biosService,
-                        biosConfigObj, biosConfigIface, "PendingAttributes",
-                        pendingAttrs,
+                    dbus::utility::setProperty(
+                        biosService, biosConfigObj, biosConfigIface,
+                        "PendingAttributes", pendingAttrs,
                         [asyncResp](const boost::system::error_code& ec3) {
                             if (ec3)
                             {

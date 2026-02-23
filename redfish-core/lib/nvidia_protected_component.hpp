@@ -381,9 +381,8 @@ inline void processNvidiaRoTImageSlotSubtree(
     }
 
     auto [objectPath, service] = cachedPathServices[slotNum];
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objectPath,
-        softwareSlotInterface,
+    dbus::utility::getAllProperties(
+        service, objectPath, softwareSlotInterface,
         [asyncResp, chassisId, fwTypeStr, slotNumStr, service,
          objectPath](const boost::system::error_code& ec,
                      const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -562,9 +561,8 @@ inline void processNvidiaRoTProtectedComponentCollectionSubtree(
 
     for (const auto& [objectPath, service] : cachedPathServices)
     {
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, service, objectPath,
-            softwareSlotInterface,
+        dbus::utility::getAllProperties(
+            service, objectPath, softwareSlotInterface,
             [asyncResp, chassisId, objectPath](
                 const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -883,9 +881,8 @@ inline void updateSecurityVersionProperties(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            sdbusplus::asio::getProperty<uint16_t>(
-                *crow::connections::systemBus, service, securityPath,
-                securityVersionInterface, "Version",
+            dbus::utility::getProperty<uint16_t>(
+                service, securityPath, securityVersionInterface, "Version",
                 [asyncResp, chassisId,
                  componentId](const boost::system::error_code& ec1,
                               const uint16_t property) {
@@ -1174,9 +1171,8 @@ inline void processNvidiaRoTProtectedComponentSubtree(
 
     for (const auto& [objectPath, service] : cachedPathServices)
     {
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, service, objectPath,
-            softwareSlotInterface,
+        dbus::utility::getAllProperties(
+            service, objectPath, softwareSlotInterface,
             [asyncResp, chassisId, fwTypeStr](
                 const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -1273,9 +1269,9 @@ inline void updateIrreversibleConfigEnabled(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus, service, chassisCfgPath,
-                securityConfigInterface, "IrreversibleConfigState",
+            dbus::utility::getProperty<bool>(
+                service, chassisCfgPath, securityConfigInterface,
+                "IrreversibleConfigState",
                 [asyncResp, chassisId](const boost::system::error_code& ec1,
                                        const bool property) {
                     if (ec1)
@@ -1340,9 +1336,8 @@ inline void handleIrreversibleConfigResponse(
                     return;
                 }
                 // Enable, return Nonce
-                sdbusplus::asio::getProperty<uint64_t>(
-                    *crow::connections::systemBus, service, chassisCfgPath,
-                    securityConfigInterface, "Nonce",
+                dbus::utility::getProperty<uint64_t>(
+                    service, chassisCfgPath, securityConfigInterface, "Nonce",
                     [asyncResp](const boost::system::error_code& ec1,
                                 const uint64_t property) {
                         if (ec1)
@@ -1537,9 +1532,9 @@ inline void handleupdateMinSecVersionResponse(
             if (*value ==
                 "xyz.openbmc_project.Common.Progress.OperationStatus.Completed")
             {
-                sdbusplus::asio::getProperty<std::vector<std::string>>(
-                    *crow::connections::systemBus, service, securityPath,
-                    minSecVersionConfigInterface, "UpdateMethod",
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    service, securityPath, minSecVersionConfigInterface,
+                    "UpdateMethod",
                     [asyncResp](const boost::system::error_code& ec1,
                                 const std::vector<std::string>& property) {
                         if (ec1)
@@ -1561,12 +1556,12 @@ inline void handleupdateMinSecVersionResponse(
             }
             else
             {
-                sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
-                    *crow::connections::systemBus, service, securityPath,
-                    minSecVersionConfigInterface, "ErrorCode",
+                dbus::utility::getProperty<std::tuple<uint16_t, std::string>>(
+                    service, securityPath, minSecVersionConfigInterface,
+                    "ErrorCode",
                     [asyncResp](
                         const boost::system::error_code& ec1,
-                        const std::tuple<uint16_t, std::string>&& property) {
+                        const std::tuple<uint16_t, std::string>& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("UpdateMinSecVersion DBUS error");
@@ -1776,9 +1771,9 @@ inline void handleRevokeKeysResponse(
             if (*value ==
                 "xyz.openbmc_project.Common.Progress.OperationStatus.Completed")
             {
-                sdbusplus::asio::getProperty<std::vector<std::string>>(
-                    *crow::connections::systemBus, service, securityPath,
-                    securitySigningConfigInterface, "UpdateMethod",
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    service, securityPath, securitySigningConfigInterface,
+                    "UpdateMethod",
                     [asyncResp](const boost::system::error_code& ec1,
                                 const std::vector<std::string>& property) {
                         if (ec1)
@@ -1800,12 +1795,12 @@ inline void handleRevokeKeysResponse(
             }
             else
             {
-                sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
-                    *crow::connections::systemBus, service, securityPath,
-                    securitySigningConfigInterface, "ErrorCode",
+                dbus::utility::getProperty<std::tuple<uint16_t, std::string>>(
+                    service, securityPath, securitySigningConfigInterface,
+                    "ErrorCode",
                     [asyncResp](
                         const boost::system::error_code& ec1,
-                        const std::tuple<uint16_t, std::string>&& property) {
+                        const std::tuple<uint16_t, std::string>& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("RevokeKeys DBUS error");

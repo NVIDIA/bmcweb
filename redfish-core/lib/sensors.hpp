@@ -595,7 +595,7 @@ inline void populateFanRedundancy(
                             return;
                         }
                         dbus::utility::getAllProperties(
-                            *crow::connections::systemBus, owner, path,
+                            owner, path,
                             "xyz.openbmc_project.Control.FanRedundancy",
                             [path, sensorsAsyncResp](
                                 const boost::system::error_code& ec3,
@@ -2471,7 +2471,7 @@ inline void getSensorFromDbus(
     BMCWEB_LOG_DEBUG("Path {}", sensorPath);
 
     ::dbus::utility::getAllProperties(
-        *crow::connections::systemBus, connectionName, sensorPath, "",
+        connectionName, sensorPath, "",
         [asyncResp,
          sensorPath](const boost::system::error_code& ec,
                      const ::dbus::utility::DBusPropertiesMap& valuesDict) {

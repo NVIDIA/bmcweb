@@ -523,9 +523,8 @@ static void egmGetDbusObjectHandler(
     BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
     // Set the property, with handler to check error responses
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, cpuObjectPath,
-        "com.nvidia.EgmMode", "EGMModeEnabled", egmMode,
+    dbus::utility::setProperty(
+        service, cpuObjectPath, "com.nvidia.EgmMode", "EGMModeEnabled", egmMode,
         [resp, processorId](const boost::system::error_code& ec2,
                             const sdbusplus::message_t& msg) {
             egmAsyncRespHandler(resp, processorId, ec2, msg);
@@ -591,9 +590,8 @@ inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get System-GUID");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
-        "com.nvidia.SysGUID.SysGUID", "SysGUID",
+    dbus::utility::getProperty<std::string>(
+        service, objPath, "com.nvidia.SysGUID.SysGUID", "SysGUID",
         [objPath, asyncResp](const boost::system::error_code& ec,
                              const std::string& property) {
             if (ec)
@@ -1882,8 +1880,8 @@ inline void getMNNVLinkTopologyInfo(
     const std::string& service, const std::string& objPath,
     const std::string& interface)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, interface,
+    dbus::utility::getAllProperties(
+        service, objPath, interface,
         [aResp, cpuId](const boost::system::error_code& ec,
                        const dbus::utility::DBusPropertiesMap& resp) {
             if (ec)

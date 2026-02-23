@@ -108,9 +108,9 @@ inline void getFpgaTypeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor fpgatype");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.FpgaType", "FpgaType",
+    dbus::utility::getProperty<std::string>(
+        service, objPath, "xyz.openbmc_project.Inventory.Decorator.FpgaType",
+        "FpgaType",
         [objPath, aResp{aResp}](const boost::system::error_code& ec,
                                 const std::string& property) {
             if (ec)
@@ -137,7 +137,7 @@ inline void getSystemPCIeInterfaceProperties(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor system pcie interface properties");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -162,8 +162,8 @@ inline void getSystemPCIeInterfaceProperties(
                 return;
             }
             // Get all properties
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, objInfo[0].first, objPath, "",
+            dbus::utility::getAllProperties(
+                objInfo[0].first, objPath, "",
                 [objPath, asyncResp](
                     const boost::system::error_code& ecInner,
                     const dbus::utility::DBusPropertiesMap& properties) {
@@ -224,7 +224,7 @@ inline void getProcessorSystemPCIeInterface(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath system interface pcie link");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
@@ -282,7 +282,7 @@ inline void getProcessorResetTypeData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -345,9 +345,9 @@ inline void postResetType(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         return;
     }
     const std::string conName = *inventoryService;
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, conName, cpuObjectPath,
-        "xyz.openbmc_project.Control.Processor.Reset", "ResetType",
+    dbus::utility::getProperty<std::string>(
+        conName, cpuObjectPath, "xyz.openbmc_project.Control.Processor.Reset",
+        "ResetType",
         [resp, resetType, processorId, conName, cpuObjectPath](
             const boost::system::error_code& ec, const std::string& property) {
             if (ec)
@@ -417,7 +417,7 @@ inline void postResetType(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                     BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
 
                     // Set the property, with handler to check error responses
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [resp, processorId](boost::system::error_code& ec1,
                                             const int retValue) {
                             if (!ec1)
@@ -454,7 +454,7 @@ inline void getFPGAPCIeInterfaceProperties(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor fpga pcie interface properties");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -479,8 +479,8 @@ inline void getFPGAPCIeInterfaceProperties(
                 return;
             }
             // Get all properties
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, objInfo[0].first, objPath, "",
+            dbus::utility::getAllProperties(
+                objInfo[0].first, objPath, "",
                 [objPath, asyncResp](
                     const boost::system::error_code& ecInner,
                     const dbus::utility::DBusPropertiesMap& properties) {
@@ -544,7 +544,7 @@ inline void getProcessorFPGAPCIeInterface(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath fpga interface pcie link");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
@@ -572,7 +572,7 @@ inline void getPowerBreakThrottleData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          deviceType](const boost::system::error_code& ec,
                      const OperatingConfigProperties& properties) {
@@ -631,7 +631,7 @@ inline void getProcessorPCIeFunctionsLinks(
     const std::string& objPath, const std::string& pcieDeviceLink)
 {
     BMCWEB_LOG_DEBUG("Get processor pcie functions links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, pcieDeviceLink,
          objPath](const boost::system::error_code& ec,
                   boost::container::flat_map<std::string,
@@ -713,7 +713,7 @@ inline void getProcessorMemoryLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath memory links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
@@ -762,7 +762,7 @@ inline void getParentChassisPCIeDeviceLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
     const std::string& chassisName)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, chassisName](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -785,7 +785,7 @@ inline void getParentChassisPCIeDeviceLink(
                 messages::internalError(aResp->res);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, chassisName, parentChassisName](
                     const boost::system::error_code& ec1,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -854,7 +854,7 @@ inline void getProcessorChassisLink(
         associationPath = objPath + "/parent_chassis";
     }
     BMCWEB_LOG_DEBUG("Get parent chassis link");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          service](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
@@ -881,7 +881,7 @@ inline void getProcessorChassisLink(
                 {"@odata.id", "/redfish/v1/Chassis/" + chassisName}};
 
             // Get PCIeDevice on this chassis
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, chassisName, chassisPath,
                  service](const boost::system::error_code& getEndpointsError,
                           std::variant<std::vector<std::string>>& resp1) {
@@ -942,7 +942,7 @@ inline void getProcessorFirmwareVersion(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor firmware version");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{aResp}](const boost::system::error_code& ec,
                        const std::variant<std::string>& property) {
             if (ec)
@@ -978,8 +978,8 @@ inline void getProcessorLocationContext(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor LocationContext Data");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
+    dbus::utility::getProperty<std::string>(
+        service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
         [objPath, aResp{aResp}](const boost::system::error_code& ec,
@@ -1008,9 +1008,9 @@ inline void getCpuLocationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu LocationType Data");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
+    dbus::utility::getProperty<std::string>(
+        service, objPath, "xyz.openbmc_project.Inventory.Decorator.Location",
+        "LocationType",
         [objPath, aResp{aResp}](const boost::system::error_code& ec,
                                 const std::string& property) {
             if (ec)
@@ -1038,8 +1038,8 @@ inline void getProcessorReplaceable(
     const std::string& connectionName, const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get Processor Replaceable");
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<bool>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Replaceable",
         "FieldReplaceable",
         [asyncResp](const boost::system::error_code& ec, const bool property) {
@@ -1067,7 +1067,7 @@ inline void getProcessorMemoryData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -1113,7 +1113,7 @@ inline void getEccModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
                            const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -1160,7 +1160,7 @@ inline void getEccPendingData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -1194,7 +1194,7 @@ inline void getProcessorPerformanceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          deviceType](const boost::system::error_code& ec,
                      const OperatingConfigProperties& properties) {
@@ -1349,8 +1349,8 @@ inline void getGPUNvlinkMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& nvlinkMetricsIface)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, nvlinkMetricsIface,
+    dbus::utility::getAllProperties(
+        service, objPath, nvlinkMetricsIface,
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& resp) {
             if (ec)
@@ -1431,7 +1431,7 @@ inline void getPowerSystemInputsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          deviceType](const boost::system::error_code& ec,
                      const OperatingConfigProperties& properties) {
@@ -1479,7 +1479,7 @@ inline void getMemorySpareChannelPresenceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath, deviceType](const boost::system::error_code& ec,
                                      const std::variant<bool>& property) {
             if (ec)
@@ -1625,7 +1625,7 @@ inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
                            const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -1661,7 +1661,7 @@ inline void getProcessorRemoteDebugState(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          const OperatingConfigProperties& properties) {
             if (ec)
@@ -1697,7 +1697,7 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& service,
                                 const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, service,
          objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
@@ -1720,7 +1720,7 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 const std::array<const char*, 1> effecterInterfaces = {
                     "xyz.openbmc_project.Control.Processor.RemoteDebug"};
                 // Process sensor reading
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, effecterPath](
                         const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
@@ -1759,8 +1759,8 @@ inline void getGPMMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& gpmMetricsIface)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, gpmMetricsIface,
+    dbus::utility::getAllProperties(
+        service, objPath, gpmMetricsIface,
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& resp) {
             if (ec)
@@ -2326,7 +2326,7 @@ inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
             // Set the property, with handler to check error responses
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [resp, processorId](boost::system::error_code& ec1,
                                     const int retValue) {
                     if (!ec1)
@@ -2362,7 +2362,7 @@ inline void setProcessorRemoteDebugState(
     const std::string& objPath, const bool remoteDebugEnabled)
 {
     // Set the property, with handler to check error responses
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          sdbusplus::message::message& msg) {
             if (!ec)
@@ -2416,7 +2416,7 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                      processorId);
 
     // Find remote debug effecters from all effecters attached to "all_controls"
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp,
          remoteDebugEnabled](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
@@ -2441,7 +2441,7 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 const std::array<const char*, 1> effecterInterfaces = {
                     "xyz.openbmc_project.Control.Processor.RemoteDebug"};
                 // Process sensor reading
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, effecterPath, remoteDebugEnabled](
                         const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
@@ -2552,7 +2552,7 @@ inline void patchSpeedConfig(
 
             BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [resp, processorId,
                  reqSpeedConfig](boost::system::error_code& ec1,
                                  sdbusplus::message::message& msg) {
@@ -2664,8 +2664,8 @@ inline void patchSpeedLocked(
         return;
     }
     const std::string conName = *inventoryService;
-    sdbusplus::asio::getProperty<std::tuple<bool, uint32_t>>(
-        *crow::connections::systemBus, conName, cpuObjectPath,
+    dbus::utility::getProperty<std::tuple<bool, uint32_t>>(
+        conName, cpuObjectPath,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig", "SpeedConfig",
         [resp, processorId, conName, cpuObjectPath, serviceMap,
          speedLocked](const boost::system::error_code& ec,
@@ -2721,8 +2721,8 @@ inline void patchSpeedLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string conName = *inventoryService;
     BMCWEB_LOG_DEBUG("patchSpeedLimit");
     // Set the property, with handler to check error responses
-    sdbusplus::asio::getProperty<std::tuple<bool, uint32_t>>(
-        *crow::connections::systemBus, conName, cpuObjectPath,
+    dbus::utility::getProperty<std::tuple<bool, uint32_t>>(
+        conName, cpuObjectPath,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig", "SpeedConfig",
         [resp, processorId, conName, cpuObjectPath, serviceMap,
          speedLimit](const boost::system::error_code& ec,
@@ -2747,7 +2747,7 @@ inline void getProcessorDataByService(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor metrics data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{aResp}](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -2791,7 +2791,7 @@ inline void getProcessorMemoryECCData(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor memory ecc data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{aResp}](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -2855,7 +2855,7 @@ inline void getVoltageData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& chassisId,
                            const std::string& sensorPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, chassisId, sensorPath](
             const boost::system::error_code& ec,
             const std::vector<
@@ -2898,7 +2898,7 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& service,
                             const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, service,
          objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
@@ -2922,7 +2922,7 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             const std::string& chassisId = chassisName;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, service, objPath,
                  chassisId](const boost::system::error_code& getEndpointsError,
                             std::variant<std::vector<std::string>>& resp1) {
@@ -3006,7 +3006,7 @@ inline void getStateSensorMetric(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, service, objPath,
          deviceType](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
@@ -3033,7 +3033,7 @@ inline void getStateSensorMetric(
                     "com.nvidia.MemorySpareChannel",
                     "com.nvidia.ProcessorPowerBreak"};
                 // Process sensor reading
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, sensorPath, deviceType](
                         const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
@@ -3095,7 +3095,7 @@ inline void getProcessorMetricsData(
     const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, aResp{aResp}](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -3233,7 +3233,7 @@ inline void getProcessorMemoryDataByService(
     const int64_t& processorUECount)
 {
     BMCWEB_LOG_DEBUG("Get processor memory data");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, memoryPath, processorCECount,
          processorUECount](const boost::system::error_code& ec,
                            dbus::utility::GetSubTreeType& subtree) {
@@ -3265,7 +3265,7 @@ inline void getProcessorMemoryDataByService(
                 for (const auto& i : connectionNames)
                 {
                     const std::string& connectionName = i.first;
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [aResp{aResp}, processorCECount, processorUECount](
                             const boost::system::error_code& ec1,
                             const OperatingConfigProperties& properties) {
@@ -3349,7 +3349,7 @@ inline void getProcessorMemorySummary(
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     // Get processor memory
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorCECount,
          processorUECount](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
@@ -3389,7 +3389,7 @@ inline void getProcessorMemoryMetricsData(
     const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, aResp{aResp}](
             const boost::system::error_code ec,
             const boost::container::flat_map<
@@ -3432,7 +3432,7 @@ inline void getProcessorMemoryMetricsData(
                     if (std::find(interfaces.begin(), interfaces.end(),
                                   memoryECCInterface) != interfaces.end())
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [path = path, aResp{aResp}](
                                 const boost::system::error_code ec1,
                                 const OperatingConfigProperties& properties) {
@@ -3484,7 +3484,7 @@ inline void getProcessorMemoryMetricsData(
                     if (std::find(interfaces.begin(), interfaces.end(),
                                   memoryMetricIface) != interfaces.end())
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp{aResp}](
                                 const boost::system::error_code ec2,
                                 const OperatingConfigProperties& properties) {
@@ -3555,7 +3555,7 @@ inline void getProcessorSettingsData(
     const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId](
             boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
@@ -3609,7 +3609,7 @@ inline void getProcessorSettingsData(
                                   "xyz.openbmc_project.Software.ApplyTime") !=
                         interfaces.end())
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp](
                                 const boost::system::error_code& ec1,
                                 const OperatingConfigProperties& properties) {
@@ -3719,7 +3719,7 @@ inline void patchEccMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
             BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
             // Set the property, with handler to check error responses
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [resp, processorId](boost::system::error_code& ec1,
                                     sdbusplus::message::message& msg) {
                     if (!ec1)
@@ -4157,7 +4157,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
             }
 
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [processorId, portId, histogramId, aResp](
                     const boost::system::error_code ec,
                     const boost::container::flat_map<
@@ -4179,7 +4179,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                             continue;
                         }
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, objPath, processorId, portId, histogramId](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -4216,7 +4216,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                         continue;
                                     }
 
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [aResp, processorId, portId,
                                          histogramId](
                                             const boost::system::error_code ec3,
@@ -4348,7 +4348,7 @@ inline void requestRoutesProcessorPortHistogram(App& app)
             }
 
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [processorId, portId, histogramId, aResp](
                     const boost::system::error_code ec,
                     const boost::container::flat_map<
@@ -4370,7 +4370,7 @@ inline void requestRoutesProcessorPortHistogram(App& app)
                             continue;
                         }
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, processorId, portId, histogramId](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -4486,7 +4486,7 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
             }
 
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [processorId, portId, aResp](
                     const boost::system::error_code ec,
                     const boost::container::flat_map<
@@ -4508,7 +4508,7 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
                             continue;
                         }
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, objPath, processorId, portId](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {

@@ -407,10 +407,9 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
         asyncObjectPath = objectPath;
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, asyncObjectService, asyncObjectPath,
-            std::string(asyncStatusIntf), "Status",
-            std::bind_front(&Handler::getStatusHandler, this, self));
+        dbus::utility::getProperty<std::string>(
+            asyncObjectService, asyncObjectPath, std::string(asyncStatusIntf),
+            "Status", std::bind_front(&Handler::getStatusHandler, this, self));
     }
 
     /**
@@ -506,9 +505,9 @@ class Handler : public std::enable_shared_from_this<Handler>
     template <typename T, typename U>
     void resultHandler(U&& cb)
     {
-        sdbusplus::asio::getProperty<T>(
-            *crow::connections::systemBus, asyncObjectService, asyncObjectPath,
-            std::string(asyncValueIntf), "Value", std::forward<U>(cb));
+        dbus::utility::getProperty<T>(asyncObjectService, asyncObjectPath,
+                                      std::string(asyncValueIntf), "Value",
+                                      std::forward<U>(cb));
     }
 
     /**

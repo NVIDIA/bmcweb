@@ -266,7 +266,7 @@ class Handler : public std::enable_shared_from_this<Handler>
                     generalErrorHandler();
                     return;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     asyncHandler, service, objectPath,
                     std::string(debugTokenActionIntf), "EraseToken",
                     eraseParams->first, eraseParams->second);
@@ -284,7 +284,7 @@ class Handler : public std::enable_shared_from_this<Handler>
                     generalErrorHandler();
                     return;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     asyncHandler, service, objectPath,
                     std::string(debugTokenActionIntf), "InstallToken",
                     sdbusplus::message::unix_fd(token->get()->fd));
@@ -402,9 +402,9 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
         asyncObjectPath = objectPath;
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, debugTokenService, objectPath,
-            std::string(asyncStatusIntf), "Status",
+        dbus::utility::getProperty<std::string>(
+            debugTokenService, objectPath, std::string(asyncStatusIntf),
+            "Status",
             std::bind_front(&Handler::getAsyncStatusHandler, this, self));
     }
 
@@ -465,9 +465,9 @@ class Handler : public std::enable_shared_from_this<Handler>
         }
         else
         {
-            sdbusplus::asio::getProperty<std::variant<NsmResult>>(
-                *crow::connections::systemBus, debugTokenService,
-                asyncObjectPath, std::string(asyncValueIntf), "Value",
+            dbus::utility::getProperty<std::variant<NsmResult>>(
+                debugTokenService, asyncObjectPath, std::string(asyncValueIntf),
+                "Value",
                 std::bind_front(&Handler::asyncResultHandler, this, self));
         }
         return true;

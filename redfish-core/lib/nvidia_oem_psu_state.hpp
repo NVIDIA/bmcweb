@@ -105,10 +105,9 @@ inline void handlePsuStateGetRequest(
                        const dbus::utility::DBusPropertiesMap&)>
         callback = std::bind_front(afterGetPsuStateProperties, asyncResp, id);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PsuState",
-        std::move(callback));
+    dbus::utility::getAllProperties("com.Nvidia.RackPowerCompliance", dbusPath,
+                                    "com.Nvidia.State.PowerCompliance.PsuState",
+                                    std::move(callback));
 }
 
 /**

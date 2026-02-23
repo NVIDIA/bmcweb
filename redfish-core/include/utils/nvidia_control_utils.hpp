@@ -552,8 +552,8 @@ inline void getControlCpuObjects(
         BMCWEB_LOG_ERROR("Not a valid chassis path");
         return;
     }
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
         *validChassisPath + "/all_processors",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, getControlCpu,

@@ -174,8 +174,8 @@ inline void populateRsyslogClientSettings(
     rsyslog = nlohmann::json::object();
     rsyslog["@odata.type"] = "#NvidiaNetworkProtocol.v1_1_0.Rsyslog";
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, path, "",
+    dbus::utility::getAllProperties(
+        service, path, "",
         [asyncResp,
          &rsyslog](const boost::system::error_code& ec,
                    const dbus::utility::DBusPropertiesMap& properties) {

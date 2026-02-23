@@ -106,8 +106,8 @@ inline void populateBackgroundCopyPolicy(
             const std::string& service = object.front().first;
 
             dbus::utility::getProperty<std::string>(
-                *crow::connections::systemBus, service, objectPath,
-                "com.nvidia.ImageCopyPolicy", "ImageCopyPolicy",
+                service, objectPath, "com.nvidia.ImageCopyPolicy",
+                "ImageCopyPolicy",
                 std::bind_front(getImageCopyPolicyCallback, asyncResp,
                                 objectPath.str));
         });

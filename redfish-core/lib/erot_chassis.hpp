@@ -606,7 +606,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
@@ -701,8 +701,8 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 { // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
                     auto health = std::make_shared<HealthPopulate>(asyncResp);
 
-                    sdbusplus::asio::getProperty<std::vector<std::string>>(
-                        *crow::connections::systemBus,
+                    dbus::utility::getProperty<std::vector<std::string>>(
+
                         "xyz.openbmc_project.ObjectMapper",
                         path + "/all_sensors",
                         "xyz.openbmc_project.Association", "endpoints",
@@ -1345,7 +1345,7 @@ inline void findEIDforEROTReset(
         serviceName = "xyz.openbmc_project.MCTP.Control.SPI";
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [&req, asyncResp, chassisUUID,
          isPCIe](const boost::system::error_code ec,
                  const dbus::utility::ManagedObjectType& resp) {
@@ -1452,7 +1452,7 @@ inline void handleEROTChassisResetAction(
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [&req, asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const dbus::utility::GetSubTreeType& subtree) {
@@ -1489,9 +1489,9 @@ inline void handleEROTChassisResetAction(
 
                 chassisIdFound = true;
 
-                sdbusplus::asio::getProperty<std::string>(
-                    *crow::connections::systemBus, connectionNames[0].first,
-                    path, "xyz.openbmc_project.Common.UUID", "UUID",
+                dbus::utility::getProperty<std::string>(
+                    connectionNames[0].first, path,
+                    "xyz.openbmc_project.Common.UUID", "UUID",
                     [&req, asyncResp](const boost::system::error_code& ec2,
                                       const std::string& chassisUUID) {
                         if (ec2)

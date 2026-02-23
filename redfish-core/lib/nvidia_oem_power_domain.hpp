@@ -130,10 +130,9 @@ inline void handlePowerDomainGetRequest(
         callback =
             std::bind_front(afterGetPowerDomainProperties, asyncResp, dbusPath);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PowerDomain",
-        std::move(callback));
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.PowerDomain", std::move(callback));
 }
 
 /**

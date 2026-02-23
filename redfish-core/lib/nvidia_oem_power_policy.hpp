@@ -172,10 +172,9 @@ inline void handlePowerPolicyGetRequest(
         callback = std::bind_front(afterGetPowerPolicyProperties, asyncResp,
                                    redfishUri, dbusPath);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PowerPolicy",
-        std::move(callback));
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.PowerPolicy", std::move(callback));
 }
 
 /**
@@ -220,10 +219,9 @@ inline void handlePowerPolicyTopLevelGetRequest(
         callback = std::bind_front(afterGetPowerPolicyProperties, asyncResp,
                                    redfishUri, dbusPath);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PowerPolicy",
-        std::move(callback));
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.PowerPolicy", std::move(callback));
 }
 
 /**

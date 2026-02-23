@@ -124,8 +124,8 @@ inline void getResetMetricsInterfaceProperties(
             }
 
             // Fetch properties for the identified service
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, targetService, objPath,
+            dbus::utility::getAllProperties(
+                targetService, objPath,
                 "com.nvidia.ResetCounters.ResetCounterMetrics",
                 [asyncResp,
                  objPath](const boost::system::error_code& ec1,

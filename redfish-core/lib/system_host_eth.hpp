@@ -68,7 +68,7 @@ inline void processMACAddressProperties(
 inline void processEthernetPortAddress(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const boost::system::error_code& ec,
-    const std::variant<std::vector<std::string>>& portResp)
+    const std::vector<std::string>& portData)
 {
     if (ec)
     {
@@ -77,17 +77,15 @@ inline void processEthernetPortAddress(
         return;
     }
 
-    const std::vector<std::string>* portData =
-        std::get_if<std::vector<std::string>>(&portResp);
-    if (portData == nullptr || portData->empty())
+    if (portData.empty())
     {
         return;
     }
 
-    const std::string& portAddressPath = (*portData)[0];
+    const std::string& portAddressPath = portData[0];
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, connectionName, portAddressPath, "",
+    dbus::utility::getAllProperties(
+        connectionName, portAddressPath, "",
         [asyncResp](const boost::system::error_code& ec2,
                     const dbus::utility::DBusPropertiesMap& properties) {
             processMACAddressProperties(asyncResp, ec2, properties);
@@ -116,9 +114,8 @@ inline void processNDFDbusObject(
 
     dbus::utility::findAssociations(
         portAddressAssocPath,
-        [asyncResp,
-         connectionName](const boost::system::error_code& ec2,
-                         std::variant<std::vector<std::string>>& portResp) {
+        [asyncResp, connectionName](const boost::system::error_code& ec2,
+                                    const std::vector<std::string>& portResp) {
             processEthernetPortAddress(asyncResp, connectionName, ec2,
                                        portResp);
         });
@@ -130,7 +127,7 @@ inline void processNDFDbusObject(
 inline void processNDFAssociation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& networkAdapterPath, const boost::system::error_code& ec,
-    const std::variant<std::vector<std::string>>& resp)
+    const std::vector<std::string>& data)
 {
     if (ec)
     {
@@ -140,16 +137,14 @@ inline void processNDFAssociation(
         return;
     }
 
-    const std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&resp);
-    if (data == nullptr || data->empty())
+    if (data.empty())
     {
         BMCWEB_LOG_DEBUG("getNetworkAdapterMACAddress: No NDF found for {}",
                          networkAdapterPath);
         return;
     }
 
-    const std::string& ndfPath = (*data)[0];
+    const std::string& ndfPath = data[0];
     constexpr std::string_view linkTypeInterface =
         "xyz.openbmc_project.Network.LinkType";
 
@@ -180,9 +175,8 @@ inline void getNetworkAdapterMACAddress(
 
     dbus::utility::findAssociations(
         ndfAssociationPath,
-        [asyncResp,
-         networkAdapterPath](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& resp) {
+        [asyncResp, networkAdapterPath](const boost::system::error_code& ec,
+                                        const std::vector<std::string>& resp) {
             processNDFAssociation(asyncResp, networkAdapterPath, ec, resp);
         });
 }

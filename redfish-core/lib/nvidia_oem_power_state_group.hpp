@@ -128,9 +128,9 @@ inline void handlePowerStateGroupGetRequest(
         callback =
             std::bind_front(afterGetPowerStateGroupProperties, asyncResp);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
-        dbusPath, "com.Nvidia.State.PowerCompliance.PowerStateGroup",
+    dbus::utility::getAllProperties(
+        "com.Nvidia.RackPowerCompliance", dbusPath,
+        "com.Nvidia.State.PowerCompliance.PowerStateGroup",
         std::move(callback));
 }
 

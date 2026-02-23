@@ -52,9 +52,9 @@ inline void getNvidiaPowerSupply(
     const std::string& powerSupplyId, const std::string& chassisId)
 {
     asyncResp->res.jsonValue["Name"] = powerSupplyId;
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, path,
-        "com.nvidia.PowerSupply.PowerSupplyInfo", "PowerSupplyType",
+    dbus::utility::getProperty<std::string>(
+        service, path, "com.nvidia.PowerSupply.PowerSupplyInfo",
+        "PowerSupplyType",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
             if (ec)

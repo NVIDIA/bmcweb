@@ -17,6 +17,7 @@
 #pragma once
 
 #include "certificate_service.hpp"
+#include "dbus_singleton.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 #include "utils/certificate_utils.hpp"
@@ -446,8 +447,7 @@ inline void handleCertificateCollectionPost(
 
                     if (owner)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             getServiceName(databaseId), objectPath,
                             "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [aResp](const boost::system::error_code ec3) {
@@ -485,9 +485,8 @@ inline void handleCertificateGet(
     aResp->res.jsonValue["Id"] = certId;
     aResp->res.jsonValue["Name"] = databaseId + " Certificate";
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, getServiceName(databaseId),
-        getCertObjectPath(databaseId, certId), "",
+    dbus::utility::getAllProperties(
+        getServiceName(databaseId), getCertObjectPath(databaseId, certId), "",
         [aResp,
          certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -750,8 +749,7 @@ inline void handleSignatureCollectionPost(
 
                     if (owner)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus,
+                        dbus::utility::setProperty(
                             getServiceName(databaseId), objectPath,
                             "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [aResp](const boost::system::error_code& ec2) {
@@ -795,9 +793,8 @@ inline void handleSignatureGet(crow::App& app, const crow::Request& req,
     aResp->res.jsonValue["Id"] = sigId;
     aResp->res.jsonValue["Name"] = databaseId + " Signature";
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, getServiceName(databaseId),
-        getSigObjectPath(databaseId, sigId), "",
+    dbus::utility::getAllProperties(
+        getServiceName(databaseId), getSigObjectPath(databaseId, sigId), "",
         [aResp, sigId](const boost::system::error_code& ec,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)

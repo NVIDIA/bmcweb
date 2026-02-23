@@ -21,6 +21,7 @@
 
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
 #include "debug_token/task_utils.hpp"
@@ -191,9 +192,8 @@ inline void populateTrustedComponentsLinks(
                 if (!services.empty())
                 {
                     const std::string& service = services[0].first;
-                    sdbusplus::asio::getProperty<
-                        dbus::utility::AssociationsType>(
-                        *crow::connections::systemBus, service, spdmPath,
+                    dbus::utility::getProperty<dbus::utility::AssociationsType>(
+                        service, spdmPath,
                         "xyz.openbmc_project.Association.Definitions",
                         "Associations",
                         std::bind_front(&handleSpdmAssociationsResponse,
@@ -676,9 +676,8 @@ struct InstallTokenAggregator
         using ValueType = std::variant<
             std::vector<std::tuple<uint16_t, std::string, std::string>>>;
 
-        sdbusplus::asio::getProperty<ValueType>(
-            *crow::connections::systemBus, service, objectPath,
-            "com.nvidia.Async.Value", "Value",
+        dbus::utility::getProperty<ValueType>(
+            service, objectPath, "com.nvidia.Async.Value", "Value",
             std::bind_front(&InstallTokenAggregator::handleAsyncValueResponse,
                             self));
     }
@@ -776,9 +775,8 @@ struct InstallTokenAggregator
         // Check the current status in case operation already completed
         // This prevents race condition where status changed before we set up
         // the match
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, service, objectPath,
-            "com.nvidia.Async.Status", "Status",
+        dbus::utility::getProperty<std::string>(
+            service, objectPath, "com.nvidia.Async.Status", "Status",
             std::bind_front(
                 &InstallTokenAggregator::handleInitialStatusResponse, self,
                 service, objectPath));
@@ -858,7 +856,7 @@ inline void handleInstallTokenSubtreeResponse(
     BMCWEB_LOG_DEBUG("Calling InstallToken on {} (service: {})", objectPath,
                      service);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aggregator,
          service](const boost::system::error_code& ec2,
                   const sdbusplus::message::object_path& asyncOpPath) {
