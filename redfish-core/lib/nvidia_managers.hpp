@@ -1925,13 +1925,56 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
             });
 }
 
+inline void handleEmmcSecureEraseResult(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("Failed to EmmcSecureErase: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    doBMCGracefulRestart(asyncResp);
+}
+
+inline void handleGetObjectEmmcSecureErase(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& interfaceNames)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (interfaceNames.empty())
+    {
+        BMCWEB_LOG_ERROR("eMMC Secure Erase interface not found");
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_15_0.Manager",
+                                   "eMMC.SecureErase");
+        return;
+    }
+
+    for (const auto& object : interfaceNames)
+    {
+        dbus::utility::async_method_call(
+            [asyncResp](const boost::system::error_code& ec1) {
+                handleEmmcSecureEraseResult(asyncResp, ec1);
+            },
+            object.first, "/xyz/openbmc_project/software",
+            "com.nvidia.Common.EmmcSecureErase", "EmmcSecureErase");
+    }
+}
+
 /**
  * eMMCSecureErase class supports POST method for eMMC Secure Erase
  */
 inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
 {
     /**
-     * Function handles ResetToDefaults POST method request.
+     * Function handles eMMC Secure Erase POST method request.
      *
      */
 
@@ -1941,28 +1984,23 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-                std::string setCommand =
-                    "/sbin/fw_setenv emmc_secure_erase yes";
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Post eMMC Secure Erase.");
-                auto resetEMMCSecureEraseCallback =
-                    []([[maybe_unused]] const crow::Request& req1,
-                       [[maybe_unused]] const std::shared_ptr<
-                           bmcweb::AsyncResp>& response,
-                       [[maybe_unused]] const std::string& stdOut,
-                       [[maybe_unused]] const std::string& stdErr,
-                       [[maybe_unused]] const boost::system::error_code& ec,
-                       [[maybe_unused]] int exitCode) -> void {
-                    BMCWEB_LOG_INFO("Setting eMMC Secure Erase uboot env");
-                    return;
-                };
-                redfish::PersistentStorageUtil::executeEnvCommand(
-                    req, asyncResp, setCommand,
-                    std::move(resetEMMCSecureEraseCallback));
-                doBMCGracefulRestart(asyncResp);
+                (void)req;
+                constexpr std::array<std::string_view, 1> emmcSecureEraseIntf =
+                    {"com.nvidia.Common.EmmcSecureErase"};
+
+                dbus::utility::getDbusObject(
+                    "/xyz/openbmc_project/software", emmcSecureEraseIntf,
+                    [asyncResp](
+                        const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetObject& interfaceNames) {
+                        handleGetObjectEmmcSecureErase(asyncResp, ec,
+                                                       interfaceNames);
+                    });
             });
 }
 
