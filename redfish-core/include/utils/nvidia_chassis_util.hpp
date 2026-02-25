@@ -24,6 +24,7 @@
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
@@ -2441,32 +2442,17 @@ inline void handleChassisGetAllProperties(
         return;
     }
 
-    if (partNumber != nullptr)
-    {
-        asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-    }
-
-    if (serialNumber != nullptr)
-    {
-        asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-    }
-
-    if (manufacturer != nullptr)
-    {
-        asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
-    }
-
-    if (model != nullptr)
-    {
-        asyncResp->res.jsonValue["Model"] = *model;
-    }
-
+    redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
+                             partNumber);
+    redfish::mapStringOrNull(asyncResp->res.jsonValue, "SerialNumber",
+                             serialNumber);
+    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                             manufacturer);
+    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Model", model);
     // SparePartNumber is optional on D-Bus
     // so skip if it is empty
-    if (sparePartNumber != nullptr && !sparePartNumber->empty())
-    {
-        asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
-    }
+    redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SparePartNumber",
+                             sparePartNumber);
 
     if (uuid != nullptr)
     {
@@ -2741,25 +2727,13 @@ inline void getChassisAssetData(
                 return;
             }
 
-            if (serialNumber != nullptr && !serialNumber->empty())
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-            }
-
-            if ((model != nullptr) && !model->empty())
-            {
-                asyncResp->res.jsonValue["Model"] = *model;
-            }
-
-            if (partNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-            }
-
-            if ((manufacturer != nullptr) && !manufacturer->empty())
-            {
-                asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
-            }
+            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SerialNumber",
+                                     serialNumber);
+            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Model", model);
+            redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
+                                     partNumber);
+            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Manufacturer",
+                                     manufacturer);
         });
 }
 
