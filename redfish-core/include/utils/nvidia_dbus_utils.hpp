@@ -447,6 +447,51 @@ inline std::string toPowerBreakPerformanceState(const std::string& state)
     return "";
 }
 
+inline std::string toReference(const std::string& reference)
+{
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Bottom")
+    {
+        return "Bottom";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Front")
+    {
+        return "Front";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Left")
+    {
+        return "Left";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Middle")
+    {
+        return "Middle";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Rear")
+    {
+        return "Rear";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Right")
+    {
+        return "Right";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Top")
+    {
+        return "Top";
+    }
+    if (reference ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationReference.ReferenceAreas.Unknown")
+    {
+        return "Unknown";
+    }
+    return "";
+}
+
 /**
  * @brief Defer the callback function until the shared_ptr destroys the returned
  * object.
