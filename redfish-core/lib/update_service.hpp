@@ -17,6 +17,7 @@
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "multipart_parser.hpp"
+#include "nvidia_error_messages.hpp"
 #include "nvidia_update_service.hpp"
 #include "ossl_random.hpp"
 #include "query.hpp"
@@ -1142,6 +1143,16 @@ inline void processUpdateRequest(
         {
             messages::internalError(asyncResp->res);
         }
+        fwUpdateInProgress = false;
+        return;
+    }
+
+    off_t imageSize = lseek(memfd->fd, 0, SEEK_END);
+    if (imageSize == 0)
+    {
+        messages::invalidUpload(asyncResp->res,
+                                "/redfish/v1/UpdateService/update-multipart",
+                                "Uploaded image file is empty");
         fwUpdateInProgress = false;
         return;
     }
