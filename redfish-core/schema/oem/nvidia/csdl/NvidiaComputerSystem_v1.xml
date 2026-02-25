@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.4.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.6.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -84,6 +84,19 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_5_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="RefreshInventory" IsBound="true">
+        <Annotation Term="OData.Description" String="This action triggers a refresh of inventory data such as CPU, Memory, PCIe and TPM from the satellite management controller."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates a PLDM Effecter request to refresh inventory data such as CPU, Memory, PCIe and TPM from the satellite management controller (SatMC)."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_6_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -192,6 +205,9 @@
           <Annotation Term="OData.Description" String="Erase non-secure BIOS variables."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

@@ -22,6 +22,7 @@
 #include "logging.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_refresh_inventory.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -3843,6 +3844,11 @@ inline void handleComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
             "/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable";
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        handleRefreshInventoryGet(asyncResp);
     }
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)

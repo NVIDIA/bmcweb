@@ -55,6 +55,7 @@
 #include "nvidia_processor_port.hpp"
 #include "nvidia_processor_routes.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_refresh_inventory.hpp"
 #include "nvidia_sensors.hpp"
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_storage.hpp"
@@ -364,6 +365,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorResetMetrics(app);
         requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
         requestRoutesChassisOemNvidiaRecoveryActions(app);
+        requestRoutesRefreshInventory(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)
