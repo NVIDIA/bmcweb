@@ -260,16 +260,24 @@ static inline void addPrefixToStringItem(std::string& strValue,
         url.segments().push_back(*it);
     }
 
+    // Copy fragment before overwriting strValue to avoid use-after-free
+    // (thisUrl views strValue).
+    std::string fragmentStr;
+    if (thisUrl.has_fragment())
+    {
+        // Decoded, no leading '#'
+        fragmentStr = std::string(thisUrl.fragment());
+    }
+
     if (addedPrefix)
     {
         url.segments().insert(url.segments().begin(), {"redfish", "v1"});
         strValue = std::string(url.data(), url.size());
     }
 
-    auto fragSize = thisUrl.fragment().size();
-    if (fragSize != 0)
+    if (!fragmentStr.empty())
     {
-        url.set_fragment(thisUrl.fragment());
+        url.set_fragment(fragmentStr);
         strValue = std::string(url.data(), url.size());
     }
 }
