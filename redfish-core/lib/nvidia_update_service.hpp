@@ -1748,19 +1748,18 @@ inline void handleCommitImagePost(
     collectImageCopySoftwarePaths(
         asyncResp,
         [asyncResp, hasTargets, softwareObjectPaths, hasInvalidTargets](
-            const std::map<std::string, std::vector<std::string>>&
-                chassisToPathsMap) mutable {
+            const std::map<std::string, ChassisInfo>& chassisMap) mutable {
             if (hasTargets)
             {
                 for (const auto& [dbusPath, redfishPath] : softwareObjectPaths)
                 {
                     bool foundInChassis = false;
-                    for (const auto& [chassisName, chassisObjectPaths] :
-                         chassisToPathsMap)
+                    for (const auto& [chassisName, chassisInfo] : chassisMap)
                     {
-                        if (std::find(chassisObjectPaths.begin(),
-                                      chassisObjectPaths.end(), dbusPath) !=
-                            chassisObjectPaths.end())
+                        if (std::find(chassisInfo.softwarePaths.begin(),
+                                      chassisInfo.softwarePaths.end(),
+                                      dbusPath) !=
+                            chassisInfo.softwarePaths.end())
                         {
                             foundInChassis = true;
                             break;
@@ -1781,11 +1780,10 @@ inline void handleCommitImagePost(
             }
 
             std::vector<ChassisObjectSoftwarePath> chassisCollection;
-            for (const auto& [chassisName, chassisObjectPaths] :
-                 chassisToPathsMap)
+            for (const auto& [chassisName, chassisInfo] : chassisMap)
             {
                 std::vector<std::string> matchingPaths;
-                for (const auto& path : chassisObjectPaths)
+                for (const auto& path : chassisInfo.softwarePaths)
                 {
                     if (hasTargets)
                     {
@@ -1823,6 +1821,7 @@ inline void handleCommitImagePost(
                 {
                     ChassisObjectSoftwarePath entry;
                     entry.chassisName = chassisName;
+                    entry.chassisDbusPath = chassisInfo.dbusPath;
                     entry.objectPaths = matchingPaths;
                     chassisCollection.push_back(std::move(entry));
                 }
