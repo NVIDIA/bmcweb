@@ -21,6 +21,7 @@
 #include "dot/base.hpp"
 #include "logging.hpp"
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -124,21 +125,36 @@ constexpr std::string_view dotFuseChangeStateToString(uint8_t state)
 /**
  * @brief Converts D-Bus DOTState enum to Redfish string format
  *
- * Extracts the state value from a D-Bus enum string (e.g.,
- * "com.nvidia.Dot.Action.DOTState.Uninitialized" -> "Uninitialized")
+ * Maps full D-Bus enum state string (e.g.
+ * "com.nvidia.Dot.Action.DOTStates.Volatile") to Redfish state string.
+ * Unrecognized values return std::nullopt (caller should set JSON to null).
  *
- * @param dbusState Full D-Bus enum state string
- * @return Redfish-formatted state string, defaults to "Uninitialized" on error
+ * @param dbusState Full D-Bus enum state string (e.g.
+ * com.nvidia.Dot.Action.DOTStates.Volatile)
+ * @return Redfish-formatted state string, or std::nullopt for unknown (use
+ * nullptr in JSON)
  */
-inline std::string convertDOTStateToRedfish(const std::string& dbusState)
+inline std::optional<std::string> convertDOTStateToRedfish(
+    const std::string& dbusState)
 {
-    std::string defaultState = "Uninitialized";
-    size_t lastDot = dbusState.find_last_of('.');
-    if (lastDot != std::string::npos && lastDot + 1 < dbusState.length())
+    if (dbusState ==
+        std::string(dot::dotActionIntf) + ".DOTStates.Uninitialized")
     {
-        return dbusState.substr(lastDot + 1);
+        return "Uninitialized";
     }
-    return defaultState;
+    if (dbusState == std::string(dot::dotActionIntf) + ".DOTStates.Volatile")
+    {
+        return "Volatile";
+    }
+    if (dbusState == std::string(dot::dotActionIntf) + ".DOTStates.Locked")
+    {
+        return "Locked";
+    }
+    if (dbusState == std::string(dot::dotActionIntf) + ".DOTStates.Disabled")
+    {
+        return "Disabled";
+    }
+    return std::nullopt;
 }
 
 } // namespace redfish::dot_utils

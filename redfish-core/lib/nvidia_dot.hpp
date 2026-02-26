@@ -461,14 +461,23 @@ inline void getDOTState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 if (ec == boost::system::errc::host_unreachable)
                 {
                     BMCWEB_LOG_DEBUG("DOTState service not available {}", ec);
+                    asyncResp->res.jsonValue["DOTState"] = nullptr;
                     return;
                 }
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["DOTState"] =
+            std::optional<std::string> state =
                 dot_utils::convertDOTStateToRedfish(dotState);
+            if (state)
+            {
+                asyncResp->res.jsonValue["DOTState"] = *state;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["DOTState"] = nullptr;
+            }
         });
 }
 

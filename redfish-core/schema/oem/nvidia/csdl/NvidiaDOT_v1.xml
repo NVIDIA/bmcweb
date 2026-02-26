@@ -66,9 +66,13 @@
           <Annotation Term="OData.Description" String="An indication of whether to allow the subsequent Lock action."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the subsequent Lock action is to be allowed. If this parameter is not provided, the default is `false`."/>
         </Parameter>
-        <Parameter Name="MinimumSecurityVersion" Type="Edm.Int64">
-          <Annotation Term="OData.Description" String="The minimum Security Version Number used to verify the SBIOS firmware version in the initial Root of Trust (IROT)."/>
-          <Annotation Term="OData.LongDescription" String="This parameter shall contain the minimum Security Version Number used to verify the SBIOS firmware version in the initial Root of Trust (IROT)."/>
+        <Parameter Name="VendorMinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The vendor-defined minimum Security Version Number used to verify the vendor firmware version in the internal Root of Trust (IROT)."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the vendor-defined minimum Security Version Number used to verify the vendor firmware version in the internal Root of Trust (IROT)."/>
+        </Parameter>
+        <Parameter Name="OwnerMinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The owner-defined minimum Security Version Number used to verify the SBIOS firmware version in the internal Root of Trust (IROT)."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the owner-defined minimum Security Version Number used to verify the SBIOS firmware version in the internal Root of Trust (IROT)."/>
         </Parameter>
       </Action>
       <Action Name="Lock" IsBound="true">
@@ -161,7 +165,7 @@
         </Parameter>
         <ReturnType Type="NvidiaDOT.v1_0_0.UnlockChallengeResponse" Nullable="false"/>
       </Action>
-      <Action Name="Recovery" IsBound="true">
+      <Action Name="RecoverDOT" IsBound="true">
         <Annotation Term="OData.Description" String="This action recovers corrupted Device Ownership Transfer (DOT) data using backup data."/>
         <Annotation Term="OData.LongDescription" String="This action shall recover corrupted Device Ownership Transfer (DOT) data using backup data."/>
         <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
@@ -171,15 +175,10 @@
         </Parameter>
       </Action>
       <Action Name="GetInfo" IsBound="true">
-        <Annotation Term="OData.Description" String="This action transitions from the volatile state to the locked state."/>
-        <Annotation Term="OData.LongDescription" String="This action shall transition from the volatile state to the locked state."/>
+        <Annotation Term="OData.Description" String="This action retrieves DOT status and information."/>
+        <Annotation Term="OData.LongDescription" String="This action shall retrieve DOT status and information."/>
         <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
         <ReturnType Type="NvidiaDOT.v1_0_0.GetInfoResponse" Nullable="false"/>
-      </Action>
-      <Action Name="CAKBypass" IsBound="true">
-        <Annotation Term="OData.Description" String="This action bypasses the installation of a public CAK key through the `Install` action and allows the device to continue booting."/>
-        <Annotation Term="OData.LongDescription" String="This action shall bypass the installation of a public CAK key through the `Install` action and allow the device to continue booting."/>
-        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
       </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDOT.v1_0_0">
@@ -329,11 +328,11 @@
         <Member Name="Volatile">
           <Annotation Term="OData.Description" String="The volatile state."/>
         </Member>
-        <Member Name="MutableLocked">
+        <Member Name="Locked">
           <Annotation Term="OData.Description" String="The mutable locked state."/>
         </Member>
-        <Member Name="MutableDisabled">
-          <Annotation Term="OData.Description" String="The mutable disabled state."/>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="The disabled state."/>
         </Member>
       </EnumType>
     </Schema>

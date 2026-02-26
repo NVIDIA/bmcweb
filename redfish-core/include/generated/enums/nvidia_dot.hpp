@@ -37,8 +37,8 @@ enum class DOTState{
     Invalid,
     Uninitialized,
     Volatile,
-    MutableLocked,
-    MutableDisabled,
+    Locked,
+    Disabled,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(FuseChangeState, {
@@ -71,8 +71,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(DOTState, {
     {DOTState::Invalid, "Invalid"},
     {DOTState::Uninitialized, "Uninitialized"},
     {DOTState::Volatile, "Volatile"},
-    {DOTState::MutableLocked, "MutableLocked"},
-    {DOTState::MutableDisabled, "MutableDisabled"},
+    {DOTState::Locked, "Locked"},
+    {DOTState::Disabled, "Disabled"},
 });
 
 }
