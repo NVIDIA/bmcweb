@@ -16,10 +16,6 @@
  */
 #pragma once
 
-#include "async_resp.hpp"
-#include "dbus_singleton.hpp"
-#include "dbus_utility.hpp"
-#include "error_messages.hpp"
 #include "nvidia_async_set_utils.hpp"
 
 #include <boost/asio/steady_timer.hpp>
@@ -249,15 +245,20 @@ class CallAsyncMethodCall
 
         if (ec)
         {
-            BMCWEB_LOG_INFO("Call Async : Set failed with unexptected error {}",
+            BMCWEB_LOG_INFO("Call Async : Set failed with unexpected error {}",
                             ec);
-
+            std::optional<std::string> statusToSend;
             const sd_bus_error* dbusError = msg.get_error();
-
-            if (dbusError != nullptr)
+            if (dbusError != nullptr && dbusError->name != nullptr)
             {
-                BMCWEB_LOG_INFO("Call Async : Set failed with DBus error {}",
-                                dbusError->name);
+                statusToSend = mapDbusErrorNameToAsyncStatus(dbusError->name);
+                if (statusToSend.has_value())
+                {
+                    statusInfo->completed = true;
+                    statusInfo->callback(*statusToSend, nullptr);
+                    statusInfo->timeoutTimer.cancel();
+                    return;
+                }
             }
 
             reportErrorAndCancel(statusInfo);
