@@ -171,21 +171,71 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     }
 
     /**
-     * @brief Get the first completed/aborted task or oldest running task to
-     * remove
+     * @brief Returns true if task is evictable (state not in activeStates).
      */
-    static std::deque<std::shared_ptr<TaskData>>::iterator getTaskToRemove()
+    static bool isTaskEvictable(const std::shared_ptr<TaskData>& task)
     {
         static constexpr std::array<std::string_view, 5> activeStates = {
             "Running", "Pending", "Starting", "Suspended", "Interrupted"};
+        return std::ranges::find(activeStates, task->state) ==
+               activeStates.end();
+    }
 
-        auto it =
-            std::find_if(tasks.begin(), tasks.end(), [](const auto& task) {
-                return std::ranges::find(activeStates, task->state) ==
-                       activeStates.end();
-            });
+    /**
+     * @brief Comparator: returns true if a should be evicted before b (a has
+     * older EndTime or is evictable when b is not).
+     */
+    static bool shouldEvictTaskBefore(const std::shared_ptr<TaskData>& a,
+                                      const std::shared_ptr<TaskData>& b)
+    {
+        if (!isTaskEvictable(a))
+        {
+            return false;
+        }
+        if (!isTaskEvictable(b))
+        {
+            return true;
+        }
+        bool aHasEnd = a->endTime.has_value();
+        bool bHasEnd = b->endTime.has_value();
+        if (aHasEnd && !bHasEnd)
+        {
+            return true;
+        }
+        if (!aHasEnd && bHasEnd)
+        {
+            return false;
+        }
+        if (aHasEnd && bHasEnd && *a->endTime != *b->endTime)
+        {
+            return *a->endTime < *b->endTime;
+        }
+        return a->index < b->index;
+    }
 
-        return (it != tasks.end()) ? it : tasks.begin();
+    /**
+     * @brief Get the task to remove when at capacity.
+     * Prefers evicting completed tasks (state not in activeStates) by oldest
+     * EndTime (Redfish CompletedTaskOverWritePolicy: Oldest). Falls back to
+     * oldest by creation only when all tasks are still running.
+     */
+    static std::deque<std::shared_ptr<TaskData>>::iterator getTaskToRemove()
+    {
+        auto completedIt =
+            std::min_element(tasks.begin(), tasks.end(), shouldEvictTaskBefore);
+
+        if (completedIt != tasks.end() && isTaskEvictable(*completedIt))
+        {
+            return completedIt;
+        }
+
+        // Fallback: all tasks in active states — evict oldest by creation
+        // (may cause data loss for long-running tasks e.g. firmware update)
+        BMCWEB_LOG_DEBUG(
+            "TaskService at capacity with no completed tasks; evicting running "
+            "task {} (oldest by creation). Long-running task result may be lost.",
+            (*tasks.begin())->index);
+        return tasks.begin();
     }
 
     void populateResp(crow::Response& res, size_t retryAfterSeconds = 30)
