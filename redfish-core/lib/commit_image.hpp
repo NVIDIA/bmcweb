@@ -47,17 +47,18 @@ namespace redfish
 struct ChassisObjectSoftwarePath
 {
     std::string chassisName;
+    std::string chassisDbusPath;
     std::vector<std::string> objectPaths;
 };
 
 using UUID = std::string;
 using URI = std::string;
 
-static constexpr std::string_view chassisInventoryPrefix =
-    "/xyz/openbmc_project/inventory/system/chassis/";
-static constexpr std::string_view chassisBmcInventoryPrefix =
-    "/xyz/openbmc_project/inventory/system/bmc/";
 static constexpr std::string_view imageCopyInterface = "com.nvidia.ImageCopy";
+static constexpr std::string_view bmcInventoryInterface =
+    "xyz.openbmc_project.Inventory.Item.BMC";
+static constexpr std::string_view chassisInventoryInterface =
+    "xyz.openbmc_project.Inventory.Item.Chassis";
 
 /**
  * @brief Structure to hold the result of a single commit operation
@@ -443,6 +444,15 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
 }
 
 /**
+ * @brief Chassis info combining software paths and D-Bus path
+ */
+struct ChassisInfo
+{
+    std::vector<std::string> softwarePaths;
+    std::string dbusPath;
+};
+
+/**
  * @brief State tracker for asynchronous collection of chassis-to-software path
  * mappings
  *
@@ -454,10 +464,9 @@ struct CollectionState
 {
     std::shared_ptr<bmcweb::AsyncResp> asyncResp;
 
-    std::function<void(const std::map<std::string, std::vector<std::string>>&)>
-        callback;
+    std::function<void(const std::map<std::string, ChassisInfo>&)> callback;
 
-    std::map<std::string, std::vector<std::string>> chassisToPathsMap;
+    std::map<std::string, ChassisInfo> chassisMap;
 
     size_t pendingOps = 0;
 
@@ -470,7 +479,7 @@ struct CollectionState
     {
         if (pendingOps == 0)
         {
-            callback(chassisToPathsMap);
+            callback(chassisMap);
         }
     }
 };
@@ -527,10 +536,11 @@ inline void handleImageCopyInterfaceCheck(
 
     if (hasImageCopyInterface)
     {
-        state->chassisToPathsMap[chassisName].push_back(softwarePath);
+        state->chassisMap[chassisName].softwarePaths.push_back(softwarePath);
+        state->chassisMap[chassisName].dbusPath = assocEndpoint;
         BMCWEB_LOG_DEBUG(
-            "Added mapping - Chassis: {} -> Software: {} (has com.nvidia.ImageCopy)",
-            chassisName, softwarePath);
+            "Added mapping - Chassis: {} (path: {}) -> Software: {} (has com.nvidia.ImageCopy)",
+            chassisName, assocEndpoint, softwarePath);
     }
 
     state->checkComplete();
@@ -545,7 +555,7 @@ inline void handleImageCopyInterfaceCheck(
  *
  * @param state Shared state containing the collection context and results
  * @param softwarePath D-Bus path to the software object
- * @param ec Error code from the D-Bus getProperty call
+ * @param errorCode Error code from the D-Bus getAssociationEndPoints call
  * @param associatedEndpoints Vector of associated chassis endpoint paths
  *
  * @return void
@@ -560,48 +570,127 @@ inline void handleAssociatedChassisEndpoints(
     if (errorCode)
     {
         BMCWEB_LOG_DEBUG(
-            "D-Bus call failed to get associated_chassis for {}: {}",
+            "D-Bus call failed to get associated_chassis for {}: {}, "
+            "falling back to check inventory endpoint directly",
             softwarePath, errorCode.message());
+
         state->checkComplete();
         return;
     }
 
-    // Extract chassis name from associated_chassis endpoint
+    // Process each associated chassis endpoint
     for (const std::string& assocEndpoint : associatedEndpoints)
     {
-        if (assocEndpoint.starts_with(chassisInventoryPrefix))
+        // Extract chassis name from path (last segment)
+        sdbusplus::message::object_path objPath(assocEndpoint);
+        std::string chassisName = objPath.filename();
+
+        if (!chassisName.empty())
         {
-            // Extract final chassis name (last segment of path)
-            size_t lastSlashPos = assocEndpoint.rfind('/');
-            if (lastSlashPos != std::string::npos)
-            {
-                std::string chassisName =
-                    assocEndpoint.substr(lastSlashPos + 1);
+            // Check if chassis implements com.nvidia.ImageCopy interface
+            state->pendingOps++;
 
-                if (!chassisName.empty())
-                {
-                    // Check if chassis implements com.nvidia.ImageCopy
-                    // interface
-                    state->pendingOps++;
+            dbus::utility::getDbusObject(
+                assocEndpoint, std::array<std::string_view, 0>{},
+                [state, chassisName, softwarePath,
+                 assocEndpoint](const boost::system::error_code& ec,
+                                const dbus::utility::MapperGetObject& objInfo) {
+                    handleImageCopyInterfaceCheck(state, chassisName,
+                                                  softwarePath, assocEndpoint,
+                                                  ec, objInfo);
+                });
 
-                    crow::connections::systemBus->async_method_call(
-                        [state, chassisName, softwarePath, assocEndpoint](
-                            const boost::system::error_code& ec,
-                            const dbus::utility::MapperGetObject& objInfo) {
-                            handleImageCopyInterfaceCheck(
-                                state, chassisName, softwarePath, assocEndpoint,
-                                ec, objInfo);
-                        },
-                        "xyz.openbmc_project.ObjectMapper",
-                        "/xyz/openbmc_project/object_mapper",
-                        "xyz.openbmc_project.ObjectMapper", "GetObject",
-                        assocEndpoint, std::array<const char*, 0>());
-
-                    break;
-                }
-            }
+            break;
         }
     }
+
+    state->checkComplete();
+}
+
+/**
+ * @brief Handles the result of checking interfaces for an inventory endpoint
+ *
+ * This function is called after querying D-Bus to determine what interfaces
+ * an inventory endpoint implements. Based on the interfaces, it determines
+ * the appropriate association path to query.
+ *
+ * @param state Shared state containing the collection context and results
+ * @param softwarePath D-Bus path to the software object
+ * @param endpoint D-Bus path of the inventory endpoint
+ * @param errorCode Error code from the D-Bus GetObject call
+ * @param objInfo Map of services and their provided interfaces
+ *
+ * @return void
+ */
+inline void handleInventoryEndpointInterfaces(
+    const std::shared_ptr<CollectionState>& state,
+    const std::string& softwarePath, const std::string& endpoint,
+    const boost::system::error_code& errorCode,
+    const dbus::utility::MapperGetObject& objInfo)
+{
+    state->pendingOps--;
+
+    if (errorCode || objInfo.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "Failed to get interfaces for inventory endpoint {}: {}", endpoint,
+            errorCode ? errorCode.message() : "empty response");
+        state->checkComplete();
+        return;
+    }
+
+    // Check what interfaces this inventory endpoint implements
+    bool isBmcPath = false;
+    bool isChassisPath = false;
+
+    for (const auto& [service, interfaces] : objInfo)
+    {
+        for (const auto& intf : interfaces)
+        {
+            if (intf == bmcInventoryInterface)
+            {
+                isBmcPath = true;
+                break;
+            }
+            if (intf == chassisInventoryInterface)
+            {
+                isChassisPath = true;
+            }
+        }
+        if (isBmcPath)
+        {
+            break;
+        }
+    }
+
+    if (!isBmcPath && !isChassisPath)
+    {
+        BMCWEB_LOG_DEBUG(
+            "Inventory endpoint {} has neither BMC nor Chassis interface",
+            endpoint);
+        state->checkComplete();
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "Found {} path {} in inventory endpoints for software path {}",
+        isBmcPath ? "BMC" : "chassis", endpoint, softwarePath);
+
+    // Query associated_chassis/associated_ROT for this inventory path
+    std::string associatedChassisPath =
+        isBmcPath ? endpoint + "/associated_ROT"
+                  : endpoint + "/associated_chassis";
+
+    state->pendingOps++;
+
+    dbus::utility::getAssociationEndPoints(
+        associatedChassisPath,
+        [state, softwarePath](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperEndPoints& associatedEndpoints) {
+            handleAssociatedChassisEndpoints(state, softwarePath, ec,
+                                             associatedEndpoints);
+        });
 
     state->checkComplete();
 }
@@ -610,8 +699,8 @@ inline void handleAssociatedChassisEndpoints(
  * @brief Handles the result of querying inventory endpoints
  *
  * This function processes inventory endpoints from a software object's
- * /inventory association. It searches for chassis paths and initiates
- * a query to get the associated_chassis endpoints.
+ * /inventory association. It queries D-Bus to determine what interfaces
+ * each endpoint implements to find chassis or BMC paths.
  *
  * @param state Shared state containing the collection context and results
  * @param softwarePath D-Bus path to the software object
@@ -636,54 +725,30 @@ inline void handleInventoryEndpoints(
         return;
     }
 
-    // Find chassis path in inventory endpoints
-    std::string chassisPath;
-    bool foundBmcPath = false;
-    for (const std::string& endpoint : invEndpoints)
+    if (invEndpoints.empty())
     {
-        if (endpoint.starts_with(chassisBmcInventoryPrefix))
-        {
-            BMCWEB_LOG_DEBUG(
-                "Found BMC path {} in inventory endpoints for software path {}",
-                endpoint, softwarePath);
-            chassisPath = endpoint;
-            foundBmcPath = true;
-            break;
-        }
-        if (endpoint.starts_with(chassisInventoryPrefix))
-        {
-            BMCWEB_LOG_DEBUG(
-                "Found chassis path {} in inventory endpoints for software path {}",
-                endpoint, softwarePath);
-            chassisPath = endpoint;
-            break;
-        }
-    }
-
-    if (chassisPath.empty())
-    {
-        BMCWEB_LOG_DEBUG("No chassis path found in inventory endpoints for {}",
-                         softwarePath);
+        BMCWEB_LOG_DEBUG("No inventory endpoints found for {}", softwarePath);
         state->checkComplete();
         return;
     }
 
-    // Query associated_chassis for this chassis path
-    std::string associatedChassisPath =
-        foundBmcPath ? chassisPath + "/associated_ROT"
-                     : chassisPath + "/associated_chassis";
+    // Make GetObject D-Bus call for each inventory endpoint to check its
+    // interfaces (BMC or Chassis)
+    for (const std::string& endpoint : invEndpoints)
+    {
+        state->pendingOps++;
 
-    state->pendingOps++;
-
-    dbus::utility::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        associatedChassisPath, "xyz.openbmc_project.Association", "endpoints",
-        [state,
-         softwarePath](const boost::system::error_code& ec,
-                       const std::vector<std::string>& associatedEndpoints) {
-            handleAssociatedChassisEndpoints(state, softwarePath, ec,
-                                             associatedEndpoints);
-        });
+        dbus::utility::getDbusObject(
+            endpoint,
+            std::array<std::string_view, 2>{bmcInventoryInterface,
+                                            chassisInventoryInterface},
+            [state, softwarePath,
+             endpoint](const boost::system::error_code& ec,
+                       const dbus::utility::MapperGetObject& objInfo) {
+                handleInventoryEndpointInterfaces(state, softwarePath, endpoint,
+                                                  ec, objInfo);
+            });
+    }
 
     state->checkComplete();
 }
@@ -744,8 +809,8 @@ inline void handleInventoryPathLookup(
  */
 inline void handleSoftwareSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::function<
-        void(const std::map<std::string, std::vector<std::string>>&)>& callback,
+    const std::function<void(const std::map<std::string, ChassisInfo>&)>&
+        callback,
     const boost::system::error_code& errorCode,
     const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
@@ -814,8 +879,8 @@ inline void handleSoftwareSubtree(
  */
 inline void collectImageCopySoftwarePaths(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::function<
-        void(const std::map<std::string, std::vector<std::string>>&)>& callback)
+    const std::function<void(const std::map<std::string, ChassisInfo>&)>&
+        callback)
 {
     constexpr std::array<std::string_view, 1> interfaces{
         "xyz.openbmc_project.Software.Version"};
@@ -909,8 +974,8 @@ class ImageCopyStatusMonitor :
             self->completed = true;
             self->destroyMatch();
             BMCWEB_LOG_ERROR(
-                "ImageCopy operation timed out for object paths: {}",
-                join(self->objectPaths, ", "));
+                "Operation timed out for chassis {} object paths: {}",
+                self->chassisName, join(self->objectPaths, ", "));
             self->aggregationCtx->reportResult(
                 self->objectPaths, false, "Base.1.16.0.OperationTimeout",
                 "Critical", "Image copy operation timed out after 60 seconds",
@@ -944,8 +1009,9 @@ class ImageCopyStatusMonitor :
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
-                        "D-Bus call failed to query ImageCopyRequestStatus property for object paths {}: {}",
-                        join(self->objectPaths, ", "), ec.message());
+                        "D-Bus call failed to query ImageCopyRequestStatus for chassis {} object paths {}: {}",
+                        self->chassisName, join(self->objectPaths, ", "),
+                        ec.message());
                     ctx->reportResult(
                         self->objectPaths, false, "Base.1.16.0.GeneralError",
                         "Critical", "Failed to query status: " + ec.message());
@@ -1020,16 +1086,17 @@ class ImageCopyStatusMonitor :
         else if (status ==
                  "com.nvidia.ImageCopy.ImageCopyRequestStatus.Rejected")
         {
-            BMCWEB_LOG_ERROR("Commit image failed for object paths {}",
-                             join(objectPaths, ", "));
+            BMCWEB_LOG_ERROR(
+                "Commit image failed for chassis {} object paths: {}",
+                chassisName, join(objectPaths, ", "));
             // Read ErrorCode property
             readErrorCode();
         }
         else
         {
             BMCWEB_LOG_ERROR(
-                "Unknown ImageCopy Request Status '{}' for object paths {}",
-                status, join(objectPaths, ", "));
+                "Unknown ImageCopy Request Status '{}' for chassis {} object paths {}",
+                status, chassisName, join(objectPaths, ", "));
             ctx->reportResult(
                 objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
                 "Image copy returned unexpected status: " + status,
@@ -1051,8 +1118,9 @@ class ImageCopyStatusMonitor :
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
-                        "D-Bus call failed to read ImageCopy ErrorCode property for object paths {}: {}",
-                        join(self->objectPaths, ", "), ec.message());
+                        "D-Bus call failed to read ImageCopy ErrorCode property for chassis {} object paths {}: {}",
+                        self->chassisName, join(self->objectPaths, ", "),
+                        ec.message());
                     ctx->reportResult(
                         self->objectPaths, false, "Base.1.16.0.GeneralError",
                         "Critical", "Image copy failed. Error: " + ec.message(),
@@ -1060,8 +1128,10 @@ class ImageCopyStatusMonitor :
                     return;
                 }
 
-                BMCWEB_LOG_ERROR("ImageCopy ErrorCode for object paths {}: {}",
-                                 join(self->objectPaths, ", "), errorCode);
+                BMCWEB_LOG_ERROR(
+                    "CommitImage: ErrorCode for chassis {} object paths {}: {}",
+                    self->chassisName, join(self->objectPaths, ", "),
+                    errorCode);
 
                 // Map error code to user-friendly message using centralized
                 // error message registry
@@ -1109,8 +1179,7 @@ inline void initiateImageCopy(
     const std::shared_ptr<CommitImageAggregationContext>& aggregationCtx,
     const ChassisObjectSoftwarePath& chassisObjectSoftwarePath)
 {
-    std::string chassisDBusPath = std::string(chassisInventoryPrefix) +
-                                  chassisObjectSoftwarePath.chassisName;
+    std::string chassisDBusPath = chassisObjectSoftwarePath.chassisDbusPath;
     std::string chassisName = chassisObjectSoftwarePath.chassisName;
     std::vector<std::string> objectPaths =
         chassisObjectSoftwarePath.objectPaths;
@@ -1132,8 +1201,8 @@ inline void initiateImageCopy(
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "D-Bus call RequestImageCopy for object paths {} failed: {}",
-                    join(objectPaths, ", "), ec.message());
+                    "D-Bus call RequestImageCopy for chassis {} object paths {} failed: {}",
+                    chassisName, join(objectPaths, ", "), ec.message());
                 self->reportResult(
                     objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
                     "Failed to initiate image copy operation. Error: " +
