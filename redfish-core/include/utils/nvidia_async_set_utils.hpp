@@ -21,9 +21,16 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 
-#include <boost/asio/steady_timer.hpp>
-#include <sdbusplus/bus/match.hpp>
+#include <systemd/sd-bus.h>
 
+#include <boost/asio/steady_timer.hpp>
+#include <boost/system/error_code.hpp>
+#include <sdbusplus/bus/match.hpp>
+#include <sdbusplus/message.hpp>
+
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace redfish
@@ -53,6 +60,49 @@ static constexpr std::string_view asyncStatusValueWriteFailure =
     "com.nvidia.Async.Status.AsyncOperationStatus.WriteFailure";
 static constexpr std::string_view asyncStatusValueInvalidArgument =
     "com.nvidia.Async.Status.AsyncOperationStatus.InvalidArgument";
+
+/**
+ * Maps D-Bus error name to async status. Use when msg.get_error() is available
+ * for precise mapping (avoids EIO fallback for unknown D-Bus errors).
+ */
+inline std::optional<std::string> mapDbusErrorNameToAsyncStatus(
+    std::string_view dbusErrorName)
+{
+    if (dbusErrorName.empty())
+    {
+        return std::nullopt;
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Error.InvalidArgument")
+    {
+        return std::string(asyncStatusValueInvalidArgument);
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Error.Unavailable")
+    {
+        return std::string(asyncStatusValueUnavailable);
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Error.InternalFailure")
+    {
+        return std::string(asyncStatusValueInternalFailure);
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Error.Timeout")
+    {
+        return std::string(asyncStatusValueTimeout);
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
+    {
+        return std::string(asyncStatusValueUnavailable);
+    }
+    if (dbusErrorName == "xyz.openbmc_project.Common.Device.Error.WriteFailure")
+    {
+        return std::string(asyncStatusValueWriteFailure);
+    }
+    if (dbusErrorName == "org.freedesktop.DBus.Error.UnknownObject" ||
+        dbusErrorName == "org.freedesktop.DBus.Error.UnknownMethod")
+    {
+        return std::string(asyncStatusValueResourceNotFound);
+    }
+    return std::nullopt;
+}
 
 template <typename Callback>
 struct SetAsyncStatusHandlerInfo
@@ -226,15 +276,21 @@ class SetAsyncMethodCall
 
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Set Async : Set failed with unexptected error {}",
+            BMCWEB_LOG_ERROR("Set Async : Set failed with unexpected error {}",
                              ec);
 
+            std::optional<std::string> statusToSend;
             const sd_bus_error* dbusError = msg.get_error();
-
-            if (dbusError != nullptr)
+            if (dbusError != nullptr && dbusError->name != nullptr)
             {
-                BMCWEB_LOG_ERROR("Set Async : Set failed with DBus error {}",
-                                 dbusError->name);
+                statusToSend = mapDbusErrorNameToAsyncStatus(dbusError->name);
+                if (statusToSend.has_value())
+                {
+                    statusInfo->completed = true;
+                    statusInfo->callback(*statusToSend);
+                    statusInfo->timeoutTimer.cancel();
+                    return;
+                }
             }
 
             reportErrorAndCancel(statusInfo);
