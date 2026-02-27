@@ -54,6 +54,7 @@ namespace redfish
 constexpr std::array prefixURLTable{
     "/EventService/Subscriptions",
     "/Registries",
+    "/TaskService/TaskMonitors",
     "/TaskService/Tasks",
 };
 
