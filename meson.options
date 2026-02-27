@@ -1277,6 +1277,13 @@ option(
 )
 
 option(
+    'cpu-ist',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable CPU In-System Test (IST) support',
+)
+
+option(
     'system-dump-base64-encode',
     type: 'feature',
     value: 'disabled',
