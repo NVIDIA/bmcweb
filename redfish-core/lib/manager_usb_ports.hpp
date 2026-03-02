@@ -21,6 +21,7 @@
 #include "error_messages.hpp"
 #include "generated/enums/port.hpp"
 #include "generated/enums/protocol.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -29,10 +30,29 @@
 
 #include <sdbusplus/message/native_types.hpp>
 
+#include <array>
+#include <functional>
+#include <optional>
+#include <string>
+#include <string_view>
+
 namespace redfish
 {
 namespace manager_usb_ports
 {
+
+inline void afterGetUSBPortEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool enabled)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get USB port Enabled: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["InterfaceEnabled"] = enabled;
+}
 
 inline void handleUSBPortCollectionGet(
     App& app, const crow::Request& req,
@@ -70,7 +90,6 @@ inline void afterGetUSBPortService(
 {
     if (ec || object.empty())
     {
-        BMCWEB_LOG_ERROR("USB port D-Bus object not found: {}", ec.message());
         messages::resourceNotFound(asyncResp->res, "Port", portId);
         return;
     }
@@ -87,20 +106,12 @@ inline void afterGetUSBPortService(
     asyncResp->res.jsonValue["Name"] = portId;
     asyncResp->res.jsonValue["PortProtocol"] = protocol::Protocol::USB;
     asyncResp->res.jsonValue["PortType"] = port::PortType::DownstreamPort;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, objPath.str,
-        "xyz.openbmc_project.Object.Enable", "Enabled",
-        [asyncResp](const boost::system::error_code& ec2, const bool enabled) {
-            if (ec2)
-            {
-                BMCWEB_LOG_ERROR("Failed to get USB port Enabled: {}",
-                                 ec2.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["InterfaceEnabled"] = enabled;
-        });
+    dbus::utility::getProperty<bool>(
+        service, objPath.str, "xyz.openbmc_project.Object.Enable", "Enabled",
+        std::bind_front(afterGetUSBPortEnabled, asyncResp));
 }
 
 inline void handleUSBPortGet(
@@ -137,7 +148,6 @@ inline void afterSetUSBPortService(
 {
     if (ec || object.empty())
     {
-        BMCWEB_LOG_ERROR("USB port D-Bus object not found: {}", ec.message());
         messages::resourceNotFound(asyncResp->res, "Port", portId);
         return;
     }
