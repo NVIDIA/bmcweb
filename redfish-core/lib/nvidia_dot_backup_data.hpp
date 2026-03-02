@@ -51,7 +51,8 @@ constexpr const std::string_view dotBlobInterface = "com.nvidia.Dot.Blob";
 constexpr const std::string_view dotBlobPathPrefix =
     "/xyz/openbmc_project/dot_blob/";
 constexpr size_t maxDotBlobSize = 1024;
-constexpr size_t maxBase64Size = maxDotBlobSize * 4 / 3;
+// Base64 length for exactly maxDotBlobSize bytes: ceiling formula ((n+2)/3)*4
+constexpr size_t maxBase64Size = ((maxDotBlobSize + 2) / 3) * 4;
 constexpr std::chrono::seconds dotBlobOperationTimeout{10};
 
 /**
@@ -620,6 +621,16 @@ inline void handleDOTBackupDataUploadAction(
     {
         messages::actionParameterValueFormatError(
             asyncResp->res, dotData, "DOTData", "NvidiaDOTBackupData.Upload");
+        return;
+    }
+
+    if (binaryData.size() != maxDotBlobSize)
+    {
+        BMCWEB_LOG_ERROR(
+            "DOT Backup Data Upload: DOTData decoded size {} is invalid; expected exactly {} bytes",
+            binaryData.size(), maxDotBlobSize);
+        messages::actionParameterValueError(asyncResp->res, "DOTData",
+                                            "NvidiaDOTBackupData.Upload");
         return;
     }
 
