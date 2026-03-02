@@ -222,17 +222,18 @@ inline void getErrorInjectionCapabilityData(
  * @param[in]       capability  Capability name
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
+ * @param[in]       chassisName Chassis resource name.
  */
 inline void getErrorInjectionPayloadData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& capability, const std::string& service,
-    const std::string& objPath, const std::string& baseUri)
+    const std::string& objPath, const std::string& chassisName)
 
 {
     crow::connections::systemBus->async_method_call(
         [aResp, capability,
-         baseUri](const boost::system::error_code ec,
-                  const OperatingConfigProperties& properties) {
+         chassisName](const boost::system::error_code ec,
+                      const OperatingConfigProperties& properties) {
             if (ec)
             {
                 return;
@@ -241,10 +242,13 @@ inline void getErrorInjectionPayloadData(
                 aResp->res.jsonValue["ErrorInjectionCapabilities"][capability];
             aResp->res.jsonValue["Actions"]["#NvidiaErrorInjection.Activate"]
                                 ["target"] =
-                "/redfish/v1/Chassis/" +
-                baseUri.substr(baseUri.find_last_of('/') + 1) +
-                "/Oem/Nvidia/ErrorInjection/Actions/" +
+                "/redfish/v1/Chassis/" + chassisName +
+                "/Oem/Nvidia/ErrorInjection/Actions/"
                 "NvidiaErrorInjection.Activate";
+            aResp->res.jsonValue["Actions"]["#NvidiaErrorInjection.Activate"]
+                                ["@Redfish.ActionInfo"] =
+                "/redfish/v1/Chassis/" + chassisName +
+                "/Oem/Nvidia/ErrorInjection/ActivateActionInfo";
             for (const auto& property : properties)
             {
                 if (property.first == "Payload")
@@ -364,8 +368,10 @@ inline void getErrorInjectionData(
                     std::string payloadPath = objPath;
                     payloadPath += "/";
                     payloadPath += cap;
+                    std::string chassisName =
+                        baseUri.substr(baseUri.find_last_of('/') + 1);
                     getErrorInjectionPayloadData(aResp, cap, service,
-                                                 payloadPath, baseUri);
+                                                 payloadPath, chassisName);
                 }
             }
         },
@@ -870,6 +876,78 @@ inline void activateErrorInjectionPayload(
         });
 }
 
+template <typename Handler>
+inline void getActivateCapableErrorTypes(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& eiObjPath, Handler&& handler)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, handler{std::forward<Handler>(handler)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& paths) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to enumerate activate-capable error types");
+                messages::internalError(aResp->res);
+                return;
+            }
+            std::vector<std::string> errorTypes;
+            for (const auto& path : paths)
+            {
+                errorTypes.emplace_back(
+                    path.substr(path.find_last_of('/') + 1));
+            }
+            handler(errorTypes);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", eiObjPath, 0,
+        std::array<const char*, 1>{
+            "com.nvidia.ErrorInjection.ActivateErrorInjectionPayloadAsync"});
+}
+
+inline void getChassisActivateActionInfo(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    getChassis(
+        asyncResp, chassisId,
+        [asyncResp,
+         chassisId](const std::string& /*uri*/, const std::string& /*service*/,
+                    const std::string& objPath) {
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ActionInfo.v1_2_0.ActionInfo";
+            asyncResp->res.jsonValue["@odata.id"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Oem/Nvidia/ErrorInjection/ActivateActionInfo";
+            asyncResp->res.jsonValue["Id"] = "ActivateActionInfo";
+            asyncResp->res.jsonValue["Name"] = "Activate Action Info";
+
+            getActivateCapableErrorTypes(
+                asyncResp, objPath,
+                [asyncResp](const std::vector<std::string>& errorTypes) {
+                    nlohmann::json::object_t errorTypeParam;
+                    errorTypeParam["Name"] = "ErrorType";
+                    errorTypeParam["Required"] = true;
+                    errorTypeParam["DataType"] = "String";
+                    nlohmann::json::array_t allowableValues;
+                    for (const auto& et : errorTypes)
+                    {
+                        allowableValues.emplace_back(et);
+                    }
+                    errorTypeParam["AllowableValues"] =
+                        std::move(allowableValues);
+                    asyncResp->res.jsonValue["Parameters"] = {errorTypeParam};
+                });
+        });
+}
+
 inline void postChassisErrorInjectionData(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -879,43 +957,33 @@ inline void postChassisErrorInjectionData(
     {
         return;
     }
-    crow::connections::systemBus->async_method_call(
-        [chassisId,
-         aResp](const boost::system::error_code ec,
-                const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error failed to get chassis paths");
-                messages::internalError(aResp->res);
 
-                return;
-            }
-            for (const auto& path : paths)
-            {
-                if (!path.ends_with(chassisId))
-                {
-                    continue;
-                }
+    std::string errorType;
+    if (!json_util::readJsonAction(req, aResp->res, "ErrorType", errorType))
+    {
+        return;
+    }
 
-                std::string errorPath = path;
-                errorPath += "/ErrorInjection/FatalErrors";
-                activateErrorInjectionPayload(aResp, errorPath);
-                return;
-            }
-            // Object not found
-            messages::resourceNotFound(
-                aResp->res, "#NvidiaErrorInjection.v1_2_0.NvidiaErrorInjection",
-                chassisId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Board",
-            "xyz.openbmc_project.Inventory.Item.Chassis",
-            "xyz.openbmc_project.Inventory.Item.Component"});
+    getChassis(aResp, chassisId,
+               [aResp, errorType](const std::string& /*uri*/,
+                                  const std::string& /*service*/,
+                                  const std::string& objPath) {
+                   getActivateCapableErrorTypes(
+                       aResp, objPath,
+                       [aResp, errorType,
+                        objPath](const std::vector<std::string>& validTypes) {
+                           if (std::find(validTypes.begin(), validTypes.end(),
+                                         errorType) == validTypes.end())
+                           {
+                               messages::actionParameterValueNotInList(
+                                   aResp->res, errorType, "ErrorType",
+                                   "NvidiaErrorInjection.Activate");
+                               return;
+                           }
+                           std::string errorPath = objPath + "/" + errorType;
+                           activateErrorInjectionPayload(aResp, errorPath);
+                       });
+               });
 }
 
 inline void requestRoutesErrorInjection(App& app)
@@ -935,6 +1003,13 @@ inline void requestRoutesErrorInjection(App& app)
         .privileges(redfish::privileges::postChassisCollection)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(postChassisErrorInjectionData, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/Oem/Nvidia/ErrorInjection/ActivateActionInfo")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(getChassisActivateActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
