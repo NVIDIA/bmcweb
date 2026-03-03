@@ -350,20 +350,6 @@ inline void addOEMPCIePortProperties(
                 *value;
             addNvidiaType = true;
         }
-        else if (propertyName == "FCTimeoutErrors")
-        {
-            const double* value = std::get_if<double>(&property.second);
-            if (value == nullptr)
-            {
-                BMCWEB_LOG_DEBUG("Null value returned "
-                                 "for FCTimeoutErrors");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["FCTimeoutErrors"] =
-                nvidia::nsm_utils::tryConvertToInt64(*value);
-            addNvidiaType = true;
-        }
         else if (propertyName == "MaxReadRequestSizeBytes")
         {
             const size_t* value = std::get_if<size_t>(&property.second);
