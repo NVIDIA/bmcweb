@@ -6,7 +6,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "http/utility.hpp"
-#include "human_sort.hpp"
+#include "json_utils.hpp"
 #include "logging.hpp"
 #include "nvidia_collection.hpp"
 
@@ -29,6 +29,26 @@ namespace redfish
 {
 namespace collection_util
 {
+namespace details
+{
+inline nlohmann::json::array_t& getJsonArrayAt(nlohmann::json& v)
+{
+    auto* arr = v.get_ptr<nlohmann::json::array_t*>();
+    if (arr == nullptr)
+    {
+        v = nlohmann::json::array();
+        arr = v.get_ptr<nlohmann::json::array_t*>();
+    }
+    return *arr;
+}
+
+} // namespace details
+
+inline nlohmann::json::array_t& getJsonArray(nlohmann::json& parent,
+                                             std::string_view key)
+{
+    return details::getJsonArrayAt(parent[key]);
+}
 
 inline void handleCollectionMembers(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -50,8 +70,6 @@ inline void handleCollectionMembers(
 
     if (ec == boost::system::errc::io_error)
     {
-        asyncResp->res.jsonValue[jsonKeyName] = nlohmann::json::array();
-        asyncResp->res.jsonValue[jsonCountKeyName] = 0;
         return;
     }
 
@@ -74,25 +92,18 @@ inline void handleCollectionMembers(
         pathNames.emplace(std::move(leaf));
     }
 
-    nlohmann::json& members = asyncResp->res.jsonValue[jsonKeyName];
-    nlohmann::json::array_t* membersArr =
-        members.get_ptr<nlohmann::json::array_t*>();
-
-    if (membersArr == nullptr)
-    {
-        members = nlohmann::json::array();
-        membersArr = members.get_ptr<nlohmann::json::array_t*>();
-    }
-
+    nlohmann::json::array_t& membersArr =
+        details::getJsonArrayAt(asyncResp->res.jsonValue[jsonKeyName]);
     for (const std::string& leaf : pathNames)
     {
         boost::urls::url url = collectionPath;
         crow::utility::appendUrlPieces(url, leaf);
         nlohmann::json::object_t member;
         member["@odata.id"] = std::move(url);
-        membersArr->emplace_back(std::move(member));
+        membersArr.emplace_back(std::move(member));
     }
-    asyncResp->res.jsonValue[jsonCountKeyName] = membersArr->size();
+    json_util::sortJsonArrayByOData(membersArr);
+    asyncResp->res.jsonValue[jsonCountKeyName] = membersArr.size();
 }
 
 /**
