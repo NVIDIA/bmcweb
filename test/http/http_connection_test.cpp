@@ -15,7 +15,6 @@
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
 
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -50,7 +49,21 @@ struct FakeHandler
 
         called = true;
     }
+
+    bool handleAuthFailed(const std::shared_ptr<Request>& req,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    {
+        EXPECT_EQ(req->target(), "/redfish/v1/Systems");
+        asyncResp->res.result(boost::beast::http::status::unauthorized);
+        asyncResp->res.addHeader(boost::beast::http::field::www_authenticate,
+                                 "Basic");
+        asyncResp->res.write("AuthFailedResponseString");
+        authFailedCalled = true;
+        return true;
+    }
+
     bool called = false;
+    bool authFailedCalled = false;
 };
 
 struct ClockFake
@@ -85,9 +98,6 @@ TEST(http_connection, RequestPropogates)
             boost::asio::ssl::stream<TestStream>(std::move(stream), context));
     conn->disableAuth();
     conn->start();
-    io.run_for(std::chrono::seconds(1000));
-    EXPECT_TRUE(handler.called);
-    std::string outStr = out.str();
 
     std::string expected =
         "HTTP/1.1 200 OK\r\n"
@@ -98,6 +108,63 @@ TEST(http_connection, RequestPropogates)
         "X-Content-Type-Options: nosniff\r\n"
         "Date: TestTime\r\n"
         "Content-Length: 0\r\n\r\n";
+    const size_t expectedTotal = expected.size();
+
+    std::string outStr;
+    while (outStr.size() < expectedTotal)
+    {
+        io.run_one();
+        outStr = out.str();
+    }
+    EXPECT_TRUE(handler.called);
+    EXPECT_EQ(outStr, expected);
+    EXPECT_TRUE(clock.wascalled);
+}
+
+TEST(http_connection, AuthFailedCallsHandler)
+{
+    boost::asio::io_context io;
+    ClockFake clock;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+
+    out.write_some(boost::asio::buffer("GET /redfish/v1/Systems HTTP/1.1\r\n"
+                                       "Host: openbmc_project.xyz\r\n"
+                                       "Connection: close\r\n\r\n"));
+
+    FakeHandler handler;
+    boost::asio::steady_timer timer(io);
+    std::function<std::string()> date(
+        std::bind_front(&ClockFake::getDateStr, &clock));
+
+    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
+    std::shared_ptr<crow::Connection<TestStream, FakeHandler>> conn =
+        std::make_shared<crow::Connection<TestStream, FakeHandler>>(
+            &handler, HttpType::HTTP, std::move(timer), date,
+            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
+    conn->start();
+
+    std::string expected =
+        "HTTP/1.1 401 Unauthorized\r\n"
+        "WWW-Authenticate: Basic\r\n"
+        "Connection: close\r\n"
+        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n"
+        "Pragma: no-cache\r\n"
+        "Cache-Control: no-store, max-age=0\r\n"
+        "X-Content-Type-Options: nosniff\r\n"
+        "Date: TestTime\r\n"
+        "Content-Length: 24\r\n\r\n"
+        "AuthFailedResponseString";
+    const size_t expectedTotal = expected.size();
+
+    std::string outStr;
+    while (outStr.size() < expectedTotal)
+    {
+        io.run_one();
+        outStr = out.str();
+    }
+    EXPECT_TRUE(handler.authFailedCalled);
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }

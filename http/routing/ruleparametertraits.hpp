@@ -65,6 +65,14 @@ struct RuleParameterTraits
         return *self;
     }
 
+    self_t& authFailed()
+    {
+        self_t* self = static_cast<self_t*>(this);
+        self->isAuthFailed = true;
+        self->methodsBitfield = 0;
+        return *self;
+    }
+
     self_t& notFound()
     {
         self_t* self = static_cast<self_t*>(this);

@@ -193,6 +193,20 @@ class App
         return router.getRoutes(parent);
     }
 
+    /**
+     * Called by the HTTP connection layer when authentication fails before the
+     * router runs. Forwards to rules registered with .authFailed() on a path.
+     *
+     * @return true if a registered .authFailed() handler ran, false if no rule
+     *         matched.
+     */
+    bool handleAuthFailed(
+        const std::shared_ptr<Request>& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
+    {
+        return router.handleAuthFailed(req, asyncResp);
+    }
+
     std::optional<server_type> server;
 
     Router router;

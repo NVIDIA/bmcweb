@@ -16,7 +16,6 @@
 #include "logging.hpp"
 #include "mutual_tls.hpp"
 #include "nvidia_persistent_data.hpp"
-#include "redfish_util.hpp"
 #include "sessions.hpp"
 #include "str_utility.hpp"
 #include "utility.hpp"
@@ -431,17 +430,7 @@ class Connection :
                     req->session == nullptr)
                 {
                     BMCWEB_LOG_WARNING("Authentication failed");
-                    forward_unauthorized::sendUnauthorized(
-                        req->url().encoded_path(),
-                        req->getHeaderValue("X-Requested-With"),
-                        req->getHeaderValue("Accept"), res);
 
-                    std::string user = getUser(*req);
-                    if (user.empty())
-                    {
-                        completeRequest(res);
-                        return;
-                    }
                     auto asyncResp =
                         std::make_shared<bmcweb::AsyncResp>(std::move(res));
                     BMCWEB_LOG_DEBUG("Setting completion handler");
@@ -449,7 +438,13 @@ class Connection :
                         [self(shared_from_this())](crow::Response& thisRes) {
                             self->completeRequest(thisRes);
                         });
-                    redfish::handleAccountLocked(user, asyncResp, *req);
+                    if (!handler->handleAuthFailed(req, asyncResp))
+                    {
+                        forward_unauthorized::sendUnauthorized(
+                            req->url().encoded_path(),
+                            req->getHeaderValue("X-Requested-With"),
+                            req->getHeaderValue("Accept"), asyncResp->res);
+                    }
                     return;
                 }
             }
@@ -972,47 +967,6 @@ class Connection :
         timerStarted = true;
         BMCWEB_LOG_DEBUG("{} timer started", logPtr(this));
     }
-    /* @brief : This function is used to get the user from the Authorization
-     * header and return the user name If the header is not present or the
-     * header is not in the correct format then an empty string is returned
-     * The header is expected to be in the format: Authorization: Basic
-     * <base64 encoded user:password> The user name is extracted from the
-     * header and returned
-     * @param[in] req - The request object
-     * @return std::string - The user name
-     */
-    std::string getUser(crow::Request& reqIn)
-    {
-        std::string_view authHeader = reqIn.getHeaderValue("Authorization");
-        if (!authHeader.starts_with("Basic "))
-        {
-            return {};
-        }
-
-        std::string_view param = authHeader.substr(strlen("Basic "));
-        std::string authData;
-
-        if (!crow::utility::base64Decode(param, authData))
-        {
-            return {};
-        }
-        std::size_t separator = authData.find(':');
-        if (separator == std::string::npos)
-        {
-            return {};
-        }
-
-        std::string user = authData.substr(0, separator);
-        separator += 1;
-        if (separator > authData.size())
-        {
-            return {};
-        }
-
-        BMCWEB_LOG_DEBUG("Basic authentication user name: {}", user);
-        return user;
-    }
-
     bool authenticationEnabled = !BMCWEB_INSECURE_DISABLE_AUTH;
     HttpType httpType = HttpType::BOTH;
 

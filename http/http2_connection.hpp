@@ -338,10 +338,13 @@ class HTTP2Connection :
                 thisReq.session == nullptr)
             {
                 BMCWEB_LOG_WARNING("Authentication failed");
-                forward_unauthorized::sendUnauthorized(
-                    thisReq.url().encoded_path(),
-                    thisReq.getHeaderValue("X-Requested-With"),
-                    thisReq.getHeaderValue("Accept"), asyncResp->res);
+                if (!handler->handleAuthFailed(it->second.req, asyncResp))
+                {
+                    forward_unauthorized::sendUnauthorized(
+                        thisReq.url().encoded_path(),
+                        thisReq.getHeaderValue("X-Requested-With"),
+                        thisReq.getHeaderValue("Accept"), asyncResp->res);
+                }
                 return 0;
             }
         }
