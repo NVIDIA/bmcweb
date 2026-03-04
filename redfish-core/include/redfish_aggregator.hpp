@@ -15,6 +15,7 @@
 #include "parsing.hpp"
 #include "ssl_key_handler.hpp"
 #include "utility.hpp"
+#include "utils/collection.hpp"
 #include "utils/redfish_aggregator_utils.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -1237,16 +1238,17 @@ class RedfishAggregator
                 // satellite since the aggregating bmc should have completed
                 // before the response is received from the satellite.
 
-                auto& members = asyncResp->res.jsonValue["Members"];
+                nlohmann::json::array_t& members =
+                    collection_util::getJsonArray(asyncResp->res.jsonValue,
+                                                  "Members");
                 auto& satMembers = jsonVal["Members"];
                 for (auto& satMem : satMembers)
                 {
                     members.emplace_back(std::move(satMem));
                 }
+                json_util::sortJsonArrayByOData(members);
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     members.size();
-
-                // TODO: Do we need to sort() after updating the array?
             }
         }
         else
