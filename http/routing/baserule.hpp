@@ -93,6 +93,7 @@ class BaseRule
 
     bool isNotFound = false;
     bool isMethodNotAllowed = false;
+    bool isAuthFailed = false;
     bool isUpgrade = false;
 
     std::vector<redfish::Privileges> privilegesSet;

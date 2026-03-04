@@ -5,6 +5,7 @@
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "error_messages.hpp"
+#include "forward_unauthorized.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "human_sort.hpp"
@@ -41,6 +42,51 @@ inline void redfishGet(App& app, const crow::Request& req,
         return;
     }
     asyncResp->res.jsonValue["v1"] = "/redfish/v1/";
+}
+
+inline void redfish401(const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& path)
+{
+    BMCWEB_LOG_WARNING("401 auth failed on path {}", path);
+
+    // Match forward_unauthorized::sendUnauthorized: If it's a browser
+    // connecting, don't send the HTTP authenticate header, to avoid possible
+    // CSRF attacks with basic auth
+    if (http_helpers::isContentTypeAllowed(req.getHeaderValue("Accept"),
+                                           http_helpers::ContentType::HTML,
+                                           false /*allowWildcard*/))
+    {
+        // If we have a webui installed, redirect to that login page
+        if (forward_unauthorized::hasWebuiRoute())
+        {
+            boost::urls::url forward = boost::urls::format(
+                "/?next={}#/login", req.url().encoded_path());
+            asyncResp->res.result(
+                boost::beast::http::status::temporary_redirect);
+            asyncResp->res.addHeader(boost::beast::http::field::location,
+                                     forward.buffer());
+            return;
+        }
+        // If we don't have a webui installed, just return an unauthorized
+        // body
+        messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid username or password");
+        return;
+    }
+    // Match forward_unauthorized::sendUnauthorized: add WWW-Authenticate: Basic
+    // only if X-Requested-With is absent (browser XHR sets it; skip Basic) and
+    // Basic auth is enabled.
+    if (req.getHeaderValue("X-Requested-With").empty() &&
+        persistent_data::SessionStore::getInstance()
+            .getAuthMethodsConfig()
+            .basic)
+    {
+        asyncResp->res.addHeader(boost::beast::http::field::www_authenticate,
+                                 "Basic");
+    }
+    messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                        "Invalid username or password");
 }
 
 inline void redfish404(App& app, const crow::Request& req,
@@ -263,6 +309,8 @@ inline void requestRoutesRedfish(App& app)
             std::bind_front(jsonSchemaIndexGet, std::ref(app)));
 
     // Note, this route must always be registered last
+    BMCWEB_ROUTE(app, "/redfish/<path>/").authFailed()(redfish401);
+
     BMCWEB_ROUTE(app, "/redfish/<path>/")
         .notFound()
         .privileges(redfish::privileges::privilegeSetLogin)(

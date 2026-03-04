@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include <nvidia_dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <utils/dbus_utils.hpp>
 

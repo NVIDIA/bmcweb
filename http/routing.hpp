@@ -153,6 +153,11 @@ class Router
             methodNotAllowedRoutes.internalAdd(rule, ruleObject);
         }
 
+        if (ruleObject->isAuthFailed)
+        {
+            authFailedRoutes.internalAdd(rule, ruleObject);
+        }
+
         if (ruleObject->isUpgrade)
         {
             upgradeRoutes.internalAdd(rule, ruleObject);
@@ -364,6 +369,39 @@ class Router
             });
     }
 
+    /**
+     * When HTTP auth fails before routing, match |req|'s path against rules
+     * registered with .authFailed() (same trie as 404/405). No-op if no rule
+     * matches.
+     *
+     * @return true if a registered .authFailed() handler ran, false if no rule
+     *         matched.
+     */
+    bool handleAuthFailed(
+        const std::shared_ptr<Request>& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
+    {
+        if (req == nullptr)
+        {
+            return false;
+        }
+
+        FindRoute route =
+            findRouteByPerMethod(req->url().encoded_path(), authFailedRoutes);
+        if (route.rule == nullptr)
+        {
+            return false;
+        }
+
+        BaseRule& rule = *route.rule;
+        std::vector<std::string> params = std::move(route.params);
+
+        BMCWEB_LOG_DEBUG("Matched auth-failed rule '{}' for {}", rule.rule,
+                         req->url().encoded_path());
+        rule.handle(*req, asyncResp, params);
+        return true;
+    }
+
     void debugPrint()
     {
         for (size_t i = 0; i < perMethods.size(); i++)
@@ -395,6 +433,7 @@ class Router
     PerMethod notFoundRoutes;
     PerMethod upgradeRoutes;
     PerMethod methodNotAllowedRoutes;
+    PerMethod authFailedRoutes;
 
     std::vector<std::unique_ptr<BaseRule>> allRules;
 };
