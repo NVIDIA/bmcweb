@@ -12,6 +12,7 @@
 #include "sub_request.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_json_utils.hpp"
 #include "verb.hpp"
 
 #include <boost/asio/post.hpp>
@@ -1519,7 +1520,7 @@ inline void handlePatchManagerOpenBmc(
     std::optional<nlohmann::json::object_t> stepwiseControllers;
     std::optional<std::string> profile;
 
-    if (!json_util::readJsonObject(
+    if (!json_util::readJsonSubObject(
             payload, asyncResp->res, "OpenBmc/Fan/PidControllers",
             pidControllers, "OpenBmc/Fan/FanControllers", fanControllers,
             "OpenBmc/Fan/FanZones", fanZones, "OpenBmc/Fan/StepwiseControllers",

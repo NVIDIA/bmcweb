@@ -1125,6 +1125,15 @@ inline void requestRoutesManager(App& app)
                     redfish::nvidia_manager_util::setRestrictionMode(
                         asyncResp, *restrictionMode);
                 }
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES &&
+                              BMCWEB_NVIDIA_OEM_OPENOCD)
+                {
+                    if (openocdValue)
+                    {
+                        redfish::nvidia_manager_util::setOemNvidiaOpenOCD(
+                            *openocdValue);
+                    }
+                }
                 // NVIDIA code ends here
                 RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
             });

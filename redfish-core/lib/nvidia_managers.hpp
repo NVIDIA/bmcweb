@@ -1384,12 +1384,9 @@ inline void extendManagerPatchOEM(
 
     std::optional<std::string> privilege;
     std::optional<bool> tlsAuth;
-    std::optional<bool> openocdValue;
-
     if (!json_util::readJsonSubObject(
             payload, asyncResp->res, "Nvidia/SMBPBIFencingPrivilege", privilege,
-            "Nvidia/AuthenticationTLSRequired", tlsAuth,
-            "Nvidia/OpenOCD/Enable", openocdValue))
+            "Nvidia/AuthenticationTLSRequired", tlsAuth))
     {
         return;
     }
@@ -1454,13 +1451,6 @@ inline void extendManagerPatchOEM(
                 {
                     enableTLSAuth();
                 }
-            }
-        }
-        if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
-        {
-            if (openocdValue)
-            {
-                nvidia_manager_util::setOemNvidiaOpenOCD(*openocdValue);
             }
         }
     }
