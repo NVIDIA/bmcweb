@@ -569,7 +569,25 @@ Fields common to all schemas
 - ServiceIdentification
 - SparePartNumber
 - Status
+- USBPorts
 - UUID
+
+### /redfish/v1/Managers/bmc/USBPorts/
+
+#### PortCollection
+
+- Members
+- `Members@odata.count`
+
+### /redfish/v1/Managers/bmc/USBPorts/{PortId}/
+
+#### Port
+
+- Id
+- InterfaceEnabled
+- Name
+- PortProtocol
+- PortType
 
 ### /redfish/v1/Managers/bmc/EthernetInterfaces/
 

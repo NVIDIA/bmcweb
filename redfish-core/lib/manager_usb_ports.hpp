@@ -19,21 +19,21 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/port.hpp"
+#include "generated/enums/protocol.hpp"
 #include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+
+#include <sdbusplus/message/native_types.hpp>
 
 namespace redfish
 {
 namespace manager_usb_ports
 {
 
-constexpr std::string_view usbPortIface = "xyz.openbmc_project.Object.Enable";
-constexpr std::string_view usbPortSubtree = "/xyz/openbmc_project/control/port";
-
-// ---------------------------------------------------------------------------
-// Collection GET — /redfish/v1/Managers/{managerId}/USBPorts/
-// ---------------------------------------------------------------------------
 inline void handleUSBPortCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -54,35 +54,14 @@ inline void handleUSBPortCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
 
-    dbus::utility::getSubTree(
-        std::string(usbPortSubtree), 0,
-        std::array<std::string_view, 1>{usbPortIface},
-        [asyncResp,
-         managerId](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec || subtree.empty())
-            {
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                asyncResp->res.jsonValue["Members@odata.count"] = 0;
-                return;
-            }
-            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-            members = nlohmann::json::array();
-            for (const auto& [objPath, serviceMap] : subtree)
-            {
-                std::string portId = objPath.substr(objPath.rfind('/') + 1);
-                members.push_back(
-                    {{"@odata.id",
-                      boost::urls::format("/redfish/v1/Managers/{}/USBPorts/{}",
-                                          managerId, portId)}});
-            }
-            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-        });
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
+    collection_util::getCollectionMembers(
+        asyncResp,
+        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId),
+        interfaces, "/xyz/openbmc_project/control/port");
 }
 
-// ---------------------------------------------------------------------------
-// Single Port GET callback — runs after ObjectMapper returns the service
-// ---------------------------------------------------------------------------
 inline void afterGetUSBPortService(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& portId,
@@ -96,19 +75,22 @@ inline void afterGetUSBPortService(
         return;
     }
 
-    std::string objPath = std::string(usbPortSubtree) + "/" + portId;
+    sdbusplus::message::object_path objPath(
+        "/xyz/openbmc_project/control/port");
+    objPath /= portId;
+    const std::string& service = object.begin()->first;
 
     asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_4_0.Port";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/USBPorts/{}", managerId, portId);
     asyncResp->res.jsonValue["Id"] = portId;
-    asyncResp->res.jsonValue["Name"] = "SMM USB-C Host Port";
-    asyncResp->res.jsonValue["PortProtocol"] = "USB";
-    asyncResp->res.jsonValue["PortType"] = "UpstreamPort";
+    asyncResp->res.jsonValue["Name"] = portId;
+    asyncResp->res.jsonValue["PortProtocol"] = protocol::Protocol::USB;
+    asyncResp->res.jsonValue["PortType"] = port::PortType::DownstreamPort;
 
     sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, object.begin()->first, objPath,
-        std::string(usbPortIface), "Enabled",
+        *crow::connections::systemBus, service, objPath.str,
+        "xyz.openbmc_project.Object.Enable", "Enabled",
         [asyncResp](const boost::system::error_code& ec2, const bool enabled) {
             if (ec2)
             {
@@ -121,9 +103,6 @@ inline void afterGetUSBPortService(
         });
 }
 
-// ---------------------------------------------------------------------------
-// Single Port GET — /redfish/v1/Managers/{managerId}/USBPorts/{portId}
-// ---------------------------------------------------------------------------
 inline void handleUSBPortGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -139,16 +118,17 @@ inline void handleUSBPortGet(
         return;
     }
 
-    std::string objPath = std::string(usbPortSubtree) + "/" + portId;
+    sdbusplus::message::object_path objPath(
+        "/xyz/openbmc_project/control/port");
+    objPath /= portId;
 
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
     dbus::utility::getDbusObject(
-        objPath, std::array<std::string_view, 1>{usbPortIface},
+        objPath.str, interfaces,
         std::bind_front(afterGetUSBPortService, asyncResp, managerId, portId));
 }
 
-// ---------------------------------------------------------------------------
-// Single Port PATCH callback — runs after ObjectMapper returns the service
-// ---------------------------------------------------------------------------
 inline void afterSetUSBPortService(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& portId, bool newEnabled,
@@ -162,27 +142,15 @@ inline void afterSetUSBPortService(
         return;
     }
 
-    std::string objPath = std::string(usbPortSubtree) + "/" + portId;
-    const std::string service = object.begin()->first;
+    sdbusplus::message::object_path objPath(
+        "/xyz/openbmc_project/control/port");
+    objPath /= portId;
+    const std::string& service = object.begin()->first;
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, objPath,
-        std::string(usbPortIface), "Enabled", newEnabled,
-        [asyncResp](const boost::system::error_code& ec2) {
-            if (ec2)
-            {
-                BMCWEB_LOG_ERROR("Failed to set USB port Enabled: {}",
-                                 ec2.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            messages::success(asyncResp->res);
-        });
+    setDbusProperty(asyncResp, "InterfaceEnabled", service, objPath,
+                    "xyz.openbmc_project.Object.Enable", "Enabled", newEnabled);
 }
 
-// ---------------------------------------------------------------------------
-// Single Port PATCH — /redfish/v1/Managers/{managerId}/USBPorts/{portId}
-// ---------------------------------------------------------------------------
 inline void handleUSBPortPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -209,31 +177,32 @@ inline void handleUSBPortPatch(
         return;
     }
 
-    std::string objPath = std::string(usbPortSubtree) + "/" + portId;
+    sdbusplus::message::object_path objPath(
+        "/xyz/openbmc_project/control/port");
+    objPath /= portId;
 
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
     dbus::utility::getDbusObject(
-        objPath, std::array<std::string_view, 1>{usbPortIface},
+        objPath.str, interfaces,
         std::bind_front(afterSetUSBPortService, asyncResp, portId,
                         *interfaceEnabled));
 }
 
-// ---------------------------------------------------------------------------
-// Route Registration
-// ---------------------------------------------------------------------------
 inline void requestRoutesManagerUSBPorts(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/USBPorts/")
-        .privileges(redfish::privileges::getManager)
+        .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleUSBPortCollectionGet, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/USBPorts/<str>/")
-        .privileges(redfish::privileges::getManager)
+        .privileges(redfish::privileges::getPort)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleUSBPortGet, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/USBPorts/<str>/")
-        .privileges(redfish::privileges::patchManager)
+        .privileges(redfish::privileges::patchPort)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleUSBPortPatch, std::ref(app)));
 }
