@@ -1444,6 +1444,109 @@ inline void patchPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         powerCapInterfaces);
 }
 
+inline void patchBasePowerWattsByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& basePowerWattPath, const std::string& resourceId,
+    const uint32_t basePowerWatts, const bool persistency = false)
+{
+    BMCWEB_LOG_DEBUG(
+        "Patch base power watts by service. basePowerWattPath: {}, resourceId: {}, basePowerWatts: {}, persistency: {}",
+        basePowerWattPath, resourceId, basePowerWatts, persistency);
+    dbus::utility::getDbusObject(
+        basePowerWattPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        [resp, basePowerWatts, resourceId, basePowerWattPath,
+         persistency](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetObject& object) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to patch base power watts: {} for resourceId: {}",
+                    ec.message(), resourceId);
+                messages::resourceNotFound(
+                    resp->res, "#Processor.v1_20_0.Processor", resourceId);
+                return;
+            }
+            for (const auto& [serv, interfaces] : object)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "xyz.openbmc_project.Control.Power.Cap") ==
+                    interfaces.end())
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG(
+                    "Performing Patch using Set Async Method Call");
+                std::tuple<bool, uint32_t> reqPowerLimit(persistency,
+                                                         basePowerWatts);
+                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                    resp, std::chrono::seconds(60), serv, basePowerWattPath,
+                    "xyz.openbmc_project.Control.Power.Cap", "PowerCap",
+                    std::variant<std::tuple<bool, uint32_t>>(reqPowerLimit),
+                    nvidia_async_operation_utils::PatchBasePowerWattsCallback{
+                        resp});
+
+                break;
+            }
+        });
+}
+
+inline void patchBasePowerWatts(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+                                const std::string& resourceId,
+                                const uint32_t basePowerWatts,
+                                const bool persistency = false)
+{
+    BMCWEB_LOG_DEBUG(
+        "Patch base power watts. resourceId: {}, basePowerWatts: {}, persistency: {}",
+        resourceId, basePowerWatts, persistency);
+    constexpr std::array<std::string_view, 1> processorInterfaces = {
+        "com.nvidia.GPMMetrics"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorInterfaces,
+        [resp, resourceId, basePowerWatts,
+         persistency](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Failed to patch base power watts: {}",
+                                 ec.message());
+                messages::internalError(resp->res);
+                return;
+            }
+
+            for (const auto& [path, object] : subtree)
+            {
+                if (!path.ends_with(resourceId))
+                {
+                    continue;
+                }
+
+                dbus::utility::getAssociationEndPoints(
+                    path + "/Base_Power_Limit",
+                    [resp, resourceId, basePowerWatts, persistency](
+                        const boost::system::error_code& e,
+                        const dbus::utility::MapperEndPoints& endpoints) {
+                        if (e)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Failed to get Base Power Limit: {}",
+                                e.message());
+                            return;
+                        }
+
+                        for (const auto& basePowerWattPath : endpoints)
+                        {
+                            patchBasePowerWattsByService(
+                                resp, basePowerWattPath, resourceId,
+                                basePowerWatts, persistency);
+                        }
+                    });
+            }
+        });
+}
+
 inline void getSensorDataByService(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& chassisId, const std::string& objPath,
@@ -1979,6 +2082,293 @@ inline void getCpuPowerCapByService(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+inline void getGpuCopyCpuPowerLimitByServicePath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, [[maybe_unused]] const std::string& gpuId)
+{
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>{},
+        [asyncResp, path](const boost::system::error_code& errorno,
+                          const dbus::utility::MapperGetObject& objInfo) {
+            if (errorno)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
+                                 errorno);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            for (const auto& element : objInfo)
+            {
+                for (const auto& interface : element.second)
+                {
+                    if (interface == "xyz.openbmc_project.Control.Power.Cap")
+                    {
+                        dbus::utility::getAllProperties(
+                            element.first, path, interface,
+                            [asyncResp](
+                                const boost::system::error_code& errorno2,
+                                const dbus::utility::DBusPropertiesMap&
+                                    propertiesList) {
+                                if (errorno2)
+                                {
+                                    BMCWEB_LOG_ERROR("GetAll call failed: {}",
+                                                     errorno2);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                for (const auto& property : propertiesList)
+                                {
+                                    if (property.first == "PowerCap")
+                                    {
+                                        const uint32_t* data =
+                                            std::get_if<uint32_t>(
+                                                &property.second);
+                                        if (data == nullptr)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "PowerCap property not of type uint32_t");
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+
+                                        asyncResp->res
+                                            .jsonValue["Oem"]["Nvidia"]
+                                                      ["GPUViewCPULimitWatts"] =
+                                            *data;
+                                    }
+                                }
+                            });
+                    }
+                }
+            }
+        });
+}
+
+inline void getGpuCopyCpuPowerLimitPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& gpuId)
+{
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/GPU_copy_Cpu_Power",
+        [aResp, gpuId](const boost::system::error_code& e,
+                       const dbus::utility::MapperEndPoints& endpoints) {
+            if (e)
+            {
+                BMCWEB_LOG_DEBUG("Failed to get GPU copy CPU power limit: {}",
+                                 e.message());
+                return;
+            }
+            for (const auto& path : endpoints)
+            {
+                getGpuCopyCpuPowerLimitByServicePath(aResp, path, gpuId);
+                break;
+            }
+        });
+}
+
+inline void getBasePowerLimitValues(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path,
+    const std::string& interface)
+{
+    dbus::utility::getAllProperties(
+        service, path, interface,
+        [asyncResp](const boost::system::error_code& errorno2,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (errorno2)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed:{}",
+                                 errorno2);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& property : propertiesList)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "PowerCap")
+                {
+                    const uint32_t* data =
+                        std::get_if<uint32_t>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PowerCap property not of type uint32_t");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["GPUBasePowerWatts"]["SetPoint"] =
+                        *data;
+                }
+                else if (propertyName == "DefaultPowerCap")
+                {
+                    const uint32_t* data =
+                        std::get_if<uint32_t>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DefaultPowerCap property not of type uint32_t");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                  ["DefaultSetPoint"] = *data;
+                }
+                else if (propertyName == "MinPowerCapValue")
+                {
+                    const uint32_t* data =
+                        std::get_if<uint32_t>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "MinPowerCapValue property not of type uint32_t");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                  ["AllowableMin"] = *data;
+                }
+                else if (propertyName == "MaxPowerCapValue")
+                {
+                    const uint32_t* data =
+                        std::get_if<uint32_t>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "MaxPowerCapValue property not of type uint32_t");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                  ["AllowableMax"] = *data;
+                }
+                else if (propertyName == "Persistency")
+                {
+                    const bool* data = std::get_if<bool>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Persistency property not of type bool");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                  ["Persistency"] = *data;
+                }
+                else if (propertyName == "OneShotPowerLimit")
+                {
+                    const double* data = std::get_if<double>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "OneShotPowerLimit property not of type double");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (std::isnan(*data))
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                      ["RequestedOneshotSetPointWatts"] =
+                            nullptr;
+                    }
+                    else
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                      ["RequestedOneshotSetPointWatts"] = *data;
+                    }
+                }
+                else if (propertyName == "PersistentPowerLimit")
+                {
+                    const double* data = std::get_if<double>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PersistentPowerLimit property not of type double");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (std::isnan(*data))
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                      ["RequestedPersistentSetPointWatts"] =
+                            nullptr;
+                    }
+                    else
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["GPUBasePowerWatts"]
+                                      ["RequestedPersistentSetPointWatts"] =
+                            *data;
+                    }
+                }
+            }
+        });
+}
+
+inline void getProcessorBasePowerLimitByServicePath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, [[maybe_unused]] const std::string& gpuId)
+{
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>{},
+        [asyncResp, path](const boost::system::error_code& errorno,
+                          const dbus::utility::MapperGetObject& objInfo) {
+            if (errorno)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
+                                 errorno);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            for (const auto& element : objInfo)
+            {
+                for (const auto& interface : element.second)
+                {
+                    if (interface == "xyz.openbmc_project.Control.Power.Cap" ||
+                        interface == "com.nvidia.Common.ClearPowerCap" ||
+                        interface ==
+                            "xyz.openbmc_project.Control.Power.Persistency")
+                    {
+                        getBasePowerLimitValues(asyncResp, element.first, path,
+                                                interface);
+                    }
+                }
+            }
+        });
+}
+
+inline void getProcessorBasePowerLimitPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& gpuId)
+{
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/Base_Power_Limit",
+        [aResp, gpuId](const boost::system::error_code& e,
+                       const dbus::utility::MapperEndPoints& endpoints) {
+            if (e)
+            {
+                BMCWEB_LOG_DEBUG("Failed to get GPU copy CPU power limit: {}",
+                                 e.message());
+                return;
+            }
+            for (const auto& path : endpoints)
+            {
+                getProcessorBasePowerLimitByServicePath(aResp, path, gpuId);
+                break;
+            }
+        });
+}
+
 inline void getProcessorEnvironmentMetricsData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
@@ -2074,7 +2464,7 @@ inline void getProcessorEnvironmentMetricsData(
                             getPowerLimitPersistency(aResp, service, path);
                             aResp->res
                                 .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                                "#NvidiaEnvironmentMetrics.v1_3_0.NvidiaEnvironmentMetrics";
+                                "#NvidiaEnvironmentMetrics.v1_4_0.NvidiaEnvironmentMetrics";
                         }
 
                         if (std::find(interfaces.begin(), interfaces.end(),
@@ -2083,6 +2473,10 @@ inline void getProcessorEnvironmentMetricsData(
                         {
                             getEnvironmentMetricsDataByService(
                                 aResp, service, path, resourceType);
+                            getProcessorBasePowerLimitPath(aResp, path,
+                                                           processorId);
+                            getGpuCopyCpuPowerLimitPath(aResp, path,
+                                                        processorId);
                         }
                     }
 

@@ -99,6 +99,8 @@ using PatchEgmModeCallback = PatchGenericCallback;
 using PatchErrorInjectionPayloadCallback = PatchGenericCallback;
 using PatchPCIeEqualizationCallback = PatchGenericCallback;
 using PatchThresholdCallback = PatchGenericCallback;
+using PatchBasePowerWattsCallback = PatchGenericCallback;
+
 class PatchSpeedConfigCallback
 {
   public:
