@@ -743,9 +743,9 @@ inline void setRestrictionModeHandler(
         return;
     }
     const std::string& service = object.begin()->first;
-    setDbusProperty(asyncResp, property, service,
-                    sdbusplus::message::object_path(path), interface, property,
-                    dbusMode);
+    setDbusPropertyAction(asyncResp, service,
+                          sdbusplus::message::object_path(path), interface,
+                          property, "RestrictionMode", "Manager", dbusMode);
 }
 
 /**

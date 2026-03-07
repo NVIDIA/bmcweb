@@ -1113,11 +1113,6 @@ inline void requestRoutesManager(App& app)
                 }
 
                 // Nvidia code starts here
-                if (restrictionMode)
-                {
-                    redfish::nvidia_manager_util::setRestrictionMode(
-                        asyncResp, *restrictionMode);
-                }
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES &&
                               BMCWEB_NVIDIA_OEM_OPENOCD)
                 {

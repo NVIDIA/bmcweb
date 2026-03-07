@@ -1319,9 +1319,11 @@ inline void extendManagerPatchOEM(
 
     std::optional<std::string> privilege;
     std::optional<bool> tlsAuth;
+    std::optional<std::string> restrictionMode;
     if (!json_util::readJsonSubObject(
             payload, asyncResp->res, "Nvidia/SMBPBIFencingPrivilege", privilege,
-            "Nvidia/AuthenticationTLSRequired", tlsAuth))
+            "Nvidia/AuthenticationTLSRequired", tlsAuth,
+            "Nvidia/IPMI/RestrictionMode", restrictionMode))
     {
         return;
     }
@@ -1385,6 +1387,10 @@ inline void extendManagerPatchOEM(
                 }
             }
         }
+    }
+    if (restrictionMode)
+    {
+        nvidia_manager_util::setRestrictionMode(asyncResp, *restrictionMode);
     }
 }
 
