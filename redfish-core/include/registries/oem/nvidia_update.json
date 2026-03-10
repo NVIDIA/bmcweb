@@ -122,6 +122,15 @@
             "Resolution": "None.",
             "Severity": "Warning"
         },
+        "EnterDOTRecovery": {
+            "Description": "Indicates that the device has accepted an empty DOT blob and has successfully entered DOT recovery mode.",
+            "Message": "The device %1 has accepted an empty DOT Blob and has successfully entered DOT recovery mode.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Perform an L1 reset, then proceed with a second firmware recovery update to initiate DOT recovery NSM commands, such as DOTOverride.",
+            "Severity": "OK"
+        },
         "HeaderValueInvalid": {
             "Description": "Indicates that a header value is invalid.",
             "Message": "Header value '%1' for header '%2' is invalid expected value is '%3'.",
