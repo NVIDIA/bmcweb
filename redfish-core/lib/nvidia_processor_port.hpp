@@ -259,6 +259,13 @@ inline void getConnectedProcessorPorts(
             {
                 if (!processorPath.empty())
                 {
+                    if (i >= portNames.size())
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "Connected processor count exceeds port names on: {}",
+                            portPath);
+                        break;
+                    }
                     sdbusplus::message::object_path connectedProcessorPath(
                         processorPath);
                     std::string processorName =
