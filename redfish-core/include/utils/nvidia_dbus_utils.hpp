@@ -380,6 +380,11 @@ inline std::string toLocationType(const std::string& location)
         return "Backplane";
     }
     if (location ==
+        "xyz.openbmc_project.Inventory.Decorator.Location.LocationTypes.Connector")
+    {
+        return "Connector";
+    }
+    if (location ==
         "xyz.openbmc_project.Inventory.Decorator.Location.LocationTypes.Unknown")
     {
         return "Unknown";
