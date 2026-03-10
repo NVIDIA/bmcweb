@@ -317,19 +317,26 @@ endif
 ports = get_option('additional-ports')
 binds = get_option('additional-bind-to-device')
 auths = get_option('additional-auth')
+protocols = get_option('additional-protocol')
 foreach index : range(ports.length())
     port_number = ports[index]
     bind_to_device = '0.0.0.0'
     auth = 'auth'
+    proto = 'http'
+
     if index < binds.length()
         bind_to_device = binds[index]
     endif
-
     if index < auths.length()
         auth = auths[index]
     endif
 
-    filename = 'bmcweb_' + port_number
+    filename = 'bmcweb_' + port_number + '.socket'
+
+    if index < protocols.length()
+        proto = protocols[index]
+    endif
+
     configure_file(
         input: 'bmcweb.socket.in',
         output: filename,
@@ -337,13 +344,24 @@ foreach index : range(ports.length())
         install: true,
         configuration: configuration_data(
             {
-                'BMCWEB_HTTPS_PORT': port_number,
-                'HTTP_LEVEL_ALLOWED': 'https',
+                'BMCWEB_PORT': port_number,
+                'HTTP_LEVEL_ALLOWED': proto,
                 'HTTP_BIND': bind_to_device,
                 'HTTP_AUTH_LEVEL': auth,
             },
         ),
     )
+endforeach
+
+all_socket_units = ''
+if https_port > 0
+    all_socket_units = 'bmcweb.socket'
+endif
+foreach port_number : ports
+    if all_socket_units != ''
+        all_socket_units += ' '
+    endif
+    all_socket_units += 'bmcweb_' + port_number + '.socket'
 endforeach
 
 configure_file(
@@ -357,6 +375,7 @@ configure_file(
             'BMCWEB_WATCHDOG_TIMEOUT_SECONDS': get_option(
                 'watchdog-timeout-seconds',
             ),
+            'ALL_SOCKET_UNITS': all_socket_units,
         },
     ),
 )
