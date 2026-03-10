@@ -374,6 +374,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::firmwareNotInRecovery(arg1);
     }
+    if (msgId == "NvidiaUpdate.1.0.EnterDOTRecovery")
+    {
+        return messages::enterDOTRecovery(arg1);
+    }
     if (msgId == "NvidiaUpdate.1.0.ComponentUpdateTime")
     {
         return messages::componentUpdateTime(arg1, arg2);

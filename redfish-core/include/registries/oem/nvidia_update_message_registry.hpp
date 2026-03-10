@@ -201,6 +201,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "EnterDOTRecovery",
+        {
+            "Indicates that the device has accepted an empty DOT blob and has successfully entered DOT recovery mode.",
+            "The device %1 has accepted an empty DOT Blob and has successfully entered DOT recovery mode.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "Perform an L1 reset, then proceed with a second firmware recovery update to initiate DOT recovery NSM commands, such as DOTOverride.",
+        }},
+    MessageEntry{
         "FirmwareNotInRecovery",
         {
             "Indicates that a firmware is not in Recovery Mode",
@@ -280,11 +292,12 @@ enum class Index
     debugTokenRequestSuccess = 10,
     debugTokenStatusSuccess = 11,
     debugTokenUnsupported = 12,
-    firmwareNotInRecovery = 13,
-    headerValueInvalid = 14,
-    imageCopyCompleted = 15,
-    recoveryStarted = 16,
-    recoverySuccessful = 17,
+    enterDOTRecovery = 13,
+    firmwareNotInRecovery = 14,
+    headerValueInvalid = 15,
+    imageCopyCompleted = 16,
+    recoveryStarted = 17,
+    recoverySuccessful = 18,
 };
 }; // struct nvidia_update
 
