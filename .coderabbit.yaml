@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+    profile: "assertive"
+    high_level_summary: true
+    review_status: true
+    poem: false
+    request_changes_workflow: false
+
+    path_instructions:
+        - path: "redfish-core/lib/*.hpp"
+          instructions: |
+              ## Review Scope
+
+              This repository is bmcweb, the OpenBMC embedded Redfish webserver
+              (NVIDIA fork). Enforce style/safety rules on added or modified
+              lines only.
+
+              Formatting and naming are enforced by CI (clang-format, clang-tidy).
+              Do not request manual formatting changes.
+
+              ---
+              ## Key Review Rules
+
+              Review against the project's documented standards. The authoritative
+              sources are checked into the repo — reference them, do not
+              reimplement them:
+
+              - **docs/COMMON_ERRORS.md**: 16+ documented recurring errors.
+                Flag any occurrence in new or modified code.
+              - **docs/DEVELOPING.md**: Project coding standards, backward
+                compatibility rules, and commit message requirements.
+              - **docs/DBUS_USAGE.md**: D-Bus interaction patterns. All D-Bus
+                interfaces are OPTIONAL; missing interfaces are never errors.
+                enforce the usage of the D-Bus utility functions provided in th
+                file include/dbus_utility.hpp
+              - **docs/NVIDIA_DEVELOPING.md**: NVIDIA OEM extension rules.
+
+        - path: "redfish-core/lib/nvidia_*.hpp"
+          instructions: |
+              ## NVIDIA OEM Extension Review
+
+              These files contain NVIDIA-specific Redfish extensions. In addition
+              to the rules for redfish-core/lib/*.hpp, check:
+
+              - Code should be in the redfish::nvidia namespace
+              - Feature-gated by BMCWEB_NVIDIA_OEM_PROPERTIES or specific flag
+              - OEM schemas must match a schema in the schema/oem/nvidia directory
+
+        - path: "redfish-core/include/**"
+          instructions: |
+              ## Redfish Core Includes Review
+
+              Shared utilities, error messages, registries, and auto-generated code.
+
+              - Do NOT manually edit files under generated/ or registries/ suggest using the scripts in the scripts/ directory to generate the files.
+
+        - path: "http/**"
+          instructions: |
+              ## HTTP Core Review
+
+              Core HTTP/websocket framework. Changes here affect ALL routes.
+
+              - No blocking calls (single-threaded reactor)
+              - Explicit lambda captures only (no [&])
+              - All input from network is untrusted
+              - Do not break existing route handler APIs
+              - All code must be secure against attack
+              - No mention of Redfish in these folders, code must be based on generic HTTP specifications
+
+    auto_review:
+        enabled: true
+        drafts: false
+        base_branches:
+            - develop
+
+    pre_merge_checks:
+        custom_checks:
+            - name: "Common Errors (docs/COMMON_ERRORS.md)"
+              mode: "warning"
+              instructions: |
+                  Review new or modified C++ code against the documented common
+                  errors in docs/COMMON_ERRORS.md.
+
+            - name: "Async Safety"
+              mode: "warning"
+              instructions: |
+                  For new or modified async callback code:
+
+                  Warn when:
+                  - Blocking call in async handler (sleep, sync socket ops)
+
+            - name: "NVIDIA OEM Code Separation"
+              mode: "warning"
+              instructions: |
+                  Per NVIDIA_DEVELOPING.md: DMTF-compliant code MUST be kept
+                  separate from NVIDIA OEM code additions.
+
+                  Warn when:
+                  - NVIDIA OEM logic (com.nvidia.* D-Bus, Oem/Nvidia paths)
+                      is added directly into non-nvidia_*.hpp files beyond a
+                      single-line callback
+
+                  - More than 3 lines of downstream-only changes in an upstream
+                      file (redfish-core/lib/*.hpp that is NOT nvidia_*.hpp)
+
+chat:
+    auto_reply: true
