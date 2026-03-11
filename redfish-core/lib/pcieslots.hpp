@@ -813,6 +813,8 @@ inline void requestPcieSlotsRoutes(App& app)
                         asyncResp->res.jsonValue["Id"] = "PCIeSlots";
                         asyncResp->res.jsonValue["Name"] =
                             "PCIeSlots for " + chassisId;
+                        asyncResp->res.jsonValue["Slots"] =
+                            nlohmann::json::array();
                         // Get chassis pcieSlots
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, chassisId(std::string(chassisId))](
