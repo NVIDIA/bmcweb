@@ -96,8 +96,7 @@ T Item::getValue() const
     {
         throw std::runtime_error(std::format(
             "TLV item vector data size is not a multiple of the type size"
-            " - type: {}, expected: {}, actual: {}",
-            typeid(typename T::value_type).name(),
+            " - expected: {}, actual: {}",
             sizeof(typename T::value_type), data.size()));
     }
     T result;
@@ -134,8 +133,8 @@ T Item::getValue() const
     {
         throw std::runtime_error(
             std::format("TLV item data size does not match the type size"
-                        " - type: {}, expected: {}, actual: {}",
-                        typeid(T).name(), sizeof(T), data.size()));
+                        " - expected: {}, actual: {}",
+                        sizeof(T), data.size()));
     }
     if (std::is_same_v<T, uint8_t>)
     {
