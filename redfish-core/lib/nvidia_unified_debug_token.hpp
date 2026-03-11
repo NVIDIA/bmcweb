@@ -544,6 +544,100 @@ inline void handleUnifiedInstallToken(
         std::bind_front(&installAssociationEndpointCallback, std::cref(req),
                         asyncResp, chassisId, componentId, targetChassisId));
 }
+
+/**
+ * @brief Callback for getSubTree in EraseTokenActionInfo flow
+ *
+ * Validates that the component has a debug token D-Bus object; on success
+ * fills the response with EraseToken ActionInfo JSON; otherwise returns 404.
+ *
+ * @param asyncResp Response object
+ * @param chassisId Chassis identifier
+ * @param componentId Trusted component identifier
+ * @param ec Error code from getSubTree
+ * @param resp GetSubTree response (path to services map)
+ */
+static void eraseTokenActionInfoComponentCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    if (ec || resp.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+    std::string targetChassisId =
+        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+    bool componentFound = false;
+    for (const auto& [path, serviceMap] : resp)
+    {
+        std::string pathComponentId =
+            std::filesystem::path(path).filename().string();
+        if (targetChassisId == pathComponentId && !serviceMap.empty())
+        {
+            componentFound = true;
+            break;
+        }
+    }
+    if (!componentFound)
+    {
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.id"] =
+        std::format("/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/"
+                    "EraseTokenActionInfo",
+                    chassisId, componentId);
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
+    asyncResp->res.jsonValue["Id"] = "EraseTokenActionInfo";
+    asyncResp->res.jsonValue["Name"] = "EraseTokens Action Info";
+
+    nlohmann::json::array_t parameters;
+    nlohmann::json::object_t parameter;
+    parameter["Name"] = "EraseType";
+    parameter["Required"] = true;
+    parameter["DataType"] = "String";
+    parameter["AllowableValues"] = {"EraseAll",
+                                    "EraseAllAndRatchetCounterIncreased"};
+    parameters.emplace_back(std::move(parameter));
+
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
+/**
+ * @brief Callback for getValidChassisPath in EraseTokenActionInfo flow
+ *
+ * On valid chassis starts getSubTree for debug
+ * token interface to validate component; on invalid chassis returns 404.
+ *
+ * @param asyncResp Response object
+ * @param chassisId Chassis identifier
+ * @param componentId Trusted component identifier
+ * @param validChassisPath Valid D-Bus chassis path if chassis exists, nullopt
+ * otherwise
+ */
+static void eraseTokenActionInfoChassisCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    constexpr std::array<std::string_view, 1> interfaces = {
+        debug_token::debugTokenStatusIntf};
+    dbus::utility::getSubTree(
+        std::string(debug_token::debugTokenBasePath), 0, interfaces,
+        std::bind_front(&eraseTokenActionInfoComponentCallback, asyncResp,
+                        chassisId, componentId));
+}
+
 /**
  * @brief Handles GET request for EraseTokenActionInfo
  *
@@ -566,23 +660,10 @@ inline void handleEraseTokenActionInfo(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.id"] = std::format(
-        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/EraseTokenActionInfo",
-        chassisId, componentId);
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["Id"] = "EraseTokenActionInfo";
-    asyncResp->res.jsonValue["Name"] = "EraseTokens Action Info";
-
-    nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
-    parameter["Name"] = "EraseType";
-    parameter["Required"] = true;
-    parameter["DataType"] = "String";
-    parameter["AllowableValues"] = {"EraseAll",
-                                    "EraseAllAndRatchetCounterIncreased"};
-    parameters.emplace_back(std::move(parameter));
-
-    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+    chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(&eraseTokenActionInfoChassisCallback, asyncResp,
+                        chassisId, componentId));
 }
 
 /**
