@@ -23,7 +23,6 @@
 
 #include <boost/system/error_code.hpp>
 
-#include <format>
 #include <memory>
 #include <string>
 #include <variant>
@@ -77,13 +76,6 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     {
         return;
     }
-
-    // Skip DramRefreshThreshold sensors as they are handled separately
-    if (path.find("DramRefreshThreshold") != std::string::npos)
-    {
-        return;
-    }
-
     for (const auto& [service, interfaces] : object)
     {
         if (std::find(interfaces.begin(), interfaces.end(),
@@ -117,12 +109,6 @@ inline void getStateSensorHandler(
     }
     for (const std::string& sensorPath : *data)
     {
-        // Skip DramRefreshThreshold sensors as they are handled separately
-        if (sensorPath.find("DramRefreshThreshold") != std::string::npos)
-        {
-            continue;
-        }
-
         dbus::utility::getDbusObject(
             sensorPath,
             std::array<std::string_view, 1>{"com.nvidia.MemoryPerformance"},
@@ -142,104 +128,5 @@ inline void getStateSensors(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         [aResp](const boost::system::error_code& ec,
                 std::variant<std::vector<std::string>>& assoc) {
             getStateSensorHandler(aResp, ec, assoc);
-        });
-}
-
-inline void populateDramRefreshData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code& ec, const std::string& value)
-{
-    if (ec)
-    {
-        return;
-    }
-    nlohmann::json& json = aResp->res.jsonValue;
-    auto state = toMemoryPerformanceStateType(value);
-    if (state == "Normal")
-    {
-        json["Oem"]["Nvidia"]["DramRefreshAboveThreshold"] = true;
-    }
-    else if (state == "Throttled" || state == "Degraded")
-    {
-        json["Oem"]["Nvidia"]["DramRefreshAboveThreshold"] = false;
-    }
-    // For Unknown or empty state, omit the property
-}
-
-inline void getDramRefreshSensorData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& path,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperGetObject& object)
-{
-    BMCWEB_LOG_DEBUG("Get DRAM refresh sensor data.");
-    if (ec)
-    {
-        return;
-    }
-
-    // Only process sensors with "DramRefreshThreshold" in the path
-    if (path.find("DramRefreshThreshold") == std::string::npos)
-    {
-        return;
-    }
-
-    for (const auto& [service, interfaces] : object)
-    {
-        if (std::find(interfaces.begin(), interfaces.end(),
-                      "com.nvidia.MemoryPerformance") != interfaces.end())
-        {
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus, service, path,
-                "com.nvidia.MemoryPerformance", "Value",
-                [aResp](const boost::system::error_code& ec1,
-                        const std::string& property) {
-                    populateDramRefreshData(aResp, ec1, property);
-                });
-        }
-    }
-}
-
-inline void getDramRefreshSensorHandler(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code& ec,
-    const std::variant<std::vector<std::string> /*unused*/>& assoc)
-{
-    if (ec)
-    {
-        return;
-    }
-    const std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&assoc);
-    if (data == nullptr)
-    {
-        return;
-    }
-    for (const std::string& sensorPath : *data)
-    {
-        // Only process sensors with "DramRefreshThreshold" in the path
-        if (sensorPath.find("DramRefreshThreshold") == std::string::npos)
-        {
-            continue;
-        }
-
-        dbus::utility::getDbusObject(
-            sensorPath,
-            std::array<std::string_view, 1>{"com.nvidia.MemoryPerformance"},
-            [aResp, sensorPath](const boost::system::error_code& ec1,
-                                const dbus::utility::MapperGetObject& object) {
-                getDramRefreshSensorData(aResp, sensorPath, ec1, object);
-            });
-    }
-}
-
-inline void getDramRefreshSensors(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get DRAM refresh threshold sensors.");
-    dbus::utility::findAssociations(
-        std::format("{}/all_states", objPath),
-        [aResp](const boost::system::error_code& ec,
-                std::variant<std::vector<std::string>>& assoc) {
-            getDramRefreshSensorHandler(aResp, ec, assoc);
         });
 }
