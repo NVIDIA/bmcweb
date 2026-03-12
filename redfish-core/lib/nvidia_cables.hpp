@@ -335,6 +335,10 @@ inline void handleCableAssemblyProperties(
     const std::string* manufacturer = nullptr;
     const std::string* version = nullptr;
     const std::string* buildDate = nullptr;
+    const std::string* locationContext = nullptr;
+    const std::string* locationType = nullptr;
+    const std::string* locationCode = nullptr;
+    const std::string* physicalContext = nullptr;
 
     for (const auto& [key, value] : properties)
     {
@@ -365,6 +369,22 @@ inline void handleCableAssemblyProperties(
         else if (key == "BuildDate")
         {
             buildDate = std::get_if<std::string>(&value);
+        }
+        else if (key == "LocationContext")
+        {
+            locationContext = std::get_if<std::string>(&value);
+        }
+        else if (key == "LocationType")
+        {
+            locationType = std::get_if<std::string>(&value);
+        }
+        else if (key == "LocationCode")
+        {
+            locationCode = std::get_if<std::string>(&value);
+        }
+        else if (key == "PhysicalContext")
+        {
+            physicalContext = std::get_if<std::string>(&value);
         }
     }
 
@@ -402,6 +422,24 @@ inline void handleCableAssemblyProperties(
     if (buildDate != nullptr)
     {
         assemblyObj["ProductionDate"] = *buildDate;
+    }
+    if (locationContext != nullptr)
+    {
+        assemblyObj["Location"]["PartLocationContext"] = *locationContext;
+    }
+    if (locationType != nullptr)
+    {
+        assemblyObj["Location"]["PartLocation"]["LocationType"] =
+            redfish::dbus_utils::toLocationType(*locationType);
+    }
+    if (locationCode != nullptr)
+    {
+        assemblyObj["Location"]["PartLocation"]["ServiceLabel"] = *locationCode;
+    }
+    if (physicalContext != nullptr)
+    {
+        assemblyObj["PhysicalContext"] =
+            redfish::dbus_utils::toPhysicalContext(*physicalContext);
     }
 
     asyncResp->res.jsonValue["Assemblies"].push_back(std::move(assemblyObj));
