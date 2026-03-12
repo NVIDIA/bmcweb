@@ -688,7 +688,7 @@ inline void assembleDimmProperties(
                 *rowMappingPendingState;
         }
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaMemory.v1_1_0.NvidiaMemory";
+            "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
     /* Nvidia Added code End*/
 
@@ -842,7 +842,7 @@ inline void afterGetDimmData(
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
                         // Get DRAM refresh threshold sensors for
-                        // DRAMRefreshRateAboveThreshold property
+                        // DramRefreshAboveThreshold property
                         getDramRefreshSensors(asyncResp, path);
                     }
                     // Nvidia Added Code End

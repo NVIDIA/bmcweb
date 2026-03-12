@@ -157,11 +157,11 @@ inline void populateDramRefreshData(
     auto state = toMemoryPerformanceStateType(value);
     if (state == "Normal")
     {
-        json["Oem"]["Nvidia"]["DRAMRefreshRateAboveThreshold"] = true;
+        json["Oem"]["Nvidia"]["DramRefreshAboveThreshold"] = true;
     }
     else if (state == "Throttled" || state == "Degraded")
     {
-        json["Oem"]["Nvidia"]["DRAMRefreshRateAboveThreshold"] = false;
+        json["Oem"]["Nvidia"]["DramRefreshAboveThreshold"] = false;
     }
     // For Unknown or empty state, omit the property
 }
