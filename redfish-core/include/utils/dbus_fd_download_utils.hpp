@@ -23,6 +23,7 @@
 
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/exception.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <xyz/openbmc_project/Common/Progress/common.hpp>
 
@@ -70,34 +71,20 @@ inline void getDbusResultFd(const std::string& serviceName,
         });
 }
 
-inline bool onProgressEvent(const boost::system::error_code& ec,
-                            sdbusplus::message_t& msg,
-                            const std::shared_ptr<task::TaskData>& taskData)
+inline bool processProgressProperties(
+    const dbus::utility::DBusPropertiesMap& values,
+    const std::shared_ptr<task::TaskData>& taskData)
 {
-    if (ec)
-    {
-        taskData->messages.emplace_back(messages::internalError());
-        return task::completed;
-    }
+    using Progress = sdbusplus::common::xyz::openbmc_project::common::Progress;
+    using OpStatus = Progress::OperationStatus;
 
-    std::string iface;
-    dbus::utility::DBusPropertiesMap propertiesChanged;
-    std::vector<std::string> invalidProps;
-
-    msg.read(iface, propertiesChanged, invalidProps);
-
-    if (iface != "xyz.openbmc_project.Common.Progress")
-    {
-        return !task::completed;
-    }
-
-    taskData->extendTimer(std::chrono::seconds(300));
+    std::string index = std::to_string(taskData->index);
 
     const std::string* status = nullptr;
     const uint8_t* progress = nullptr;
     if (!sdbusplus::unpackPropertiesNoThrow(
-            redfish::dbus_utils::UnpackErrorPrinter(), propertiesChanged,
-            "Status", status, "Progress", progress))
+            redfish::dbus_utils::UnpackErrorPrinter(), values, "Status", status,
+            "Progress", progress))
     {
         BMCWEB_LOG_ERROR("Failed to unpack properties.  Wrong type?");
         taskData->messages.emplace_back(messages::internalError());
@@ -108,17 +95,15 @@ inline bool onProgressEvent(const boost::system::error_code& ec,
     {
         BMCWEB_LOG_DEBUG("Progress changed to {}", *progress);
         taskData->percentComplete = *progress;
+        taskData->extendTimer(std::chrono::minutes(5));
     }
 
     if (status != nullptr)
     {
         BMCWEB_LOG_DEBUG("Status changed to {}", *status);
 
-        using Progress =
-            sdbusplus::common::xyz::openbmc_project::common::Progress;
-        using OpStatus = Progress::OperationStatus;
-
-        auto opStatus = Progress::convertStringToOperationStatus(*status);
+        std::optional<OpStatus> opStatus =
+            Progress::convertStringToOperationStatus(*status);
         if (!opStatus)
         {
             BMCWEB_LOG_WARNING("Unexpected status: {}", *status);
@@ -126,8 +111,6 @@ inline bool onProgressEvent(const boost::system::error_code& ec,
             taskData->percentComplete = 100;
             return task::completed;
         }
-
-        std::string index = std::to_string(taskData->index);
 
         switch (*opStatus)
         {
@@ -154,6 +137,32 @@ inline bool onProgressEvent(const boost::system::error_code& ec,
     }
 
     return !task::completed;
+}
+
+inline bool handleTaskMessage(const boost::system::error_code& ec,
+                              sdbusplus::message_t& msg,
+                              const std::shared_ptr<task::TaskData>& taskData)
+{
+    if (ec)
+    {
+        taskData->messages.emplace_back(messages::internalError());
+        return task::completed;
+    }
+
+    std::string iface;
+    dbus::utility::DBusPropertiesMap values;
+
+    try
+    {
+        msg.read(iface, values);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("Failed to read D-Bus message: {}", e.what());
+        return !task::completed;
+    }
+
+    return processProgressProperties(values, taskData);
 }
 
 } // namespace dbus_fd_utils
