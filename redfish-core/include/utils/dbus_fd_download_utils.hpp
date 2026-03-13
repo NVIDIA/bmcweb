@@ -24,6 +24,7 @@
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
+#include <xyz/openbmc_project/Common/Progress/common.hpp>
 
 namespace redfish
 {
@@ -112,31 +113,44 @@ inline bool onProgressEvent(const boost::system::error_code& ec,
     if (status != nullptr)
     {
         BMCWEB_LOG_DEBUG("Status changed to {}", *status);
-        if (*status !=
-            "xyz.openbmc_project.Common.Progress.OperationStatus.InProgress")
-        {
-            if (*status ==
-                "xyz.openbmc_project.Common.Progress.OperationStatus.Aborted")
-            {
-                std::string index = std::to_string(taskData->index);
-                taskData->messages.emplace_back(messages::taskAborted(index));
-                taskData->state = "Aborted";
-            }
-            else if (
-                *status ==
-                "xyz.openbmc_project.Common.Progress.OperationStatus.Failed")
-            {
-                taskData->messages.emplace_back(messages::internalError());
-                taskData->state = "Exception";
-            }
-            else
-            {
-                taskData->state = "Completed";
-            }
 
+        using Progress =
+            sdbusplus::common::xyz::openbmc_project::common::Progress;
+        using OpStatus = Progress::OperationStatus;
+
+        auto opStatus = Progress::convertStringToOperationStatus(*status);
+        if (!opStatus)
+        {
+            BMCWEB_LOG_WARNING("Unexpected status: {}", *status);
+            taskData->state = "Exception";
             taskData->percentComplete = 100;
             return task::completed;
         }
+
+        std::string index = std::to_string(taskData->index);
+
+        switch (*opStatus)
+        {
+            case OpStatus::InProgress:
+                return !task::completed;
+            case OpStatus::Completed:
+                taskData->messages.emplace_back(
+                    messages::taskCompletedOK(index));
+                taskData->state = "Completed";
+                break;
+            case OpStatus::Failed:
+            case OpStatus::Aborted:
+                taskData->state = "Exception";
+                taskData->messages.emplace_back(messages::taskAborted(index));
+                break;
+            default:
+                BMCWEB_LOG_WARNING("Unhandled status: {}", *status);
+                taskData->state = "Exception";
+                break;
+        }
+
+        taskData->percentComplete = 100;
+        return task::completed;
     }
 
     return !task::completed;
