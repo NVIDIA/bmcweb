@@ -582,7 +582,7 @@ inline void populateErrorInjectionChassis(
                     continue;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaChassis.v1_11_0.NvidiaSMAChassis";
+                    "#NvidiaChassis.v1_12_0.NvidiaSMAChassis";
                 aResp->res
                     .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
                     "/redfish/v1/Chassis/" + chassisId +
@@ -594,6 +594,31 @@ inline void populateErrorInjectionChassis(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
         objPath + "/ErrorInjection", std::array<const char*, 0>());
+}
+
+/**
+ * @brief If the chassis exposes PowerSmoothing (SOC StateOfChargeFeatures),
+ * add the PowerSmoothing OEM link to the response. Same object path as chassis.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       chassisId   Redfish chassis id.
+ * @param[in]       interfaces  List of D-Bus interfaces on the chassis object.
+ */
+inline void populatePowerSmoothingChassisIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& chassisId, const std::vector<std::string>& interfaces)
+{
+    constexpr std::string_view stateOfChargeFeaturesIface =
+        "com.nvidia.PowerSmoothing.StateOfChargeFeatures";
+    if (std::find(interfaces.begin(), interfaces.end(),
+                  stateOfChargeFeaturesIface) == interfaces.end())
+    {
+        return;
+    }
+    aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaChassis.v1_12_0.NvidiaSMAChassis";
+    aResp->res.jsonValue["Oem"]["Nvidia"]["PowerSmoothing"]["@odata.id"] =
+        "/redfish/v1/Chassis/" + chassisId + "/Oem/Nvidia/PowerSmoothing";
 }
 
 inline void getBootReasonProperties(

@@ -143,6 +143,7 @@ void requestRoutesNvidia(crow::App& app)
         // requestRoutesComputeDigestPost(app);
         requestRoutesEdppReset(app);
         requestRoutesErrorInjection(app);
+        requestRoutesChassisPowerSmoothing(app);
         requestRoutesManagerEmmcSecureEraseActionInfo(app);
         requestRoutesNvidiaManagerEmmcSecureErase(app);
         requestRoutesNvidiaManagerResetToDefaultsAction(app);

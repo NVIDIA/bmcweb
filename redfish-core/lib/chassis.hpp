@@ -923,6 +923,9 @@ inline void handleChassisGetSubTree(
                     redfish::nvidia_chassis_utils::
                         populateErrorInjectionChassis(asyncResp, path,
                                                       chassisId);
+                    redfish::nvidia_chassis_utils::
+                        populatePowerSmoothingChassisIfPresent(
+                            asyncResp, chassisId, interfaces2);
                 });
 
             for (const auto& interface : interfaces2)
