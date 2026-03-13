@@ -51,7 +51,7 @@ inline void afterSpiEventStarted(
         eraseObjPath.str, "xyz.openbmc_project.Common.Progress");
 
     std::shared_ptr<task::TaskData> task =
-        task::TaskData::createTask(dbus_fd_utils::onProgressEvent, match);
+        task::TaskData::createTask(dbus_fd_utils::handleTaskMessage, match);
 
     if (spiEventType == SpiEventType::SpiRead)
     {
