@@ -548,14 +548,18 @@ inline void debugTokenManagementGetHandler(
     std::string name = managerId;
     name += " Oem Nvidia DebugTokenManagement";
     asyncResp->res.jsonValue["Name"] = name;
-    debug_token::getErasePolicy([asyncResp](std::optional<bool> erasePolicy) {
-        if (!erasePolicy)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["AutomaticTokenErased"] = *erasePolicy;
-    });
+    if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
+    {
+        debug_token::getErasePolicy(
+            [asyncResp](std::optional<bool> erasePolicy) {
+                if (!erasePolicy)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["AutomaticTokenErased"] = *erasePolicy;
+            });
+    }
 
     debug_token_manager_util::populateTrustedComponentsLinks(asyncResp);
     debug_token_manager_util::updateAggregateAPIProps(asyncResp, managerId);
@@ -579,18 +583,22 @@ inline void debugTokenManagementPatchHandler(
                                    managerId);
         return;
     }
-    std::optional<bool> automaticTokenErased;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "AutomaticTokenErased",
-                                  automaticTokenErased))
+    if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
     {
-        return;
+        std::optional<bool> automaticTokenErased;
+        if (!json_util::readJsonPatch(req, asyncResp->res,
+                                      "AutomaticTokenErased",
+                                      automaticTokenErased))
+        {
+            return;
+        }
+        if (!automaticTokenErased)
+        {
+            messages::propertyMissing(asyncResp->res, "AutomaticTokenErased");
+            return;
+        }
+        debug_token::setErasePolicy(asyncResp, *automaticTokenErased);
     }
-    if (!automaticTokenErased)
-    {
-        messages::propertyMissing(asyncResp->res, "AutomaticTokenErased");
-        return;
-    }
-    debug_token::setErasePolicy(asyncResp, *automaticTokenErased);
 }
 
 /**

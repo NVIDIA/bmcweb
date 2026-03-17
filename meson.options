@@ -898,6 +898,12 @@ option(
     description: 'Enables feature to set/unset the fencing privilege to satelite BMC.',
 )
 option(
+    'nvidia-debug-token-erase-policy',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable debug token erase policy in UpdateService and DebugTokenManagement.',
+)
+option(
     'dot-support',
     type: 'feature',
     value: 'disabled',

@@ -1161,19 +1161,22 @@ inline void extendUpdateServiceGet(
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaUpdateService.v1_4_0.NvidiaUpdateService";
-        debug_token::getErasePolicy(
-            [asyncResp](const std::optional<bool>& erasePolicy) {
-                if (erasePolicy)
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["AutomaticDebugTokenErased"] =
-                        *erasePolicy;
-                }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                }
-            });
+        if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
+        {
+            debug_token::getErasePolicy(
+                [asyncResp](const std::optional<bool>& erasePolicy) {
+                    if (erasePolicy)
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["AutomaticDebugTokenErased"] =
+                            *erasePolicy;
+                    }
+                    else
+                    {
+                        messages::internalError(asyncResp->res);
+                    }
+                });
+        }
     }
 
     auto getUpdateStatus = std::make_shared<BMCStatusAsyncResp>(asyncResp);
@@ -3005,18 +3008,21 @@ inline void handleUpdateServicePatch(
     }
     BMCWEB_LOG_DEBUG("doPatch...");
 
-    std::optional<bool> erasePolicy;
-    if (!json_util::readJsonPatch(req, asyncResp->res,
-                                  "Oem/Nvidia/AutomaticDebugTokenErased",
-                                  erasePolicy))
+    if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
     {
-        BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
-        return;
-    }
+        std::optional<bool> erasePolicy;
+        if (!json_util::readJsonPatch(req, asyncResp->res,
+                                      "Oem/Nvidia/AutomaticDebugTokenErased",
+                                      erasePolicy))
+        {
+            BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
+            return;
+        }
 
-    if (erasePolicy)
-    {
-        debug_token::setErasePolicy(asyncResp, *erasePolicy);
+        if (erasePolicy)
+        {
+            debug_token::setErasePolicy(asyncResp, *erasePolicy);
+        }
     }
 }
 
