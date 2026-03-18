@@ -601,13 +601,13 @@ inline void afterDOTResourceDiscovery(
         "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.UnlockChallenge",
         chassisId, componentId);
 
-    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.Recovery"]
+    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.RecoverDOT"]
                             ["@Redfish.ActionInfo"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/RecoveryActionInfo",
+        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/RecoverDOTActionInfo",
         chassisId, componentId);
-    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.Recovery"]
+    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.RecoverDOT"]
                             ["target"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.Recovery",
+        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.RecoverDOT",
         chassisId, componentId);
 
     asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.GetInfo"]
@@ -976,10 +976,10 @@ inline void handleDOTUnlockChallengeActionInfo(
 }
 
 /**
- * @brief Handles GET request for DOT Recovery ActionInfo
+ * @brief Handles GET request for RecoverDOT ActionInfo
  *
  * Returns ActionInfo resource describing the parameters required for the
- * DOT Recovery action, including DOT data string.
+ * RecoverDOT action, including DOT data string.
  *
  * @param app Crow application reference
  * @param req HTTP request object
@@ -987,7 +987,7 @@ inline void handleDOTUnlockChallengeActionInfo(
  * @param chassisId The chassis identifier from the URI
  * @param componentId The trusted component identifier from the URI
  */
-inline void handleDOTRecoveryActionInfo(
+inline void handleDOTRecoverDOTActionInfo(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
@@ -1001,7 +1001,7 @@ inline void handleDOTRecoveryActionInfo(
     parameters.push_back(
         {{"DataType", "String"}, {"Name", "DOTData"}, {"Required", true}});
 
-    handleDOTActionInfo(asyncResp, chassisId, componentId, "Recovery",
+    handleDOTActionInfo(asyncResp, chassisId, componentId, "RecoverDOT",
                         std::move(parameters));
 }
 
@@ -2721,7 +2721,7 @@ inline void handleDOTOverrideAction(
  * @param chassisId The chassis identifier from the URI
  * @param componentId The trusted component identifier from the URI
  */
-inline void handleDOTRecoveryAction(
+inline void handleDOTRecoverDOTAction(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
@@ -2817,10 +2817,10 @@ inline void requestRoutesNvidiaOemDOT(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/RecoveryActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/RecoverDOTActionInfo")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleDOTRecoveryActionInfo, std::ref(app)));
+            std::bind_front(handleDOTRecoverDOTActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
@@ -2880,10 +2880,10 @@ inline void requestRoutesNvidiaOemDOT(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.Recovery")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.RecoverDOT")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleDOTRecoveryAction, std::ref(app)));
+            std::bind_front(handleDOTRecoverDOTAction, std::ref(app)));
 }
 
 } // namespace redfish
