@@ -1902,33 +1902,14 @@ inline void getCpuEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisId = chassisName;
-            crow::connections::systemBus->async_method_call(
-                [aResp, service, objPath, chassisId](
-                    const boost::system::error_code& e,
-                    std::variant<std::vector<std::string>>& sensorResp) {
-                    if (e)
-                    {
-                        // No sensors are expected when Host is off
-                        BMCWEB_LOG_DEBUG("No sensors attached for {}",
-                                         chassisId);
-                        return;
-                    }
-                    std::vector<std::string>* sensorData =
-                        std::get_if<std::vector<std::string>>(&sensorResp);
-                    if (sensorData == nullptr)
-                    {
-                        return;
-                    }
-                    const std::string resourceType = "Processor";
-                    for (const std::string& sensorPath : *sensorData)
-                    {
-                        getSensorDataService(aResp, service, chassisId,
-                                             sensorPath, resourceType);
-                    }
-                },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
+
+            // Use the same priority logic as accelerators:
+            // 1. primary_temperature_sensor association
+            // 2. Fall back to any sensor from all_sensors
+            // objPath is used as the base for both associations
+            // since they live on the CPU inventory object
+            queryPrimaryTempAndAllSensors(aResp, "Processor", chassisId,
+                                          objPath);
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/chassis",
         "org.freedesktop.DBus.Properties", "Get",
