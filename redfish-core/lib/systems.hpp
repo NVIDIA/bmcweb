@@ -512,11 +512,10 @@ inline void afterSystemGetSubTree(
                 {
                     BMCWEB_LOG_DEBUG("Found UUID, now get its properties.");
 
-                    if constexpr (BMCWEB_BIOS)
+                    if constexpr (BMCWEB_NVIDIA_UUID_FROM_PLATFORM_CHASSIS_NAME)
                     {
-                        // Make sure to get SMBIOS UUID
                         sdbusplus::message::object_path uuidPath(path);
-                        if (uuidPath.filename() == "bios")
+                        if (uuidPath.filename() == BMCWEB_PLATFORM_CHASSIS_NAME)
                         {
                             sdbusplus::asio::getAllProperties(
                                 *crow::connections::systemBus, connection.first,
@@ -529,10 +528,11 @@ inline void afterSystemGetSubTree(
                                 });
                         }
                     }
-                    if constexpr (BMCWEB_NVIDIA_UUID_FROM_PLATFORM_CHASSIS_NAME)
+                    else if constexpr (BMCWEB_BIOS)
                     {
+                        // Make sure to get SMBIOS UUID
                         sdbusplus::message::object_path uuidPath(path);
-                        if (uuidPath.filename() == BMCWEB_PLATFORM_CHASSIS_NAME)
+                        if (uuidPath.filename() == "bios")
                         {
                             sdbusplus::asio::getAllProperties(
                                 *crow::connections::systemBus, connection.first,
