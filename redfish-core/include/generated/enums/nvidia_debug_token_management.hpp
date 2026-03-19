@@ -101,7 +101,6 @@ enum class TokenSubType{
     DftAccessAllowed,
     BpmpDiagnosticBoot,
     CPUDiagnosticBoot,
-    None,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(EraseType, {
@@ -198,7 +197,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TokenSubType, {
     {TokenSubType::DftAccessAllowed, "DftAccessAllowed"},
     {TokenSubType::BpmpDiagnosticBoot, "BpmpDiagnosticBoot"},
     {TokenSubType::CPUDiagnosticBoot, "CPUDiagnosticBoot"},
-    {TokenSubType::None, "None"},
 });
 
 }

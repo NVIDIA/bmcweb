@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.6.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.4.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -84,19 +84,6 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_5_0"/>
-            </Record>
-          </Collection>
-        </Annotation>
-      </Action>
-      <Action Name="RefreshInventory" IsBound="true">
-        <Annotation Term="OData.Description" String="This action triggers a refresh of inventory data such as CPU, Memory, PCIe and TPM from the satellite management controller."/>
-        <Annotation Term="OData.LongDescription" String="This action initiates a PLDM Effecter request to refresh inventory data such as CPU, Memory, PCIe and TPM from the satellite management controller (SatMC)."/>
-        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
-        <Annotation Term="Redfish.Revisions">
-          <Collection>
-            <Record>
-              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
-              <PropertyValue Property="Version" String="v1_6_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -208,6 +195,24 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_6_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="DOTCAKInitializationState">
+        <Member Name="Waiting">
+          <Annotation Term="OData.Description" String="CAK initialization is waiting."/>
+        </Member>
+        <Member Name="Complete">
+          <Annotation Term="OData.Description" String="CAK initialization is complete."/>
+        </Member>
+        <Member Name="EarlyBoot">
+          <Annotation Term="OData.Description" String="CAK initialization is in early boot phase."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem">
+        <Property Name="DOTCAKInitialization" Type="NvidiaComputerSystem.v1_6_0.DOTCAKInitializationState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current state of CAK initialization process."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the device ownership transfer (DOT) CAK initialization process."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

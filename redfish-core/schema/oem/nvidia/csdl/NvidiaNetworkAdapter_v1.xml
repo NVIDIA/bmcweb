@@ -24,6 +24,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
     <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHostPrivilegeConfig_v1.xml">
+    <edmx:Include Namespace="NvidiaHostPrivilegeConfig"/>
+  </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/NetworkAdapter_v1.xml">
     <edmx:Include Namespace="NetworkAdapter"/>
     <edmx:Include Namespace="NetworkAdapter.v1_0_0"/>
@@ -79,6 +82,17 @@
           <Annotation Term="OData.Description" String="Prevents only host configuration changes."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="NvidiaNetworkAdapter.v1_1_0.NvidiaNetworkAdapter">
+        <NavigationProperty Name="HostPrivilegeConfig" Type="NvidiaHostPrivilegeConfig.NvidiaHostPrivilegeConfig" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A link to the host privilege configuration for this network adapter."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaHostPrivilegeConfig that represents the host privilege configuration for this network adapter."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

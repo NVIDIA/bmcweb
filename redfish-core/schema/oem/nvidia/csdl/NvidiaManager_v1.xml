@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaManager  v1.6.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaManager  v1.9.0                                           -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -29,6 +29,13 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugTokenManagement_v1.xml">
     <edmx:Include Namespace="NvidiaDebugTokenManagement.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTBackupDataCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaDOTBackupDataCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTManagement_v1.xml">
+    <edmx:Include Namespace="NvidiaDOTManagement"/>
+    <edmx:Include Namespace="NvidiaDOTManagement.v1_0_0"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
@@ -578,7 +585,14 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_7_0.NvidiaManager"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_7_0.NvidiaManager">
+        <NavigationProperty Name="DOTBackupData" Type="NvidiaDOTBackupDataCollection.NvidiaDOTBackupDataCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of backup data for Device Ownership Transfer (DOT)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `DOTBackupDataCollection` that contains the backup data for Device Ownership Transfer (DOT)."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
       <EnumType Name="RASRawCommandType">
         <Member Name="I2C">
           <Annotation Term="OData.Description" String="I2C raw command."/>
@@ -628,6 +642,16 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the data field of the response payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
           <Annotation Term="Redfish.Required"/>
         </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_8_0.NvidiaManager">
+        <NavigationProperty Name="DOT" Type="NvidiaDOTManagement.NvidiaDOTManagement" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Device Ownership Transfer (DOT) settings managed by this manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Device Ownership Transfer (DOT) settings managed by this manager."/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPort  v1.3.0                                              -->
+<!--# Redfish OEM Schema:  NvidiaPort  v1.5.0                                              -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -121,10 +122,62 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the requested link speed configured via the PCIe link control register."/>
           <Annotation Term="Measures.Unit" String="Gbit/s"/>
         </Property>
-        <Property Name="FCTimeoutErrors" Type="Edm.Int64">
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.v1_4_0.NvidiaPCIePort">
+        <Property Name="MaxReadRequestSizeBytes" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total number of Flow Control Credit timeouts."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of Flow Control Credit timeouts, indicating a link-level problem that typically triggers link recovery."/>
+          <Annotation Term="OData.Description" String="The maximum read request size in bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum read request size in bytes."/>
+        </Property>
+        <Property Name="MaxPayloadSizeBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The maximum payload size in bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum payload size in bytes."/>
+        </Property>
+        <Property Name="ClockMode" Type="NvidiaPort.v1_5_0.ClockMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe reference clock mode for this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe reference clock mode for this port."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ClockMode">
+        <Member Name="CommonClock">
+          <Annotation Term="OData.Description" String="Both downstream and upstream sides of the link use the same PCIe reference clock."/>
+        </Member>
+        <Member Name="SeparateClock">
+          <Annotation Term="OData.Description" String="Each side of the link uses its own independent reference clock."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NVLinkGUIDs">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The NVLink GUID identifiers."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the NVLink GUID identifiers for port, node, and system."/>
+        <Property Name="PortGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink port GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink port GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+        <Property Name="NodeGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink node GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink node GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+        <Property Name="SystemGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink system GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink system GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaNVLinkPort" BaseType="NvidiaPort.v1_2_0.NvidiaNVLinkPort">
+        <Property Name="NVLinkGUIDs" Type="NvidiaPort.v1_5_0.NVLinkGUIDs">
+          <Annotation Term="OData.Description" String="The NVLink GUID identifiers."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink GUID identifiers for this port."/>
         </Property>
       </ComplexType>
     </Schema>

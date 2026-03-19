@@ -405,9 +405,6 @@
         <Member Name="CPUDiagnosticBoot">
           <Annotation Term="OData.Description" String="CPUDiagnosticBoot token subtype."/>
         </Member>
-        <Member Name="None">
-          <Annotation Term="OData.Description" String="No applicable token subtype for the token type."/>
-        </Member>
       </EnumType>
       <Action Name="EraseToken" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to erase debug tokens from the endpoint devices."/>

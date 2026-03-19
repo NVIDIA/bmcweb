@@ -485,21 +485,86 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_5_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics">
-        <Property Name="PowerBrakeAssertionDuration" Type="Edm.Duration">
+      <ComplexType Name="NvidiaGPUProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics">
+        <Property Name="NVEncUtilizationPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total duration the power brake has been asserted since reset."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total duration the power brake has been asserted since reset."/>
+          <Annotation Term="OData.Description" String="The percentage of NVEnc utilization."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVEnc utilization in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
         </Property>
-        <Property Name="CPUUptime" Type="Edm.Duration">
+        <Property Name="NVEncInstanceUtilizationPercent" Type="Collection(Edm.Decimal)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The CPU uptime duration since last reset."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total CPU uptime duration since the last reset."/>
+          <Annotation Term="OData.Description" String="An array of NVEnc instance utilization percentages."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of NVEnc instance utilization values in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
         </Property>
-        <Property Name="TjMaxDramIndex" Type="Edm.Int64">
+        <Property Name="HostMemoryCacheHitPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The index of the memory module with the maximum temperature."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the index of the memory module whose temperature is the highest among all memory modules on this processor module."/>
+          <Annotation Term="OData.Description" String="The host memory cache hit percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host memory cache hit ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="HostMemoryCacheMissPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The host memory cache miss percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host memory cache miss ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="PeerMemoryCacheHitPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The peer memory cache hit percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the peer memory cache hit ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="PeerMemoryCacheMissPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The peer memory cache miss percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the peer memory cache miss ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="DRAMMemoryCacheHitPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DRAM memory cache hit percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the memory cache hit ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="DRAMMemoryCacheMissPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DRAM memory cache miss percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the memory cache miss ratio in percent units."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="%"/>
+        </Property>
+        <Property Name="C2CRawTxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The aggregated raw transmit bandwidth of the C2C link, including protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the aggregated raw transmit bandwidth of the C2C link, including protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="C2CRawRxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The aggregated raw receive bandwidth of the C2C link, including protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the aggregated raw receive bandwidth of the C2C link, including protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="C2CDataTxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The aggregated data transmit bandwidth of the C2C link, excluding protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the aggregated data transmit bandwidth of the C2C link, excluding protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="C2CDataRxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The aggregated data receive bandwidth of the C2C link, excluding protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the aggregated data receive bandwidth of the C2C link, excluding protocol overhead, in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
         </Property>
       </ComplexType>
     </Schema>

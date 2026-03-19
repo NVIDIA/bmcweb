@@ -21,6 +21,13 @@ enum class ResetBiosType{
     NonSecureReset,
 };
 
+enum class DOTCAKInitializationState{
+    Invalid,
+    Waiting,
+    Complete,
+    EarlyBoot,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
@@ -33,6 +40,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ResetBiosType, {
     {ResetBiosType::Invalid, "Invalid"},
     {ResetBiosType::SecureReset, "SecureReset"},
     {ResetBiosType::NonSecureReset, "NonSecureReset"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DOTCAKInitializationState, {
+    {DOTCAKInitializationState::Invalid, "Invalid"},
+    {DOTCAKInitializationState::Waiting, "Waiting"},
+    {DOTCAKInitializationState::Complete, "Complete"},
+    {DOTCAKInitializationState::EarlyBoot, "EarlyBoot"},
 });
 
 }

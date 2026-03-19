@@ -60,6 +60,16 @@
           <Annotation Term="OData.Description" String="The URI used to perform a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain a URI for performing a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component. No parameters are allowed for this operation."/>
         </Property>
+        <Property Name="TokensProcessed" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether one of more tokens are processed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether one or more tokens are processed. All tokens are available in the subordinate `DebugToken` collection resources."/>
+        </Property>
+        <Property Name="TokensInstalled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether one of more tokens are installed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether one of more tokens are installed. All tokens are available in the subordinate `DebugToken` collection resources."/>
+        </Property>
         <NavigationProperty Name="DebugTokens" Type="NvidiaDebugTokenCollection.NvidiaDebugTokenCollection" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to the collection of NvidiaDebugToken associated with this component."/>

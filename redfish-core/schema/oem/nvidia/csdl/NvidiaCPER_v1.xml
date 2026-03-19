@@ -1331,6 +1331,173 @@
           <Property Name="Registers" Type="Collection(NvidiaCPER.v0_8_0.NvidiaRegisters)"></Property>
       </ComplexType>
 
+      <EnumType Name="SourceDeviceType">
+          <Member Name="CPU"/>
+          <Member Name="GPU"/>
+          <Member Name="DPU"/>
+          <Member Name="NIC"/>
+          <Member Name="SWX"/>
+          <Member Name="BMC"/>
+      </EnumType>
+
+      <ComplexType Name="EventHeader">
+          <Property Name="Signature" Type="Edm.String"></Property>
+          <Property Name="Version" Type="Edm.Int64"></Property>
+          <Property Name="SourceDeviceType" Type="NvidiaCPER.v0_8_0.SourceDeviceType"></Property>
+          <Property Name="Type" Type="Edm.String"></Property>
+          <Property Name="Subtype" Type="Edm.String"></Property>
+          <Property Name="LinkId" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <EnumType Name="PreSiPlatform">
+          <Member Name="Silicon"/>
+          <Member Name="PreSilicon"/>
+      </EnumType>
+
+      <ComplexType Name="Architecture">
+          <Property Name="HidFam" Type="Edm.String"></Property>
+          <Property Name="Revision" Type="Edm.String"></Property>
+          <Property Name="ChipId" Type="Edm.String"></Property>
+          <Property Name="PreSiPlatform" Type="NvidiaCPER.v0_8_0.PreSiPlatform"></Property>
+          <Property Name="ErrorInjection" Type="Edm.Boolean"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Cpu">
+          <Property Name="SocketNum" Type="Edm.Int64"></Property>
+          <Property Name="Architecture" Type="NvidiaCPER.v0_8_0.Architecture"></Property>
+          <Property Name="Ecid1" Type="Edm.String"></Property>
+          <Property Name="Ecid2" Type="Edm.String"></Property>
+          <Property Name="Ecid3" Type="Edm.String"></Property>
+          <Property Name="Ecid4" Type="Edm.String"></Property>
+          <Property Name="InstanceBase" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <EnumType Name="EventOriginator">
+          <Member Name="Invalid"/>
+          <Member Name="Reserved1"/>
+          <Member Name="PF_GSP_FW"/>
+          <Member Name="VF_GSP_FW"/>
+          <Member Name="PF_DRIVER"/>
+          <Member Name="VF_DRIVER"/>
+      </EnumType>
+
+      <ComplexType Name="Gpu">
+          <Property Name="EventOriginator" Type="NvidiaCPER.v0_8_0.EventOriginator"></Property>
+          <Property Name="SourcePartition" Type="Edm.Int64"></Property>
+          <Property Name="SourceSubPartition" Type="Edm.Int64"></Property>
+          <Property Name="Pdi" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="EventInfo">
+          <Property Name="Version" Type="Edm.String"></Property>
+          <Property Name="Cpu" Type="NvidiaCPER.v0_8_0.Cpu"></Property>
+          <Property Name="Gpu" Type="NvidiaCPER.v0_8_0.Gpu"></Property>
+      </ComplexType>
+
+      <ComplexType Name="KeyValArray64">
+          <Property Name="Key64" Type="Edm.String"></Property>
+          <Property Name="Val64" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Type1">
+          <Property Name="KeyValArray64" Type="Collection(NvidiaCPER.v0_8_0.KeyValArray64)"></Property>
+      </ComplexType>
+
+      <ComplexType Name="KeyValArray32">
+          <Property Name="Key32" Type="Edm.String"></Property>
+          <Property Name="Val32" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Type2">
+          <Property Name="KeyValArray32" Type="Collection(NvidiaCPER.v0_8_0.KeyValArray32)"></Property>
+      </ComplexType>
+
+      <ComplexType Name="ValArray64">
+          <Property Name="Val64" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Type3">
+          <Property Name="ValArray64" Type="Collection(NvidiaCPER.v0_8_0.ValArray64)"></Property>
+      </ComplexType>
+
+      <ComplexType Name="ValArray32">
+          <Property Name="Val32" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Type4">
+          <Property Name="ValArray32" Type="Collection(NvidiaCPER.v0_8_0.ValArray32)"></Property>
+      </ComplexType>
+
+      <ComplexType Name="ArchitectureId">
+          <Property Name="Raw" Type="Edm.String"></Property>
+          <Property Name="Architecture" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="PciInfo">
+          <Property Name="Class" Type="Edm.String"></Property>
+          <Property Name="Subclass" Type="Edm.String"></Property>
+          <Property Name="Rev" Type="Edm.String"></Property>
+          <Property Name="VendorId" Type="Edm.String"></Property>
+          <Property Name="DeviceId" Type="Edm.String"></Property>
+          <Property Name="SubsystemVendorId" Type="Edm.String"></Property>
+          <Property Name="SubsystemId" Type="Edm.String"></Property>
+          <Property Name="Bar0Start" Type="Edm.String"></Property>
+          <Property Name="Bar0Size" Type="Edm.String"></Property>
+          <Property Name="Bar1Start" Type="Edm.String"></Property>
+          <Property Name="Bar1Size" Type="Edm.String"></Property>
+          <Property Name="Bar2Start" Type="Edm.String"></Property>
+          <Property Name="Bar2Size" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="GpuInitMetadata">
+          <Property Name="DeviceName" Type="Edm.String"></Property>
+          <Property Name="FirmwareVersion" Type="Edm.String"></Property>
+          <Property Name="PfDriverMicrocodeVersion" Type="Edm.String"></Property>
+          <Property Name="PfDriverVersion" Type="Edm.String"></Property>
+          <Property Name="VfDriverVersion" Type="Edm.String"></Property>
+          <Property Name="Configuration" Type="Edm.String"></Property>
+          <Property Name="Pdi" Type="Edm.String"></Property>
+          <Property Name="ArchitectureId" Type="NvidiaCPER.v0_8_0.ArchitectureId"></Property>
+          <Property Name="HardwareInfoType" Type="Edm.Int64"></Property>
+          <Property Name="PciInfo" Type="NvidiaCPER.v0_8_0.PciInfo"></Property>
+      </ComplexType>
+
+      <ComplexType Name="GpuLegacyXid">
+          <Property Name="XidCode" Type="Edm.Int64"></Property>
+          <Property Name="Message" Type="Edm.String"></Property>
+      </ComplexType>
+
+      <ComplexType Name="GpuRecommendedActions">
+          <Property Name="Flags" Type="Edm.String"></Property>
+          <Property Name="RecoveryAction" Type="Edm.Int64"></Property>
+          <Property Name="DiagnosticFlow" Type="Edm.Int64"></Property>
+      </ComplexType>
+
+      <ComplexType Name="Data">
+          <Property Name="Opaque" Type="Edm.String"></Property>
+          <Property Name="Type1" Type="NvidiaCPER.v0_8_0.Type1"></Property>
+          <Property Name="Type2" Type="NvidiaCPER.v0_8_0.Type2"></Property>
+          <Property Name="Type3" Type="NvidiaCPER.v0_8_0.Type3"></Property>
+          <Property Name="Type4" Type="NvidiaCPER.v0_8_0.Type4"></Property>
+          <Property Name="GpuInitMetadata" Type="NvidiaCPER.v0_8_0.GpuInitMetadata"></Property>
+          <Property Name="GpuLegacyXid" Type="NvidiaCPER.v0_8_0.GpuLegacyXid"></Property>
+          <Property Name="GpuRecommendedActions" Type="NvidiaCPER.v0_8_0.GpuRecommendedActions"></Property>
+      </ComplexType>
+
+      <ComplexType Name="EventContexts">
+          <Property Name="Version" Type="Edm.Int64"></Property>
+          <Property Name="DataFormatType" Type="Edm.String"></Property>
+          <Property Name="DataFormatVersion" Type="Edm.Int64"></Property>
+          <Property Name="DataSize" Type="Edm.Int64"></Property>
+          <Property Name="Data" Type="NvidiaCPER.v0_8_0.Data"></Property>
+      </ComplexType>
+
+      <ComplexType Name="NvidiaEvent">
+          <Property Name="EventHeader" Type="NvidiaCPER.v0_8_0.EventHeader"></Property>
+          <Property Name="EventInfo" Type="NvidiaCPER.v0_8_0.EventInfo"></Property>
+          <Property Name="EventContexts" Type="Collection(NvidiaCPER.v0_8_0.EventContexts)"></Property>
+      </ComplexType>
+
       <ComplexType Name="Ampere">
           <Property Name="TypeId" Type="Edm.Int64"></Property>
           <Property Name="SubTypeId" Type="Edm.Int64"></Property>
@@ -1342,6 +1509,7 @@
       </ComplexType>
 
       <ComplexType Name="NvidiaCPER">
+          <Property Name="Message" Type="Edm.String"></Property>
           <Property Name="GenericProcessor" Type="NvidiaCPER.v0_8_0.GenericProcessor"></Property>
           <Property Name="Ia32x64Processor" Type="NvidiaCPER.v0_8_0.Ia32x64Processor"></Property>
           <Property Name="ArmProcessor" Type="NvidiaCPER.v0_8_0.ArmProcessor"></Property>
@@ -1358,6 +1526,7 @@
           <Property Name="CxlProtocol" Type="NvidiaCPER.v0_8_0.CxlProtocol"></Property>
           <Property Name="CxlComponent" Type="NvidiaCPER.v0_8_0.CxlComponent"></Property>
           <Property Name="Nvidia" Type="NvidiaCPER.v0_8_0.Nvidia"></Property>
+          <Property Name="NvidiaEvent" Type="NvidiaCPER.v0_8_0.NvidiaEvent"></Property>
           <Property Name="Ampere" Type="NvidiaCPER.v0_8_0.Ampere"></Property>
           <Property Name="Unknown" Type="NvidiaCPER.v0_8_0.Unknown"></Property>
       </ComplexType>
