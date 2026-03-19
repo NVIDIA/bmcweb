@@ -206,36 +206,12 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugToken.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <EntityType Name="NvidiaDebugToken" BaseType="NvidiaDebugToken.v1_1_0.NvidiaDebugToken">
-        <Property Name="TokenProcessed" Type="Edm.Boolean">
+        <Property Name="TokenSubTypes" Type="Collection(NvidiaDebugTokenManagement.TokenSubType)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Indicates whether the token is processed."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the token is processed."/>
-        </Property>
-        <Property Name="TokenInstalled" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Indicates whether the token is installed."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the token is installed."/>
-        </Property>
-        <Property Name="TokenSubType" Type="NvidiaDebugTokenManagement.TokenSubType">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The subtype of the token."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the subtype of the token."/>
-        </Property>
-        <Property Name="Links" Type="NvidiaDebugToken.v1_2_0.Links" Nullable="false">
-          <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
+          <Annotation Term="OData.Description" String="An array of token subtypes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of the token subtypes. This property should contain an empty array if no applicable token subtypes for this token."/>
         </Property>
       </EntityType>
-      <ComplexType Name="Links" BaseType="Resource.Links">
-        <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
-        <Annotation Term="OData.LongDescription" String="This Redfish Specification-described type shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
-        <NavigationProperty Name="DebugTokenForDevice" Type="Resource.Item">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="A link to the resource to which this debug token is associated."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource to which this debug token is associated."/>
-          <Annotation Term="OData.AutoExpandReferences"/>
-        </NavigationProperty>
-      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

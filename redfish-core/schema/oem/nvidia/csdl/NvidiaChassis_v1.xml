@@ -40,6 +40,12 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
     <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWriteProtectDomainCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaWriteProtectDomainCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerSmoothing"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -136,8 +142,8 @@
         </Property>
         <Property Name="HardwareWriteProtectedControl" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An indication whether the hardware write protection is enabled."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate the status of WP_HW_CTRL_N, where a value `true` shall indicate that the status of WP_HW_CTRL_N is enabled, and all requests for software write protection will be ignored."/>
+          <Annotation Term="OData.Description" String="An indication whether the hardware write-protect control signal is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the state of the hardware write-protect control signal, where a value `true` shall indicate that the write-protected state is enabled, and all requests for software write protection will be ignored."/>
         </Property>
         <Property Name="PCIeReferenceClockCount" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -197,6 +203,11 @@
           </Annotation>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_0_0.NvidiaChassis"/>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -271,6 +282,11 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_1_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_1_0.NvidiaChassis"/>
+    </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaRoTChassis">
@@ -320,6 +336,11 @@
         </NavigationProperty>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_3_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_3_0.NvidiaChassis"/>
+    </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_4_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaCBCChassis">
@@ -352,6 +373,11 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_4_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_4_0.NvidiaChassis"/>
+    </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_5_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_3_0.NvidiaRoTChassis">
@@ -377,6 +403,11 @@
         </Member>
       </EnumType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_6_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_6_0.NvidiaChassis"/>
+    </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_7_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_5_0.NvidiaRoTChassis"/>
@@ -392,6 +423,11 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_6_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_8_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_8_0.NvidiaChassis"/>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_9_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -436,6 +472,11 @@
           <Annotation Term="OData.LongDescription" String="Amber LED is on."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_9_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_0.NvidiaChassis"/>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_10_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -832,7 +873,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_12_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_0.NvidiaChassis">
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_1.NvidiaChassis">
         <Property Name="SKU" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The SKU of the chassis that partners can configure."/>
@@ -843,6 +884,20 @@
           <Annotation Term="OData.Description" String="An indication whether host management network access is enabled."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether host management network access is enabled, where a value `true` shall indicate that host management network access is active."/>
         </Property>
+        <NavigationProperty Name="WriteProtectDomains" Type="NvidiaWriteProtectDomainCollection.NvidiaWriteProtectDomainCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of write-protect domains."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaWriteProtectDomainCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_11_0.NvidiaSMAChassis">
+        <NavigationProperty Name="PowerSmoothing" Type="NvidiaPowerSmoothing.NvidiaPowerSmoothing" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power smoothing resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerSmoothing."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
       </ComplexType>
       <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_7_0.NvidiaRoTChassis">
         <Property Name="FailoverPolicy" Type="NvidiaChassis.v1_12_0.FailoverPolicy">

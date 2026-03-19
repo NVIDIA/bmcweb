@@ -496,5 +496,52 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_7_0.NvidiaPortMetrics">
+        <Property Name="FlowControlTimeoutErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of Flow Control Credit timeouts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of Flow Control Credit timeouts, indicating a link-level problem that typically triggers link recovery."/>
+        </Property>
+        <Property Name="TrainingSequenceErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of training sequence errors that caused a transition from L0 to Recovery."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of training sequence errors that caused a transition from L0 to Recovery."/>
+        </Property>
+        <Property Name="FramingErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of framing errors that caused a transition from L0 to Recovery."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of framing errors that caused a transition from L0 to Recovery."/>
+        </Property>
+        <Property Name="LinkDownedCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+        </Property>
+        <Property Name="DLLPCRCErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of DLLP CRC errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of DLLP CRC errors."/>
+        </Property>
+        <Property Name="CDRErrorsPerLane" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of Clock Data Recovery (CDR) error counts, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of Clock Data Recovery (CDR) error counts, indexed by the lane number."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="PCIeMetrics" BaseType="NvidiaPortMetrics.v1_7_0.PCIeMetrics">
+        <Property Name="InboundCompletionTLPCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of inbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of inbound completion transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="InboundCompletionTLPBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

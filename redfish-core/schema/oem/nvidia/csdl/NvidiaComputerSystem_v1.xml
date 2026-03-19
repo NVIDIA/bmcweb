@@ -193,5 +193,26 @@
         </Member>
       </EnumType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="DOTCAKInitializationState">
+        <Member Name="Waiting">
+          <Annotation Term="OData.Description" String="CAK initialization is waiting."/>
+        </Member>
+        <Member Name="Complete">
+          <Annotation Term="OData.Description" String="CAK initialization is complete."/>
+        </Member>
+        <Member Name="EarlyBoot">
+          <Annotation Term="OData.Description" String="CAK initialization is in early boot phase."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem">
+        <Property Name="DOTCAKInitialization" Type="NvidiaComputerSystem.v1_6_0.DOTCAKInitializationState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current state of CAK initialization process."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the device ownership transfer (DOT) CAK initialization process."/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

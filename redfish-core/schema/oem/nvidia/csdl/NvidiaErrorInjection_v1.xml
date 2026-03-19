@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaErrorInjection   v1.1.0                                   -->
+<!--# Redfish OEM Schema:  NvidiaErrorInjection   v1.2.0                                   -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -57,6 +57,18 @@
         <Annotation Term="OData.Description" String="This action executes the error injection according to the payload of the FaultBitmap property."/>
         <Annotation Term="OData.LongDescription" String="This action shall execute the error injection according to the payload of the FaultBitmap property."/>
         <Parameter Name="NvidiaErrorInjection" Type="NvidiaErrorInjection.v1_0_0.Actions"/>
+        <Parameter Name="ErrorType" Type="NvidiaErrorInjection.v1_2_0.ErrorType" Nullable="false">
+          <Annotation Term="OData.Description" String="The error type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall specify the type of error injection to execute."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Parameter>
         <Annotation Term="Redfish.Revisions">
           <Collection>
             <Record>
@@ -143,6 +155,45 @@
           <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
         </Property>
       </ComplexType>
-    </Schema>>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.v1_1_0.NvidiaErrorInjection"/>
+      <ComplexType Name="EIJCapabilities" BaseType="NvidiaErrorInjection.v1_1_0.EIJCapabilities">
+        <Property Name="PortRecoveryErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the port recovery errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the port recovery errors."/>
+        </Property>
+        <Property Name="USBBridgeEmulationErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the USB bridge emulation errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the USB bridge emulation errors."/>
+        </Property>
+        <Property Name="LeakDetectionErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the leak detection errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the leak detection errors."/>
+        </Property>
+        <Property Name="GPIOSpoofingErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the GPIO spoofing errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the GPIO spoofing errors."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ErrorType">
+        <Member Name="FatalErrors">
+          <Annotation Term="OData.Description" String="Fatal errors."/>
+        </Member>
+        <Member Name="PortRecoveryErrors">
+          <Annotation Term="OData.Description" String="Port recovery errors."/>
+        </Member>
+        <Member Name="USBBridgeEmulationErrors">
+          <Annotation Term="OData.Description" String="USB bridge emulation errors."/>
+        </Member>
+        <Member Name="LeakDetectionErrors">
+          <Annotation Term="OData.Description" String="Leak detection errors."/>
+        </Member>
+        <Member Name="GPIOSpoofingErrors">
+          <Annotation Term="OData.Description" String="GPIO spoofing errors."/>
+        </Member>
+      </EnumType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
