@@ -1,10 +1,16 @@
 if get_option('nvidia-oem-properties').allowed()
     # Mapping from option key name to schemas that should be installed if that option is enabled
     schemas = [
+        'NvidiaCable_v1.xml',
         'NvidiaCPER_v1.xml',
         'NvidiaChassis_v1.xml',
         'NvidiaComputerSystem_v1.xml',
         'NvidiaCondition_v1.xml',
+        'NvidiaDOT_v1.xml',
+        'NvidiaDOTBackupDataCollection_v1.xml',
+        'NvidiaDOTBackupData_v1.xml',
+        'NvidiaDOTManagement_v1.xml',
+        'NvidiaDebugTokenCollection_v1.xml',
         'NvidiaDebugToken_v1.xml',
         'NvidiaDebugTokenManagement_v1.xml',
         'NvidiaEnvironmentMetrics_v1.xml',
@@ -17,6 +23,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaHistogramBuckets_v1.xml',
         'NvidiaHistogramCollection_v1.xml',
         'NvidiaHistogram_v1.xml',
+        'NvidiaHostPrivilegeConfig_v1.xml',
         'NvidiaLogEntry_v1.xml',
         'NvidiaLogService_v1.xml',
         'NvidiaManagedEntityCollection_v1.xml',
@@ -68,10 +75,13 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaSystemProfileCollection_v1.xml',
         'NvidiaSystemProfileFile_v1.xml',
         'NvidiaSystemProfile_v1.xml',
+        'NvidiaTrustedComponent_v1.xml',
         'NvidiaUpdateService_v1.xml',
         'NvidiaWorkloadPowerProfileCollection_v1.xml',
         'NvidiaWorkloadPowerProfile_v1.xml',
         'NvidiaWorkloadPower_v1.xml',
+        'NvidiaWriteProtectDomainCollection_v1.xml',
+        'NvidiaWriteProtectDomain_v1.xml',
     ]
 
     foreach schema : schemas
