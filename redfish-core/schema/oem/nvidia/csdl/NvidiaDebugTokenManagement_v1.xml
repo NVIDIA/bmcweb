@@ -197,6 +197,72 @@
             </Collection>
           </Annotation>
         </Member>
+        <Member Name="FirmwareDebugKnobs">
+          <Annotation Term="OData.Description" String="Firmware debug knobs token type dedicated to enable firmware-specific debug capabilities. Allows enabling specialized debug features within firmware components that are normally disabled in production."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="FirewallLifting">
+          <Annotation Term="OData.Description" String="Firewall lifting token type that allows selective removal of hardware firewalls for debugging and testing purposes. Enables access to normally protected system resources by lifting specific firewall groups. Used for MODS testing and advanced debugging scenarios."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="Verbosity">
+          <Annotation Term="OData.Description" String="Verbosity token type that allows runtime control of UART and UTC output and verbosity levels for different firmware components. Enables detailed logging and debug output from firmware modules that is normally suppressed in production to aid debugging and system analysis."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="RAS">
+          <Annotation Term="OData.Description" String="RAS token type dedicated to reliability, availability, and serviceability debug, test, and validation features for supported platform components."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="SMADebugCapability">
+          <Annotation Term="OData.Description" String="SMA debug capability token type for the system management adapter. Unlocks firmware debug and diagnostic features on the SMA that are normally disabled in production."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="CpldDebugCapability">
+          <Annotation Term="OData.Description" String="CPLD debug capability token type for the system management adapter (SMA). Unlocks CPLD-specific firmware debug and diagnostic features that are normally disabled in production."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
       </EnumType>
       <EnumType Name="TokenSubType">
         <Annotation Term="Redfish.Revisions">
@@ -404,6 +470,336 @@
         </Member>
         <Member Name="CPUDiagnosticBoot">
           <Annotation Term="OData.Description" String="CPUDiagnosticBoot token subtype."/>
+        </Member>
+        <Member Name="MseqEnableSbeReporting">
+          <Annotation Term="OData.Description" String="MSEQ enable single-bit error (SBE) reporting subtype under the system-on-chip firmware debug knobs. Allows firmware to surface MSEQ SBE reporting paths used for silicon and firmware debug."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="GroupB">
+          <Annotation Term="OData.Description" String="Firewall lifting group B subtype for the system on chip. Selectively removes hardware firewall protections in the group B domain so normally isolated resources can be accessed for authorized debug, validation, and MODS testing."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="GroupC">
+          <Annotation Term="OData.Description" String="Firewall lifting group C subtype for the system on chip. Selectively removes hardware firewall protections in the group C domain so normally isolated resources can be accessed for authorized debug, validation, and MODS testing."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="PscFmc">
+          <Annotation Term="OData.Description" String="PSC FMC verbosity subtype under the system-on-chip verbosity token type. Increases firmware console and diagnostic verbosity for the PSC firmware microcontroller (FMC) to aid bring-up and field debug."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="SensitiveLoggingEnable">
+          <Annotation Term="OData.Description" String="Enable sensitive logging subtype under the system-on-chip verbosity token type. Permits capture of detailed or sensitive firmware log content that is normally restricted in production builds."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="DBGN">
+          <Annotation Term="OData.Description" String="Ccplex ARM JTAG DBGN subtype under the system-on-chip ARM JTAG debug control token type. Controls the DBGN debug authentication input for invasive debug as defined for the CCplex complex."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="NIDEN">
+          <Annotation Term="OData.Description" String="Ccplex ARM JTAG NIDEN subtype under the system-on-chip ARM JTAG debug control token type. Controls the NIDEN debug authentication input for non-invasive debug observation."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="SPIDEN">
+          <Annotation Term="OData.Description" String="Ccplex ARM JTAG SPIDEN subtype under the system-on-chip ARM JTAG debug control token type. Controls the SPIDEN secure invasive debug authentication signal."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="SPNIDEN">
+          <Annotation Term="OData.Description" String="Ccplex ARM JTAG SPNIDEN subtype under the system-on-chip ARM JTAG debug control token type. Controls the SPNIDEN secure non-invasive debug authentication signal."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="JtagEnable">
+          <Annotation Term="OData.Description" String="Ccplex ARM JTAG enable subtype under the system-on-chip ARM JTAG debug control token type. Gates enabling of the JTAG interface for the complex when authorized by policy."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="DeviceenApbap">
+          <Annotation Term="OData.Description" String="Deviceen APB access port (APBAP) subtype under the system-on-chip ARM JTAG debug control token type. Enables the APB-AP debug port path required for tool access to the APB debug fabric."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="DeviceenAxiap">
+          <Annotation Term="OData.Description" String="Deviceen AXI access port (AXIAP) subtype under the system-on-chip ARM JTAG debug control token type. Enables the AXI-AP debug port path required for tool access to the AXI debug fabric."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="RLPIDEN">
+          <Annotation Term="OData.Description" String="RLPIDEN subtype under the system-on-chip ARM JTAG debug control token type. Controls reduced-line invasive debug authentication for the complex."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="RTPIDEN">
+          <Annotation Term="OData.Description" String="RTPIDEN subtype under the system-on-chip ARM JTAG debug control token type. Controls reduced-thread invasive debug authentication for the complex."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="NvcpuUcfApb2ctlpDBGN">
+          <Annotation Term="OData.Description" String="NVCPU UCF APB2CTLP DBGN subtype under the system-on-chip ARM JTAG debug control token type. Enables DBGN for the NVCPU unified clock and firewall APB2 controller path used in bring-up debug."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="NvcpuUcfElaEnable">
+          <Annotation Term="OData.Description" String="NVCPU UCF ELA Enable subtype under the system-on-chip ARM JTAG debug control token type. Turns on the embedded logic analyzer (ELA) path for on-chip trace and signal visibility."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="EcProbesEnable">
+          <Annotation Term="OData.Description" String="Enable EC probes subtype under the system-on-chip ARM JTAG debug control token type. Activates embedded controller probe and instrumentation hooks used during system debug."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="CswpEnable">
+          <Annotation Term="OData.Description" String="CSWP enable subtype under the system-on-chip ARM JTAG debug control token type. Enables controlled access to update or inspect regions protected by chip secure write protection when explicitly authorized."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="BpmpFirmwareDebugfs">
+          <Annotation Term="OData.Description" String="BPMP Firmware DebugFS subtype under the firmware debug knobs token type. Exposes BPMP Firmware DebugFS file system interfaces used by authorized tools for deep firmware inspection."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="Nuke">
+          <Annotation Term="OData.Description" String="Hardware unlock nuke subtype for GR10X-class GPUs. Applies a broad hardware-unlock profile intended for manufacturing, bring-up, and advanced laboratory scenarios under strict entitlement."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="CxlDebug">
+          <Annotation Term="OData.Description" String="CXL debug hardware unlock subtype for GR10X-class GPUs. Enables compute express link (CXL) related hardware debug features for link, firmware, and coherency analysis."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="VideDebug">
+          <Annotation Term="OData.Description" String="VIDE debug hardware unlock subtype for GR10X-class GPUs. Enables video engine hardware debug and diagnostics that are otherwise locked in production configurations."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="GlobalFunctionalDebugMinimal">
+          <Annotation Term="OData.Description" String="Minimal global functional debug subtype for GR10X-class GPUs. Provides a reduced set of global functional debug capabilities compared to full global functional debug for targeted validation."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="IstDebug">
+          <Annotation Term="OData.Description" String="IST debug hardware unlock subtype for GR10X-class GPUs. Unlocks integrated system test (IST) hardware paths used for repeatable manufacturing and system-level diagnostic flows."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="PxucGlobalHulk">
+          <Annotation Term="OData.Description" String="PXUC global HULK hardware unlock subtype for GR10X-class GPUs. Enables high-bandwidth interconnect debug features on the PXUC subsystem for mission-mode silicon and firmware analysis."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="TargetMaskUnlock">
+          <Annotation Term="OData.Description" String="Target mask unlock subtype for GR10X hardware unlock. Applies the target mask (value 0x00200000) so hardware unlock selects the intended silicon target for the requested debug operation."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="GspTaskDebugEnable">
+          <Annotation Term="OData.Description" String="Enable GSP task debug subtype under GR10X runtime debug unlock. Permits task-level inspection and tracing within the GPU System Processor (GSP) firmware for advanced software debug."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="RasTest">
+          <Annotation Term="OData.Description" String="RAS test subtype under the SMA debug capability token type. Enables reliability and serviceability test modes used to validate MCU RAS behaviors in controlled environments."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="PowerFailI2cDebug">
+          <Annotation Term="OData.Description" String="Power fail I2C debug subtype under the SMA debug capability token type. Enables I2C visibility and diagnostic hooks associated with power-fail and power-sequencing debug on the SMA."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="CpldDebugEnable">
+          <Annotation Term="OData.Description" String="CPLD debug enable subtype under the SMA CPLD debug capability token type. Turns on firmware-visible CPLD debug and diagnostic features that remain disabled in shipping configurations."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Member>
       </EnumType>
       <Action Name="EraseToken" IsBound="true">
