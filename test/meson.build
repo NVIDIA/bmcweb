@@ -57,6 +57,10 @@ srcfiles_unittest = files(
     'redfish-core/lib/update_service_test.cpp',
 ) + test_sources
 
+if get_option('nvidia-dot-keyd-support').allowed()
+    srcfiles_unittest += files('redfish-core/lib/nvidia_manager_dot_test.cpp')
+endif
+
 if (get_option('tests').allowed())
     gtest = dependency(
         'gtest_main',
