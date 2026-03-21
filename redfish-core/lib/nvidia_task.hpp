@@ -48,100 +48,164 @@
 
 namespace redfish
 {
+
+inline void applyTaskServiceTaskUpdatePatch(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& taskId)
+{
+    std::deque<std::shared_ptr<task::TaskData>>& tasks =
+        task::TaskRegistry::getInstance().getTasks();
+    auto find =
+        std::find_if(tasks.begin(), tasks.end(),
+                     [&taskId](const std::shared_ptr<task::TaskData>& task) {
+                         if (!task)
+                         {
+                             return false;
+                         }
+                         return std::to_string(task->index) == taskId;
+                     });
+
+    if (find == tasks.end())
+    {
+        BMCWEB_LOG_WARNING(
+            "TaskService Tasks/{} Update: no local task (count={}); client may use stale id, different BMC, or task evicted",
+            taskId, tasks.size());
+        messages::resourceNotFound(asyncResp->res, "Tasks", taskId);
+        return;
+    }
+
+    const std::shared_ptr<task::TaskData>& ptr = *find;
+
+    std::optional<std::string> taskState;
+    std::optional<nlohmann::json> messages;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState", taskState,
+                                  "Messages", messages))
+    {
+        BMCWEB_LOG_WARNING(
+            "TaskService Tasks/{} Update: invalid PATCH body or unsupported properties",
+            taskId);
+        return;
+    }
+
+    if (messages)
+    {
+        ptr->messages = *messages;
+    }
+
+    if (taskState && ptr->state != *taskState)
+    {
+        ptr->state = *taskState;
+        if (ptr->state == "Completed" || ptr->state == "Cancelled" ||
+            ptr->state == "Exception" || ptr->state == "Killed")
+        {
+            ptr->timer.cancel();
+            ptr->finishTask();
+            if (ptr->state == "Completed")
+            {
+                ptr->percentComplete = 100;
+            }
+        }
+        task::TaskData::sendTaskEvent(ptr->state, ptr->index);
+    }
+
+    if (req.session != nullptr)
+    {
+        BMCWEB_LOG_DEBUG(
+            "TaskService Tasks/{} Update: completed user={} state={}", taskId,
+            req.session->username, ptr->state);
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("TaskService Tasks/{} Update: completed state={}",
+                         taskId, ptr->state);
+    }
+    asyncResp->res.result(boost::beast::http::status::no_content);
+}
+
+inline void afterTaskUpdateBiosPrivilegeCheck(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& taskId, const boost::system::error_code& ec, bool isBios)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "TaskService Tasks/{} Update: GetUserInfo failed for user {}: {}",
+            taskId, req.session->username, ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (!isBios)
+    {
+        BMCWEB_LOG_WARNING(
+            "TaskService Tasks/{} Update: insufficient privilege for user {} (requires redfish-hostiface)",
+            taskId, req.session->username);
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "TaskService Tasks/{} Update: hostiface authorized user={} via GetUserInfo",
+        taskId, req.session->username);
+    applyTaskServiceTaskUpdatePatch(req, asyncResp, taskId);
+}
+
+inline void handleTaskServiceTaskUpdate(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& strParam)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "TaskService Tasks/{} Update: session missing after route setup",
+            strParam);
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
+
+    const std::string& taskId = strParam;
+
+    BMCWEB_LOG_DEBUG(
+        "TaskService Tasks/{} Update: PATCH user={} role={} client={} session_group_count={}",
+        taskId, req.session->username, req.session->userRole,
+        req.ipAddress.to_string(), req.session->userGroups.size());
+
+    const auto& sessionGroups = req.session->userGroups;
+    if (std::find(sessionGroups.begin(), sessionGroups.end(),
+                  "redfish-hostiface") != sessionGroups.end())
+    {
+        BMCWEB_LOG_DEBUG(
+            "TaskService Tasks/{} Update: using session redfish-hostiface user={}",
+            taskId, req.session->username);
+        applyTaskServiceTaskUpdatePatch(req, asyncResp, taskId);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "TaskService Tasks/{} Update: resolving hostiface via GetUserInfo user={}",
+        taskId, req.session->username);
+    privilege_utils::isBiosPrivilege(
+        req.session->username,
+        [&req, asyncResp,
+         taskId](const boost::system::error_code ec, const bool isBios) {
+            afterTaskUpdateBiosPrivilegeCheck(req, asyncResp, taskId, ec,
+                                              isBios);
+        });
+}
+
 inline void requestRoutesTaskUpdate(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Update/")
         .privileges(redfish::privileges::patchTask)
-        .methods(
-            boost::beast::http::verb::
-                patch)([&app](
-                           const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& strParam) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-
-            if (req.session == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Session is null");
-                messages::insufficientPrivilege(asyncResp->res);
-                return;
-            }
-            privilege_utils::isBiosPrivilege(
-                req.session->username,
-                [&req, asyncResp, strParam](const boost::system::error_code ec,
-                                            const bool isBios) {
-                    if (ec || !isBios)
-                    {
-                        asyncResp->res.addHeader(
-                            boost::beast::http::field::allow, "");
-                        messages::resourceNotFound(asyncResp->res, "",
-                                                   "Update");
-                        return;
-                    }
-
-                    auto find = std::find_if(
-                        task::tasks.begin(), task::tasks.end(),
-                        [&strParam](
-                            const std::shared_ptr<task::TaskData>& task) {
-                            if (!task)
-                            {
-                                return false;
-                            }
-
-                            // we compare against the string version as on
-                            // failure strtoul returns 0
-                            return std::to_string(task->index) == strParam;
-                        });
-
-                    if (find == task::tasks.end())
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Tasks",
-                                                   strParam);
-                        return;
-                    }
-
-                    const std::shared_ptr<task::TaskData>& ptr = *find;
-
-                    std::optional<std::string> taskState;
-                    std::optional<nlohmann::json> messages;
-                    if (!json_util::readJsonPatch(req, asyncResp->res,
-                                                  "TaskState", taskState,
-                                                  "Messages", messages))
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
-                        return;
-                    }
-
-                    if (messages)
-                    {
-                        ptr->messages = *messages;
-                    }
-
-                    if (taskState && ptr->state != *taskState)
-                    {
-                        ptr->state = *taskState;
-                        if (ptr->state == "Completed" ||
-                            ptr->state == "Cancelled" ||
-                            ptr->state == "Exception" || ptr->state == "Killed")
-                        {
-                            ptr->timer.cancel();
-                            ptr->finishTask();
-                            if (ptr->state == "Completed")
-                            {
-                                ptr->percentComplete = 100;
-                            }
-                        }
-                        task::TaskData::sendTaskEvent(ptr->state, ptr->index);
-                    }
-
-                    asyncResp->res.result(
-                        boost::beast::http::status::no_content);
-                });
-        });
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleTaskServiceTaskUpdate, std::ref(app)));
 }
 
 } // namespace redfish
