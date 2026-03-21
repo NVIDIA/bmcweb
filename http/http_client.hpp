@@ -139,6 +139,9 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
   private:
     ConnState state = ConnState::initialized;
     uint32_t retryCount = 0;
+    // Set when a request is sent on a reused idle connection, to detect
+    // stale connections that should be transparently reconnected.
+    bool reusedIdleConn = false;
     std::string subId;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url host;
@@ -370,6 +373,22 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         {
             BMCWEB_LOG_ERROR("recvMessage() failed: {} from {}", ec.message(),
                              host);
+            // If we reused an idle pooled connection and got end-of-stream,
+            // the connection went stale while sitting in the pool (e.g. HMC
+            // closed it due to keep-alive timeout). Reconnect transparently
+            // without counting this against maxRetryAttempts, since the
+            // server never processed the request.
+            if (reusedIdleConn &&
+                (ec == boost::beast::http::error::end_of_stream ||
+                 ec == boost::asio::error::eof))
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Stale idle connection detected for {}, reconnecting",
+                    host);
+                reusedIdleConn = false;
+                shutdownConn(true);
+                return;
+            }
             state = ConnState::recvFailed;
             waitAndRetry();
             return;
@@ -412,6 +431,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Send is successful
         // Reset the counter just in case this was after retrying
         retryCount = 0;
+        reusedIdleConn = false;
 
         // Keep the connection alive if server supports it
         // Else close the connection
@@ -804,6 +824,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
                 if (conn->state == ConnState::idle)
                 {
                     BMCWEB_LOG_DEBUG("Grabbing idle connection {}", commonMsg);
+                    conn->reusedIdleConn = true;
                     conn->sendMessage();
                 }
                 else
