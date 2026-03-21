@@ -47,7 +47,7 @@ class ProcessProgressPropertiesTest : public ::testing::Test
 
     void TearDown() override
     {
-        task::tasks.clear();
+        task::TaskRegistry::getInstance().getTasks().clear();
         crow::connections::systemBus = nullptr;
     }
 

@@ -55,8 +55,38 @@ namespace task
 {
 constexpr size_t maxTaskCount = 100; // arbitrary limit
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::deque<std::shared_ptr<struct TaskData>> tasks;
+struct TaskData;
+
+class TaskRegistry
+{
+  public:
+    TaskRegistry(const TaskRegistry&) = delete;
+    TaskRegistry& operator=(const TaskRegistry&) = delete;
+    TaskRegistry(TaskRegistry&&) = delete;
+    TaskRegistry& operator=(TaskRegistry&&) = delete;
+    ~TaskRegistry() = default;
+
+    static TaskRegistry& getInstance()
+    {
+        static TaskRegistry instance;
+        return instance;
+    }
+
+    std::deque<std::shared_ptr<TaskData>>& getTasks()
+    {
+        return allTasks;
+    }
+
+    const std::deque<std::shared_ptr<TaskData>>& getTasks() const
+    {
+        return allTasks;
+    }
+
+  private:
+    TaskRegistry() = default;
+
+    std::deque<std::shared_ptr<TaskData>> allTasks;
+};
 
 constexpr bool completed = true;
 
@@ -153,6 +183,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             {}
         };
 
+        std::deque<std::shared_ptr<TaskData>>& tasks =
+            TaskRegistry::getInstance().getTasks();
+
         if (tasks.size() >= maxTaskCount)
         {
             const auto taskToRemove = getTaskToRemove();
@@ -221,6 +254,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
      */
     static std::deque<std::shared_ptr<TaskData>>::iterator getTaskToRemove()
     {
+        std::deque<std::shared_ptr<TaskData>>& tasks =
+            TaskRegistry::getInstance().getTasks();
+
         auto completedIt =
             std::min_element(tasks.begin(), tasks.end(), shouldEvictTaskBefore);
 
@@ -498,8 +534,10 @@ inline void requestRoutesTaskMonitor(App& app)
                 {
                     return;
                 }
+                std::deque<std::shared_ptr<task::TaskData>>& tasks =
+                    task::TaskRegistry::getInstance().getTasks();
                 auto find = std::ranges::find_if(
-                    task::tasks,
+                    tasks,
                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
                         if (!task)
                         {
@@ -511,7 +549,7 @@ inline void requestRoutesTaskMonitor(App& app)
                         return std::to_string(task->index) == strParam;
                     });
 
-                if (find == task::tasks.end())
+                if (find == tasks.end())
                 {
                     messages::resourceNotFound(asyncResp->res, "Task",
                                                strParam);
@@ -561,8 +599,10 @@ inline void requestRoutesTask(App& app)
                 {
                     return;
                 }
+                std::deque<std::shared_ptr<task::TaskData>>& tasks =
+                    task::TaskRegistry::getInstance().getTasks();
                 auto find = std::ranges::find_if(
-                    task::tasks,
+                    tasks,
                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
                         if (!task)
                         {
@@ -574,7 +614,7 @@ inline void requestRoutesTask(App& app)
                         return std::to_string(task->index) == strParam;
                     });
 
-                if (find == task::tasks.end())
+                if (find == tasks.end())
                 {
                     messages::resourceNotFound(asyncResp->res, "Task",
                                                strParam);
@@ -644,12 +684,13 @@ inline void requestRoutesTaskCollection(App& app)
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/TaskService/Tasks";
                 asyncResp->res.jsonValue["Name"] = "Task Collection";
-                asyncResp->res.jsonValue["Members@odata.count"] =
-                    task::tasks.size();
+                const std::deque<std::shared_ptr<task::TaskData>>& tasks =
+                    task::TaskRegistry::getInstance().getTasks();
+                asyncResp->res.jsonValue["Members@odata.count"] = tasks.size();
                 nlohmann::json& members = asyncResp->res.jsonValue["Members"];
                 members = nlohmann::json::array();
 
-                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+                for (const std::shared_ptr<task::TaskData>& task : tasks)
                 {
                     if (task == nullptr)
                     {
