@@ -304,10 +304,10 @@ inline void afterDOTBlobServiceDiscoveryForUpload(
     }
 
     const auto& [service, blobPath] = *servicePath;
-    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<int>(
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<void>(
         asyncResp, dotBlobOperationTimeout, service, blobPath,
         std::string(dotBlobInterface), "UpdateBlob",
-        [asyncResp](const std::string& status, const int* /*resultPtr*/) {
+        [asyncResp](const std::string& status) {
             if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
             {
                 messages::success(asyncResp->res);

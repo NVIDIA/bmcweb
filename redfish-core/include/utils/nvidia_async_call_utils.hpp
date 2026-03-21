@@ -59,47 +59,51 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
             statusInfo->callback(status);
             statusInfo->timeoutTimer.cancel();
         }
-        return;
     }
-    if (status != asyncStatusValueInProgress)
+    else
     {
-        std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
-        dbus::utility::async_method_call(
-            [weakStatusInfo,
-             status](const boost::system::error_code ec,
-                     const std::variant<typename CallAsyncStatusInfo::Value>&
-                         value) {
-                auto statInfo = weakStatusInfo.lock();
-                if (!statInfo || statInfo->completed)
-                {
-                    BMCWEB_LOG_INFO(
-                        "Call Async : Redundant Response for GetValue or Response arrived after the timeout.");
-                    return;
-                }
+        if (status != asyncStatusValueInProgress)
+        {
+            std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
+            crow::connections::systemBus->async_method_call(
+                [weakStatusInfo, status](
+                    const boost::system::error_code ec,
+                    const std::variant<typename CallAsyncStatusInfo::Value>&
+                        value) {
+                    auto statInfo = weakStatusInfo.lock();
+                    if (!statInfo || statInfo->completed)
+                    {
+                        BMCWEB_LOG_INFO(
+                            "Call Async : Redundant Response for GetValue or Response arrived after the timeout.");
+                        return;
+                    }
 
-                if (ec)
-                {
-                    BMCWEB_LOG_INFO(
-                        "Call Async : GetValue failed with error {}", ec);
-                    reportErrorAndCancel(statInfo);
-                    return;
-                }
-                const auto valuePtr =
-                    std::get_if<typename CallAsyncStatusInfo::Value>(&value);
-                if (valuePtr == nullptr && status != asyncStatusValueSuccess)
-                {
-                    BMCWEB_LOG_INFO(
-                        "Call Async: Failed to get value from variant for non-success status");
-                    reportErrorAndCancel(statInfo);
-                    return;
-                }
-                statInfo->completed = true;
-                statInfo->callback(status, valuePtr);
-                statInfo->timeoutTimer.cancel();
-            },
-            statusInfo->service, statusInfo->object,
-            "org.freedesktop.DBus.Properties", "Get",
-            statusInfo->valueInterface, statusInfo->valueProperty);
+                    if (ec)
+                    {
+                        BMCWEB_LOG_INFO(
+                            "Call Async : GetValue failed with error {}", ec);
+                        reportErrorAndCancel(statInfo);
+                        return;
+                    }
+                    const auto valuePtr =
+                        std::get_if<typename CallAsyncStatusInfo::Value>(
+                            &value);
+                    if (valuePtr == nullptr &&
+                        status != asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_INFO(
+                            "Call Async: Failed to get value from variant for non-success status");
+                        reportErrorAndCancel(statInfo);
+                        return;
+                    }
+                    statInfo->completed = true;
+                    statInfo->callback(status, valuePtr);
+                    statInfo->timeoutTimer.cancel();
+                },
+                statusInfo->service, statusInfo->object,
+                "org.freedesktop.DBus.Properties", "Get",
+                statusInfo->valueInterface, statusInfo->valueProperty);
+        }
     }
 }
 
@@ -256,7 +260,16 @@ class CallAsyncMethodCall
                 if (statusToSend.has_value())
                 {
                     statusInfo->completed = true;
-                    statusInfo->callback(*statusToSend, nullptr);
+                    if constexpr (std::is_same_v<
+                                      typename CallAsyncStatusInfo::Value,
+                                      void>)
+                    {
+                        statusInfo->callback(*statusToSend);
+                    }
+                    else
+                    {
+                        statusInfo->callback(*statusToSend, nullptr);
+                    }
                     statusInfo->timeoutTimer.cancel();
                     return;
                 }

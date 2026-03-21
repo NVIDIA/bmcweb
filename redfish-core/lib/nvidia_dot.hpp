@@ -46,8 +46,7 @@ namespace redfish
 using DOTErrorType = std::tuple<uint16_t, std::string>;
 using DOTData = std::vector<uint8_t>;
 using DOTGetInfoStruct = std::tuple<uint16_t, uint8_t, uint8_t, DOTData>;
-using DOTResultType =
-    std::variant<std::monostate, DOTErrorType, DOTData, DOTGetInfoStruct>;
+using DOTResultType = std::variant<DOTErrorType, DOTData, DOTGetInfoStruct>;
 
 /**
  * @brief Handle DOT operation error result
