@@ -50,8 +50,13 @@ inline void processMACAddressProperties(
     const std::string* macAddress = nullptr;
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "MACAddress", macAddress);
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
 
-    if (success && macAddress != nullptr)
+    if (macAddress != nullptr)
     {
         asyncResp->res.jsonValue["MACAddress"] = *macAddress;
     }
