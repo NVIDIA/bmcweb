@@ -62,14 +62,14 @@ inline chassis::ChassisType translateChassisTypeToRedfish(
     const std::string_view& chassisType)
 {
     if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Rack")
+    {
+        return chassis::ChassisType::Rack;
+    }
+    if (chassisType ==
         "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Blade")
     {
         return chassis::ChassisType::Blade;
-    }
-    if (chassisType ==
-        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Component")
-    {
-        return chassis::ChassisType::Component;
     }
     if (chassisType ==
         "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Enclosure")
@@ -77,9 +77,9 @@ inline chassis::ChassisType translateChassisTypeToRedfish(
         return chassis::ChassisType::Enclosure;
     }
     if (chassisType ==
-        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Module")
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.StandAlone")
     {
-        return chassis::ChassisType::Module;
+        return chassis::ChassisType::StandAlone;
     }
     if (chassisType ==
         "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.RackMount")
@@ -87,9 +87,74 @@ inline chassis::ChassisType translateChassisTypeToRedfish(
         return chassis::ChassisType::RackMount;
     }
     if (chassisType ==
-        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.StandAlone")
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Card")
     {
-        return chassis::ChassisType::StandAlone;
+        return chassis::ChassisType::Card;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Cartridge")
+    {
+        return chassis::ChassisType::Cartridge;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Row")
+    {
+        return chassis::ChassisType::Row;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Pod")
+    {
+        return chassis::ChassisType::Pod;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Expansion")
+    {
+        return chassis::ChassisType::Expansion;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Sidecar")
+    {
+        return chassis::ChassisType::Sidecar;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Zone")
+    {
+        return chassis::ChassisType::Zone;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Sled")
+    {
+        return chassis::ChassisType::Sled;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Shelf")
+    {
+        return chassis::ChassisType::Shelf;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Drawer")
+    {
+        return chassis::ChassisType::Drawer;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Module")
+    {
+        return chassis::ChassisType::Module;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Component")
+    {
+        return chassis::ChassisType::Component;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.IPBasedDrive")
+    {
+        return chassis::ChassisType::IPBasedDrive;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.RackGroup")
+    {
+        return chassis::ChassisType::RackGroup;
     }
     if (chassisType ==
         "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.StorageEnclosure")
@@ -97,9 +162,24 @@ inline chassis::ChassisType translateChassisTypeToRedfish(
         return chassis::ChassisType::StorageEnclosure;
     }
     if (chassisType ==
-        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Zone")
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.ImmersionTank")
     {
-        return chassis::ChassisType::Zone;
+        return chassis::ChassisType::ImmersionTank;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.HeatExchanger")
+    {
+        return chassis::ChassisType::HeatExchanger;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.PowerStrip")
+    {
+        return chassis::ChassisType::PowerStrip;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Other")
+    {
+        return chassis::ChassisType::Other;
     }
     return chassis::ChassisType::Invalid;
 }
