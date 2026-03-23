@@ -314,7 +314,7 @@ inline void getErrorInjectionData(
             json["@odata.id"] = baseUri + "/Oem/Nvidia/ErrorInjection";
             json["Id"] = "ErrorInjection";
             json["Name"] = baseUri.substr(baseUri.find_last_of('/') + 1) +
-                           " Error Injection";
+                           " Oem Nvidia ErrorInjection";
             for (const auto& property : properties)
             {
                 if (property.first == "ErrorInjectionModeEnabled")
