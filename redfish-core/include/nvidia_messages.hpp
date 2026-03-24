@@ -135,6 +135,13 @@ inline nlohmann::json debugTokenEraseSuccess(std::string_view arg1)
         redfish::registries::NvidiaUpdate::Index::debugTokenEraseSuccess, args);
 }
 
+inline nlohmann::json debugTokenNotInstalled(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::debugTokenNotInstalled, args);
+}
+
 inline nlohmann::json debugTokenInstallationFailed(std::string_view arg1,
                                                    std::string_view arg2)
 {

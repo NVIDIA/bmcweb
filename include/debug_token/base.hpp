@@ -44,6 +44,7 @@ constexpr const std::string_view asyncOperationBasePath =
 constexpr const uint16_t debugTokenSuccessNsmErrorCode = 0;
 constexpr const uint16_t debugTokenUnsupportedNsmErrorCode = 5;
 constexpr const uint16_t debugTokenAlreadyInstalledNsmErrorCode = 0x100E;
+constexpr const uint16_t debugTokenNotInstalledNsmErrorCode = 0x100F;
 
 using NsmResult = std::tuple<uint16_t, std::string>;
 

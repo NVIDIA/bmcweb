@@ -165,6 +165,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "DebugTokenNotInstalled",
+        {
+            "Indicates that no debug token was installed on the device.",
+            "Debug token is not installed on device '%1'.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "DebugTokenRequestSuccess",
         {
             "Signifies the successful completion of the debug token request.",
@@ -289,15 +301,16 @@ enum class Index
     debugTokenEraseSuccess = 7,
     debugTokenInstallationFailed = 8,
     debugTokenInstallationSuccess = 9,
-    debugTokenRequestSuccess = 10,
-    debugTokenStatusSuccess = 11,
-    debugTokenUnsupported = 12,
-    enterDOTRecovery = 13,
-    firmwareNotInRecovery = 14,
-    headerValueInvalid = 15,
-    imageCopyCompleted = 16,
-    recoveryStarted = 17,
-    recoverySuccessful = 18,
+    debugTokenNotInstalled = 10,
+    debugTokenRequestSuccess = 11,
+    debugTokenStatusSuccess = 12,
+    debugTokenUnsupported = 13,
+    enterDOTRecovery = 14,
+    firmwareNotInRecovery = 15,
+    headerValueInvalid = 16,
+    imageCopyCompleted = 17,
+    recoveryStarted = 18,
+    recoverySuccessful = 19,
 };
 }; // struct nvidia_update
 

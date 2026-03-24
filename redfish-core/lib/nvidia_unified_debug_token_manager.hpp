@@ -338,6 +338,19 @@ inline void deviceEraseCallback(
         {
             aggregator->addResult(deviceId, true);
         }
+        else if (code == debug_token::debugTokenNotInstalledNsmErrorCode)
+        {
+            aggregator->completedDevices++;
+            aggregator->task->messages.emplace_back(
+                messages::debugTokenNotInstalled(deviceId));
+            if (aggregator->totalDevices > 0)
+            {
+                aggregator->task->percentComplete = static_cast<int>(
+                    (aggregator->completedDevices * 100) /
+                    aggregator->totalDevices);
+            }
+            aggregator->checkCompletion();
+        }
         else if (code == debug_token::debugTokenUnsupportedNsmErrorCode)
         {
             aggregator->addResult(deviceId, false, "Debug token unsupported");
