@@ -158,6 +158,15 @@
             "Resolution": "None.",
             "Severity": "OK"
         },
+        "DebugTokenNotInstalled": {
+            "Description": "Indicates that no debug token was installed on the device.",
+            "Message": "Debug token is not installed on device '%1'.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
         "DebugTokenInstallationFailed": {
             "Description": "Indicates that debug token installation operation has failed for the device.",
             "Message": "The operation to install a debug token for device '%1' has failed with error '%2'",
