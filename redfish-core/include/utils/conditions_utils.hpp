@@ -341,7 +341,6 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
     for (auto& j : *jCond)
     {
         nlohmann::json conditionResp{};
-        conditionResp["@odata.type"] = "#LogEntry.v1_13_0.LogEntry";
 
         // Support both MessageRegistry or non-MessageRegitry formats
         auto jMsgId = j.find("MessageId");
