@@ -517,7 +517,7 @@ inline void updatePCIeEqualization(
             portEqualizationURI += portId;
             portEqualizationURI += "/Oem/Nvidia/PCIeEqualization";
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPort.v1_3_0.NvidiaPCIePort";
+                "#NvidiaPort.v1_5_0.NvidiaPCIePort";
             aResp->res
                 .jsonValue["Oem"]["Nvidia"]["PCIeEqualization"]["@odata.id"] =
                 portEqualizationURI;
