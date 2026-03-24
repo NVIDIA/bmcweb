@@ -118,8 +118,7 @@ static inline void setPathCallback(
     if (service.empty() || path.empty())
     {
         BMCWEB_LOG_DEBUG("Erase policy service not found on D-Bus");
-        messages::propertyUnknown(asyncResp->res,
-                                  "AutomaticDebugTokenErased");
+        messages::propertyUnknown(asyncResp->res, "AutomaticDebugTokenErased");
         return;
     }
     std::string erasePolicy = automatic ? "Automatic" : "Manual";
