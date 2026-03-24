@@ -574,6 +574,13 @@ struct InstallTokenAggregator
                 task->messages.emplace_back(
                     messages::debugTokenInstallationSuccess(deviceName));
             }
+            else if (errorCode ==
+                     debug_token::debugTokenAlreadyInstalledNsmErrorCode)
+            {
+                BMCWEB_LOG_DEBUG("Token already installed on {}", deviceName);
+                task->messages.emplace_back(
+                    messages::debugTokenAlreadyInstalled(deviceName));
+            }
             else
             {
                 failedDevices++;
