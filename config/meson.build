@@ -100,7 +100,6 @@ feature_options = [
     'nvidia-dot-cak-initialization',
     'nvidia-api-metrics',
     'nvidia-bootentryid',
-    'nvidia-debug-token-erase-policy',
     'nvidia-device-status-from-association',
     'nvidia-redfish-event-support',
     'nvidia-oem-bf-properties',

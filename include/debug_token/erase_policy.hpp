@@ -73,7 +73,7 @@ static inline void getPathCallback(
 {
     if (service.empty() || path.empty())
     {
-        BMCWEB_LOG_ERROR("Invalid service or path");
+        BMCWEB_LOG_DEBUG("Erase policy service not found on D-Bus");
         callback(std::nullopt);
         return;
     }
@@ -117,8 +117,9 @@ static inline void setPathCallback(
 {
     if (service.empty() || path.empty())
     {
-        BMCWEB_LOG_ERROR("Invalid service or path");
-        messages::internalError(asyncResp->res);
+        BMCWEB_LOG_DEBUG("Erase policy service not found on D-Bus");
+        messages::propertyUnknown(asyncResp->res,
+                                  "AutomaticDebugTokenErased");
         return;
     }
     std::string erasePolicy = automatic ? "Automatic" : "Manual";
@@ -150,7 +151,7 @@ static inline void getSubTreeHandler(
     }
     else if (subtree.empty())
     {
-        BMCWEB_LOG_ERROR("No erase policy objects found");
+        BMCWEB_LOG_DEBUG("No erase policy objects found on D-Bus");
     }
     else if (subtree.size() != 1)
     {

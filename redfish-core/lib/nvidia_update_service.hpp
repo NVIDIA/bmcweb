@@ -1161,22 +1161,15 @@ inline void extendUpdateServiceGet(
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaUpdateService.v1_4_0.NvidiaUpdateService";
-        if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
-        {
-            debug_token::getErasePolicy(
-                [asyncResp](const std::optional<bool>& erasePolicy) {
-                    if (erasePolicy)
-                    {
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                                ["AutomaticDebugTokenErased"] =
-                            *erasePolicy;
-                    }
-                    else
-                    {
-                        messages::internalError(asyncResp->res);
-                    }
-                });
-        }
+        debug_token::getErasePolicy(
+            [asyncResp](const std::optional<bool>& erasePolicy) {
+                if (erasePolicy)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["AutomaticDebugTokenErased"] =
+                        *erasePolicy;
+                }
+            });
     }
 
     auto getUpdateStatus = std::make_shared<BMCStatusAsyncResp>(asyncResp);
@@ -3008,21 +3001,18 @@ inline void handleUpdateServicePatch(
     }
     BMCWEB_LOG_DEBUG("doPatch...");
 
-    if constexpr (BMCWEB_NVIDIA_DEBUG_TOKEN_ERASE_POLICY)
+    std::optional<bool> erasePolicy;
+    if (!json_util::readJsonPatch(req, asyncResp->res,
+                                  "Oem/Nvidia/AutomaticDebugTokenErased",
+                                  erasePolicy))
     {
-        std::optional<bool> erasePolicy;
-        if (!json_util::readJsonPatch(req, asyncResp->res,
-                                      "Oem/Nvidia/AutomaticDebugTokenErased",
-                                      erasePolicy))
-        {
-            BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
-            return;
-        }
+        BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
+        return;
+    }
 
-        if (erasePolicy)
-        {
-            debug_token::setErasePolicy(asyncResp, *erasePolicy);
-        }
+    if (erasePolicy)
+    {
+        debug_token::setErasePolicy(asyncResp, *erasePolicy);
     }
 }
 
