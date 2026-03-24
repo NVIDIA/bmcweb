@@ -2147,6 +2147,96 @@ inline void getGpuCopyCpuPowerLimitPath(
         });
 }
 
+inline void getGpuViewSwitchLimitWattsFromProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path,
+    const std::string& interface)
+{
+    dbus::utility::getAllProperties(
+        service, path, interface,
+        [asyncResp](const boost::system::error_code& errorno2,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (errorno2)
+            {
+                BMCWEB_LOG_ERROR("GetAll call failed: {}", errorno2);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& property : propertiesList)
+            {
+                if (property.first == "PowerCap")
+                {
+                    const uint32_t* data =
+                        std::get_if<uint32_t>(&property.second);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PowerCap property not of type uint32_t");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["GPUViewSwitchLimitWatts"] =
+                        *data;
+                }
+            }
+        });
+}
+
+inline void getGpuCopySwitchPowerLimitByServicePath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, [[maybe_unused]] const std::string& gpuId)
+{
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>{},
+        [asyncResp, path](const boost::system::error_code& errorno,
+                          const dbus::utility::MapperGetObject& objInfo) {
+            if (errorno)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
+                                 errorno);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            for (const auto& element : objInfo)
+            {
+                for (const auto& interface : element.second)
+                {
+                    if (interface == "xyz.openbmc_project.Control.Power.Cap")
+                    {
+                        getGpuViewSwitchLimitWattsFromProperties(
+                            asyncResp, element.first, path, interface);
+                    }
+                }
+            }
+        });
+}
+
+inline void getGpuCopySwitchPowerLimitPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& gpuId)
+{
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/gpu_copy_switch_power",
+        [aResp, gpuId](const boost::system::error_code& e,
+                       const dbus::utility::MapperEndPoints& endpoints) {
+            if (e)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Failed to get GPU copy switch power limit: {}",
+                    e.message());
+                return;
+            }
+            for (const auto& path : endpoints)
+            {
+                getGpuCopySwitchPowerLimitByServicePath(aResp, path, gpuId);
+                break;
+            }
+        });
+}
+
 inline void getBasePowerLimitValues(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& path,
@@ -2456,6 +2546,8 @@ inline void getProcessorEnvironmentMetricsData(
                                                            processorId);
                             getGpuCopyCpuPowerLimitPath(aResp, path,
                                                         processorId);
+                            getGpuCopySwitchPowerLimitPath(aResp, path,
+                                                           processorId);
                         }
                     }
 
