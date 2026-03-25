@@ -28,6 +28,13 @@ enum class DOTCAKInitializationState{
     EarlyBoot,
 };
 
+enum class EnableDisableOption{
+    Invalid,
+    Enable,
+    Disable,
+    Default,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
@@ -47,6 +54,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(DOTCAKInitializationState, {
     {DOTCAKInitializationState::Waiting, "Waiting"},
     {DOTCAKInitializationState::Complete, "Complete"},
     {DOTCAKInitializationState::EarlyBoot, "EarlyBoot"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(EnableDisableOption, {
+    {EnableDisableOption::Invalid, "Invalid"},
+    {EnableDisableOption::Enable, "Enable"},
+    {EnableDisableOption::Disable, "Disable"},
+    {EnableDisableOption::Default, "Default"},
 });
 
 }
