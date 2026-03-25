@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaEnvironmentMetrics  v1.3.0                                -->
+<!--# Redfish OEM Schema:  NvidiaEnvironmentMetrics  v1.4.0                                -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
+<!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -112,6 +112,71 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The one-shot power limit requested by the client, in watt units."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the one-shot power limit requested by the client, in watt units.  If no power limit request has been previously submitted, the value is `null` in responses."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaEnvironmentMetrics.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="GPUBasePowerWatts">
+        <Property Name="SetPoint" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The desired set point of the GPU base power control."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the desired set point control value for GPU base power.  The units shall be watts (W).  This is the baseline power allocation for the GPU before additional limits are applied."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="DefaultSetPoint" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The default set point of the GPU base power control."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the default set point control value for GPU base power.  The units shall be watts (W)."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="AllowableMin" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The minimum possible setting for this control."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the minimum possible value of the SetPoint property for this control.  Services shall not accept values for SetPoint below this value.  The units shall be watts (W)."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="AllowableMax" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The maximum possible setting for this control."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the maximum possible value of the SetPoint property for this control.  Services shall not accept values for SetPoint above this value.  The units shall be watts (W)."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="Persistency" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the desired set point control value will be retained over subsequent resets."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the desired set point control value will be retained over subsequent resets, where a value `true` shall indicate that the set point control value is persistent after a device reset."/>
+        </Property>
+        <Property Name="RequestedOneshotSetPointWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The one-shot setpoint for GPU base power requested by the client, in watt units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the one-shot power limit requested by the client, in watt units.  If no power limit request has been previously submitted, the value is `null` in responses."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="RequestedPersistentSetPointWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The persistent power limit requested by the client, in watt units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the persistent power limit requested by the client, in watt units.  If no power limit request has been previously submitted, the value is `null` in responses."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaEnvironmentMetrics" BaseType="NvidiaEnvironmentMetrics.v1_3_0.NvidiaEnvironmentMetrics">
+        <Property Name="GPUBasePowerWatts" Type="NvidiaEnvironmentMetrics.v1_4_0.GPUBasePowerWatts">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This property contains the GPU Base Power settings."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the GPU Base Power settings.  It is similar to the PowerLimitWatts property.  Base power is the allocation for the GPU, which may be augmented by unused power borrowed from CPUs and switches."/>
+        </Property>
+        <Property Name="GPUViewCPULimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The GPU's view of the CPU power limit (W)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the GPU's view of the CPU power limit, in watt units.  This value informs the GPU of the CPU power limit for the Power Steering use case."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="GPUViewSwitchLimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The GPU's view of the Switch power limit (W)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the GPU's view of the Switch power limit, in watt units.  This value informs the GPU of the Switch power limit for the Power Steering use case."/>
+          <Annotation Term="Measures.Unit" String="W"/>
         </Property>
       </ComplexType>
     </Schema>

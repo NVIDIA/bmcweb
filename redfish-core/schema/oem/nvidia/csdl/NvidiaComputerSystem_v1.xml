@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.4.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.7.0                                     -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
+<!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -84,6 +84,47 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_5_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="StartIST" IsBound="true">
+        <Annotation Term="OData.Description" String="This action starts a CPU In-System Test (IST)."/>
+        <Annotation Term="OData.LongDescription" String="This action shall start a CPU In-System Test (IST), which is used to check for defects in the CPU."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="TestList" Type="Edm.String">
+          <Annotation Term="OData.Description" String="A comma-separated list of specific test numbers to run."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a comma-separated list of specific test numbers to run."/>
+        </Parameter>
+        <Parameter Name="PackageList" Type="Edm.String">
+          <Annotation Term="OData.Description" String="A comma-separated list of sockets to test."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a comma-separated list of sockets to test."/>
+        </Parameter>
+        <Parameter Name="ISTTimeoutSec" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The software timeout for IST in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the software timeout for IST in seconds."/>
+        </Parameter>
+        <Parameter Name="ContinueOnFail" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to continue testing even if a test fails."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to continue testing even if a test fails."/>
+        </Parameter>
+        <Parameter Name="AutoRebootOnComplete" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication of whether to automatically reboot the system after IST completes."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to automatically reboot the system after IST completes."/>
+        </Parameter>
+        <Parameter Name="SaveResultsOnPass" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to save results when the test passes."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to save results when the test passes."/>
+        </Parameter>
+        <Parameter Name="SaveResultsOnFail" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to save results when the test fails."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to save results when the test fails."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_7_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -213,6 +254,20 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the device ownership transfer (DOT) CAK initialization process."/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="EnableDisableOption">
+        <Member Name="Enable">
+          <Annotation Term="OData.Description" String="Enable the option."/>
+        </Member>
+        <Member Name="Disable">
+          <Annotation Term="OData.Description" String="Disable the option."/>
+        </Member>
+        <Member Name="Default">
+          <Annotation Term="OData.Description" String="Defer to the platform default behavior."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

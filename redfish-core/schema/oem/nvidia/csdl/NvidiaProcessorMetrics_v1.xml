@@ -485,6 +485,23 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_5_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics">
+        <Property Name="PowerBrakeAssertionDuration" Type="Edm.Duration">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total duration the power brake has been asserted since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total duration the power brake has been asserted since reset."/>
+        </Property>
+        <Property Name="CPUUptime" Type="Edm.Duration">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The CPU uptime duration since last reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total CPU uptime duration since the last reset."/>
+        </Property>
+        <Property Name="TjMaxDramIndex" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The index of the DRAM device with the maximum junction temperature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the index of the DRAM device reporting the maximum junction temperature for this processor."/>
+        </Property>
+      </ComplexType>
       <ComplexType Name="NvidiaGPUProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics">
         <Property Name="NVEncUtilizationPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

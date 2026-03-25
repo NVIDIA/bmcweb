@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.12.0                                          -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.13.0                                          -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
+<!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -914,6 +914,16 @@
           <Annotation Term="OData.Description" String="Automatic failover."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_13_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_12_0.NvidiaChassis">
+        <Property Name="MemoryModuleIndexWithMaxTemperature" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The index of the memory module with the maximum temperature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the index of the memory module whose temperature is the highest among all memory modules on this processor module."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
