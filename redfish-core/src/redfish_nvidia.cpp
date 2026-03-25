@@ -20,6 +20,7 @@
 #include "nvidia_chassis.hpp"
 #include "nvidia_chassis_env_metrics.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_cpu_ist.hpp"
 #include "nvidia_dot.hpp"
 #include "nvidia_dot_backup_data.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
@@ -313,6 +314,12 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
     {
         requestRoutesManagerDOT(app);
+    }
+
+    if constexpr (BMCWEB_CPU_IST)
+    {
+        requestRoutesIst(app);
+        requestRoutesIstActionInfo(app);
     }
 
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
