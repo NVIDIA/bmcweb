@@ -3912,6 +3912,15 @@ inline void handleComputerSystemGet(
         getDotCakInitialization(asyncResp);
     }
 
+    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
+    {
+        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                ["#NvidiaComputerSystem.L1Reset"]["target"] =
+            boost::urls::format("/redfish/v1/Systems/{}"
+                                "/Actions/Oem/NvidiaComputerSystem.L1Reset",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    }
+
     if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
     {
         auto& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];

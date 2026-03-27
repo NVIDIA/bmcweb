@@ -1307,6 +1307,14 @@ option(
     description: 'Enable DOT keyd Redfish endpoints for CAK management',
 )
 
+# BMCWEB_NVIDIA_OEM_L1RESET
+option(
+    'nvidia-oem-l1reset',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish OEM action to issue an L1 SW main reset to a Vera CPU.',
+)
+
 # BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
 option(
     'enable-unused-upstream-code',

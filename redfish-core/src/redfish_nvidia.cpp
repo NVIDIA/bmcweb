@@ -40,6 +40,7 @@
 #include "nvidia_oem_chassis_recovery.hpp"
 #include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_oem_dpu.hpp"
+#include "nvidia_oem_l1reset.hpp"
 #include "nvidia_oem_managed_entity.hpp"
 #include "nvidia_oem_managed_entity_group.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
@@ -370,6 +371,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
         requestRoutesSystemsCPUDiag(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
+    {
+        requestRoutesSystemsOemNvidiaL1Reset(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
