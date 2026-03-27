@@ -600,7 +600,8 @@ inline void requestRoutesComponentIntegrity(App& app)
                 }
                 return;
             }
-
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ComponentIntegrity.v1_0_0.SPDMGetSignedMeasurementsResponse";
             asyncResp->res.jsonValue["SignedMeasurements"] = config.measurement;
             asyncResp->res.jsonValue["Version"] = getVersionStr(config.version);
             asyncResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
