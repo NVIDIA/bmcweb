@@ -661,44 +661,46 @@ inline void requestRoutesComponentIntegrity(App& app)
                  "/redfish/v1/ComponentIntegrity/<str>/"
                  "Actions/ComponentIntegrity.SPDMGetSignedMeasurements/data/")
         .privileges(redfish::privileges::getManagerAccount)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& id) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& id) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            const std::string objPath =
+                std::string(rootSPDMDbusPath) + "/" + id;
+            asyncGetSPDMMeasurementData(objPath, [asyncResp, id, objPath](
+                                                     const SPDMMeasurementData&
+                                                         config,
+                                                     const boost::system::
+                                                         error_code& ec) {
+                if (ec)
                 {
+                    if (ec.value() == EBADR)
+                    {
+                        messages::resourceNotFound(asyncResp->res,
+                                                   "ComponentIntegrity", id);
+                    }
+                    else
+                    {
+                        messages::internalError(asyncResp->res);
+                    }
                     return;
                 }
-                const std::string objPath =
-                    std::string(rootSPDMDbusPath) + "/" + id;
-                asyncGetSPDMMeasurementData(
-                    objPath, [asyncResp, id,
-                              objPath](const SPDMMeasurementData& config,
-                                       const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            if (ec.value() == EBADR)
-                            {
-                                messages::resourceNotFound(
-                                    asyncResp->res, "ComponentIntegrity", id);
-                            }
-                            else
-                            {
-                                messages::internalError(asyncResp->res);
-                            }
-                            return;
-                        }
 
-                        asyncResp->res.jsonValue["SignedMeasurements"] =
-                            config.measurement;
-                        asyncResp->res.jsonValue["Version"] =
-                            getVersionStr(config.version);
-                        asyncResp->res.jsonValue["HashingAlgorithm"] =
-                            config.hashAlgo;
-                        asyncResp->res.jsonValue["SigningAlgorithm"] =
-                            config.signAlgo;
-                    });
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#ComponentIntegrity.v1_0_0.SPDMGetSignedMeasurementsResponse";
+                asyncResp->res.jsonValue["SignedMeasurements"] =
+                    config.measurement;
+                asyncResp->res.jsonValue["Version"] =
+                    getVersionStr(config.version);
+                asyncResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
+                asyncResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
             });
+        });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/"
                       "SPDMGetSignedMeasurementsActionInfo/")
