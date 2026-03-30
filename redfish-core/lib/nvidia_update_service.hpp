@@ -2866,48 +2866,13 @@ inline void handleUpdateServiceSoftwareInventoryCollectionGet(
     // therefore to ensure only real SoftwareInventory items are
     // returned, this full object path must be used here as input to
     // mapper
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory_software", static_cast<int32_t>(0),
-        std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
-        [asyncResp](
-            const boost::system::error_code& ec,
-            const std::vector<std::pair<
-                std::string,
-                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
-                subtree) {
-            if (ec == boost::system::errc::io_error)
-            {
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                asyncResp->res.jsonValue["Members@odata.count"] = 0;
-                return;
-            }
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-            asyncResp->res.jsonValue["Members@odata.count"] = 0;
+    const std::array<const std::string_view, 1> iface = {
+        "xyz.openbmc_project.Software.Version"};
 
-            for (const auto& obj : subtree)
-            {
-                sdbusplus::message::object_path path(obj.first);
-                std::string swId = path.filename();
-                if (swId.empty())
-                {
-                    messages::internalError(asyncResp->res);
-                    BMCWEB_LOG_DEBUG("Can't parse software ID!!");
-                    return;
-                }
-
-                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-                members.push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/UpdateService/SoftwareInventory/" + swId}});
-                asyncResp->res.jsonValue["Members@odata.count"] =
-                    members.size();
-            }
-        });
+    redfish::collection_util::getCollectionMembers(
+        asyncResp,
+        boost::urls::url("/redfish/v1/UpdateService/SoftwareInventory"), iface,
+        "/xyz/openbmc_project/inventory_software");
 }
 
 inline void handleUpdateServicePatch(
