@@ -124,12 +124,22 @@ inline void enableInBand(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR(
-                    "The D-Bus object that implements the InbandUpdatePolicy interface at object path '{}' does not exist",
-                    objectPath);
-                redfish::messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
-                    ec.message());
+                if (ec == boost::system::errc::io_error)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "The D-Bus object that implements the InbandUpdatePolicy interface at object path '{}' does not exist; "
+                        "InbandUpdatePolicyEnabled is not supported for this chassis",
+                        objectPath);
+                    redfish::messages::propertyUnknown(
+                        asyncResp->res, "InbandUpdatePolicyEnabled");
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR(
+                        "InbandUpdatePolicy: ObjectMapper GetObject failed for path '{}': {}",
+                        objectPath, ec);
+                    redfish::messages::internalError(asyncResp->res);
+                }
                 return;
             }
 
