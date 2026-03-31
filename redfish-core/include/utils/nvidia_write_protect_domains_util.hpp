@@ -219,11 +219,11 @@ inline void getDomainProperties(
         domainService, domainPath, "com.nvidia.Software.WriteProtection",
         "WriteProtected",
         std::bind_front(afterGetWriteProtection, asyncResp, domainPointer));
-
+    sdbusplus::message::object_path writeProtects(
+        domainPath / "write_protects");
     dbus::utility::getAssociationEndPoints(
-        domainPath / "write_protects",
-        std::bind_front(afterGetAssociatedProtectedComponents, asyncResp,
-                        domainPointer));
+        writeProtects, std::bind_front(afterGetAssociatedProtectedComponents,
+                                       asyncResp, domainPointer));
 }
 
 inline void makeDefaultDomainJson(
