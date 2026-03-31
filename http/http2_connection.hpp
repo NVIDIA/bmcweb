@@ -58,6 +58,7 @@ struct Http2StreamData
     boost::optional<uint64_t> contentLength;
     Response res;
     std::optional<bmcweb::HttpBody::writer> writer;
+    bool valid = true;
 };
 
 template <typename Adaptor, typename Handler>
@@ -323,6 +324,11 @@ class HTTP2Connection :
             });
         auto asyncResp =
             std::make_shared<bmcweb::AsyncResp>(std::move(it->second.res));
+        if (!it->second.valid)
+        {
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            return 0;
+        }
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
             thisReq.session = crow::authentication::authenticate(
@@ -496,7 +502,11 @@ class HTTP2Connection :
 
         if (nameSv == ":path")
         {
-            thisReq.target(valueSv);
+            if (!thisReq.target(valueSv))
+            {
+                BMCWEB_LOG_WARNING("Rejecting request with invalid path");
+                thisStream->second.valid = false;
+            }
         }
         else if (nameSv == ":method")
         {
