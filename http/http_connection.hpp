@@ -622,7 +622,7 @@ class Connection :
             if (ec == boost::beast::http::error::header_limit)
             {
                 BMCWEB_LOG_ERROR("{} Header field too large, closing",
-                                 logPtr(this), ec.message());
+                                 logPtr(this));
 
                 res.result(boost::beast::http::status::
                                request_header_fields_too_large);

@@ -19,6 +19,7 @@
 #include <boost/none.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/url_view.hpp>
 
 #include <algorithm>
 #include <array>
@@ -32,6 +33,24 @@
 
 namespace bmcweb
 {
+
+// Maximum allowed length for a single query parameter value.
+// Enforced during URL parsing to prevent large input amplification in error
+// responses and DoS via oversized query strings.
+inline constexpr size_t maxQueryParamValueLength = 256;
+
+inline bool hasOversizedQueryParam(const boost::urls::url_view& url)
+{
+    for (const auto& param : url.params())
+    {
+        if (param.value.size() > maxQueryParamValueLength)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 struct HttpBody
 {
     // Body concept requires specific naming of classes
