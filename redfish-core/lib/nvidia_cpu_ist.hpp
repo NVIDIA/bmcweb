@@ -120,8 +120,7 @@ inline void onStartIstComplete(
         },
         std::string(sdbusplus::bus::match::rules::propertiesChanged(
             std::string(istObjectPath),
-            sdbusplus::common::xyz::openbmc_project::common::Progress::
-                interface)));
+            "xyz.openbmc_project.Common.Progress")));
 
     taskData->payload.emplace(std::move(payload));
     taskData->populateResp(asyncResp->res);
