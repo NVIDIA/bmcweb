@@ -186,18 +186,29 @@ inline void updateBackgroundCopyPolicy(
     objectPath /= chassisId;
 
     dbus::utility::getDbusObject(
-        objectPath, std::array<std::string_view, 1>{imageCopyPolicyInterface},
-        [asyncResp, chassisId, objectPath,
+        objectPath,
+        std::array<std::string_view, 1>{"com.nvidia.ImageCopyPolicy"},
+        [asyncResp, objectPath,
          enabled](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR(
-                    "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist",
-                    objectPath.str);
-                redfish::messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
-                    ec.message());
+                if (ec == boost::system::errc::io_error)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "The D-Bus object that implements the ImageCopyPolicy interface at object path '{}' does not exist; "
+                        "AutomaticBackgroundCopyEnabled is not supported for this chassis",
+                        objectPath.str);
+                    redfish::messages::propertyUnknown(
+                        asyncResp->res, "AutomaticBackgroundCopyEnabled");
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR(
+                        "ImageCopyPolicy: ObjectMapper GetObject failed for path '{}': {}",
+                        objectPath.str, ec);
+                    redfish::messages::internalError(asyncResp->res);
+                }
                 return;
             }
 
