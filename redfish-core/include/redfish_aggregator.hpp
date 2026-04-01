@@ -480,7 +480,7 @@ inline boost::system::error_code aggregationRetryHandler(unsigned int respCode)
 
 inline crow::ConnectionPolicy getAggregationPolicy()
 {
-    return {.maxRetryAttempts = 1,
+    return {.maxRetryAttempts = 0,
             .requestByteLimit = aggregatorReadBodyLimit,
             .maxConnections = 20,
             .retryPolicyAction = "TerminateAfterRetries",
