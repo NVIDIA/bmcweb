@@ -5,6 +5,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
+#include "generated/enums/nvidia_log_entry.hpp"
 #include "gzfile.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
@@ -1023,6 +1024,106 @@ inline void extendLogServiceOEMGet(
     }
 }
 
+inline void fillIstOemFields(const AdditionalData& additional,
+                             nlohmann::json& objectToFillOut)
+{
+    auto it = additional.find("IST_TYPE");
+    if (it == additional.end())
+    {
+        return;
+    }
+
+    nlohmann::json& ist = objectToFillOut["Oem"]["Nvidia"]["IST"];
+    if (it->second == "CPU")
+    {
+        ist["Type"] = nvidia_log_entry::ISTType::CPU;
+    }
+
+    if (auto s = additional.find("IST_STAGE"); s != additional.end())
+    {
+        nvidia_log_entry::ISTStage stage = nvidia_log_entry::ISTStage::Invalid;
+        if (s->second == "Idle")
+        {
+            stage = nvidia_log_entry::ISTStage::Idle;
+        }
+        else if (s->second == "CollateralVerification")
+        {
+            stage = nvidia_log_entry::ISTStage::CollateralVerification;
+        }
+        else if (s->second == "PendingISTBoot")
+        {
+            stage = nvidia_log_entry::ISTStage::PendingISTBoot;
+        }
+        else if (s->second == "PendingPowerCycle")
+        {
+            stage = nvidia_log_entry::ISTStage::PendingPowerCycle;
+        }
+        else if (s->second == "RunningIST")
+        {
+            stage = nvidia_log_entry::ISTStage::RunningIST;
+        }
+        else if (s->second == "Cleanup")
+        {
+            stage = nvidia_log_entry::ISTStage::Cleanup;
+        }
+        if (stage != nvidia_log_entry::ISTStage::Invalid)
+        {
+            ist["Stage"] = stage;
+        }
+    }
+    if (auto s = additional.find("IST_PROGRESS"); s != additional.end())
+    {
+        int64_t pct = 0;
+        std::string_view pctStr(s->second);
+        auto [ptr, ec] = std::from_chars(pctStr.begin(), pctStr.end(), pct);
+        if (ec == std::errc{})
+        {
+            ist["ProgressPercent"] = pct;
+        }
+        else
+        {
+            BMCWEB_LOG_WARNING("Invalid IST_PROGRESS value: {}", s->second);
+        }
+    }
+    if (auto s = additional.find("IST_RESULT"); s != additional.end())
+    {
+        nvidia_log_entry::ISTResult result =
+            nvidia_log_entry::ISTResult::Invalid;
+        if (s->second == "Failed")
+        {
+            result = nvidia_log_entry::ISTResult::Failed;
+        }
+        else if (s->second == "Aborted")
+        {
+            result = nvidia_log_entry::ISTResult::Aborted;
+        }
+        else if (s->second == "Error")
+        {
+            result = nvidia_log_entry::ISTResult::Error;
+        }
+        if (result != nvidia_log_entry::ISTResult::Invalid)
+        {
+            ist["Result"] = result;
+        }
+    }
+    if (auto s = additional.find("IST_TEST_LIST"); s != additional.end())
+    {
+        ist["RequestedTestNumbers"] = s->second;
+    }
+    if (auto s = additional.find("IST_PACKAGE_LIST"); s != additional.end())
+    {
+        ist["PackageList"] = s->second;
+    }
+    if (auto s = additional.find("IST_CONTINUE_ON_FAIL"); s != additional.end())
+    {
+        ist["ContinueOnFail"] = (s->second == "true");
+    }
+    if (auto s = additional.find("IST_MESSAGE"); s != additional.end())
+    {
+        ist["Message"] = s->second;
+    }
+}
+
 inline void dBusEventLogEntryGetAdditionalInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
@@ -1080,6 +1181,8 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         {
             objectToFillOut.update(cper);
         }
+
+        fillIstOemFields(additional, objectToFillOut);
     }
 
     if (deviceEventData && (entry.Path != nullptr) && (entry.Id != 0U))
@@ -1133,7 +1236,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         if (nvidiaIt != oemIt->end())
         {
             (*nvidiaIt)["@odata.type"] =
-                "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry";
+                "#NvidiaLogEntry.v1_2_0.NvidiaLogEntry";
         }
     }
 }
