@@ -30,6 +30,8 @@
 #include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>
 
+#include <asm-generic/errno.h>
+
 #include <map>
 #include <optional>
 #include <string>
@@ -1311,9 +1313,17 @@ inline void getPortDataByAssociation(
                  const std::vector<std::string>& resp) {
             if (ec)
             {
-                // no state sensors attached.
-                BMCWEB_LOG_ERROR("DBUS response error");
-                messages::internalError(asyncResp->res);
+                if (ec.value() == EBADR)
+                {
+                    // no state sensors attached.
+                    messages::resourceNotFound(asyncResp->res, "Port",
+                                               portId);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error");
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
 

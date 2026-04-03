@@ -34,6 +34,8 @@
 #include <utils/port_utils.hpp>
 #include <utils/processor_utils.hpp>
 
+#include <asm-generic/errno.h>
+
 #include <cstdint>
 #include <variant>
 
@@ -2505,8 +2507,16 @@ inline void requestRoutesPort(App& app)
                          const std::vector<std::string>& objects) {
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("DBUS response error");
-                        messages::internalError(asyncResp->res);
+                        if (ec.value() == EBADR)
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Fabric", fabricId);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error");
+                            messages::internalError(asyncResp->res);
+                        }
                         return;
                     }
 
@@ -2523,8 +2533,17 @@ inline void requestRoutesPort(App& app)
                                 std::variant<std::vector<std::string>>& resp3) {
                                 if (ec3)
                                 {
-                                    BMCWEB_LOG_ERROR("DBUS response error");
-                                    messages::internalError(asyncResp->res);
+                                    if (ec3.value() == EBADR)
+                                    {
+                                        messages::resourceNotFound(
+                                            asyncResp->res, "Switch", switchId);
+                                    }
+                                    else
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "DBUS response error");
+                                        messages::internalError(asyncResp->res);
+                                    }
                                     return;
                                 }
                                 std::vector<std::string>* data3 =
@@ -2560,12 +2579,25 @@ inline void requestRoutesPort(App& app)
                                                             resp4) {
                                                         if (ec4)
                                                         {
-                                                            BMCWEB_LOG_ERROR(
-                                                                "DBUS response error");
-                                                            messages::
-                                                                internalError(
-                                                                    asyncResp
-                                                                        ->res);
+                                                            if (ec4.value() ==
+                                                                EBADR)
+                                                            {
+                                                                messages::
+                                                                    resourceNotFound(
+                                                                        asyncResp
+                                                                            ->res,
+                                                                        "Port",
+                                                                        portId);
+                                                            }
+                                                            else
+                                                            {
+                                                                BMCWEB_LOG_ERROR(
+                                                                    "DBUS response error");
+                                                                messages::
+                                                                    internalError(
+                                                                        asyncResp
+                                                                            ->res);
+                                                            }
                                                             return;
                                                         }
                                                         std::vector<

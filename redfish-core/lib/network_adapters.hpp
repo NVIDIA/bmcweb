@@ -24,6 +24,8 @@
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
 
+#include <asm-generic/errno.h>
+
 #include <boost/url/format.hpp>
 
 namespace redfish
@@ -501,8 +503,15 @@ inline void handleGet(App& app, const crow::Request& req,
             std::string dpuString = "host0";
             if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-                messages::internalError(asyncResp->res);
+                if (ec.value() == EBADR)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Port", id);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
             // Iterate over all retrieved ObjectPaths.
