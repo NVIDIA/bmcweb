@@ -735,6 +735,11 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             redfish::chassis_utils::getChassisReplaceable(
                                 asyncResp, connectionName.first, path);
                         }
+                        else if (interface == "com.nvidia.ImageCopyState")
+                        {
+                            nvidia_chassis_utils::getBackgroundCopyStatus(
+                                asyncResp, connectionName.first, objPath);
+                        }
                     }
                 }
 
