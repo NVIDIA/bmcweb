@@ -19,6 +19,7 @@
 
 #include "dbus_singleton.hpp"
 #include "nvidia_dbus_utility.hpp"
+#include "nvidia_fabric_config_update.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
@@ -1098,6 +1099,8 @@ inline void requestRoutesFabric(App& app)
                         asyncResp->res.jsonValue["Switches"] = {
                             {"@odata.id",
                              "/redfish/v1/Fabrics/" + fabricId + "/Switches"}};
+
+                        addSwitchConfigPushURI(asyncResp, fabricId);
 
                         if constexpr (BMCWEB_REDFISH_ROUTES_ZONE)
                         {

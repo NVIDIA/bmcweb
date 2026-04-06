@@ -277,6 +277,7 @@ void requestRoutesNvidia(crow::App& app)
 
     requestRoutesFabricCollection(app);
     requestRoutesFabric(app);
+    requestRoutesNvidiaConfigFile(app);
     requestRoutesSwitchCollection(app);
     requestRoutesSwitch(app);
     requestRoutesNVSwitchReset(app);
