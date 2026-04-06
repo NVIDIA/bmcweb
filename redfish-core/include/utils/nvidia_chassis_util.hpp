@@ -19,6 +19,7 @@
 #include "async_resp.hpp"
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
+#include "generated/enums/nvidia_chassis.hpp"
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
@@ -36,6 +37,7 @@
 #include <health.hpp>
 #include <nlohmann/json.hpp>
 #include <openbmc_dbus_rest.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <array>
 #include <memory>
@@ -3216,6 +3218,66 @@ inline void getChassisPolicyPropertiesFromMapper(
                 });
         }
     }
+}
+
+inline nvidia_chassis::BackgroundCopyStatus getBackgroundCopyStatusType(
+    const std::string& status)
+{
+    if (status == "com.nvidia.ImageCopyState.Status.ImageCopyNotTriggered")
+    {
+        return nvidia_chassis::BackgroundCopyStatus::Pending;
+    }
+    if (status == "com.nvidia.ImageCopyState.Status.InProgress")
+    {
+        return nvidia_chassis::BackgroundCopyStatus::InProgress;
+    }
+    if (status == "com.nvidia.ImageCopyState.Status.Complete")
+    {
+        return nvidia_chassis::BackgroundCopyStatus::Completed;
+    }
+    if (status == "com.nvidia.ImageCopyState.Status.UndefinedFailure" ||
+        status == "com.nvidia.ImageCopyState.Status.NoValidImage" ||
+        status ==
+            "com.nvidia.ImageCopyState.Status.DestinationWriteProtected" ||
+        status == "com.nvidia.ImageCopyState.Status.FailFlashAccess" ||
+        status == "com.nvidia.ImageCopyState.Status.FailedVerify")
+    {
+        return nvidia_chassis::BackgroundCopyStatus::Failed;
+    }
+    return nvidia_chassis::BackgroundCopyStatus::Invalid;
+}
+
+inline void getBackgroundCopyStatusCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& status)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("BackgroundCopyStatus getProperty error: {}",
+                         ec.value());
+        return;
+    }
+
+    nvidia_chassis::BackgroundCopyStatus backgroundCopyStatus =
+        getBackgroundCopyStatusType(status);
+    if (backgroundCopyStatus == nvidia_chassis::BackgroundCopyStatus::Invalid)
+    {
+        BMCWEB_LOG_ERROR("Unknown com.nvidia.ImageCopyState.Status value: {}",
+                         status);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["BackgroundCopyStatus"] =
+        backgroundCopyStatus;
+}
+
+inline void getBackgroundCopyStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const sdbusplus::message::object_path& objPath)
+{
+    dbus::utility::getProperty<std::string>(
+        service, objPath.str, "com.nvidia.ImageCopyState", "Status",
+        std::bind_front(getBackgroundCopyStatusCallback, asyncResp));
 }
 
 /**
