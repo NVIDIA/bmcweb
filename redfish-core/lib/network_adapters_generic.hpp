@@ -20,6 +20,8 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 
+#include <asm-generic/errno.h>
+
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
@@ -29,8 +31,6 @@
 #include <utils/nvidia_utils.hpp>
 #include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>
-
-#include <asm-generic/errno.h>
 
 #include <map>
 #include <optional>
@@ -1316,8 +1316,7 @@ inline void getPortDataByAssociation(
                 if (ec.value() == EBADR)
                 {
                     // no state sensors attached.
-                    messages::resourceNotFound(asyncResp->res, "Port",
-                                               portId);
+                    messages::resourceNotFound(asyncResp->res, "Port", portId);
                 }
                 else
                 {
