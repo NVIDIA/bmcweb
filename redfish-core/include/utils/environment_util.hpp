@@ -2003,7 +2003,7 @@ inline void getCpuPowerCapByService(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get CPU power Cap");
-    // Get parent chassis for sensors URI
+    // Get parent chassis name for building the Redfish Controls URI
     dbus::utility::async_method_call(
         [aResp, service,
          objPath](const boost::system::error_code& ec,
@@ -2016,7 +2016,6 @@ inline void getCpuPowerCapByService(
                 std::get_if<std::vector<std::string>>(&resp);
             if (data == nullptr || data->empty())
             {
-                // Object must have single parent chassis
                 return;
             }
             const std::string& chassisPath = data->front();
@@ -2028,31 +2027,58 @@ inline void getCpuPowerCapByService(
                 return;
             }
             const std::string& cpuId = cpuName;
+
+            // Try primary_power_control first (set by PLDM for the TDP
+            // nonvolatile control) to pick the correct DataSourceUri
+            // deterministically. Falls back to all power_controls if the
+            // association is not present.
             dbus::utility::async_method_call(
                 [aResp, service, objPath,
-                 cpuId](const boost::system::error_code& e,
-                        std::variant<std::vector<std::string>>& powerResp) {
-                    if (e)
+                 cpuId](const boost::system::error_code& primaryEc,
+                        std::variant<std::vector<std::string>>& primaryResp) {
+                    if (!primaryEc)
                     {
-                        // The path does not implement any power cap interfaces.
-                        return;
+                        std::vector<std::string>* primaryData =
+                            std::get_if<std::vector<std::string>>(&primaryResp);
+                        if (primaryData != nullptr && !primaryData->empty())
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Using primary_power_control for {}: {}", cpuId,
+                                primaryData->front());
+                            getCpuPowerCapService(aResp, service,
+                                                  primaryData->front(), cpuId);
+                            return;
+                        }
                     }
-                    std::vector<std::string>* data1 =
-                        std::get_if<std::vector<std::string>>(&powerResp);
-                    if (data1 == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    for (const std::string& sensorPath : *data1)
-                    {
-                        getCpuPowerCapService(aResp, service, sensorPath,
-                                              cpuId);
-                    }
+
+                    // Fallback: iterate all power_controls
+                    dbus::utility::async_method_call(
+                        [aResp, service, cpuId](
+                            const boost::system::error_code& ec2,
+                            std::variant<std::vector<std::string>>& allResp) {
+                            if (ec2)
+                            {
+                                return;
+                            }
+                            std::vector<std::string>* allData =
+                                std::get_if<std::vector<std::string>>(&allResp);
+                            if (allData == nullptr)
+                            {
+                                return;
+                            }
+                            for (const std::string& sensorPath : *allData)
+                            {
+                                getCpuPowerCapService(aResp, service,
+                                                      sensorPath, cpuId);
+                            }
+                        },
+                        "xyz.openbmc_project.ObjectMapper",
+                        objPath + "/power_controls",
+                        "org.freedesktop.DBus.Properties", "Get",
+                        "xyz.openbmc_project.Association", "endpoints");
                 },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/power_controls",
+                "xyz.openbmc_project.ObjectMapper",
+                objPath + "/primary_power_control",
                 "org.freedesktop.DBus.Properties", "Get",
                 "xyz.openbmc_project.Association", "endpoints");
         },
