@@ -177,11 +177,13 @@ constexpr const std::string_view blueFieldSensor = "BF3_Slot_";
 constexpr const std::string_view storageBP = "StorageBackplane_";
 constexpr const std::string_view storageDevice = "SSD_";
 constexpr const std::string_view networkAdapterConnectX = "ConnectX_";
+constexpr const std::string_view networkAdapterCX = "CX_";
 constexpr const std::string_view inlet = "Chassis_0_Inlet_";
 constexpr const std::string_view pcb = "Chassis_0_PCB_";
 constexpr const std::string_view hsc = "Chassis_0_HSC_";
 constexpr const std::string_view sxm = "GPU_SXM_";
 constexpr const std::string_view sxmSma = "SXM_SMA_";
+constexpr const std::string_view ioSma = "IO_Board_SMA_";
 constexpr const std::string_view cxSma = "ConnectX_SMA_";
 constexpr const std::string_view gpuSma = "GPU_SMA_";
 constexpr const std::string_view pmSma = "ProcessorModule_SMA_";
@@ -232,8 +234,12 @@ inline const MetricsReplacement sxmPlatformEnvironmentMetrics(sxm, "{SXMWild}",
                                                               "SXMWild");
 inline const MetricsReplacement connectXPlatformEnvironmentMetrics(
     networkAdapterConnectX, "{CXWild}", "CXWild");
+inline const MetricsReplacement cxPlatformEnvironmentMetrics(
+    networkAdapterCX, "{CNXWild}", "CNXWild");
 inline const MetricsReplacement sxmSmaPlatformEnvironmentMetrics(
     sxmSma, "{SSMAWild}", "SSMAWild");
+inline const MetricsReplacement ioSmaPlatformEnvironmentMetrics(
+    ioSma, "{ISMAWild}", "ISMAWild");
 inline const MetricsReplacement cxSmaPlatformEnvironmentMetrics(
     cxSma, "{CSMAWild}", "CSMAWild");
 inline const MetricsReplacement gpuSmaPlatformEnvironmentMetrics(
@@ -1011,7 +1017,11 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(connectXPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(cxPlatformEnvironmentMetrics,
+                                  allowedWildcards);
             updateReplacementFlag(sxmSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(ioSmaPlatformEnvironmentMetrics,
                                   allowedWildcards);
             updateReplacementFlag(cxSmaPlatformEnvironmentMetrics,
                                   allowedWildcards);
@@ -1067,7 +1077,11 @@ inline void getShmemMetricsDefinitionWildCard(
                                 inputMetricProperties);
             metricsReplacements(connectXPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
+            metricsReplacements(cxPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
             metricsReplacements(sxmSmaPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(ioSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(cxSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
