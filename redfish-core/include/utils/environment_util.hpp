@@ -1217,26 +1217,28 @@ inline void getPowerAndControlData(
                     continue;
                 }
 
+                // Try primary_power_control first (set by PLDM for the
+                // TDP nonvolatile control) to pick the correct
+                // DataSourceUri deterministically. Falls back to all
+                // power_controls if the association is not present.
                 dbus::utility::async_method_call(
-                    [asyncResp, connectionName, interfaceList, resourceId](
-                        const boost::system::error_code& e,
-                        std::variant<std::vector<std::string>>& resp1) {
-                        if (e)
-                        {
-                            return;
-                        }
-                        std::vector<std::string>* data1 =
-                            std::get_if<std::vector<std::string>>(&resp1);
-                        if (data1 == nullptr)
-                        {
-                            return;
-                        }
-                        for (const std::string& ctrlPath : *data1)
-                        {
+                    [asyncResp, connectionName, interfaceList, resourceId,
+                     path](
+                        const boost::system::error_code& primaryEc,
+                        std::variant<std::vector<std::string>>& primaryResp) {
+                        auto populateControl = [&asyncResp, &connectionName,
+                                                &interfaceList, &resourceId](
+                                                   const std::string& ctrlPath,
+                                                   bool setDataSourceUri) {
+                            if (setDataSourceUri)
+                            {
+                                getPowerLimitDataSourceUri(
+                                    asyncResp, resourceId, ctrlPath);
+                            }
                             getPowerCap(asyncResp, connectionName, ctrlPath);
                             getPowerCap(asyncResp, resourceId, ctrlPath);
-                            // Skip getControlMode if it does not support the
-                            // Control Mode
+                            // Skip getControlMode if it does not support
+                            // the Control Mode
                             if (std::find(interfaceList.begin(),
                                           interfaceList.end(),
                                           "xyz.openbmc_project.Control.Mode") !=
@@ -1254,11 +1256,55 @@ inline void getPowerAndControlData(
                             }
                             getPowerReadings(asyncResp, connectionName,
                                              ctrlPath, resourceId);
+                        };
+
+                        if (!primaryEc)
+                        {
+                            std::vector<std::string>* primaryData =
+                                std::get_if<std::vector<std::string>>(
+                                    &primaryResp);
+                            if (primaryData != nullptr && !primaryData->empty())
+                            {
+                                BMCWEB_LOG_DEBUG("Using primary_power_control "
+                                                 "for {}: {}",
+                                                 resourceId,
+                                                 primaryData->front());
+                                populateControl(primaryData->front(), true);
+                                return;
+                            }
                         }
+
+                        // Fallback: iterate all power_controls
+                        dbus::utility::async_method_call(
+                            [asyncResp, connectionName, interfaceList,
+                             resourceId, populateControl](
+                                const boost::system::error_code& e,
+                                std::variant<std::vector<std::string>>& resp1) {
+                                if (e)
+                                {
+                                    return;
+                                }
+                                std::vector<std::string>* data1 =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp1);
+                                if (data1 == nullptr)
+                                {
+                                    return;
+                                }
+                                for (const std::string& ctrlPath : *data1)
+                                {
+                                    populateControl(ctrlPath, false);
+                                }
+                            },
+                            "xyz.openbmc_project.ObjectMapper",
+                            path + "/power_controls",
+                            "org.freedesktop.DBus.Properties", "Get",
+                            "xyz.openbmc_project.Association", "endpoints");
                     },
                     "xyz.openbmc_project.ObjectMapper",
-                    path + "/power_controls", "org.freedesktop.DBus.Properties",
-                    "Get", "xyz.openbmc_project.Association", "endpoints");
+                    path + "/primary_power_control",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
             }
         });
 }
