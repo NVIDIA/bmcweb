@@ -164,16 +164,9 @@ inline void afterChassisSpiInterfacesFound(
     const dbus::utility::MapperGetSubTreePathsResponse& paths)
 {
     BMCWEB_LOG_DEBUG("afterChassisSpiInterfacesFound");
-    if (ec)
+    if (ec || paths.empty())
     {
-        // NO spi interfaces found. This is fine.
-        BMCWEB_LOG_DEBUG("NO spi interfaces found. This is fine.");
-        return;
-    }
-
-    if (paths.empty())
-    {
-        BMCWEB_LOG_ERROR(
+        BMCWEB_LOG_DEBUG(
             "No SPI interface object paths found for chassisId: {}", chassisId);
         return;
     }
