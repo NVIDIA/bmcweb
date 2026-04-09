@@ -17,6 +17,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task_messages.hpp"
+#include "utils/collection.hpp"
 #include "utils/etag_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/privilege_utils.hpp"
@@ -687,9 +688,9 @@ inline void requestRoutesTaskCollection(App& app)
                 asyncResp->res.jsonValue["Name"] = "Task Collection";
                 const std::deque<std::shared_ptr<task::TaskData>>& tasks =
                     task::TaskRegistry::getInstance().getTasks();
-                asyncResp->res.jsonValue["Members@odata.count"] = tasks.size();
-                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-                members = nlohmann::json::array();
+                nlohmann::json::array_t& members =
+                    collection_util::getJsonArray(asyncResp->res.jsonValue,
+                                                  "Members");
 
                 for (const std::shared_ptr<task::TaskData>& task : tasks)
                 {
@@ -703,6 +704,8 @@ inline void requestRoutesTaskCollection(App& app)
                                             std::to_string(task->index));
                     members.emplace_back(std::move(member));
                 }
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    members.size();
             });
 }
 

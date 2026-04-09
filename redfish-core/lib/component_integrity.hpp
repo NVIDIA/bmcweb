@@ -25,6 +25,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <task.hpp>
 #include <utils/chassis_utils.hpp>
+#include <utils/collection.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_stl_utils.hpp>
 #include <utils/nvidia_time_utils.hpp>
@@ -451,11 +452,11 @@ inline void requestRoutesComponentIntegrity(App& app)
             {
                 return;
             }
-            asyncResp->res.jsonValue = {
-                {"@odata.id", "/redfish/v1/ComponentIntegrity"},
-                {"@odata.type", "#ComponentIntegrityCollection."
-                                "ComponentIntegrityCollection"},
-                {"Name", "ComponentIntegrity Collection"}};
+            asyncResp->res.jsonValue["@odata.id"] =
+                "/redfish/v1/ComponentIntegrity";
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ComponentIntegrityCollection.ComponentIntegrityCollection";
+            asyncResp->res.jsonValue["Name"] = "ComponentIntegrity Collection";
 
             const std::array<const char*, 1> interface = {
                 "xyz.openbmc_project.SPDM.Responder"};
@@ -468,10 +469,11 @@ inline void requestRoutesComponentIntegrity(App& app)
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    nlohmann::json& memberArray =
-                        asyncResp->res.jsonValue["Members"];
-                    memberArray = nlohmann::json::array();
-                    asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                    nlohmann::json::array_t& memberArray =
+                        collection_util::getJsonArray(asyncResp->res.jsonValue,
+                                                      "Members");
+                    asyncResp->res.jsonValue["Members@odata.count"] =
+                        memberArray.size();
                     for (const std::pair<
                              std::string,
                              std::vector<std::pair<std::string,
@@ -482,9 +484,9 @@ inline void requestRoutesComponentIntegrity(App& app)
                         dbus::utility::getProperty<bool>(
                             object.second[0].first, objPathString,
                             "xyz.openbmc_project.Object.Enable", "Enabled",
-                            [asyncResp, objPathString,
-                             &memberArray](const boost::system::error_code& ec2,
-                                           const bool& enabled) {
+                            [asyncResp, objPathString](
+                                const boost::system::error_code& ec2,
+                                const bool& enabled) {
                                 if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -500,13 +502,16 @@ inline void requestRoutesComponentIntegrity(App& app)
 
                                 sdbusplus::message::object_path objPath(
                                     objPathString);
-                                memberArray.push_back(
+                                nlohmann::json::array_t& currentMembers =
+                                    collection_util::getJsonArray(
+                                        asyncResp->res.jsonValue, "Members");
+                                currentMembers.push_back(
                                     {{"@odata.id",
                                       "/redfish/v1/ComponentIntegrity/" +
                                           objPath.filename()}});
                                 asyncResp->res
                                     .jsonValue["Members@odata.count"] =
-                                    memberArray.size();
+                                    currentMembers.size();
                             });
                     }
                 },

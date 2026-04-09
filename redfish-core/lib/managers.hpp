@@ -24,6 +24,7 @@
 #include "redfish.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/etag_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -1061,12 +1062,12 @@ inline void handleManagerCollectionGet(
     asyncResp->res.jsonValue["@odata.type"] =
         "#ManagerCollection.ManagerCollection";
     asyncResp->res.jsonValue["Name"] = "Manager Collection";
-    asyncResp->res.jsonValue["Members@odata.count"] = 1;
-    nlohmann::json::array_t members;
+    nlohmann::json::array_t& members =
+        collection_util::getJsonArray(asyncResp->res.jsonValue, "Members");
     nlohmann::json& bmc = members.emplace_back();
     bmc["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    asyncResp->res.jsonValue["Members"] = std::move(members);
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
 inline void requestRoutesManager(App& app)
