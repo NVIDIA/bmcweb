@@ -283,7 +283,7 @@ inline void parseAdditionalDataForCPER(
     if (additional.end() == cperTime)
     {
         // Don't exit here, use HMC time by default
-        BMCWEB_LOG_ERROR("timestamp property not found in CPER log");
+        BMCWEB_LOG_INFO("timestamp property not found in CPER log");
     }
     else
     {
