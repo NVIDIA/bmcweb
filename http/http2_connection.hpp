@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -36,6 +37,7 @@
 
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -52,6 +54,15 @@
 
 namespace crow
 {
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static int http2ConnectionCount = 0;
+
+enum class DeadlineTimerType
+{
+    Default,
+    Keepalive,
+};
 
 struct Http2StreamData
 {
@@ -93,8 +104,22 @@ class HTTP2Connection :
         const std::shared_ptr<persistent_data::UserSession>& mtlsSessionIn) :
         httpType(httpTypeIn), adaptor(std::move(adaptorIn)),
         ngSession(initializeNghttp2Session()), handler(handlerIn),
-        getCachedDateStr(getCachedDateStrF), mtlsSession(mtlsSessionIn)
-    {}
+        getCachedDateStr(getCachedDateStrF), mtlsSession(mtlsSessionIn),
+        timer(adaptor.get_executor())
+    {
+        http2ConnectionCount++;
+    }
+
+    ~HTTP2Connection()
+    {
+        cancelDeadlineTimer();
+        http2ConnectionCount--;
+    }
+
+    HTTP2Connection(const HTTP2Connection&) = delete;
+    HTTP2Connection(HTTP2Connection&&) = delete;
+    HTTP2Connection& operator=(const HTTP2Connection&) = delete;
+    HTTP2Connection& operator=(HTTP2Connection&&) = delete;
 
     void start()
     {
@@ -107,6 +132,7 @@ class HTTP2Connection :
             return;
         }
         readClientIp();
+        startDeadline(DeadlineTimerType::Keepalive);
         doRead();
     }
 
@@ -128,6 +154,7 @@ class HTTP2Connection :
             return;
         }
         readClientIp();
+        startDeadline(DeadlineTimerType::Keepalive);
         doRead();
     }
 
@@ -781,6 +808,13 @@ class HTTP2Connection :
         }
         // NVIDIA code end
         self.streams.erase(it);
+        // streams map always has stream 0 (control); if only that remains,
+        // the connection is idle -- switch to the longer keepalive timeout
+        if (self.streams.size() <= 1)
+        {
+            self.cancelDeadlineTimer();
+            self.startDeadline(DeadlineTimerType::Keepalive);
+        }
         return 0;
     }
 
@@ -901,6 +935,8 @@ class HTTP2Connection :
             {
                 BMCWEB_LOG_ERROR("Failed to set local window size");
             }
+            cancelDeadlineTimer();
+            startDeadline(DeadlineTimerType::Default);
         }
         return 0;
     }
@@ -979,6 +1015,7 @@ class HTTP2Connection :
 
     void close()
     {
+        cancelDeadlineTimer();
         adaptor.next_layer().close();
     }
 
@@ -1014,6 +1051,62 @@ class HTTP2Connection :
         writeBuffer();
 
         doRead();
+    }
+
+    void cancelDeadlineTimer()
+    {
+        timer.cancel();
+        timerStarted = false;
+    }
+
+    void afterTimerWait(const std::weak_ptr<self_type>& weakSelf,
+                        const boost::system::error_code& ec)
+    {
+        std::shared_ptr<self_type> self = weakSelf.lock();
+        if (!self)
+        {
+            return;
+        }
+
+        self->timerStarted = false;
+
+        if (ec)
+        {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_DEBUG("{} HTTP2 timer canceled", logPtr(self.get()));
+                return;
+            }
+            BMCWEB_LOG_CRITICAL("{} HTTP2 timer failed {}", logPtr(self.get()),
+                                ec);
+        }
+
+        BMCWEB_LOG_WARNING("{} HTTP2 connection timed out, closing",
+                           logPtr(self.get()));
+        self->close();
+    }
+
+    void startDeadline(DeadlineTimerType timerType)
+    {
+        if (timerStarted)
+        {
+            return;
+        }
+
+        int timeoutDurationSeconds = BMCWEB_HTTP_RESPONSE_TIMEOUT;
+        if (timerType == DeadlineTimerType::Keepalive)
+        {
+            timeoutDurationSeconds = 15 * 60;
+        }
+
+        std::chrono::seconds timeout(timeoutDurationSeconds);
+
+        timer.expires_after(timeout);
+        timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,
+                                         weak_from_this()));
+        timerStarted = true;
+        BMCWEB_LOG_DEBUG("{} HTTP2 timer started ({} seconds)", logPtr(this),
+                         timeoutDurationSeconds);
     }
 
     void doRead()
@@ -1058,6 +1151,9 @@ class HTTP2Connection :
     std::function<std::string()>& getCachedDateStr;
 
     std::shared_ptr<persistent_data::UserSession> mtlsSession;
+
+    boost::asio::steady_timer timer;
+    bool timerStarted = false;
 
     using std::enable_shared_from_this<
         HTTP2Connection<Adaptor, Handler>>::shared_from_this;

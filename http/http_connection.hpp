@@ -71,12 +71,6 @@ constexpr uint64_t loggedOutPostBodyLimit = 4096U;
 
 constexpr uint32_t httpHeaderLimit = 8192U;
 
-enum class DeadlineTimerType
-{
-    Default,
-    Keepalive,
-};
-
 template <typename Adaptor, typename Handler>
 class Connection :
     public std::enable_shared_from_this<Connection<Adaptor, Handler>>
@@ -301,6 +295,12 @@ class Connection :
 
     void upgradeToHttp2()
     {
+        if (http2ConnectionCount >= 200)
+        {
+            BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
+                             http2ConnectionCount);
+            return;
+        }
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
             std::move(adaptor), handler, getCachedDateStr, httpType,
             mtlsSession);
