@@ -2155,9 +2155,8 @@ inline void getUefiPropertySettingsHost(
     dbus::utility::getProperty<std::vector<std::string>>(
         settingsService, host0BootPath,
         "xyz.openbmc_project.Control.Boot.Source", "AllowedSources",
-        [aResp,
-         addSourcesList](const boost::system::error_code& ec,
-                         const std::vector<std::string>& dbusSourcesList) {
+        [aResp](const boost::system::error_code& ec,
+                const std::vector<std::string>& dbusSourcesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -2187,7 +2186,7 @@ inline void getUefiPropertySettingsHost(
                         isIncludeUefiHttp = true;
                     }
                 }
-                if (addSourcesList)
+                if (!sourcesList.empty())
                 {
                     aResp->res.jsonValue
                         ["Boot"]
