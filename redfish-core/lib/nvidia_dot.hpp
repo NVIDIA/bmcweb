@@ -100,6 +100,14 @@ inline void handleDOTErrorResult(
         return;
     }
     if (status ==
+        nvidia_async_operation_utils::asyncStatusValueConflictingOperation)
+    {
+        BMCWEB_LOG_WARNING("DOT {} rejected - conflicting operation: {}",
+                           actionName, errorMsg);
+        asyncResp->res.result(boost::beast::http::status::conflict);
+        return;
+    }
+    if (status ==
         nvidia_async_operation_utils::asyncStatusValueUnsupportedRequest)
     {
         BMCWEB_LOG_ERROR("DOT {} unsupported by device: {}", actionName,

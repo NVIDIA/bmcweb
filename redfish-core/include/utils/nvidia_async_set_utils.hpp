@@ -60,6 +60,8 @@ static constexpr std::string_view asyncStatusValueWriteFailure =
     "com.nvidia.Async.Status.AsyncOperationStatus.WriteFailure";
 static constexpr std::string_view asyncStatusValueInvalidArgument =
     "com.nvidia.Async.Status.AsyncOperationStatus.InvalidArgument";
+static constexpr std::string_view asyncStatusValueConflictingOperation =
+    "com.nvidia.Async.Status.AsyncOperationStatus.ConflictingOperation";
 
 /**
  * Maps D-Bus error name to async status. Use when msg.get_error() is available
