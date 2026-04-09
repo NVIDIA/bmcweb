@@ -61,8 +61,14 @@
 namespace crow
 {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static int connectionCount = 0;
+// getConnectionCount() is defined in http2_connection.hpp (included above)
+// so that it is shared between Connection and HTTP2Connection.
+
+constexpr int maxHttp1Connections = 200;
+// HTTP/2 connections have no keepalive limit and each can multiplex many
+// concurrent streams, so a much lower connection cap is appropriate here
+// than for HTTP/1.1.
+constexpr int maxHttp2Connections = 40;
 
 // request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
 constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
@@ -70,12 +76,6 @@ constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
 constexpr uint64_t loggedOutPostBodyLimit = 4096U;
 
 constexpr uint32_t httpHeaderLimit = 8192U;
-
-enum class DeadlineTimerType
-{
-    Default,
-    Keepalive,
-};
 
 template <typename Adaptor, typename Handler>
 class Connection :
@@ -93,10 +93,10 @@ class Connection :
     {
         initParser();
 
-        connectionCount++;
+        getConnectionCount()++;
 
         BMCWEB_LOG_DEBUG("{} Connection created, total {}", logPtr(this),
-                         connectionCount);
+                         getConnectionCount());
     }
 
     ~Connection()
@@ -104,9 +104,9 @@ class Connection :
         res.releaseCompleteRequestHandler();
         cancelDeadlineTimer();
 
-        connectionCount--;
+        getConnectionCount()--;
         BMCWEB_LOG_DEBUG("{} Connection closed, total {}", logPtr(this),
-                         connectionCount);
+                         getConnectionCount());
     }
 
     Connection(const Connection&) = delete;
@@ -217,8 +217,8 @@ class Connection :
     void start()
     {
         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
-                         connectionCount);
-        if (connectionCount >= 200)
+                         getConnectionCount());
+        if (getConnectionCount() >= maxHttp1Connections)
         {
             BMCWEB_LOG_CRITICAL("{}Max connection count exceeded.",
                                 logPtr(this));
@@ -295,6 +295,18 @@ class Connection :
 
     void upgradeToHttp2()
     {
+        // -1: this HTTP/1.1 wrapper is still alive and counted, but is about
+        // to be replaced by the HTTP2Connection created below.
+        if (getConnectionCount() - 1 >= maxHttp2Connections)
+        {
+            BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
+                                getConnectionCount());
+            // Clears any mTLS session and sends a clean TLS close_notify
+            // instead of a bare reset, in case doUpgrade() already wrote a
+            // 101 response before this recheck rejected the upgrade.
+            gracefulClose();
+            return;
+        }
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
             std::move(adaptor), handler, getCachedDateStr, httpType,
             mtlsSession);
@@ -307,6 +319,20 @@ class Connection :
             http2->startFromSettings(http2settings);
         }
     }
+
+    // Nvidia code starts here
+    // requestAsyncResp's completion handler holds a shared_ptr back to this
+    // connection; drop it before reset() or ~AsyncResp fires
+    // completeRequest() a second time.
+    void releaseRequestAsyncResp()
+    {
+        if (requestAsyncResp)
+        {
+            requestAsyncResp->res.releaseCompleteRequestHandler();
+            requestAsyncResp.reset();
+        }
+    }
+    // Nvidia code ends here
 
     // returns whether connection was upgraded
     bool doUpgrade(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -335,12 +361,36 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
+<<<<<<< HEAD
             std::string_view base64settings = req->req[field::http2_settings];
+||||||| constructed merge base
+            std::string_view base64settings = req->req["HTTP2-Settings"];
+=======
+            // getConnectionCount() already includes this connection itself;
+            // see the matching comment in upgradeToHttp2().
+            if (getConnectionCount() - 1 >= maxHttp2Connections)
+            {
+                BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
+                                    getConnectionCount());
+                res.result(boost::beast::http::status::service_unavailable);
+                keepAlive = false;
+                releaseRequestAsyncResp();
+                completeRequest(res);
+                return true;
+            }
+            std::string_view base64settings = req->req["HTTP2-Settings"];
+>>>>>>> http: Add idle timeout and connection limit for HTTP/2
             if (utility::base64Decode<true>(base64settings, http2settings))
             {
                 res.result(boost::beast::http::status::switching_protocols);
                 res.addHeader(boost::beast::http::field::connection, "Upgrade");
                 res.addHeader(boost::beast::http::field::upgrade, "h2c");
+                // Must complete the response ourselves; afterDoWrite() spots
+                // switching_protocols and calls upgradeToHttp2() once it's
+                // written.
+                releaseRequestAsyncResp();
+                completeRequest(res);
+                return true;
             }
         }
 
@@ -449,11 +499,25 @@ class Connection :
                             req->getHeaderValue("X-Requested-With"),
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
+<<<<<<< HEAD
                     if (requestAsyncResp)
                     {
                         requestAsyncResp->res.releaseCompleteRequestHandler();
                         requestAsyncResp.reset();
                     }
+||||||| constructed merge base
+                    // Nvidia code starts here
+                    if (requestAsyncResp)
+                    {
+                        requestAsyncResp->res.releaseCompleteRequestHandler();
+                        requestAsyncResp.reset();
+                    }
+                    // Nvidia code ends here
+=======
+                    // Nvidia code starts here
+                    releaseRequestAsyncResp();
+                    // Nvidia code ends here
+>>>>>>> http: Add idle timeout and connection limit for HTTP/2
                     return;
                 }
             }
