@@ -1114,22 +1114,28 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     {
         if (!deviceName.empty() || !errorId.empty())
         {
-            nlohmann::json oem = {
-                {"Oem",
-                 {{"Nvidia",
-                   {{"@odata.type",
-                     "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry"}}}}}};
+            nlohmann::json& nvidiaOem = objectToFillOut["Oem"]["Nvidia"];
             if (!deviceName.empty())
             {
-                oem["Oem"]["Nvidia"]["Device"] = deviceName;
+                nvidiaOem["Device"] = deviceName;
             }
             if (!errorId.empty())
             {
-                oem["Oem"]["Nvidia"]["ErrorId"] = errorId;
+                nvidiaOem["ErrorId"] = errorId;
             }
-            objectToFillOut.update(oem);
         }
     } // BMCWEB_NVIDIA_OEM_PROPERTIES
+
+    auto oemIt = objectToFillOut.find("Oem");
+    if (oemIt != objectToFillOut.end())
+    {
+        auto nvidiaIt = oemIt->find("Nvidia");
+        if (nvidiaIt != oemIt->end())
+        {
+            (*nvidiaIt)["@odata.type"] =
+                "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry";
+        }
+    }
 }
 
 inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
