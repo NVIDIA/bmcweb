@@ -835,7 +835,7 @@ inline void handleChassisGetSubTree(
                                     const bool property) {
                             if (ec3)
                             {
-                                BMCWEB_LOG_ERROR(
+                                BMCWEB_LOG_DEBUG(
                                     "DBus response error for HotPluggable: {}",
                                     ec3);
                                 // not abort the resource display
