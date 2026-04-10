@@ -794,9 +794,7 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
  * @return Returns as a string, the boot progress in Redfish terms. If
  *         translation cannot be done, returns "None".
  */
-inline std::string dbusToRfBootProgress(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& dbusBootProgress)
+inline std::string dbusToRfBootProgress(const std::string& dbusBootProgress)
 {
     // Now convert the D-Bus BootProgress to the appropriate Redfish
     // enum
@@ -865,28 +863,10 @@ inline std::string dbusToRfBootProgress(
              "OEM")
     {
         rfBpLastState = "OEM";
-        dbus::utility::getProperty<std::string>(
-            "xyz.openbmc_project.State.Host",
-            "/xyz/openbmc_project/state/host0",
-            "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
-            [aResp](const boost::system::error_code& ec,
-                    const std::string& bootProgressoem) {
-                if (ec)
-                {
-                    // BootProgressOem is an optional object so just do nothing
-                    // if not found
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    return;
-                }
-
-                aResp->res.jsonValue["BootProgress"]["OemLastState"] =
-                    bootProgressoem;
-            });
     }
     else
     {
         BMCWEB_LOG_DEBUG("Unsupported D-Bus BootProgress {}", dbusBootProgress);
-        // Just return the default
     }
     return rfBpLastState;
 }
@@ -969,64 +949,69 @@ inline int assignBootParameters(
 }
 
 /**
- * @brief Retrieves boot progress of the system
+ * @brief Retrieves boot progress, OEM state, and last update time of the
+ *        system in a single D-Bus GetAll call so that the three properties
+ *        are read from a consistent snapshot.
  *
  * @param[in] asyncResp  Shared pointer for generating response message.
  *
  * @return None.
  */
-inline void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBootProgressState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::getProperty<std::string>(
+    dbus::utility::getAllProperties(
         "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.Boot.Progress", "BootProgress",
+        "xyz.openbmc_project.State.Boot.Progress",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::string& bootProgressStr) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                // BootProgress is an optional object so just do nothing if
-                // not found
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
                 return;
             }
 
-            BMCWEB_LOG_DEBUG("Boot Progress: {}", bootProgressStr);
+            const std::string* bootProgress = nullptr;
+            const std::string* bootProgressOem = nullptr;
+            const uint64_t* bootProgressLastUpdate = nullptr;
 
-            asyncResp->res.jsonValue["BootProgress"]["LastState"] =
-                dbusToRfBootProgress(asyncResp, bootProgressStr);
-        });
-}
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "BootProgress",
+                bootProgress, "BootProgressOem", bootProgressOem,
+                "BootProgressLastUpdate", bootProgressLastUpdate);
 
-/**
- * @brief Retrieves boot progress Last Update of the system
- *
- * @param[in] asyncResp  Shared pointer for generating response message.
- *
- * @return None.
- */
-inline void getBootProgressLastStateTime(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    dbus::utility::getProperty<uint64_t>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.Boot.Progress", "BootProgressLastUpdate",
-        [asyncResp](const boost::system::error_code& ec,
-                    const uint64_t lastStateTime) {
-            if (ec)
+            if (!success)
             {
-                BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
-            // BootProgressLastUpdate is the last time the BootProgress property
-            // was updated. The time is the Epoch time, number of microseconds
-            // since 1 Jan 1970 00::00::00 UTC."
-            // https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/
-            // yaml/xyz/openbmc_project/State/Boot/Progress.interface.yaml#L11
+            if (bootProgress != nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Boot Progress: {}", *bootProgress);
+                std::string rfState = dbusToRfBootProgress(*bootProgress);
+                asyncResp->res.jsonValue["BootProgress"]["LastState"] = rfState;
 
-            // Convert to ISO 8601 standard
-            asyncResp->res.jsonValue["BootProgress"]["LastStateTime"] =
-                redfish::time_utils::getDateTimeUintUs(lastStateTime);
+                if (rfState == "OEM" && bootProgressOem != nullptr)
+                {
+                    asyncResp->res.jsonValue["BootProgress"]["OemLastState"] =
+                        *bootProgressOem;
+                }
+            }
+
+            if (bootProgressLastUpdate != nullptr)
+            {
+                // BootProgressLastUpdate is the last time the BootProgress
+                // property was updated. The time is the Epoch time, number of
+                // microseconds since 1 Jan 1970 00::00::00 UTC.
+                // https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/
+                // yaml/xyz/openbmc_project/State/Boot/Progress.interface.yaml#L11
+
+                // Convert to ISO 8601 standard
+                asyncResp->res.jsonValue["BootProgress"]["LastStateTime"] =
+                    redfish::time_utils::getDateTimeUintUs(
+                        *bootProgressLastUpdate);
+            }
         });
 }
 
@@ -4055,8 +4040,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         getBootProperties(asyncResp);
-        getBootProgress(asyncResp);
-        getBootProgressLastStateTime(asyncResp);
+        getBootProgressState(asyncResp);
         redfish::bios_utils::checkBiosSupport([asyncResp]() {
             redfish::nvidia_systems_utils::getBootOrder(asyncResp);
             redfish::nvidia_systems_utils::getSecureBoot(asyncResp);
