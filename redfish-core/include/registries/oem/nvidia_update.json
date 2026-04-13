@@ -2,7 +2,7 @@
     "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
     "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
     "Description": "This registry defines the update messages for Nvidia.",
-    "Id": "NvidiaUpdate.1.0.0",
+    "Id": "NvidiaUpdate.1.0.1",
     "Language": "en",
     "Messages": {
         "ComponentUpdateSkipped": {
@@ -94,6 +94,15 @@
             "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "OK"
+        },
+        "FirmwareInRecovery": {
+            "Description": "Indicates that device had boot failure and currently entered firmware recovery mode which requires external fw recovery",
+            "Message": "Firmware %1 is in Recovery.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Perform device FW recovery",
+            "Severity": "Critical"
         },
         "FirmwareNotInRecovery": {
             "Description": "Indicates that a firmware is not in Recovery Mode",
@@ -189,5 +198,5 @@
     "Name": "Nvidia Message Registry",
     "OwningEntity": "Nvidia",
     "RegistryPrefix": "NvidiaUpdate",
-    "RegistryVersion": "1.0.0"
+    "RegistryVersion": "1.0.1"
 }

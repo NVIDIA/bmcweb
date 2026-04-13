@@ -370,6 +370,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::recoverySuccessful(arg1);
     }
+    if (msgId == "NvidiaUpdate.1.0.FirmwareInRecovery")
+    {
+        return messages::firmwareInRecovery(arg1);
+    }
     if (msgId == "NvidiaUpdate.1.0.FirmwareNotInRecovery")
     {
         return messages::firmwareNotInRecovery(arg1);

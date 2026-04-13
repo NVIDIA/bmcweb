@@ -207,6 +207,13 @@ inline nlohmann::json recoverySuccessful(std::string_view arg1)
         redfish::registries::NvidiaUpdate::Index::recoverySuccessful, args);
 }
 
+inline nlohmann::json firmwareInRecovery(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwareInRecovery, args);
+}
+
 inline nlohmann::json firmwareNotInRecovery(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};

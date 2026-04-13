@@ -26,7 +26,7 @@ static constexpr Header header = {
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
     0,
-    0,
+    1,
     "Nvidia Message Registry",
     "en",
     "This registry defines the update messages for Nvidia.",
@@ -225,6 +225,18 @@ static constexpr std::array registry =
             "Perform an L1 reset, then proceed with a second firmware recovery update to initiate DOT recovery NSM commands, such as DOTOverride.",
         }},
     MessageEntry{
+        "FirmwareInRecovery",
+        {
+            "Indicates that device had boot failure and currently entered firmware recovery mode which requires external fw recovery",
+            "Firmware %1 is in Recovery.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Perform device FW recovery",
+        }},
+    MessageEntry{
         "FirmwareNotInRecovery",
         {
             "Indicates that a firmware is not in Recovery Mode",
@@ -306,11 +318,12 @@ enum class Index
     debugTokenStatusSuccess = 12,
     debugTokenUnsupported = 13,
     enterDOTRecovery = 14,
-    firmwareNotInRecovery = 15,
-    headerValueInvalid = 16,
-    imageCopyCompleted = 17,
-    recoveryStarted = 18,
-    recoverySuccessful = 19,
+    firmwareInRecovery = 15,
+    firmwareNotInRecovery = 16,
+    headerValueInvalid = 17,
+    imageCopyCompleted = 18,
+    recoveryStarted = 19,
+    recoverySuccessful = 20,
 };
 }; // struct nvidia_update
 
