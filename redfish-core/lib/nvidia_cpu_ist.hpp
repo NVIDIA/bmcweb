@@ -40,7 +40,8 @@ constexpr std::string_view istServiceName = "com.nvidia.vera.ist";
 constexpr std::string_view istObjectPath = "/com/nvidia/vera/ist";
 constexpr std::string_view istControlInterface =
     "xyz.openbmc_project.ist.Control";
-constexpr std::string_view istStateInterface = "com.nvidia.vera.ist.State";
+constexpr std::string_view istRunStateInterface =
+    "com.nvidia.vera.ist.run.State";
 
 struct IstTaskContext
 {
@@ -101,14 +102,31 @@ inline void onStageChange(const std::weak_ptr<task::TaskData>& weakTask,
 
 inline void onStartIstComplete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    task::Payload&& payload, const boost::system::error_code& ec)
+    task::Payload&& payload, const boost::system::error_code& ec,
+    const sdbusplus::message::object_path& runPath)
 {
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to start IST: {}", ec);
+        if (ec == boost::system::errc::device_or_resource_busy)
+        {
+            messages::resourceInUse(asyncResp->res);
+        }
+        else
+        {
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    std::string runPathStr = runPath.str;
+    if (runPathStr.empty())
+    {
+        BMCWEB_LOG_ERROR("StartIST returned empty run object path");
         messages::internalError(asyncResp->res);
         return;
     }
+    BMCWEB_LOG_INFO("IST run object: {}", runPathStr);
 
     std::shared_ptr<IstTaskContext> ctx = std::make_shared<IstTaskContext>();
 
@@ -119,8 +137,7 @@ inline void onStartIstComplete(
             return dbus_fd_utils::handleTaskMessage(ec2, msg, td);
         },
         std::string(sdbusplus::bus::match::rules::propertiesChanged(
-            std::string(istObjectPath),
-            "xyz.openbmc_project.Common.Progress")));
+            runPathStr, "xyz.openbmc_project.Common.Progress")));
 
     taskData->payload.emplace(std::move(payload));
     taskData->populateResp(asyncResp->res);
@@ -130,7 +147,7 @@ inline void onStartIstComplete(
     ctx->stageMatch = std::make_unique<sdbusplus::bus::match_t>(
         static_cast<sdbusplus::bus::bus&>(*crow::connections::systemBus),
         sdbusplus::bus::match::rules::propertiesChanged(
-            std::string(istObjectPath), std::string(istStateInterface)),
+            runPathStr, std::string(istRunStateInterface)),
         std::bind_front(onStageChange, weakTask));
 }
 
@@ -202,8 +219,9 @@ inline void handlePostStartIst(
 
     dbus::utility::async_method_call(
         [asyncResp, payload = std::move(payload)](
-            const boost::system::error_code& ec) mutable {
-            onStartIstComplete(asyncResp, std::move(payload), ec);
+            const boost::system::error_code& ec,
+            const sdbusplus::message::object_path& runPath) mutable {
+            onStartIstComplete(asyncResp, std::move(payload), ec, runPath);
         },
         std::string(istServiceName), std::string(istObjectPath),
         std::string(istControlInterface), "StartIST", istTimeoutSec.value_or(0),
