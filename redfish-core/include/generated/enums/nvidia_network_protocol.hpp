@@ -46,6 +46,15 @@ enum class RFCFormat{
     RFC5424,
 };
 
+enum class SSHPreferredAuthentication{
+    Invalid,
+    Password,
+    PublicKey,
+    KeyboardInteractive,
+    GSSAPIWithMIC,
+    HostBased,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(ClientStatus, {
     {ClientStatus::Invalid, "Invalid"},
     {ClientStatus::Enabled, "Enabled"},
@@ -83,6 +92,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RFCFormat, {
     {RFCFormat::Invalid, "Invalid"},
     {RFCFormat::RFC3164, "RFC3164"},
     {RFCFormat::RFC5424, "RFC5424"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(SSHPreferredAuthentication, {
+    {SSHPreferredAuthentication::Invalid, "Invalid"},
+    {SSHPreferredAuthentication::Password, "Password"},
+    {SSHPreferredAuthentication::PublicKey, "PublicKey"},
+    {SSHPreferredAuthentication::KeyboardInteractive, "KeyboardInteractive"},
+    {SSHPreferredAuthentication::GSSAPIWithMIC, "GSSAPIWithMIC"},
+    {SSHPreferredAuthentication::HostBased, "HostBased"},
 });
 
 }

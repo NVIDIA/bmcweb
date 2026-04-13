@@ -13,6 +13,7 @@
 #include "http_request.hpp"
 #include "identity.hpp"
 #include "logging.hpp"
+#include "nvidia_network_protocol.hpp"
 #include "nvidia_rsyslog_utils.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
@@ -301,6 +302,8 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         redfish::rsyslog::populateRsyslogClientSettings(asyncResp);
     }
+    // Populate SSH preferred authentication methods // Nvidia code
+    populateSSHPreferredAuthentications(asyncResp);
 } // namespace redfish
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -546,6 +549,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::vector<std::string>> facility;
     std::optional<std::string> severity;
     std::optional<std::string> rfcformat;
+    std::optional<std::vector<AuthMethod>> sshPreferredAuths;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res,                 //
@@ -561,7 +565,8 @@ inline void handleManagersNetworkProtocolPatch(
             "Oem/Nvidia/Rsyslog/TLS", tls,
             "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
             "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity,
-            "Oem/Nvidia/Rsyslog/RFCFormat", rfcformat))
+            "Oem/Nvidia/Rsyslog/RFCFormat", rfcformat,
+            "Oem/Nvidia/SSH/PreferredAuthentications", sshPreferredAuths))
     {
         return;
     }
@@ -622,6 +627,10 @@ inline void handleManagersNetworkProtocolPatch(
         redfish::rsyslog::processRsyslogClientSettings(
             asyncResp, address, port, state, tls, facility, severity, protocol,
             rfcformat);
+    }
+    if (sshPreferredAuths)
+    {
+        applySSHPreferredAuthsPatch(asyncResp, *sshPreferredAuths);
     }
     // Nvidia code ends here
 }

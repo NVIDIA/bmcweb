@@ -144,7 +144,27 @@
           <Annotation Term="OData.Description" String="The RFC format used for syslog messages sent to the server."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate the RFC format used for syslog messages (RFC3164 or RFC5424). The default is RFC3164."/>
         </Property>
-      </ComplexType>     
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="SSHPreferredAuthentication">
+        <Member Name="Password">
+          <Annotation Term="OData.Description" String="Password-based authentication."/>
+        </Member>
+        <Member Name="PublicKey">
+          <Annotation Term="OData.Description" String="Public key authentication."/>
+        </Member>
+        <Member Name="KeyboardInteractive">
+          <Annotation Term="OData.Description" String="Keyboard-interactive authentication."/>
+        </Member>
+        <Member Name="GSSAPIWithMIC">
+          <Annotation Term="OData.Description" String="GSSAPI with MIC authentication."/>
+        </Member>
+        <Member Name="HostBased">
+          <Annotation Term="OData.Description" String="Host-based authentication."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
