@@ -15,14 +15,22 @@
  * limitations under the License.
  */
 
+#include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "task.hpp"
 #include "utils/dbus_fd_download_utils.hpp"
 
+#include <unistd.h>
+
 #include <boost/asio/io_context.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
+#include <array>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -192,6 +200,137 @@ TEST_F(ProcessProgressPropertiesTest, BothProgressAndStatusProcessed)
     EXPECT_EQ(taskData->state, "Completed");
     EXPECT_EQ(taskData->percentComplete, 100);
     EXPECT_FALSE(taskData->messages.empty());
+}
+
+TEST(StreamFdResponseTest, EnoentReturns404)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec = boost::system::errc::make_error_code(
+        boost::system::errc::no_such_file_or_directory);
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::not_found);
+}
+
+TEST(StreamFdResponseTest, HostUnreachableReturns404)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec = boost::system::errc::make_error_code(
+        boost::system::errc::host_unreachable);
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::not_found);
+}
+
+TEST(StreamFdResponseTest, OtherErrorReturns500)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(asyncResp->res.result(),
+              boost::beast::http::status::internal_server_error);
+}
+
+TEST(StreamFdResponseTest, SuccessWithValidFdSetsContentType)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec;
+
+    std::array<int, 2> pipefd{};
+    ASSERT_EQ(::pipe(pipefd.data()), 0);
+    sdbusplus::message::unix_fd fd{pipefd[0]};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    EXPECT_EQ(
+        asyncResp->res.getHeaderValue(boost::beast::http::field::content_type),
+        "application/octet-stream");
+
+    ::close(pipefd[0]);
+    ::close(pipefd[1]);
+}
+
+TEST(StreamFdResponseTest, InvalidFdReturns500)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec;
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(asyncResp->res.result(),
+              boost::beast::http::status::internal_server_error);
+}
+
+size_t countOpenFds()
+{
+    size_t count = 0;
+    for (const auto& entry :
+         std::filesystem::directory_iterator("/proc/self/fd"))
+    {
+        (void)entry;
+        ++count;
+    }
+    return count;
+}
+
+TEST(StreamFdResponseTest, InvalidFdDoesNotLeakFd)
+{
+    size_t before = countOpenFds();
+
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec;
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(countOpenFds(), before);
+}
+
+TEST(StreamFdResponseTest, ErrorPathDoesNotLeakFd)
+{
+    size_t before = countOpenFds();
+
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+    sdbusplus::message::unix_fd fd{-1};
+
+    streamFdResponse(asyncResp, ec, fd);
+
+    EXPECT_EQ(countOpenFds(), before);
+}
+
+TEST(StreamFdResponseTest, SuccessPathDoesNotLeakFd)
+{
+    std::array<int, 2> pipefd{};
+    ASSERT_EQ(::pipe(pipefd.data()), 0);
+
+    size_t before = countOpenFds();
+
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        boost::system::error_code ec;
+        sdbusplus::message::unix_fd fd{pipefd[0]};
+
+        streamFdResponse(asyncResp, ec, fd);
+    }
+
+    // After asyncResp is destroyed, the duped fd should be closed.
+    // Only the original pipe fds should remain.
+    EXPECT_EQ(countOpenFds(), before);
+
+    ::close(pipefd[0]);
+    ::close(pipefd[1]);
 }
 
 } // namespace
