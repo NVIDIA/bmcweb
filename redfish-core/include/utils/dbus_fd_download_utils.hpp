@@ -37,20 +37,39 @@ inline void streamFdResponse(
 {
     if (ec)
     {
-        if (ec == boost::system::errc::host_unreachable)
+        if (ec == boost::system::errc::host_unreachable ||
+            ec == boost::system::errc::no_such_file_or_directory)
         {
             BMCWEB_LOG_DEBUG("Backend wasn't reachable");
             asyncResp->res.result(boost::beast::http::status::not_found);
             return;
         }
-        messages::internalError(asyncResp->res);
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
         return;
     }
 
     asyncResp->res.addHeader("Content-Type", "application/octet-stream");
 
     lseek(fd, 0, SEEK_SET);
-    asyncResp->res.openFd(dup(fd));
+
+    int dupFd = ::dup(fd);
+    if (dupFd < 0)
+    {
+        BMCWEB_LOG_ERROR("Failed to dup fd");
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
+        return;
+    }
+
+    if (!asyncResp->res.openFd(dupFd))
+    {
+        BMCWEB_LOG_ERROR("Failed to open fd for response");
+        ::close(dupFd);
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
+        return;
+    }
 }
 
 inline void getDbusResultFd(const std::string& serviceName,
