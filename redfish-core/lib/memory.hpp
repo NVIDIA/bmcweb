@@ -552,10 +552,10 @@ inline void assembleDimmProperties(
 
     if (formFactor != nullptr)
     {
-        constexpr const std::array<const char*, 11> values{
+        constexpr const std::array<const char*, 12> values{
             "RDIMM",       "UDIMM",       "SO_DIMM",      "LRDIMM",
             "Mini_RDIMM",  "Mini_UDIMM",  "SO_RDIMM_72b", "SO_UDIMM_72b",
-            "SO_DIMM_16b", "SO_DIMM_32b", "Die"};
+            "SO_DIMM_16b", "SO_DIMM_32b", "Die",          "CAMM"};
 
         for (const char* v : values)
         {
