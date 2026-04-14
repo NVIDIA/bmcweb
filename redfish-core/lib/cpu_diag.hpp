@@ -21,11 +21,13 @@
 
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
+#include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
 
 #include <app.hpp>
+#include <boost/beast/http/status.hpp>
 #include <boost/container/flat_map.hpp>
 #include <dbus_utility.hpp>
 #include <nlohmann/json.hpp>
@@ -40,14 +42,66 @@
 #include <utils/nvidia_json_utils.hpp>
 #include <utils/sw_utils.hpp>
 
+#include <array>
+#include <format>
 #include <functional>
 #include <memory>
 #include <vector>
 
 namespace redfish
 {
+
+// TODO(DGXOPENBMC-23861): The OEM field name "ProcessorDiagCapabilities"
+// is misleading — it carries Enable/Disable + DiagMode + DiagStatus, which
+// is boot status, not capabilities. Rename to "ProcessorDiagBootStatus"
+// once external scripts are ready to adopt the new name (tracked via the
+// weekly sync). Touches this file plus systems.hpp / nvidia_system.hpp
+// route paths.
+
 constexpr auto diagServiceList = "cpu-diag-status.timer "
                                  "cpu-diag-status.service";
+
+enum class DiagStatus : uint8_t
+{
+    Inprogress = 0x0,
+    RecoveryMode = 0x1,
+    Completed = 0x2,
+    Abort = 0x3,
+    NotStarted = 0x4,
+    TestRunning = 0x5
+};
+
+inline bool isDiagRunning(DiagStatus status)
+{
+    bool result = (status == DiagStatus::Inprogress) ||
+                  (status == DiagStatus::RecoveryMode) ||
+                  (status == DiagStatus::TestRunning);
+    BMCWEB_LOG_DEBUG("isDiagRunning: {} for status {}", result,
+                     static_cast<uint8_t>(status));
+    return result;
+}
+
+inline std::string diagStatusToString(DiagStatus status)
+{
+    switch (status)
+    {
+        case DiagStatus::Inprogress:
+            return "Inprogress";
+        case DiagStatus::RecoveryMode:
+            return "RecoveryMode";
+        case DiagStatus::Completed:
+            return "Completed";
+        case DiagStatus::Abort:
+            return "Abort";
+        case DiagStatus::NotStarted:
+            return "Not Started";
+        case DiagStatus::TestRunning:
+            return "TestRunning";
+        default:
+            return std::format("Unknown (0x{:x})",
+                               static_cast<uint8_t>(status));
+    }
+}
 
 inline void handleDiagSysConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -178,25 +232,34 @@ inline void handleDiagStatusGet(
             BMCWEB_LOG_DEBUG("Get Diag Status update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            if ((value == 0x1) || (value == 0x0))
+            if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
             {
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                    ["DiagStatus"] = "Inprogress";
+                    ["DiagStatus"] =
+                        diagStatusToString(static_cast<DiagStatus>(value));
             }
-            else if (value == 0x2)
+            else
             {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                    ["DiagStatus"] = "Completed";
-            }
-            else if (value == 0x3)
-            {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                    ["DiagStatus"] = "Abort";
-            }
-            else if (value == 0x4)
-            {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                    ["DiagStatus"] = "Not Started";
+                if ((value == 0x1) || (value == 0x0))
+                {
+                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                        ["DiagStatus"] = "Inprogress";
+                }
+                else if (value == 0x2)
+                {
+                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                        ["DiagStatus"] = "Completed";
+                }
+                else if (value == 0x3)
+                {
+                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                        ["DiagStatus"] = "Abort";
+                }
+                else if (value == 0x4)
+                {
+                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                        ["DiagStatus"] = "Not Started";
+                }
             }
         });
 }
@@ -221,27 +284,23 @@ inline void handleDiagModeGet(
             }
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
-            if (static_cast<int>(diagMode) == 0)
-            {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
-                    false;
-            }
-            else
-            {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
-                    true;
-                handleDiagStatusGet(asyncResp);
-                handleDiagSysConfigGet(asyncResp);
-                handleDiagTidConfigGet(asyncResp);
-                handleDiagResultGet(asyncResp);
-            }
+            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
+                static_cast<int>(diagMode) != 0;
+            // Always expose configs, status, and last-run result regardless
+            // of DiagMode. The daemon owns DiagMode lifecycle and flips it
+            // false at session end (clean or abort), but DiagStatus and the
+            // previous run's DiagResult remain meaningful afterwards (e.g.
+            // "NotStarted" or "Abort" with the last result still readable).
+            handleDiagSysConfigGet(asyncResp);
+            handleDiagTidConfigGet(asyncResp);
+            handleDiagStatusGet(asyncResp);
+            handleDiagResultGet(asyncResp);
         });
 }
 
 inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    // Set diag Status as not started
-    std::uint8_t diagStatus = 4;
+    std::uint8_t diagStatus = static_cast<uint8_t>(DiagStatus::NotStarted);
 
     dbus::utility::setProperty(
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
@@ -259,7 +318,7 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_DEBUG("DiagStatus done.");
+            BMCWEB_LOG_DEBUG("DiagStatus reset to NotStarted.");
         });
 
     return true;
@@ -279,66 +338,56 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 if (ec.value() == boost::asio::error::host_unreachable)
                 {
                     messages::resourceNotFound(asyncResp->res, "Set",
-                                               "DiagConfig");
+                                               "DiagResult");
                     return;
                 }
                 messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_DEBUG("DiagConfig done.");
+            BMCWEB_LOG_DEBUG("DiagResult cleared.");
         });
 
     return true;
 }
 
-inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                        nlohmann::json& json, std::string_view prop,
-                        std::optional<bool> val)
+inline void setPreBootDiagEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, bool value)
 {
-    using namespace std::string_literals;
-    std::string startupDiagTimerString = "systemctl start ";
-    std::string stopDiagTimerString = "systemctl stop ";
-    startupDiagTimerString += diagServiceList;
-    stopDiagTimerString += diagServiceList;
-    std::string propStr;
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Object.Enable"};
+    dbus::utility::getDbusObject(
+        "/com/nvidia/prebootdiag", interfaces,
+        [aResp, value](const boost::system::error_code& ec,
+                       const dbus::utility::MapperGetObject& objInfo) {
+            if (ec || objInfo.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to find prebootdiag service for /com/nvidia/prebootdiag: {}",
+                    ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            const std::string& service = objInfo.begin()->first;
+            dbus::utility::setProperty(
+                service, "/com/nvidia/prebootdiag",
+                "xyz.openbmc_project.Object.Enable", "Enabled", value,
+                [aResp, value](const boost::system::error_code& ec2) {
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to set PreBootDiag Enabled={}: {}", value,
+                            ec2);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_DEBUG("PreBootDiag Enabled set to {}.", value);
+                });
+        });
+}
 
-    if (!redfish::json_util::getValueFromJsonObject(json, std::string(prop),
-                                                    propStr))
-    {
-        return true;
-    }
-    if (propStr == "Enable"s)
-    {
-        val = true;
-        // Suppress warning about system() call.  Should be moved to dbus
-        // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
-        auto r = system(startupDiagTimerString.c_str());
-        if (r != 0)
-        {
-            BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to start {}", r);
-            return false;
-        }
-    }
-    else if (propStr == "Disable"s)
-    {
-        val = false;
-        clearDiagResult(aResp);
-        initDiagStatus(aResp);
-        // Suppress warning about system() call.  Should be moved to dbus
-        // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
-        auto r = system(stopDiagTimerString.c_str());
-        if (r != 0)
-        {
-            BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to stop {}", r);
-            return false;
-        }
-    }
-    else
-    {
-        BMCWEB_LOG_ERROR("Invalid input it should be Enable/Disable");
-        return false;
-    }
-    bool value = val.value();
+inline void setDiagModeProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                bool value)
+{
     dbus::utility::setProperty(
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "xyz.openbmc_project.Control.Diag", "DiagMode", value,
@@ -356,6 +405,131 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             BMCWEB_LOG_DEBUG("DiagMode update done.");
         });
+}
+
+inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                        nlohmann::json& json, std::string_view prop)
+{
+    using namespace std::string_literals;
+    std::string propStr{};
+
+    if (!redfish::json_util::getValueFromJsonObject(json, std::string(prop),
+                                                    propStr))
+    {
+        BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json.dump());
+        return false;
+    }
+    if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
+    {
+        // Vera path: D-Bus guards + prebootdiag property
+        if (propStr == "Enable"s)
+        {
+            // Guard 1: verify DiagConfig is non-empty (412 if absent)
+            dbus::utility::getProperty<std::string>(
+                "xyz.openbmc_project.Settings",
+                "/xyz/openbmc_project/Control/Diag",
+                "xyz.openbmc_project.Control.Diag", "DiagConfig",
+                [aResp](const boost::system::error_code& ec,
+                        const std::string& configStr) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "setDiagMode Enable: failed to read DiagConfig: {}",
+                            ec);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    if (configStr.empty() || configStr == "[]")
+                    {
+                        messages::preconditionFailed(aResp->res);
+                        return;
+                    }
+
+                    // Guard 2: verify DiagStatus is not running (409)
+                    dbus::utility::getProperty<uint8_t>(
+                        "xyz.openbmc_project.Settings",
+                        "/xyz/openbmc_project/Control/Diag",
+                        "xyz.openbmc_project.Control.Diag", "DiagStatus",
+                        [aResp](const boost::system::error_code& ec2,
+                                const uint8_t& diagStatus) {
+                            if (ec2)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "setDiagMode Enable: failed to read DiagStatus: {}",
+                                    ec2);
+                                messages::internalError(aResp->res);
+                                return;
+                            }
+                            BMCWEB_LOG_DEBUG("DiagStatus: {}", diagStatus);
+                            if (isDiagRunning(
+                                    static_cast<DiagStatus>(diagStatus)))
+                            {
+                                aResp->res.result(
+                                    boost::beast::http::status::conflict);
+                                messages::addMessageToErrorJson(
+                                    aResp->res.jsonValue,
+                                    messages::resourceInUse());
+                                return;
+                            }
+
+                            // Setting Enabled=true on the prebootdiag service
+                            // triggers the diag boot. The daemon owns the
+                            // Settings DiagMode lifecycle (writes true on
+                            // session start, false on any session end);
+                            // bmcweb does not write it on the Vera path.
+                            setPreBootDiagEnabled(aResp, true);
+                        });
+                });
+        }
+        else if (propStr == "Disable"s)
+        {
+            clearDiagResult(aResp);
+            initDiagStatus(aResp);
+            setPreBootDiagEnabled(aResp, false);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Invalid input it should be Enable/Disable");
+            return false;
+        }
+    }
+    else
+    {
+        // Grace path: systemctl timers + Settings DiagMode property
+        if (propStr == "Enable"s)
+        {
+            std::string startupDiagTimerString = "systemctl start ";
+            startupDiagTimerString += diagServiceList;
+            // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
+            auto r = system(startupDiagTimerString.c_str());
+            if (r != 0)
+            {
+                BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to start {}", r);
+                return false;
+            }
+            setDiagModeProperty(aResp, true);
+        }
+        else if (propStr == "Disable"s)
+        {
+            clearDiagResult(aResp);
+            initDiagStatus(aResp);
+            std::string stopDiagTimerString = "systemctl stop ";
+            stopDiagTimerString += diagServiceList;
+            // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
+            auto r = system(stopDiagTimerString.c_str());
+            if (r != 0)
+            {
+                BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to stop {}", r);
+                return false;
+            }
+            setDiagModeProperty(aResp, false);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Invalid input it should be Enable/Disable");
+            return false;
+        }
+    }
 
     return true;
 }
@@ -364,9 +538,7 @@ inline void handleDiagPostReq(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     nlohmann::json& procCap)
 {
-    std::optional<bool> diagMode;
-
-    if (!setDiagMode(asyncResp, procCap, "DiagMode", diagMode))
+    if (!setDiagMode(asyncResp, procCap, "DiagMode"))
     {
         BMCWEB_LOG_ERROR("DiagMode property error");
         messages::propertyUnknown(asyncResp->res, "DiagMode");
@@ -525,10 +697,10 @@ inline bool validateDiagTidConfig(
             messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
             return false;
         }
-        if (item["DynamicDataSize"].get<unsigned>() > 244)
+        if (item["DynamicDataSize"].get<unsigned>() > 255)
         {
             BMCWEB_LOG_ERROR(
-                "DynamicDataSize value exceeds maximum allowed limit of 244");
+                "DynamicDataSize value exceeds maximum allowed limit of 255");
             messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
             return false;
         }

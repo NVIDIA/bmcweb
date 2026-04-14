@@ -123,6 +123,7 @@ feature_options = [
     'patch-ssh',
     'platform-metrics',
     'power-control-type-percentage',
+    'preboot-diag-support',
     'profiles-feature',
     'profile-configuration',
     'push-smbios-table-feature',

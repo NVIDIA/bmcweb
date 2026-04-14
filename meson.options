@@ -1233,6 +1233,17 @@ option(
 )
 
 option(
+    'preboot-diag-support',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Switches the CPU-diagnostic Enable/Disable handlers
+    to the Vera flow (D-Bus to com.nvidia.PreBootDiag); disabled keeps the
+    Grace flow (systemctl + Settings DiagMode). Does not add or remove
+    routes; route registration is gated by cpu-diag-support, which must
+    also be enabled.''',
+)
+
+option(
     'command-smbpbi-oob',
     type: 'feature',
     value: 'enabled',
