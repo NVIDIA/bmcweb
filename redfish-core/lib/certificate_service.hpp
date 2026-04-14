@@ -592,7 +592,7 @@ inline void handleReplaceCertificateAction(
     {
         objectPath = sdbusplus::message::object_path(certs::httpsObjectPath) /
                      id;
-        name = "HTTPS certificate";
+        name = "HTTPS Certificate";
         service = certs::httpsServiceName;
     }
     else if (crow::utility::readUrlSegments(*parsedUrl, "redfish", "v1",
