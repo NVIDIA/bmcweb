@@ -556,7 +556,7 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
-                if (ptr->status == "OK" && ptr->state == "Completed")
+                if (ptr->endTime.has_value())
                 {
                     nlohmann::json* resp =
                         std::get_if<nlohmann::json>(&ptr->taskResponse);
