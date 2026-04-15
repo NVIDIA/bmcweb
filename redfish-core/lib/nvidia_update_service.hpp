@@ -1755,10 +1755,14 @@ inline void handleCommitImagePost(
                 }
             }
 
-            if (chassisCollection.empty() && !hasInvalidTargets)
+            if (chassisCollection.empty())
             {
-                BMCWEB_LOG_ERROR("No chassis found for commit image operation");
-                messages::internalError(asyncResp->res);
+                if (!hasInvalidTargets)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "No chassis found for commit image operation");
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
 
