@@ -370,20 +370,20 @@ inline void handleSessionServicePatch(
             std::chrono::seconds sessionTimeoutInseconds(*sessionTimeout);
             persistent_data::SessionStore::getInstance().updateSessionTimeout(
                 sessionTimeoutInseconds);
-            messages::propertyValueModified(asyncResp->res, "SessionTimeOut",
+            messages::propertyValueModified(asyncResp->res, "SessionTimeout",
                                             std::to_string(*sessionTimeout));
             // update the message severity  // Nvidia code starts here
             redfish::message_registries::updateMessageSeverity(
-                asyncResp, "SessionTimeOut", "OK");
+                asyncResp, "SessionTimeout", "OK");
             sendPropertyModifiedEvent(
-                req.target(), "SessionService", "SessionTimeOut",
+                req.target(), "SessionService", "SessionTimeout",
                 std::to_string(sessionTimeoutInseconds.count()));
             // Nvidia code starts here
         }
         else
         {
             messages::propertyValueNotInList(asyncResp->res, *sessionTimeout,
-                                             "SessionTimeOut");
+                                             "SessionTimeout");
         }
     }
 }
