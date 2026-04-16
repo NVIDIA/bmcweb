@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -329,13 +330,25 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        BMCWEB_LOG_DEBUG("Adding NVIDIA OEM properties for device: {}",
-                         deviceName);
-        event.oem = {{"Oem",
-                      {{"Nvidia",
-                        {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
-                         {"Device", deviceName},
-                         {"ErrorId", errorId}}}}}};
+        // Match LogServices behaviour: skip the OEM block when the source
+        // did not provide DEVICE_NAME or ERROR_ID instead of emitting
+        // empty-string fields to subscribers.
+        if (!deviceName.empty() || !errorId.empty())
+        {
+            BMCWEB_LOG_DEBUG("Adding NVIDIA OEM properties for device: {}",
+                             deviceName);
+            nlohmann::json::object_t nvidia;
+            nvidia["@odata.type"] = "#NvidiaEvent.v1_0_0.EventRecord";
+            if (!deviceName.empty())
+            {
+                nvidia["Device"] = deviceName;
+            }
+            if (!errorId.empty())
+            {
+                nvidia["ErrorId"] = errorId;
+            }
+            event.oem = {{"Oem", {{"Nvidia", std::move(nvidia)}}}};
+        }
     }
     if (!cper.empty())
     {
