@@ -25,6 +25,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_write_protect_domains_util.hpp"
 
+#include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
 
@@ -145,6 +146,7 @@ inline void afterSetWriteProtected(
 {
     if (!ec)
     {
+        asyncResp->res.result(boost::beast::http::status::no_content);
         return;
     }
 
