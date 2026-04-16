@@ -737,6 +737,21 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
     {
         return "UefiBootNext";
     }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteRemovableMedia")
+    {
+        return "SDCard";
+    }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteDisk")
+    {
+        return "RemoteDrive";
+    }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.BiosSetup")
+    {
+        return "BiosSetup";
+    }
     return "";
 }
 
@@ -935,6 +950,16 @@ inline int assignBootParameters(
     {
         bootSource =
             "xyz.openbmc_project.Control.Boot.Source.Sources.UefiBootOption";
+    }
+    else if (rfSource == "SDCard")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteRemovableMedia";
+    }
+    else if (rfSource == "RemoteDrive")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteDisk";
     }
     else
     {
