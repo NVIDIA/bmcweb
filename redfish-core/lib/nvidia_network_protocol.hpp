@@ -126,6 +126,9 @@ inline void populateSSHPreferredAuthentications(
                         }
                         sshPreferredAuths.emplace_back(it->authEnum);
                     }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["SSH"]["@odata.type"] =
+                        "#NvidiaNetworkProtocol.v1_2_0.SSHProtocol";
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["SSH"]
                                             ["PreferredAuthentications"] =
                         std::move(sshPreferredAuths);
