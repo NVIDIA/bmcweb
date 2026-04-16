@@ -1327,6 +1327,99 @@ inline void getBootProperties(
 }
 
 /**
+ * @brief Translates restart cause DBUS property value to redfish.
+ *
+ * @param[in] dbusRestartCause    The restart cause in DBUS speak.
+ *
+ * @return Returns the restart cause as a Redfish LastResetCauses enum. If
+ *         translation cannot be done, returns Unknown.
+ */
+inline computer_system::LastResetCauses dbusToRfLastResetCause(
+    const std::string& dbusRestartCause)
+{
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.Unknown")
+    {
+        return computer_system::LastResetCauses::Unknown;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.RemoteCommand")
+    {
+        return computer_system::LastResetCauses::ManagementCommand;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.ResetButton")
+    {
+        return computer_system::LastResetCauses::PowerButtonPress;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerButton")
+    {
+        return computer_system::LastResetCauses::PowerButtonPress;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.WatchdogTimer")
+    {
+        return computer_system::LastResetCauses::WatchdogExpiration;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerPolicyAlwaysOn")
+    {
+        return computer_system::LastResetCauses::PowerRestorePolicy;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerPolicyPreviousState")
+    {
+        return computer_system::LastResetCauses::PowerRestorePolicy;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.SoftReset")
+    {
+        return computer_system::LastResetCauses::OSSoftRestart;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.ScheduledPowerOn")
+    {
+        return computer_system::LastResetCauses::RTCWakeup;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.HostCrash")
+    {
+        return computer_system::LastResetCauses::SystemCrash;
+    }
+
+    return computer_system::LastResetCauses::Unknown;
+}
+
+/**
+ * @brief Retrieves the Last Reset Cause
+ *
+ * @param[in] asyncResp  Shared pointer for generating response message.
+ *
+ * @return None.
+ */
+inline void getLastResetCause(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    BMCWEB_LOG_DEBUG("Getting System Last Reset Cause");
+
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "RestartCause",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& restartCause) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
+                return;
+            }
+
+            asyncResp->res.jsonValue["LastResetCause"] =
+                dbusToRfLastResetCause(restartCause);
+        });
+}
+
+/**
  * @brief Retrieves the Last Reset Time
  *
  * "Reset" is an overloaded term in Redfish, "Reset" includes power on
@@ -3748,7 +3841,7 @@ inline void handleComputerSystemGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_22_0.ComputerSystem";
+        "#ComputerSystem.v1_23_0.ComputerSystem";
     asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
@@ -4063,6 +4156,7 @@ inline void handleComputerSystemGet(
         getStopBootOnFault(asyncResp);
         getAutomaticRetryPolicy(asyncResp);
     }
+    getLastResetCause(asyncResp);
     if constexpr (BMCWEB_SYSTEMS_LASTRESETTIME)
     {
         getLastResetTime(asyncResp);
