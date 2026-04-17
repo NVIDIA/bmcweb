@@ -730,7 +730,7 @@ inline void doNetworkAdapterGeneric(
         return;
     }
     asyncResp->res.jsonValue["@odata.type"] =
-        "#NetworkAdapter.v1_9_0.NetworkAdapter";
+        "#NetworkAdapter.v1_11_0.NetworkAdapter";
     asyncResp->res.jsonValue["Name"] = networkAdapterId;
     asyncResp->res.jsonValue["Id"] = networkAdapterId;
 
@@ -774,6 +774,9 @@ inline void doNetworkAdapterGeneric(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
         redfish::nvidia_network_adapters_utils::populateProtectionOptions(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
+        redfish::nvidia_network_adapters_utils::populateDeviceModeSettings(
+            asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath,
+            true);
     }
 }
 
@@ -2610,6 +2613,209 @@ inline void handleNetworkDeviceFunctionGetGeneric(
                         networkAdapterId, ndfId));
 }
 
+/**
+ * @brief GET .../NetworkAdapters/{id}/Settings — pending device mode values
+ * (Oem.Nvidia).
+ */
+inline void doNetworkAdapterSettingsGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NetworkAdapter.v1_11_0.NetworkAdapter";
+    asyncResp->res.jsonValue["Id"] = "Settings";
+    asyncResp->res.jsonValue["Name"] =
+        chassisId + " NetworkAdapters " + networkAdapterId + " Settings";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Settings", chassisId,
+        networkAdapterId);
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        redfish::nvidia_network_adapters_utils::populateDeviceModeSettings(
+            asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath,
+            false);
+    }
+}
+
+inline void handleNetworkAdapterSettingsGetNext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNetworkAdapterSettingsGet, asyncResp, chassisId,
+                        networkAdapterId));
+}
+
+inline void handleNetworkAdapterSettingsGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    redfish::chassis_utils::getValidChassisPathAndInterfaces(
+        asyncResp, chassisId,
+        std::bind_front(handleNetworkAdapterSettingsGetNext, asyncResp,
+                        chassisId, networkAdapterId));
+}
+
+/**
+ * @brief PATCH .../NetworkAdapters/{id}/Settings — device mode PendingMode
+ * fields.
+ */
+inline void doNetworkAdapterSettingsPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterId,
+    const std::optional<std::string>& dpuOperationMode,
+    const std::optional<int64_t>& numberOfUpstreamSockets,
+    const std::optional<bool>& eastWestControlEnabled,
+    const std::optional<int64_t>& pcieBifurcationLinkCount,
+    const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    if (dpuOperationMode)
+    {
+        if (*dpuOperationMode != "DPU" && *dpuOperationMode != "NIC")
+        {
+            messages::propertyValueIncorrect(asyncResp->res, "DPUOperationMode",
+                                             *dpuOperationMode);
+            return;
+        }
+        nvidia_network_adapters_utils::patchDpuOperationMode(
+            asyncResp, *validNetworkAdapterPath, *dpuOperationMode);
+    }
+
+    std::vector<std::tuple<std::string, uint32_t>> pciePatches;
+    if (numberOfUpstreamSockets)
+    {
+        auto raw = nvidia_network_adapters_utils::socketModeRedfishToRaw(
+            *numberOfUpstreamSockets);
+        if (!raw)
+        {
+            messages::propertyValueIncorrect(
+                asyncResp->res, "NumberOfUpstreamSockets",
+                std::to_string(*numberOfUpstreamSockets));
+            return;
+        }
+        pciePatches.emplace_back("PCIeMultiSockets", *raw);
+    }
+
+    if (eastWestControlEnabled)
+    {
+        pciePatches.emplace_back(
+            "PCIeControlledEWTraffic",
+            nvidia_network_adapters_utils::ewTrafficModeRedfishToRaw(
+                *eastWestControlEnabled));
+    }
+
+    if (pcieBifurcationLinkCount)
+    {
+        auto raw = nvidia_network_adapters_utils::bifurcationModeRedfishToRaw(
+            *pcieBifurcationLinkCount);
+        if (!raw)
+        {
+            messages::propertyValueIncorrect(
+                asyncResp->res, "PCIeBifurcationLinkCount",
+                std::to_string(*pcieBifurcationLinkCount));
+            return;
+        }
+        pciePatches.emplace_back("PCIeBifurcation", *raw);
+    }
+
+    if (!pciePatches.empty())
+    {
+        nvidia_network_adapters_utils::patchPCIeDeviceMode(
+            asyncResp, *validNetworkAdapterPath, pciePatches);
+    }
+}
+
+inline void handleNetworkAdapterSettingsPatchNext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::optional<std::string>& dpuOperationMode,
+    const std::optional<int64_t>& numberOfUpstreamSockets,
+    const std::optional<bool>& eastWestControlEnabled,
+    const std::optional<int64_t>& pcieBifurcationLinkCount,
+    const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNetworkAdapterSettingsPatch, asyncResp,
+                        networkAdapterId, dpuOperationMode,
+                        numberOfUpstreamSockets, eastWestControlEnabled,
+                        pcieBifurcationLinkCount));
+}
+
+inline void handleNetworkAdapterSettingsPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::optional<std::string> dpuOperationMode;
+    std::optional<int64_t> numberOfUpstreamSockets;
+    std::optional<bool> eastWestControlEnabled;
+    std::optional<int64_t> pcieBifurcationLinkCount;
+
+    if (!redfish::json_util::readJsonPatch(
+            req, asyncResp->res, "Oem/Nvidia/DPUOperationMode",
+            dpuOperationMode, "Oem/Nvidia/NumberOfUpstreamSockets",
+            numberOfUpstreamSockets, "Oem/Nvidia/EastWestControlEnabled",
+            eastWestControlEnabled, "Oem/Nvidia/PCIeBifurcationLinkCount",
+            pcieBifurcationLinkCount))
+    {
+        return;
+    }
+
+    if (!dpuOperationMode && !numberOfUpstreamSockets &&
+        !eastWestControlEnabled && !pcieBifurcationLinkCount)
+    {
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPathAndInterfaces(
+        asyncResp, chassisId,
+        std::bind_front(handleNetworkAdapterSettingsPatchNext, asyncResp,
+                        chassisId, networkAdapterId, dpuOperationMode,
+                        numberOfUpstreamSockets, eastWestControlEnabled,
+                        pcieBifurcationLinkCount));
+}
+
 inline void requestRoutesNetworkAdaptersGeneric(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
@@ -2624,6 +2830,16 @@ inline void requestRoutesNetworkAdaptersGeneric(App& app)
         .privileges(redfish::privileges::patchNetworkAdapter)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleNetworkAdapterPatchGeneric, std::ref(app)));
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Settings/")
+        .privileges(redfish::privileges::getNetworkAdapter)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleNetworkAdapterSettingsGet, std::ref(app)));
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Settings/")
+        .privileges(redfish::privileges::patchNetworkAdapter)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleNetworkAdapterSettingsPatch, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")

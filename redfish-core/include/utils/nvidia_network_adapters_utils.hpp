@@ -26,7 +26,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -287,6 +286,411 @@ inline void patchProtectionOption(
         "com.nvidia.DeviceProtection", "ProtectionLevel",
         std::variant<std::string>(dbusValue),
         nvidia_async_operation_utils::PatchGenericCallback{resp});
+}
+
+/*
+ * Device mode settings — D-Bus interfaces and Redfish OEM mapping.
+ *
+ * D-Bus interfaces (PDI YAMLs in
+ * phosphor-dbus-interfaces/yaml/com/nvidia/DeviceMode/):
+ *
+ *  Interface                                       Property           Type
+ * Values / semantics
+ *  ----------------------------------------------- ------------------
+ * ------------ --------------------------------
+ *  com.nvidia.DeviceMode.DPUOperationMode           CurrentMode       enum
+ * string  OperationMode.DPU / .NIC PendingMode       enum string  (writable
+ * when IsModeConfigurable) IsModeConfigurable bool        readonly
+ *  com.nvidia.DeviceMode.PCIeMultiSocket            CurrentMode       byte 1 =
+ * single, 2 = dual, … PendingMode       byte IsModeConfigurable bool
+ *  com.nvidia.DeviceMode.PCIeControlledEWTraffic    CurrentMode       enum
+ * string  EWTrafficMode.Disabled / .Enabled PendingMode       enum string
+ *                                                   IsModeConfigurable bool
+ *  com.nvidia.DeviceMode.PCIeBifurcation            CurrentMode       byte 1 =
+ * no bif, 2 = 2×8, … PendingMode       byte IsModeConfigurable bool
+ *
+ * Object path: <NetworkAdapter
+ * inventory>/Settings/Oem/Nvidia/DeviceMode/{DPUOperationMode,PCIeDeviceMode}
+ * Association: ("network_adapter", "device_mode_settings", <NetworkAdapter
+ * path>) Batch PATCH uses com.nvidia.DeviceMode.PCIeDeviceMode / PendingModes
+ * on the PCIeDeviceMode object.
+ */
+constexpr std::string_view dpuOperationModeIntf =
+    "com.nvidia.DeviceMode.DPUOperationMode";
+constexpr std::string_view pcieMultiSocketDbusIntf =
+    "com.nvidia.DeviceMode.PCIeMultiSocket";
+constexpr std::string_view pcieControlledEWTrafficDbusIntf =
+    "com.nvidia.DeviceMode.PCIeControlledEWTraffic";
+constexpr std::string_view pcieBifurcationDbusIntf =
+    "com.nvidia.DeviceMode.PCIeBifurcation";
+constexpr std::string_view pcieDeviceModePatchIntf =
+    "com.nvidia.DeviceMode.PCIeDeviceMode";
+constexpr std::string_view dpuOperationModeEnumPrefix =
+    "com.nvidia.DeviceMode.DPUOperationMode.OperationMode.";
+
+inline bool dpuOperationModeDbusToRedfish(nlohmann::json& json,
+                                          const std::string& dbusValue)
+{
+    if (dbusValue == "com.nvidia.DeviceMode.DPUOperationMode.OperationMode.DPU")
+    {
+        json["DPUOperationMode"] = "DPU";
+        return true;
+    }
+    if (dbusValue == "com.nvidia.DeviceMode.DPUOperationMode.OperationMode.NIC")
+    {
+        json["DPUOperationMode"] = "NIC";
+        return true;
+    }
+    return false;
+}
+
+inline bool ewTrafficModeDbusToRedfish(nlohmann::json& json,
+                                       const std::string& dbusValue)
+{
+    if (dbusValue ==
+        "com.nvidia.DeviceMode.PCIeControlledEWTraffic.EWTrafficMode.Disabled")
+    {
+        json["EastWestControlEnabled"] = false;
+        return true;
+    }
+    if (dbusValue ==
+        "com.nvidia.DeviceMode.PCIeControlledEWTraffic.EWTrafficMode.Enabled")
+    {
+        json["EastWestControlEnabled"] = true;
+        return true;
+    }
+    return false;
+}
+
+inline bool socketModeDbusToRedfish(nlohmann::json& json, uint8_t dbusValue)
+{
+    json["NumberOfUpstreamSockets"] = static_cast<int64_t>(dbusValue);
+    return true;
+}
+
+inline bool bifurcationModeDbusToRedfish(nlohmann::json& json,
+                                         uint8_t dbusValue)
+{
+    json["PCIeBifurcationLinkCount"] = static_cast<int64_t>(dbusValue);
+    return true;
+}
+
+inline std::optional<uint32_t> socketModeRedfishToRaw(int64_t redfishValue)
+{
+    if (redfishValue < 0)
+    {
+        return std::nullopt;
+    }
+    return static_cast<uint32_t>(redfishValue);
+}
+
+inline uint32_t ewTrafficModeRedfishToRaw(bool redfishValue)
+{
+    return redfishValue ? 1U : 0U;
+}
+
+inline std::optional<uint32_t> bifurcationModeRedfishToRaw(int64_t redfishValue)
+{
+    if (redfishValue < 0)
+    {
+        return std::nullopt;
+    }
+    return static_cast<uint32_t>(redfishValue);
+}
+
+using DbusToRedfishFn = bool (*)(nlohmann::json&, const std::string&);
+
+struct DeviceModeDescriptor
+{
+    const char* dbusInterface;
+    DbusToRedfishFn dbusToRedfish;
+};
+
+constexpr std::array<DeviceModeDescriptor, 2> enumDeviceModeDescriptors = {{
+    {"com.nvidia.DeviceMode.DPUOperationMode", dpuOperationModeDbusToRedfish},
+    {"com.nvidia.DeviceMode.PCIeControlledEWTraffic",
+     ewTrafficModeDbusToRedfish},
+}};
+
+using ByteDbusToRedfishFn = bool (*)(nlohmann::json&, uint8_t);
+
+struct ByteDeviceModeDescriptor
+{
+    const char* dbusInterface;
+    ByteDbusToRedfishFn dbusToRedfish;
+};
+
+constexpr std::array<ByteDeviceModeDescriptor, 2> byteDeviceModeDescriptors = {
+    {{"com.nvidia.DeviceMode.PCIeMultiSocket", socketModeDbusToRedfish},
+     {"com.nvidia.DeviceMode.PCIeBifurcation", bifurcationModeDbusToRedfish}}};
+
+inline void afterGetEnumDeviceModeProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    DeviceModeDescriptor desc, bool isReadOnly,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        return;
+    }
+
+    const std::string* currentMode = nullptr;
+    const std::string* pendingMode = nullptr;
+    const bool* isModeConfigurable = nullptr;
+
+    if (!sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties, "CurrentMode",
+            currentMode, "PendingMode", pendingMode, "IsModeConfigurable",
+            isModeConfigurable))
+    {
+        return;
+    }
+
+    nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidiaJson["@odata.type"] =
+        "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter";
+
+    if (isReadOnly)
+    {
+        if (currentMode != nullptr)
+        {
+            desc.dbusToRedfish(oemNvidiaJson, *currentMode);
+        }
+    }
+    else
+    {
+        if (isModeConfigurable != nullptr && *isModeConfigurable &&
+            pendingMode != nullptr)
+        {
+            desc.dbusToRedfish(oemNvidiaJson, *pendingMode);
+        }
+    }
+}
+
+inline void afterGetByteDeviceModeProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    ByteDeviceModeDescriptor desc, bool isReadOnly,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        return;
+    }
+
+    const uint8_t* currentMode = nullptr;
+    const uint8_t* pendingMode = nullptr;
+    const bool* isModeConfigurable = nullptr;
+
+    if (!sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties, "CurrentMode",
+            currentMode, "PendingMode", pendingMode, "IsModeConfigurable",
+            isModeConfigurable))
+    {
+        return;
+    }
+
+    nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidiaJson["@odata.type"] =
+        "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter";
+
+    if (isReadOnly)
+    {
+        if (currentMode != nullptr)
+        {
+            desc.dbusToRedfish(oemNvidiaJson, *currentMode);
+        }
+    }
+    else
+    {
+        if (isModeConfigurable != nullptr && *isModeConfigurable &&
+            pendingMode != nullptr)
+        {
+            desc.dbusToRedfish(oemNvidiaJson, *pendingMode);
+        }
+    }
+}
+
+inline void afterGetDeviceModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint, bool isReadOnly,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        return;
+    }
+
+    const auto& [serviceName, interfaces] = *serviceMap.begin();
+
+    for (const auto& desc : enumDeviceModeDescriptors)
+    {
+        if (std::ranges::find(interfaces, desc.dbusInterface) !=
+            interfaces.end())
+        {
+            dbus::utility::getAllProperties(
+                serviceName, endpoint, desc.dbusInterface,
+                std::bind_front(afterGetEnumDeviceModeProperties, asyncResp,
+                                desc, isReadOnly));
+        }
+    }
+    for (const auto& desc : byteDeviceModeDescriptors)
+    {
+        if (std::ranges::find(interfaces, desc.dbusInterface) !=
+            interfaces.end())
+        {
+            dbus::utility::getAllProperties(
+                serviceName, endpoint, desc.dbusInterface,
+                std::bind_front(afterGetByteDeviceModeProperties, asyncResp,
+                                desc, isReadOnly));
+        }
+    }
+}
+
+inline void afterGetDeviceModeEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool isReadOnly,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_DEBUG("No device_mode_settings endpoints: {}", ec.message());
+        return;
+    }
+
+    for (const std::string& endpoint : endpoints)
+    {
+        dbus::utility::getDbusObject(
+            endpoint, std::array<std::string_view, 0>{},
+            std::bind_front(afterGetDeviceModeObject, asyncResp, endpoint,
+                            isReadOnly));
+    }
+}
+
+inline void populateDeviceModeSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& networkAdapterPath, bool isReadOnly)
+{
+    if (isReadOnly)
+    {
+        asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+            "#Settings.v1_3_3.Settings";
+        asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"]
+                                ["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Settings", chassisId,
+            networkAdapterId);
+    }
+
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/device_mode_settings",
+        std::bind_front(afterGetDeviceModeEndpoints, asyncResp, isReadOnly));
+}
+
+inline void afterGetDpuModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint, const std::string& dbusEnumValue,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        return;
+    }
+    const auto& serviceName = serviceMap.begin()->first;
+    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+        asyncResp, std::chrono::seconds(60), serviceName, endpoint,
+        std::string(dpuOperationModeIntf), "PendingMode",
+        std::variant<std::string>(dbusEnumValue),
+        nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+}
+
+inline void afterGetDpuModeEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusEnumValue, const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::propertyUnknown(asyncResp->res, "DPUOperationMode");
+        return;
+    }
+
+    for (const std::string& endpoint : endpoints)
+    {
+        dbus::utility::getDbusObject(
+            endpoint, std::array<std::string_view, 1>{dpuOperationModeIntf},
+            std::bind_front(afterGetDpuModeObject, asyncResp, endpoint,
+                            dbusEnumValue));
+    }
+}
+
+inline void patchDpuOperationMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath, const std::string& redfishValue)
+{
+    std::string dbusEnumValue =
+        std::string(dpuOperationModeEnumPrefix) + redfishValue;
+
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/device_mode_settings",
+        std::bind_front(afterGetDpuModeEndpoints, asyncResp, dbusEnumValue));
+}
+
+inline void afterGetPcieModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint,
+    const std::vector<std::tuple<std::string, uint32_t>>& modeEntries,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        return;
+    }
+
+    const auto& serviceName = serviceMap.begin()->first;
+    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+        asyncResp, std::chrono::seconds(60), serviceName, endpoint,
+        std::string(pcieDeviceModePatchIntf), "PendingModes",
+        std::variant<std::vector<std::tuple<std::string, uint32_t>>>(
+            modeEntries),
+        nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+}
+
+inline void afterGetPcieModeEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::tuple<std::string, uint32_t>>& modeEntries,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "patchPCIeDeviceMode: no device_mode_settings endpoints: {}",
+            ec.message());
+        return;
+    }
+
+    for (const std::string& endpoint : endpoints)
+    {
+        dbus::utility::getDbusObject(
+            endpoint, std::array<std::string_view, 1>{pcieMultiSocketDbusIntf},
+            std::bind_front(afterGetPcieModeObject, asyncResp, endpoint,
+                            modeEntries));
+    }
+}
+
+inline void patchPCIeDeviceMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath,
+    const std::vector<std::tuple<std::string, uint32_t>>& modeEntries)
+{
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/device_mode_settings",
+        std::bind_front(afterGetPcieModeEndpoints, asyncResp, modeEntries));
 }
 
 } // namespace nvidia_network_adapters_utils
