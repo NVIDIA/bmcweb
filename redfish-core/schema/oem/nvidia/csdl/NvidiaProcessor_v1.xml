@@ -539,6 +539,20 @@
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
         </Property>
       </ComplexType>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Runtime In System Test (RIST)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.InbandReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Runtime In System Test (RIST)."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

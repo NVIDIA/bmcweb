@@ -15,12 +15,24 @@ enum class ProtectionOption{
     PreventHostConfigurations,
 };
 
+enum class DPUOperationMode{
+    Invalid,
+    DPU,
+    NIC,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(ProtectionOption, {
     {ProtectionOption::Invalid, "Invalid"},
     {ProtectionOption::NoProtection, "NoProtection"},
     {ProtectionOption::PreventAll, "PreventAll"},
     {ProtectionOption::PreventHostFirmwareUpdates, "PreventHostFirmwareUpdates"},
     {ProtectionOption::PreventHostConfigurations, "PreventHostConfigurations"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DPUOperationMode, {
+    {DPUOperationMode::Invalid, "Invalid"},
+    {DPUOperationMode::DPU, "DPU"},
+    {DPUOperationMode::NIC, "NIC"},
 });
 
 }

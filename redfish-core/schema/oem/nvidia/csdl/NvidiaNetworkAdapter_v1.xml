@@ -92,7 +92,35 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaHostPrivilegeConfig that represents the host privilege configuration for this network adapter."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
+        <Property Name="NumberOfUpstreamSockets" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The number of upstream sockets exposed to the external host."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of upstream sockets exposed to the external host."/>
+        </Property>
+        <Property Name="PCIeBifurcationLinkCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The PCIe bifurcation link count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the number of PCIe links resulting from bifurcation, as defined by the PCIe specification. A value of `1` shall indicate that no bifurcation is applied. A value of `2` shall indicate that a PCIe x16 link is bifurcated into two x8 links."/>
+        </Property>
+        <Property Name="EastWestControlEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether East/West traffic is managed by the Embedded CPU (ECPF)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether East/West traffic is managed by the Embedded CPU (ECPF). When enabled, the control plane for all internal cluster traffic is centralized at the DPU, ensuring consistent enforcement of security, segmentation, and visibility policies for internal fabric traffic and alignment with the management of North/South traffic. When disabled, the internal management link between the network controller and the DPU is deactivated, thereby bypassing the ECPF. Consequently, management authority shifts to the host, which assumes full responsibility for defining and enforcing networking policies in a traditional host-based model."/>
+        </Property>
+        <Property Name="DPUOperationMode" Type="NvidiaNetworkAdapter.v1_2_0.DPUOperationMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The current DPU operating mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current DPU operating mode."/>
+        </Property>
       </ComplexType>
+      <EnumType Name="DPUOperationMode">
+        <Member Name="DPU">
+          <Annotation Term="OData.Description" String="DPU mode."/>
+        </Member>
+        <Member Name="NIC">
+          <Annotation Term="OData.Description" String="NIC mode."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

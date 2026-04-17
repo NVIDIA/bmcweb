@@ -126,7 +126,7 @@
           <Annotation Term="OData.Description" String="Rsyslog client configuration of the BMC."/>
           <Annotation Term="OData.LongDescription" String="The object shall indicate the rsyslog client configuration setting of the BMC."/>
         </Property>
-      </ComplexType>      
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -148,21 +148,34 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_0_0.NvidiaNetworkProtocol">
+        <Property Name="SSH" Type="NvidiaNetworkProtocol.v1_2_0.SSHProtocol" Nullable="false">
+          <Annotation Term="OData.Description" String="The settings for this manager's Secure Shell (SSH) protocol support."/>
+          <Annotation Term="OData.LongDescription" String="This object shall contain the Secure Shell (SSH) protocol settings for the manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="SSHProtocol">
+        <Property Name="PreferredAuthentications" Type="Collection(NvidiaNetworkProtocol.v1_2_0.SSHPreferredAuthentication)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The SSH authentication methods that are permitted and the order in which they are preferred to be attempted."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SSH authentication methods that are permitted and the order in which they are preferred to be attempted.  The first entry is the most preferred method.  Methods not listed shall be considered disallowed."/>
+        </Property>
+      </ComplexType>
       <EnumType Name="SSHPreferredAuthentication">
         <Member Name="Password">
-          <Annotation Term="OData.Description" String="Password-based authentication."/>
+          <Annotation Term="OData.Description" String="Password-based SSH authentication as defined in RFC4252."/>
         </Member>
         <Member Name="PublicKey">
-          <Annotation Term="OData.Description" String="Public key authentication."/>
+          <Annotation Term="OData.Description" String="Public key-based SSH authentication as defined in RFC4252."/>
         </Member>
         <Member Name="KeyboardInteractive">
-          <Annotation Term="OData.Description" String="Keyboard-interactive authentication."/>
+          <Annotation Term="OData.Description" String="Keyboard-interactive authentication as defined in RFC4256."/>
         </Member>
         <Member Name="GSSAPIWithMIC">
-          <Annotation Term="OData.Description" String="GSSAPI with MIC authentication."/>
+          <Annotation Term="OData.Description" String="Generic Security Service Application Program Interface (GSS-API)-based authentication with a Message Integrity Code (MIC) as defined in RFC4462."/>
         </Member>
         <Member Name="HostBased">
-          <Annotation Term="OData.Description" String="Host-based authentication."/>
+          <Annotation Term="OData.Description" String="Host-based authentication as defined in RFC4252."/>
         </Member>
       </EnumType>
     </Schema>

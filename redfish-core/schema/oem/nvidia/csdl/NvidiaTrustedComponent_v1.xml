@@ -58,7 +58,7 @@
         <Property Name="InstallTokenPushURI" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The URI used to perform a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain a URI for performing a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component. No parameters are allowed for this operation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a URI for performing a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component. The `name` field shall have the value `TokenFile`, and the `filename` field shall reflect the name of the file as loaded by the client. No parameters are allowed for this operation."/>
         </Property>
         <Property Name="TokensProcessed" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

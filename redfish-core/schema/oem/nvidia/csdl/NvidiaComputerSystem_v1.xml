@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.7.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.8.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -125,6 +125,19 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_7_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="L1Reset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an L1 reset of this node."/>
+        <Annotation Term="OData.LongDescription" String="This action shall initiate an L1 (software main) reset of all sockets in this node."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_8_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -268,6 +281,9 @@
           <Annotation Term="OData.Description" String="Defer to the platform default behavior."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

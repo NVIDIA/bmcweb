@@ -34,7 +34,6 @@ enum class TokenType{
     FirmwareDebugKnobs,
     FirewallLifting,
     Verbosity,
-    RAS,
     SMADebugCapability,
     CpldDebugCapability,
 };
@@ -125,7 +124,7 @@ enum class TokenSubType{
     NvcpuUcfElaEnable,
     EcProbesEnable,
     CswpEnable,
-    BpmpFirmwareDebugfs,
+    BpmpFirmwareDebugFS,
     Nuke,
     CxlDebug,
     VideDebug,
@@ -166,7 +165,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TokenType, {
     {TokenType::FirmwareDebugKnobs, "FirmwareDebugKnobs"},
     {TokenType::FirewallLifting, "FirewallLifting"},
     {TokenType::Verbosity, "Verbosity"},
-    {TokenType::RAS, "RAS"},
     {TokenType::SMADebugCapability, "SMADebugCapability"},
     {TokenType::CpldDebugCapability, "CpldDebugCapability"},
 });
@@ -257,7 +255,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TokenSubType, {
     {TokenSubType::NvcpuUcfElaEnable, "NvcpuUcfElaEnable"},
     {TokenSubType::EcProbesEnable, "EcProbesEnable"},
     {TokenSubType::CswpEnable, "CswpEnable"},
-    {TokenSubType::BpmpFirmwareDebugfs, "BpmpFirmwareDebugfs"},
+    {TokenSubType::BpmpFirmwareDebugFS, "BpmpFirmwareDebugFS"},
     {TokenSubType::Nuke, "Nuke"},
     {TokenSubType::CxlDebug, "CxlDebug"},
     {TokenSubType::VideDebug, "VideDebug"},
