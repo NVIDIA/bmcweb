@@ -261,12 +261,21 @@ inline void getSatBMCInfo(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
     if (ec)
     {
         BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
         return;
     }
 
+||||||| constructed merge base
+=======
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     const auto& sat =
@@ -323,12 +332,21 @@ inline void unSubscribe(
     boost::asio::io_context& ioc, const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
     if (ec)
     {
         BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
         return;
     }
 
+||||||| constructed merge base
+=======
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
 
