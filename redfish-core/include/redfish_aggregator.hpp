@@ -782,8 +782,15 @@ class RedfishAggregator
         AggregationType aggType,
         const std::shared_ptr<crow::Request>& sharedReq,
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
+                             ec.message());
+            return;
+        }
         if (sharedReq == nullptr)
         {
             return;
@@ -1015,24 +1022,11 @@ class RedfishAggregator
                                    getAggregationPolicy())),
         sseAggregator(getIoContext())
     {
-        // Get satellite configs and initialize SSE aggregator when ready
-        getSatelliteConfigs([this](const std::unordered_map<std::string,
-                                                            boost::urls::url>&
-                                       satelliteInfo) {
-            constructorCallback(satelliteInfo);
-
-            // Initialize SSE aggregator after configs are loaded
-            if (!satelliteInfo.empty())
-            {
-                BMCWEB_LOG_INFO("Starting SSE Event Aggregator");
-                sseAggregator.start(satelliteInfo);
-            }
-            else
-            {
-                BMCWEB_LOG_WARNING(
-                    "SSE Event Aggregator not started - no satellite configuration available");
-            }
-        });
+        // Registers SatMC refresh + retry / periodic refresh
+        sseAggregator.start(
+            [this](SatelliteConfigHandler handler, bool forceRefresh) {
+                getSatelliteConfigs(std::move(handler), forceRefresh);
+            });
     }
     RedfishAggregator(const RedfishAggregator&) = delete;
     RedfishAggregator& operator=(const RedfishAggregator&) = delete;
@@ -1083,17 +1077,23 @@ class RedfishAggregator
 
     // Polls D-Bus to get all available satellite config information
     // Expects a handler which interacts with the returned configs
+    // If forceRefresh is true, skips the static cache and always queries
+    // EntityManager
     void getSatelliteConfigs(
         std::function<
-            void(const std::unordered_map<std::string, boost::urls::url>&)>
-            handler) const
+            void(const boost::system::error_code&,
+                 const std::unordered_map<std::string, boost::urls::url>&)>
+            handler,
+        bool forceRefresh = false) const
     {
         static std::unordered_map<std::string, boost::urls::url> cachedSatInfo =
             {};
         std::size_t cacheSize = cachedSatInfo.size();
-        if (cacheSize != 0)
+        if (!forceRefresh && cacheSize != 0)
         {
-            handler(cachedSatInfo);
+            auto ec = boost::system::errc::make_error_code(
+                boost::system::errc::success);
+            handler(ec, cachedSatInfo);
             return;
         }
 
@@ -1137,7 +1137,7 @@ class RedfishAggregator
                             "Redfish aggregation enabled, but no satellite BMCs detected");
                     }
                 }
-                handler(satelliteInfo);
+                handler(ec, satelliteInfo);
                 cachedSatInfo = satelliteInfo;
             });
     }

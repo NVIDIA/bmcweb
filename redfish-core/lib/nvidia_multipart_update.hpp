@@ -1296,7 +1296,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     void satControllerGetComplete(
         const SelfPtr& /*self*/,
         const std::vector<std::string>& localTargetsOut,
-        size_t remainingBodyLength,
+        size_t remainingBodyLength, const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         BMCWEB_LOG_DEBUG("Satellite controller get complete");
@@ -1304,6 +1304,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             // The request failed while the satellite config query was in
             // flight; don't open the forwarding connection.
+            return;
+        }
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
+                             ec.message());
+            messages::internalError(asyncResp->res);
+            failClientResponse();
             return;
         }
         if (satelliteInfo.empty())

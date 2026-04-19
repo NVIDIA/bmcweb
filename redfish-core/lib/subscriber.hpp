@@ -258,8 +258,14 @@ inline void querySubscriptionList(
 
 inline void getSatBMCInfo(
     boost::asio::io_context& ioc, const uint8_t deferTime,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     const auto& sat =
@@ -313,9 +319,14 @@ inline int startRedfishEventListener(
 }
 
 inline void unSubscribe(
-    boost::asio::io_context& ioc,
+    boost::asio::io_context& ioc, const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
 

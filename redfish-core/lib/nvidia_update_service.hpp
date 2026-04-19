@@ -2105,8 +2105,14 @@ inline void handleSatBMCResponse(
 inline void forwardCommitImagePost(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2325,8 +2331,14 @@ inline void commitImageActionInfoResp(
 inline void forwardCommitImageActionInfo(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())

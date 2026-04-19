@@ -81,8 +81,15 @@ inline void requestRoutesAggregationService(App& app)
 
 inline void populateAggregationSourceCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
     nlohmann::json::array_t members;
     for (const auto& sat : satelliteInfo)
     {
@@ -146,8 +153,15 @@ inline void requestRoutesAggregationSourceCollection(App& app)
 inline void populateAggregationSource(
     const std::string& aggregationSourceId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/AggregationSource/AggregationSource.json>; rel=describedby");
@@ -378,8 +392,16 @@ inline void handleAggregationSourcePatch(
     // Entity Manager sources
     RedfishAggregator::getInstance().getSatelliteConfigs(
         [asyncResp, aggregationSourceId](
+            const boost::system::error_code& ec,
             const std::unordered_map<std::string, boost::urls::url>&
                 satelliteInfo) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
+                                 ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
             // Check if it exists in Entity Manager sources
             if (satelliteInfo.contains(aggregationSourceId))
             {
