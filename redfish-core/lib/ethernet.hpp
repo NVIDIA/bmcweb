@@ -10,6 +10,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/ethernet_interface.hpp"
+#include "generated/enums/ip_addresses.hpp"
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
@@ -90,6 +91,12 @@ struct IPv6AddressData
     std::string address;
     std::string origin;
     uint8_t prefixLength = 0;
+    // TODO: Read AddressState from D-Bus property "State" when
+    // xyz.openbmc_project.Network.IP interface exposes it. The interface
+    // currently only provides Address, PrefixLength, Origin, Gateway and Type,
+    // so default to Preferred for all valid entries. Expected mapping: D-Bus
+    // enum → ip_addresses::AddressState
+    ip_addresses::AddressState state{ip_addresses::AddressState::Preferred};
 };
 
 /**
@@ -2056,6 +2063,7 @@ inline void parseInterfaceData(
         ipv6["Address"] = ipv6Config.address;
         ipv6["PrefixLength"] = ipv6Config.prefixLength;
         ipv6["AddressOrigin"] = ipv6Config.origin;
+        ipv6["AddressState"] = ipv6Config.state;
 
         ipv6Array.emplace_back(std::move(ipv6));
         if (ipv6Config.origin == "Static")
