@@ -538,7 +538,16 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
-                messages::internalError(asyncResp->res);
+                if (ec == boost::system::errc::invalid_argument)
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, "", "UserName or Password",
+                        "VirtualMedia.InsertMedia");
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
             if (!success)
