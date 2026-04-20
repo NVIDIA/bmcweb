@@ -278,6 +278,19 @@ inline void registerApiMetricsSignal()
 
 } // namespace api_metrics
 
+// Makes TaskMonitor GET on a completed dump task return Location + body
+// instead of the 204 fallback in populateResp().
+inline void setDumpEntryTaskResponse(
+    const std::shared_ptr<task::TaskData>& taskData, std::string entryUri)
+{
+    taskData->taskResponse.emplace<task::TaskResponseCallback>(
+        [entryUri = std::move(entryUri)](
+            const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+            aResp->res.addHeader(boost::beast::http::field::location, entryUri);
+            aResp->res.jsonValue["@odata.id"] = entryUri;
+        });
+}
+
 inline void requestRoutesChassisLogServiceCollection(App& app)
 {
     /**

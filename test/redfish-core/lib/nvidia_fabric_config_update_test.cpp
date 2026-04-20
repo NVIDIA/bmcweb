@@ -28,6 +28,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -157,8 +158,7 @@ TEST(ScanMimeParts, ValidImportFilePart_ReturnsContent)
 
     auto result =
         scanMimePartsForImportFile(parts, asyncResp, "fabric1", "/test/uri");
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), "binary config data");
+    EXPECT_EQ(result, std::make_optional<std::string>("binary config data"));
 }
 
 TEST(ScanMimeParts, MissingContentDisposition_ReturnsNullopt)
@@ -312,8 +312,7 @@ TEST(ParseImportFilePart, ValidMultipartRequest_ReturnsContent)
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     auto result = parseImportFilePart(req, asyncResp, "fabric1", "/test/uri");
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), "binarydata");
+    EXPECT_EQ(result, std::make_optional<std::string>("binarydata"));
 }
 
 // ---------------------------------------------------------------------------
