@@ -2367,9 +2367,13 @@ inline void forwardCommitImageActionInfo(
     std::string data;
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::get, cb);
+
+    boost::beast::http::fields headers = req.fields();
+    headers.set(boost::beast::http::field::accept, "application/json");
+
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify, headers,
+                                boost::beast::http::verb::get, cb);
 }
 
 inline void handleCommitImageActionInfoGet(
