@@ -25,6 +25,7 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
+#include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
 #include "ossl_random.hpp"
@@ -2518,9 +2519,13 @@ inline void forwardCommitImageActionInfo(
     std::string data;
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::get, cb);
+
+    boost::beast::http::fields headers = req.fields();
+    headers.set(boost::beast::http::field::accept, "application/json");
+
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify, headers,
+                                boost::beast::http::verb::get, cb);
 }
 
 inline void handleCommitImageActionInfoGet(
