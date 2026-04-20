@@ -30,6 +30,8 @@
 #include <utils/nvidia_chassis_util.hpp>
 #include <utils/nvidia_control_utils.hpp>
 
+#include <algorithm>
+
 namespace redfish
 {
 
@@ -1084,14 +1086,14 @@ inline void requestRoutesChassisControls(App& app)
                                     }
                                     for (auto [service, interfaces] : objType)
                                     {
-                                        if ((std::find(
-                                                 interfaces.begin(),
-                                                 interfaces.end(),
+                                        if ((std::ranges::find(
+                                                 interfaces,
+
                                                  "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                                              interfaces.end()) ||
-                                            (std::find(
-                                                 interfaces.begin(),
-                                                 interfaces.end(),
+                                            (std::ranges::find(
+                                                 interfaces,
+
                                                  "com.nvidia.GPMMetrics") !=
                                              interfaces.end()))
                                         {
@@ -1138,12 +1140,12 @@ inline void requestRoutesChassisControls(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                     interfaces.end() ||
-                                std::find(
-                                    interfaces.begin(), interfaces.end(),
+                                std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
                                     interfaces.end())
                             {
@@ -1351,107 +1353,112 @@ inline void requestRoutesChassisControls(App& app)
                     });
             };
 
-            auto patchChassisControl = [asyncResp, chassisID, controlID,
-                                        patchControlSystem, patchControlCpu,
-                                        &req](const std::optional<std::string>&
-                                                  validChassisPath) {
-                if (!validChassisPath)
-                {
-                    BMCWEB_LOG_ERROR("Not a valid chassis ID:{}", chassisID);
-                    messages::resourceNotFound(asyncResp->res, "Chassis",
-                                               chassisID);
-                    return;
-                }
+            auto patchChassisControl =
+                [asyncResp, chassisID, controlID, patchControlSystem,
+                 patchControlCpu,
+                 &req](const std::optional<std::string>& validChassisPath) {
+                    if (!validChassisPath)
+                    {
+                        BMCWEB_LOG_ERROR("Not a valid chassis ID:{}",
+                                         chassisID);
+                        messages::resourceNotFound(asyncResp->res, "Chassis",
+                                                   chassisID);
+                        return;
+                    }
 
-                // Handles the getDbusObject result for each processor.
-                // Defined as a named lambda so clang-format keeps it at
-                // a readable indentation level.
-                auto handleProcessorObject =
-                    [asyncResp, controlID, chassisID, validChassisPath,
-                     patchControlCpu,
-                     &req](const std::string& processorPath,
-                           const boost::system::error_code& ec1,
-                           const dbus::utility::MapperGetObject& objType) {
-                        if (ec1 || objType.empty())
-                        {
-                            BMCWEB_LOG_ERROR("GetObject for path {} failed",
-                                             processorPath);
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                            return;
-                        }
-                        for (const auto& [service, interfaces] : objType)
-                        {
-                            bool isGpu =
-                                std::find(interfaces.begin(), interfaces.end(),
-                                          "xyz.openbmc_project.Inventory.Item"
-                                          ".Accelerator") != interfaces.end() ||
-                                std::find(interfaces.begin(), interfaces.end(),
-                                          "com.nvidia.GPMMetrics") !=
-                                    interfaces.end();
-                            bool isCpu =
-                                std::find(interfaces.begin(), interfaces.end(),
-                                          "xyz.openbmc_project.Inventory.Item"
-                                          ".Cpu") != interfaces.end() ||
-                                std::find(interfaces.begin(), interfaces.end(),
-                                          "xyz.openbmc_project.Inventory.Item"
-                                          ".ProcessorModule") !=
-                                    interfaces.end();
-                            if (isGpu)
+                    // Handles the getDbusObject result for each processor.
+                    // Defined as a named lambda so clang-format keeps it at
+                    // a readable indentation level.
+                    auto handleProcessorObject =
+                        [asyncResp, controlID, chassisID, validChassisPath,
+                         patchControlCpu,
+                         &req](const std::string& processorPath,
+                               const boost::system::error_code& ec1,
+                               const dbus::utility::MapperGetObject& objType) {
+                            if (ec1 || objType.empty())
                             {
-                                std::string processorName =
-                                    processorPath.substr(
-                                        processorPath.find_last_of('/') + 1);
-                                redfish::nvidia_control_utils::
-                                    patchClockLimitControl(
-                                        asyncResp, chassisID, controlID, req,
-                                        validChassisPath, processorName);
+                                BMCWEB_LOG_ERROR("GetObject for path {} failed",
+                                                 processorPath);
+                                messages::resourceNotFound(
+                                    asyncResp->res, "ControlID", controlID);
                                 return;
                             }
-                            if (isCpu)
+                            for (const auto& [service, interfaces] : objType)
                             {
-                                patchControlCpu(validChassisPath);
+                                bool isGpu =
+                                    std::ranges::find(
+                                        interfaces,
+                                        "xyz.openbmc_project.Inventory.Item"
+                                        ".Accelerator") != interfaces.end() ||
+                                    std::ranges::find(
+                                        interfaces, "com.nvidia.GPMMetrics") !=
+                                        interfaces.end();
+                                bool isCpu =
+                                    std::ranges::find(
+                                        interfaces,
+                                        "xyz.openbmc_project.Inventory.Item"
+                                        ".Cpu") != interfaces.end() ||
+                                    std::ranges::find(
+                                        interfaces,
+                                        "xyz.openbmc_project.Inventory.Item"
+                                        ".ProcessorModule") != interfaces.end();
+                                if (isGpu)
+                                {
+                                    std::string processorName =
+                                        processorPath.substr(
+                                            processorPath.find_last_of('/') +
+                                            1);
+                                    redfish::nvidia_control_utils::
+                                        patchClockLimitControl(
+                                            asyncResp, chassisID, controlID,
+                                            req, validChassisPath,
+                                            processorName);
+                                    return;
+                                }
+                                if (isCpu)
+                                {
+                                    patchControlCpu(validChassisPath);
+                                    return;
+                                }
+                            }
+                        };
+
+                    // Handles the getProperty all_processors result.
+                    auto handleAllProcessors =
+                        [asyncResp, controlID, validChassisPath,
+                         patchControlSystem, chassisID, handleProcessorObject](
+                            const boost::system::error_code& ec,
+                            const std::vector<std::string>& resp) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_DEBUG(
+                                    "ObjectMapper::Get Associated Processor "
+                                    "object call failed : {}",
+                                    ec);
+                                patchControlSystem(validChassisPath);
                                 return;
                             }
-                        }
-                    };
+                            for (const auto& processorPath : resp)
+                            {
+                                dbus::utility::getDbusObject(
+                                    processorPath,
+                                    std::array<std::string_view, 0>{},
+                                    [handleProcessorObject, processorPath](
+                                        const boost::system::error_code& ec1,
+                                        const dbus::utility::MapperGetObject&
+                                            objType) {
+                                        handleProcessorObject(processorPath,
+                                                              ec1, objType);
+                                    });
+                            }
+                        };
 
-                // Handles the getProperty all_processors result.
-                auto handleAllProcessors =
-                    [asyncResp, controlID, validChassisPath, patchControlSystem,
-                     chassisID, handleProcessorObject](
-                        const boost::system::error_code& ec,
-                        const std::vector<std::string>& resp) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "ObjectMapper::Get Associated Processor "
-                                "object call failed : {}",
-                                ec);
-                            patchControlSystem(validChassisPath);
-                            return;
-                        }
-                        for (const auto& processorPath : resp)
-                        {
-                            dbus::utility::getDbusObject(
-                                processorPath,
-                                std::array<std::string_view, 0>{},
-                                [handleProcessorObject, processorPath](
-                                    const boost::system::error_code& ec1,
-                                    const dbus::utility::MapperGetObject&
-                                        objType) {
-                                    handleProcessorObject(processorPath, ec1,
-                                                          objType);
-                                });
-                        }
-                    };
-
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/all_processors",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    handleAllProcessors);
-            };
+                    dbus::utility::getProperty<std::vector<std::string>>(
+                        "xyz.openbmc_project.ObjectMapper",
+                        *validChassisPath + "/all_processors",
+                        "xyz.openbmc_project.Association", "endpoints",
+                        handleAllProcessors);
+                };
 
             auto patchControl = [asyncResp, chassisID, patchChassisControl,
                                  patchControlSystem, patchControlCpu](
@@ -1478,12 +1485,12 @@ inline void requestRoutesChassisControls(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                     interfaces.end() ||
-                                std::find(
-                                    interfaces.begin(), interfaces.end(),
+                                std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
                                     interfaces.end())
                             {
@@ -1623,14 +1630,14 @@ inline void requestRoutesChassisControlsReset(App& app)
                                     }
                                     for (auto [service, interfaces] : objType)
                                     {
-                                        if ((std::find(
-                                                 interfaces.begin(),
-                                                 interfaces.end(),
+                                        if ((std::ranges::find(
+                                                 interfaces,
+
                                                  "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                                              interfaces.end()) ||
-                                            (std::find(
-                                                 interfaces.begin(),
-                                                 interfaces.end(),
+                                            (std::ranges::find(
+                                                 interfaces,
+
                                                  "com.nvidia.GPMMetrics") !=
                                              interfaces.end()))
                                         {
@@ -1675,12 +1682,12 @@ inline void requestRoutesChassisControlsReset(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                     interfaces.end() ||
-                                std::find(
-                                    interfaces.begin(), interfaces.end(),
+                                std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
                                     interfaces.end())
                             {

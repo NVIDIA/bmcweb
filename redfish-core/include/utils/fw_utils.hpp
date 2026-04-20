@@ -183,8 +183,7 @@ inline void populateFirmwareInformation(
                         // Look at Ids from
                         // /xyz/openbmc_project/software/functional
                         // to determine if this is a running image
-                        if (std::find(functionalFwIds.begin(),
-                                      functionalFwIds.end(), swId) !=
+                        if (std::ranges::find(functionalFwIds, swId) !=
                             functionalFwIds.end())
                         {
                             runningImage = true;
@@ -613,9 +612,9 @@ inline void populateSlotInfo(
                               for (const auto& [service, interfacesList] :
                                    subtree)
                               {
-                                  if (std::find(interfacesList.begin(),
-                                                interfacesList.end(),
-                                                softwareSlotInterface) !=
+                                  if (std::ranges::find(
+                                          interfacesList,
+                                          softwareSlotInterface) !=
                                       interfacesList.end())
                                   {
                                       slotService = service;
@@ -905,8 +904,7 @@ inline void getFwUpdateableStatus(
             }
             std::string reqFwObjPath = inventoryPath + *fwId;
 
-            if (std::find(objPaths.begin(), objPaths.end(), reqFwObjPath) !=
-                objPaths.end())
+            if (std::ranges::find(objPaths, reqFwObjPath) != objPaths.end())
             {
                 asyncResp->res.jsonValue["Updateable"] = true;
                 return;

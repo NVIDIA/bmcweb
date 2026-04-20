@@ -5,6 +5,7 @@
 #include "bmcweb_config.h"
 
 #include "logging.hpp"
+#include "str_utility.hpp"
 
 #include <sys/types.h>
 
@@ -237,6 +238,18 @@ inline std::string base64encode(std::string_view data)
     return out;
 }
 
+inline std::string createBasicAuthHeader(std::string_view username,
+                                         std::string_view password)
+{
+    std::string credentials = "Basic ";
+    Base64Encoder enc;
+    enc.encode(username, credentials);
+    enc.encode(":", credentials);
+    enc.encode(password, credentials);
+    enc.finalize(credentials);
+    return credentials;
+}
+
 template <bool urlsafe = false>
 inline bool base64Decode(std::string_view input, std::string& output)
 {
@@ -399,14 +412,45 @@ inline bool readUrlSegments(const boost::urls::url_view_base& url,
     boost::urls::segments_view::const_iterator it = urlSegments.begin();
     boost::urls::segments_view::const_iterator end = urlSegments.end();
 
+    std::string fragment = url.fragment();
+    std::vector<std::string> fragmentParts;
+    bmcweb::split(fragmentParts, fragment, '/');
+    auto fragIt = fragmentParts.begin();
+    auto fragEnd = fragmentParts.end();
+
+    // Url fragments start with a /, so we need to skip the first empty string
+    if (fragIt != fragEnd)
+    {
+        if (fragIt->empty())
+        {
+            fragIt++;
+        }
+    }
+
+    // There will be an empty segment at the end if the URI ends with a "/"
+    // e.g. /redfish/v1/Chassis/
+    if ((it != end) && urlSegments.back().empty())
+    {
+        end--;
+    }
+
     for (const auto& segment : segments)
     {
+        UrlParseResult res = UrlParseResult::Fail;
         if (it == end)
         {
-            // If the request ends with an "any" path, this was successful
-            return std::holds_alternative<OrMorePaths>(segment);
+            if (fragIt == fragEnd)
+            {
+                return std::holds_alternative<OrMorePaths>(segment);
+            }
+            res = std::visit(UrlSegmentMatcherVisitor(*fragIt), segment);
+            fragIt++;
         }
-        UrlParseResult res = std::visit(UrlSegmentMatcherVisitor(*it), segment);
+        else
+        {
+            res = std::visit(UrlSegmentMatcherVisitor(*it), segment);
+            it++;
+        }
         if (res == UrlParseResult::Done)
         {
             return true;
@@ -415,15 +459,8 @@ inline bool readUrlSegments(const boost::urls::url_view_base& url,
         {
             return false;
         }
-        it++;
     }
 
-    // There will be an empty segment at the end if the URI ends with a "/"
-    // e.g. /redfish/v1/Chassis/
-    if ((it != end) && urlSegments.back().empty())
-    {
-        it++;
-    }
     return it == end;
 }
 

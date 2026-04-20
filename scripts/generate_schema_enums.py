@@ -139,7 +139,10 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
 
         print(element.name)
 
-    redfish_defs_file.write("}\n// clang-format on\n")
+    redfish_defs_file.write(
+        "// clang-format on\n"
+        "}} // namespace {}\n".format(snake_case_namespace)
+    )
 
 
 def generate_enums(flat_list):

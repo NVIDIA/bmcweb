@@ -435,7 +435,7 @@ static void installTokenRedfishURLCallback(
     }
     auto memFd = std::make_shared<MemoryFD>();
     MultipartParser parser(memFd->fd);
-    ParserError ec = parser.parse(req);
+    ParserError ec = parser.parse(contentType, req.body());
     if (ec != ParserError::PARSER_SUCCESS)
     {
         BMCWEB_LOG_ERROR("MIME parse failed, ec: {}", static_cast<int>(ec));

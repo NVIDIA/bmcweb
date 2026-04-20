@@ -63,5 +63,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EnableDisableOption, {
     {EnableDisableOption::Default, "Default"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_computer_system

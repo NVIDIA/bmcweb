@@ -16,6 +16,7 @@
 
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nghttp2_adapters.hpp"
+#include "sessions.hpp"
 
 #include <nghttp2/nghttp2.h>
 #include <unistd.h>
@@ -117,6 +118,7 @@ class HTTP2Connection :
         BMCWEB_LOG_DEBUG("send_server_connection_header()");
 
         uint32_t maxStreams = 4;
+
         // Both of these settings were found experimentally to allow a single
         // fast stream to upload at a rate equivalent to http1.1  They will
         // likely be tuned in the future.
@@ -301,7 +303,7 @@ class HTTP2Connection :
                 return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
             }
         }
-        crow::Request& thisReq = *it->second.req;
+        Request& thisReq = *it->second.req;
         using boost::beast::http::field;
         it->second.accept = thisReq.getHeaderValue(field::accept);
         it->second.acceptEnc = thisReq.getHeaderValue(field::accept_encoding);
@@ -310,17 +312,21 @@ class HTTP2Connection :
         BMCWEB_LOG_DEBUG("Handling {} \"{}\"", logPtr(&thisReq),
                          thisReq.url().encoded_path());
 
-        crow::Response& thisRes = it->second.res;
+        Response& thisRes = it->second.res;
 
         thisRes.setCompleteRequestHandler(
-            [self = shared_from_this(), streamId](Response& completeRes) {
+            [weakSelf = weak_from_this(), streamId](Response& completeRes) {
                 BMCWEB_LOG_DEBUG("res.completeRequestHandler called");
-                if (self->sendResponse(completeRes, streamId) != 0)
+                if (auto self = weakSelf.lock(); self)
                 {
-                    self->close();
-                    return;
+                    if (self->sendResponse(completeRes, streamId) != 0)
+                    {
+                        self->close();
+                        return;
+                    }
                 }
             });
+
         auto asyncResp =
             std::make_shared<bmcweb::AsyncResp>(std::move(it->second.res));
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
@@ -339,12 +345,12 @@ class HTTP2Connection :
                 return 0;
             }
         }
-        std::string_view expected =
+        std::string_view expectedEtag =
             thisReq.getHeaderValue(boost::beast::http::field::if_none_match);
-        BMCWEB_LOG_DEBUG("Setting expected hash {}", expected);
-        if (!expected.empty())
+        BMCWEB_LOG_DEBUG("Setting expected etag {}", expectedEtag);
+        if (!expectedEtag.empty())
         {
-            asyncResp->res.setExpectedHash(expected);
+            asyncResp->res.setExpectedEtag(expectedEtag);
         }
         handler->handle(it->second.req, asyncResp);
         return 0;
@@ -365,9 +371,8 @@ class HTTP2Connection :
             thisStream->second.reqReader;
         if (!reqReader)
         {
-            reqReader.emplace(
-                bmcweb::HttpBody::reader(thisStream->second.req->req.base(),
-                                         thisStream->second.req->req.body()));
+            Request::Body& req = thisStream->second.req->req;
+            reqReader.emplace(req.base(), req.body());
             boost::beast::error_code initEc;
             reqReader->init(thisStream->second.contentLength, initEc);
             if (initEc)
@@ -492,7 +497,7 @@ class HTTP2Connection :
             return -1;
         }
 
-        crow::Request& thisReq = *thisStream->second.req;
+        Request& thisReq = *thisStream->second.req;
 
         if (nameSv == ":path")
         {
@@ -513,7 +518,7 @@ class HTTP2Connection :
         {
             // Ignore all other http2 headers
             // :scheme and :authority are other valid http2 fields that might
-            // show up here
+            // show up here.
         }
         else
         {

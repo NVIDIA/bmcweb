@@ -172,7 +172,7 @@ TEST(addPrefixes, ParseJsonObject)
 
 TEST(addPrefixes, ParseJsonArray)
 {
-    nlohmann::json array = nlohmann::json::parse(R"(
+    nlohmann::json array = R"(
     {
       "Conditions": [
         {
@@ -185,8 +185,7 @@ TEST(addPrefixes, ParseJsonArray)
         }
       ]
     }
-    )",
-                                                 nullptr, false);
+    )"_json;
 
     addPrefixes(array, "5B42");
     EXPECT_EQ(array["Conditions"][0]["@odata.id"],
@@ -197,7 +196,7 @@ TEST(addPrefixes, ParseJsonArray)
 
 TEST(addPrefixes, ParseJsonObjectNestedArray)
 {
-    nlohmann::json objWithArray = nlohmann::json::parse(R"(
+    nlohmann::json objWithArray = R"(
     {
       "Status": {
         "Conditions": [
@@ -214,8 +213,7 @@ TEST(addPrefixes, ParseJsonObjectNestedArray)
         "State": "Enabled"
       }
     }
-    )",
-                                                        nullptr, false);
+    )"_json;
 
     addPrefixes(objWithArray, "5B42");
     nlohmann::json& array = objWithArray["Status"]["Conditions"];
@@ -241,7 +239,7 @@ TEST(addPrefixes, FixHttpTaskMonitor)
 
 TEST(addPrefixes, FixHttpHeadersInResponseBody)
 {
-    nlohmann::json taskResp = nlohmann::json::parse(R"(
+    nlohmann::json taskResp = R"(
     {
       "@odata.id": "/redfish/v1/TaskService/Tasks/0",
       "Name": "Task 0",
@@ -259,8 +257,7 @@ TEST(addPrefixes, FixHttpHeadersInResponseBody)
       "TaskState": "Completed",
       "TaskStatus": "OK"
     }
-    )",
-                                                    nullptr, false);
+    )"_json;
     // NOLINTNEXTLINE(misc-include-cleaner)
     std::string prefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
     addPrefixes(taskResp, prefix);
@@ -349,7 +346,7 @@ TEST(processResponse, preserveHeaders)
 // Helper function to correctly populate a ComputerSystem collection response
 void populateCollectionResponse(crow::Response& resp)
 {
-    nlohmann::json jsonResp = nlohmann::json::parse(R"(
+    nlohmann::json jsonResp = R"(
     {
       "@odata.id": "/redfish/v1/Systems",
       "@odata.type": "#ComputerSystemCollection.ComputerSystemCollection",
@@ -361,8 +358,7 @@ void populateCollectionResponse(crow::Response& resp)
       "Members@odata.count": 1,
       "Name": "Computer System Collection"
     }
-    )",
-                                                    nullptr, false);
+    )"_json;
 
     resp.clear();
     // resp.body() =
@@ -403,7 +399,10 @@ TEST(processCollectionResponse, localOnly)
     EXPECT_EQ(asyncResp->res.getHeaderValue("Content-Type"),
               "application/json");
     EXPECT_EQ(asyncResp->res.jsonValue["Members@odata.count"], 1);
-    for (auto& member : asyncResp->res.jsonValue["Members"])
+    const nlohmann::json::array_t* arr =
+        asyncResp->res.jsonValue["Members"]
+            .get_ptr<const nlohmann::json::array_t*>();
+    for (const auto& member : *arr)
     {
         // There should only be one member
         EXPECT_EQ(member["@odata.id"], "/redfish/v1/Systems/system");
@@ -424,7 +423,10 @@ TEST(processCollectionResponse, satelliteOnly)
     EXPECT_EQ(asyncResp->res.getHeaderValue("Content-Type"),
               "application/json");
     EXPECT_EQ(asyncResp->res.jsonValue["Members@odata.count"], 1);
-    for (auto& member : asyncResp->res.jsonValue["Members"])
+    const nlohmann::json::array_t* arr =
+        asyncResp->res.jsonValue["Members"]
+            .get_ptr<const nlohmann::json::array_t*>();
+    for (const auto& member : *arr)
     {
         // There should only be one member
         EXPECT_EQ(member["@odata.id"], "/redfish/v1/Systems/prefix_system");
@@ -448,7 +450,10 @@ TEST(processCollectionResponse, bothExist)
 
     bool foundLocal = false;
     bool foundSat = false;
-    for (const auto& member : asyncResp->res.jsonValue["Members"])
+    const nlohmann::json::array_t* arr =
+        asyncResp->res.jsonValue["Members"]
+            .get_ptr<const nlohmann::json::array_t*>();
+    for (const auto& member : *arr)
     {
         if (member["@odata.id"] == "/redfish/v1/Systems/system")
         {
@@ -480,7 +485,10 @@ TEST(processCollectionResponse, satelliteWrongContentHeader)
     EXPECT_EQ(asyncResp->res.getHeaderValue("Content-Type"),
               "application/json");
     EXPECT_EQ(asyncResp->res.jsonValue["Members@odata.count"], 1);
-    for (auto& member : asyncResp->res.jsonValue["Members"])
+    const nlohmann::json::array_t* arr =
+        asyncResp->res.jsonValue["Members"]
+            .get_ptr<const nlohmann::json::array_t*>();
+    for (const auto& member : *arr)
     {
         EXPECT_EQ(member["@odata.id"], "/redfish/v1/Systems/system");
     }

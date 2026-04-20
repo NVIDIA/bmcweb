@@ -37,6 +37,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/systemd_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <string_view>
@@ -105,8 +106,9 @@ inline void getResetMetricsInterfaceProperties(
             std::string targetService;
             for (const auto& [service, interfaces] : objInfo)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.ResetCounters.ResetCounterMetrics") !=
+                if (std::ranges::find(
+                        interfaces,
+                        "com.nvidia.ResetCounters.ResetCounterMetrics") !=
                     interfaces.end())
                 {
                     targetService = service;

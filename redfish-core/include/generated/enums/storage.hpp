@@ -163,5 +163,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(NMVePersonalityKeyAlgorithm, {
     {NMVePersonalityKeyAlgorithm::HMAC_SHA384, "HMAC_SHA384"},
 });
 
-}
 // clang-format on
+} // namespace storage

@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SwitchIsolationMode, {
     {SwitchIsolationMode::SwitchCommunicationDisabled, "SwitchCommunicationDisabled"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_switch

@@ -23,6 +23,7 @@
 
 #include <boost/system/error_code.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <variant>
@@ -78,8 +79,8 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
     for (const auto& [service, interfaces] : object)
     {
-        if (std::find(interfaces.begin(), interfaces.end(),
-                      "com.nvidia.MemoryPerformance") != interfaces.end())
+        if (std::ranges::find(interfaces, "com.nvidia.MemoryPerformance") !=
+            interfaces.end())
         {
             dbus::utility::getProperty<std::string>(
                 service, path, "com.nvidia.MemoryPerformance", "Value",

@@ -41,9 +41,9 @@ constexpr size_t maxSaveareaDirSize =
 constexpr size_t minSaveareaFileSize =
     100;      // Allow save area file size of minimum 100B
 constexpr size_t maxSaveareaFileSize =
-    500000;   // Allow save area file size upto 500KB
+    500000;   // Allow save area file size up to 500KB
 constexpr size_t maxBroadcastMsgSize =
-    1000;     // Allow Broadcast message size upto 1KB
+    1000;     // Allow Broadcast message size up to 1KB
 
 inline void handleFilePut(const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -438,7 +438,7 @@ inline void requestRoutes(App& app)
                     "/ibm/v1/HMC/BroadcastService";
             });
 
-    BMCWEB_ROUTE(app, "/ibm/v1/Host/ConfigFiles")
+    BMCWEB_ROUTE(app, "/ibm/v1/Host/ConfigFiles/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,
@@ -447,7 +447,7 @@ inline void requestRoutes(App& app)
             });
 
     BMCWEB_ROUTE(app,
-                 "/ibm/v1/Host/ConfigFiles/Actions/IBMConfigFiles.DeleteAll")
+                 "/ibm/v1/Host/ConfigFiles/Actions/IBMConfigFiles.DeleteAll/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request&,
@@ -455,7 +455,7 @@ inline void requestRoutes(App& app)
                 deleteConfigFiles(asyncResp);
             });
 
-    BMCWEB_ROUTE(app, "/ibm/v1/Host/ConfigFiles/<str>")
+    BMCWEB_ROUTE(app, "/ibm/v1/Host/ConfigFiles/<str>/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::put, boost::beast::http::verb::get,
                  boost::beast::http::verb::delete_)(
@@ -473,7 +473,7 @@ inline void requestRoutes(App& app)
                 handleFileUrl(req, asyncResp, fileName);
             });
 
-    BMCWEB_ROUTE(app, "/ibm/v1/HMC/BroadcastService")
+    BMCWEB_ROUTE(app, "/ibm/v1/HMC/BroadcastService/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,

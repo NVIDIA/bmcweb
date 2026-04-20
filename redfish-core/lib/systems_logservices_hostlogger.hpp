@@ -30,6 +30,7 @@
 #include <format>
 #include <functional>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -105,8 +106,8 @@ inline bool getHostLoggerFiles(
     // As the log files rotate, they are appended with a ".#" that is higher for
     // the older logs. Since we start from oldest logs, sort the name in
     // descending order.
-    std::sort(hostLoggerFiles.rbegin(), hostLoggerFiles.rend(),
-              AlphanumLess<std::string>());
+    std::ranges::sort(std::ranges::reverse_view(hostLoggerFiles),
+                      AlphanumLess<std::string>());
 
     return true;
 }
@@ -179,15 +180,15 @@ inline void handleSystemsLogServicesHostloggerGet(
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/HostLogger",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        boost::urls::format("/redfish/v1/Systems/{}/LogServices/HostLogger",
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
     asyncResp->res.jsonValue["Name"] = "Host Logger Service";
     asyncResp->res.jsonValue["Description"] = "Host Logger Service";
     asyncResp->res.jsonValue["Id"] = "HostLogger";
-    asyncResp->res.jsonValue["Entries"]["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/HostLogger/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["Entries"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/LogServices/HostLogger/Entries",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
     // nvidia code start
     checkAndExposeDownloadRawLogAction(asyncResp);
@@ -222,9 +223,9 @@ inline void handleSystemsLogServicesHostloggerEntriesGet(
                                    systemName);
         return;
     }
-    asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/HostLogger/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/LogServices/HostLogger/Entries",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] =
         "#LogEntryCollection.LogEntryCollection";
     asyncResp->res.jsonValue["Name"] = "HostLogger Entries";

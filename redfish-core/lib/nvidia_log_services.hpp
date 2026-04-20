@@ -1314,9 +1314,8 @@ inline void precheckOemDiagDataTypeAndCreateDump(
             bool isValid = false;
             if (dumpType == "System")
             {
-                isValid = std::find(oemAllowableValues.begin(),
-                                    oemAllowableValues.end(),
-                                    *oemDiagnosticDataType) !=
+                isValid = std::ranges::find(oemAllowableValues,
+                                            *oemDiagnosticDataType) !=
                           oemAllowableValues.end();
             }
             else if (dumpType == "FDR")

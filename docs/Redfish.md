@@ -48,6 +48,7 @@ Fields common to all schemas
 - TelemetryService
 - UUID
 - UpdateService
+- Fabrics
 
 ### /redfish/v1/AccountService/
 
@@ -266,6 +267,13 @@ Fields common to all schemas
 
 #### EnvironmentMetrics
 
+- FanSpeedsPercent[]/DataSourceUri
+- FanSpeedsPercent[]/Reading
+- FanSpeedsPercent[]/SpeedRPM
+- `FanSpeedsPercent@odata.count`
+- PowerWatts/DataSourceUri
+- PowerWatts/Reading
+
 ### /redfish/v1/Chassis/{ChassisId}/Power/
 
 #### Power
@@ -287,7 +295,12 @@ Fields common to all schemas
 
 #### Sensor
 
+- Implementation
+- PeakReading
+- PeakReadingTime
+- PhysicalContext
 - Reading
+- ReadingBasis
 - ReadingRangeMax
 - ReadingRangeMin
 - ReadingType
@@ -379,8 +392,14 @@ Fields common to all schemas
 - Manufacturer
 - Model
 - PartNumber
+- SecondarySpeedPercent/DataSourceUri
+- SecondarySpeedPercent/Reading
+- SecondarySpeedPercent/SpeedRPM
 - SerialNumber
 - SparePartNumber
+- SpeedPercent/DataSourceUri
+- SpeedPercent/SpeedRPM
+- SpeedPercent/Reading
 - Status
 
 ### /redfish/v1/Chassis/{ChassisId}/Power#/PowerControl/{ControlName}/
@@ -461,6 +480,100 @@ Fields common to all schemas
 - SerialNumber
 - SparePartNumber
 - Status
+
+#### /redfish/v1/Chassis/{ChassisId}/Assembly
+
+##### Assemblies
+
+- Assemblies
+- `Assemblies@odata.count`
+
+###### Assembly
+
+- LocationIndicatorActive
+- Model
+- PartNumber
+- SerialNumber
+- SparePartNumber
+
+### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/
+
+#### NetworkAdapterCollection
+
+- @odata.id
+- @odata.type
+- Members
+- `Members@odata.count`
+- Name
+
+### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/
+
+#### NetworkAdapter
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- Ports
+- Status
+  - Health
+  - HealthRollup
+  - State
+
+### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Ports/
+
+#### PortCollection
+
+- @odata.id
+- @odata.type
+- Members
+- `Members@odata.count`
+- Name
+
+### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Ports/{PortId}/
+
+#### Port
+
+- @odata.id
+- @odata.type
+- Id
+- Metrics
+- Name
+- Status
+  - Health
+  - HealthRollup
+  - State
+
+### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Ports/{PortId}/Metrics/
+
+#### PortMetrics
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- Networking
+  - RXBroadcastFrames
+  - RXFCSErrors
+  - RXFalseCarrierErrors
+  - RXFrameAlignmentErrors
+  - RXMulticastFrames
+  - RXOversizeFrames
+  - RXPauseXOFFFrames
+  - RXPauseXONFrames
+  - RXUndersizeFrames
+  - RXUnicastFrames
+  - TXBroadcastFrames
+  - TXExcessiveCollisions
+  - TXLateCollisions
+  - TXMulticastFrames
+  - TXMultipleCollisions
+  - TXPauseXOFFFrames
+  - TXPauseXONFrames
+  - TXSingleCollisions
+  - TXUnicastFrames
+- RXBytes
+- TXBytes
 
 ### /redfish/v1/EventService/
 
@@ -653,6 +766,12 @@ then be translated to Redfish EventLog Entries.
 
 These two implementations do not work together, so choosing one will disable the
 other.
+
+By default, the EventLog Entries LogService resides under the System resource.
+However, it is possible to change the location to the Manager resource with the
+`-DBMCWEB_REDFISH_EVENTLOG_LOCATION=managers` option flag. Apart from the
+different redfish parent resource, EventLog Entries LogService under Manager
+functions the same like the default implementation under the System resource.
 
 #### LogServiceCollection
 
@@ -867,8 +986,24 @@ other.
 - LocationIndicatorActive
 - Model
 - PartNumber
+- Ports
 - SerialNumber
 - SparePartNumber
+- Status
+
+### /redfish/v1/Systems/system/FabricAdapters/{FabricAdapterId}/Ports/
+
+#### PortCollection
+
+- Members
+- `Members@odata.count`
+
+### /redfish/v1/Systems/system/FabricAdapters/{FabricAdapterId}/Ports/{PortId}/
+
+#### Port
+
+- Location
+- LocationIndicatorActive
 - Status
 
 ### /redfish/v1/Systems/system/LogServices/
@@ -978,6 +1113,8 @@ other.
 
 ### /redfish/v1/Systems/system/PCIeDevices/{PCIeDevice}/
 
+- Links/Processors
+- `Links/Processors@odata.count`
 - Manufacturer
 - Model
 - PartNumber
@@ -1168,6 +1305,94 @@ other.
 - Status
 - Updateable
 - Version
+
+### /redfish/v1/Fabrics/
+
+#### FabricCollection
+
+- Description
+- Members
+- `Members@odata.count`
+- Name
+
+### /redfish/v1/Fabrics/{FabricId}/
+
+#### Fabric
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- Switches
+
+### /redfish/v1/Fabrics/{FabricId}/Switches/
+
+#### SwitchCollection
+
+- @odata.id
+- @odata.type
+- Members
+- `Members@odata.count`
+- Name
+
+### /redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/
+
+#### Switch
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- Ports
+- Status
+  - Health
+  - State
+
+### /redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/
+
+#### PortCollection
+
+- @odata.id
+- @odata.type
+- Members
+- `Members@odata.count`
+- Name
+
+### /redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/{PortId}/
+
+#### Port
+
+- @odata.id
+- @odata.type
+- ActiveWidth
+- CurrentSpeedGbps
+- Id
+- Metrics
+- Name
+- PortProtocol
+- PortType
+- Status
+  - Health
+  - State
+
+### /redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/{PortId}/Metrics
+
+#### PortMetrics
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- PCIeErrors
+  - CorrectableErrorCount
+  - NonFatalErrorCount
+  - FatalErrorCount
+  - L0ToRecoveryCount
+  - ReplayCount
+  - ReplayRolloverCount
+  - NAKSentCount
+  - NAKReceivedCount
+  - UnsupportedRequestCount
 
 [1]: https://www.dmtf.org/standards/redfish
 [2]: https://github.com/DMTF/Redfish-Service-Validator

@@ -21,5 +21,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RedundancyType, {
     {RedundancyType::NPlusN, "NPlusN"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_psu_redundancy

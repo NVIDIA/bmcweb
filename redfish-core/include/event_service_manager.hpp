@@ -20,13 +20,13 @@
 #include "redfish_aggregator.hpp"
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
+#include "telemetry_readings.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/circular_buffer.hpp>
-#include <boost/circular_buffer/base.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
@@ -37,15 +37,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
-#include <filesystem>
-#include <format>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <random>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -888,9 +884,8 @@ class EventServiceManager
                     {
                         std::string chassisName(PLATFORMDEVICEPREFIX);
                         chassisName += devName;
-                        std::string sensorName;
-                        dbus::utility::getNthStringFromPath(path, 4,
-                                                            sensorName);
+                        sdbusplus::message::object_path sensorObjPath(path);
+                        std::string sensorName = sensorObjPath.filename();
                         newPath = chassisName + "/Sensors/";
                         newPath += sensorName;
                     }

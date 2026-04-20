@@ -147,7 +147,7 @@ inline void setIndicatorLedState(
             setDbusProperty(
                 asyncResp, "IndicatorLED",
                 "xyz.openbmc_project.LED.GroupManager",
-                sdbusplus::message::object_path(
+                sdbusplus::object_path(
                     "/xyz/openbmc_project/led/groups/enclosure_identify"),
                 "xyz.openbmc_project.Led.Group", "Asserted", ledOn);
         });
@@ -236,7 +236,7 @@ inline void setSystemLocationIndicatorActive(
                 setDbusProperty(
                     asyncResp, "LocationIndicatorActive",
                     "xyz.openbmc_project.LED.GroupManager",
-                    sdbusplus::message::object_path(
+                    sdbusplus::object_path(
                         "/xyz/openbmc_project/led/groups/enclosure_identify"),
                     "xyz.openbmc_project.Led.Group", "Asserted", ledState);
             }
@@ -291,12 +291,11 @@ inline void getLedGroupPath(
 {
     static constexpr const char* ledObjectPath =
         "/xyz/openbmc_project/led/groups";
-    sdbusplus::message::object_path ledGroupAssociatedPath =
-        objPath + "/identifying";
+    sdbusplus::object_path ledGroupAssociatedPath = objPath + "/identifying";
 
     dbus::utility::getAssociatedSubTree(
-        ledGroupAssociatedPath, sdbusplus::message::object_path(ledObjectPath),
-        0, ledGroupInterface,
+        ledGroupAssociatedPath, sdbusplus::object_path(ledObjectPath), 0,
+        ledGroupInterface,
         [asyncResp, objPath, callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -306,6 +305,7 @@ inline void getLedGroupPath(
 
 inline void afterGetLedState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<void(bool asserted)>& callback,
     const boost::system::error_code& ec, bool assert)
 {
     if (ec)
@@ -319,10 +319,11 @@ inline void afterGetLedState(
         return;
     }
 
-    asyncResp->res.jsonValue["LocationIndicatorActive"] = assert;
+    callback(assert);
 }
 
 inline void getLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::function<void(bool asserted)>& callback,
                         const boost::system::error_code& ec,
                         const std::string& ledGroupPath,
                         const std::string& service)
@@ -343,9 +344,10 @@ inline void getLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    dbus::utility::getProperty<bool>(
-        service, ledGroupPath, "xyz.openbmc_project.Led.Group", "Asserted",
-        std::bind_front(afterGetLedState, asyncResp));
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, service, ledGroupPath,
+        "xyz.openbmc_project.Led.Group", "Asserted",
+        std::bind_front(afterGetLedState, asyncResp, callback));
 }
 
 /**
@@ -354,20 +356,31 @@ inline void getLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @param[in] asyncResp Shared pointer for generating response
  * message.
  * @param[in] objPath   Object path on PIM
- *
+ * @param[in] callback  to pass value
  * @return None.
  */
+
+inline void getLocationIndicatorActive(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, std::function<void(bool asserted)>&& callback)
+{
+    BMCWEB_LOG_DEBUG("Get LocationIndicatorActive for {}", objPath);
+    getLedGroupPath(
+        asyncResp, objPath,
+        [asyncResp, callback = std::move(callback)](
+            const boost::system::error_code& ec,
+            const std::string& ledGroupPath, const std::string& service) {
+            getLedState(asyncResp, callback, ec, ledGroupPath, service);
+        });
+}
+
 inline void getLocationIndicatorActive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
 {
-    BMCWEB_LOG_DEBUG("Get LocationIndicatorActive for {}", objPath);
-    getLedGroupPath(asyncResp, objPath,
-                    [asyncResp](const boost::system::error_code& ec,
-                                const std::string& ledGroupPath,
-                                const std::string& service) {
-                        getLedState(asyncResp, ec, ledGroupPath, service);
-                    });
+    getLocationIndicatorActive(asyncResp, objPath, [asyncResp](bool asserted) {
+        asyncResp->res.jsonValue["LocationIndicatorActive"] = asserted;
+    });
 }
 
 inline void setLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

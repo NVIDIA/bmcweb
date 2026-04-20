@@ -14,13 +14,13 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "shmem_utils.hpp"
+#include "telemetry_readings.hpp"
 #include "thermal_metrics.hpp"
 #include "utils/collection.hpp"
 #include "utils/metric_report_utils.hpp"
 #include "utils/nvidia_thermal_metrics_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/telemetry_utils.hpp"
-#include "utils/time_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -36,54 +36,10 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <utility>
-#include <vector>
 
 namespace redfish
 {
-
-namespace telemetry
-{
-
-using Readings = std::vector<std::tuple<std::string, double, uint64_t>>;
-using TimestampReadings = std::tuple<uint64_t, Readings>;
-
-inline nlohmann::json toMetricValues(const Readings& readings)
-{
-    nlohmann::json metricValues = nlohmann::json::array_t();
-
-    for (const auto& [metadata, sensorValue, timestamp] : readings)
-    {
-        nlohmann::json::object_t metricReport;
-        metricReport["MetricProperty"] = metadata;
-        metricReport["MetricValue"] = std::to_string(sensorValue);
-        metricReport["Timestamp"] =
-            redfish::time_utils::getDateTimeUintMs(timestamp);
-        metricValues.emplace_back(std::move(metricReport));
-    }
-
-    return metricValues;
-}
-
-inline bool fillReport(nlohmann::json& json, const std::string& id,
-                       const TimestampReadings& timestampReadings)
-{
-    // Nvidia modified schema version
-    json["@odata.type"] = "#MetricReport.v1_4_2.MetricReport";
-    json["@odata.id"] = boost::urls::format(
-        "/redfish/v1/TelemetryService/MetricReports/{}", id);
-    json["Id"] = id;
-    json["Name"] = id;
-    json["MetricReportDefinition"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/TelemetryService/MetricReportDefinitions/{}", id);
-
-    const auto& [timestamp, readings] = timestampReadings;
-    json["Timestamp"] = redfish::time_utils::getDateTimeUintMs(timestamp);
-    json["MetricValues"] = toMetricValues(readings);
-    return true;
-}
-} // namespace telemetry
 
 inline void requestRoutesMetricReportCollection(App& app)
 {

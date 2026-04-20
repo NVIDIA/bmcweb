@@ -23,6 +23,10 @@
 // Clang can't seem to decide whether this header needs to be included or not,
 // and is inconsistent.  Include it for now
 // NOLINTNEXTLINE(misc-include-cleaner)
+#include <cstdint>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <string>
+// NOLINTNEXTLINE(misc-include-cleaner)
 #include <utility>
 
 namespace redfish
@@ -109,11 +113,12 @@ nlohmann::json::object_t resourceErrorsCorrected(std::string_view arg1,
  * @endinternal
  */
 nlohmann::json::object_t resourceErrorThresholdExceeded(std::string_view arg1,
-                                                        std::string_view arg2)
+                                                        uint64_t arg2)
 {
+    std::string arg2Str = std::to_string(arg2);
     return getLog(redfish::registries::ResourceEvent::Index::
                       resourceErrorThresholdExceeded,
-                  std::to_array({arg1, arg2}));
+                  std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 /**
@@ -124,11 +129,12 @@ nlohmann::json::object_t resourceErrorThresholdExceeded(std::string_view arg1,
  * @endinternal
  */
 nlohmann::json::object_t resourceErrorThresholdCleared(std::string_view arg1,
-                                                       std::string_view arg2)
+                                                       uint64_t arg2)
 {
+    std::string arg2Str = std::to_string(arg2);
     return getLog(redfish::registries::ResourceEvent::Index::
                       resourceErrorThresholdCleared,
-                  std::to_array({arg1, arg2}));
+                  std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 /**
@@ -139,11 +145,12 @@ nlohmann::json::object_t resourceErrorThresholdCleared(std::string_view arg1,
  * @endinternal
  */
 nlohmann::json::object_t resourceWarningThresholdExceeded(std::string_view arg1,
-                                                          std::string_view arg2)
+                                                          uint64_t arg2)
 {
+    std::string arg2Str = std::to_string(arg2);
     return getLog(redfish::registries::ResourceEvent::Index::
                       resourceWarningThresholdExceeded,
-                  std::to_array({arg1, arg2}));
+                  std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 /**
@@ -154,11 +161,12 @@ nlohmann::json::object_t resourceWarningThresholdExceeded(std::string_view arg1,
  * @endinternal
  */
 nlohmann::json::object_t resourceWarningThresholdCleared(std::string_view arg1,
-                                                         std::string_view arg2)
+                                                         uint64_t arg2)
 {
+    std::string arg2Str = std::to_string(arg2);
     return getLog(redfish::registries::ResourceEvent::Index::
                       resourceWarningThresholdCleared,
-                  std::to_array({arg1, arg2}));
+                  std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 /**

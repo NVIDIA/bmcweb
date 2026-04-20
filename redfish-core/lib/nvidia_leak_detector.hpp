@@ -25,6 +25,8 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+
+#include <algorithm>
 namespace redfish
 {
 static constexpr auto leakDetectorStateInterface =
@@ -306,7 +308,7 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
     resp.jsonValue["Status"]["State"] = "Enabled";
 
     std::string leakDetectorName(leakDetectorId);
-    std::replace(leakDetectorName.begin(), leakDetectorName.end(), '_', ' ');
+    std::ranges::replace(leakDetectorName, '_', ' ');
     resp.jsonValue["Name"] = std::move(leakDetectorName);
 }
 

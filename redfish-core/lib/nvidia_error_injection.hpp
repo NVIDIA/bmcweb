@@ -474,8 +474,9 @@ inline void getErrorInjectionService(
 
             for (const auto& [service, interfaces] : serviceMap)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.ErrorInjection.ErrorInjection") ==
+                if (std::ranges::find(
+                        interfaces,
+                        "com.nvidia.ErrorInjection.ErrorInjection") ==
                     interfaces.end())
                 {
                     continue;
@@ -956,8 +957,8 @@ inline void postChassisErrorInjectionData(
                        aResp, objPath,
                        [aResp, errorType,
                         objPath](const std::vector<std::string>& validTypes) {
-                           if (std::find(validTypes.begin(), validTypes.end(),
-                                         errorType) == validTypes.end())
+                           if (std::ranges::find(validTypes, errorType) ==
+                               validTypes.end())
                            {
                                messages::actionParameterValueNotInList(
                                    aResp->res, errorType, "ErrorType",

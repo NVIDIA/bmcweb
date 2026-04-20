@@ -101,5 +101,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(Protocol, {
     {Protocol::UALink, "UALink"},
 });
 
-}
 // clang-format on
+} // namespace protocol

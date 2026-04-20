@@ -23,5 +23,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ProtectionOption, {
     {ProtectionOption::PreventHostConfigurations, "PreventHostConfigurations"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_network_adapter

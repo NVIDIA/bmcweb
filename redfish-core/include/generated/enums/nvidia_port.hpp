@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ClockMode, {
     {ClockMode::SeparateClock, "SeparateClock"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_port

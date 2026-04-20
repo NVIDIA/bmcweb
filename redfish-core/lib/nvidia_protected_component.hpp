@@ -340,10 +340,9 @@ inline void processNvidiaRoTImageSlotSubtree(
 
         for (const auto& [service, interfaces] : serviceMap)
         {
-            auto it = std::find_if(std::begin(interfaces), std::end(interfaces),
-                                   [](const auto& element) {
-                                       return element == softwareSlotInterface;
-                                   });
+            auto it = std::ranges::find_if(interfaces, [](const auto& element) {
+                return element == softwareSlotInterface;
+            });
             if (it == std::end(interfaces))
             {
                 continue;
@@ -645,10 +644,9 @@ inline void processNvidiaRoTImageSlotSubtree(
 
         for (const auto& [service, interfaces] : serviceMap)
         {
-            auto it = std::find_if(std::begin(interfaces), std::end(interfaces),
-                                   [](const auto& element) {
-                                       return element == softwareSlotInterface;
-                                   });
+            auto it = std::ranges::find_if(interfaces, [](const auto& element) {
+                return element == softwareSlotInterface;
+            });
             if (it == std::end(interfaces))
             {
                 continue;

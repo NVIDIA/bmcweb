@@ -1006,15 +1006,14 @@ inline bool areTargetsInvalidOrUnupdatable(
         std::string softwarePath =
             "/xyz/openbmc_project/software/" + componentName;
 
-        if (std::any_of(swInvPaths.begin(), swInvPaths.end(),
-                        [&](const std::string& path) {
-                            return path.find(softwarePath) != std::string::npos;
-                        }))
+        if (std::ranges::any_of(swInvPaths, [&](const std::string& path) {
+                return path.find(softwarePath) != std::string::npos;
+            }))
         {
             validTarget = true;
 
-            if (std::find(updateables.begin(), updateables.end(),
-                          componentName) != updateables.end())
+            if (std::ranges::find(updateables, componentName) !=
+                updateables.end())
             {
                 validTargets.emplace_back(softwarePath);
             }
@@ -1502,9 +1501,8 @@ inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
     std::pair<bool, CommitImageValueEntry> result;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    std::vector<CommitImageValueEntry>::iterator it =
-        find(allowableValues.begin(), allowableValues.end(),
-             static_cast<std::string>(inventoryPathIn));
+    auto it = std::ranges::find(allowableValues, inventoryPathIn,
+                                &CommitImageValueEntry::inventoryUri);
 
     if (it != allowableValues.end())
     {
@@ -1534,9 +1532,8 @@ inline bool isInventoryAllowableValue(const std::string_view inventoryPathIn)
     bool isAllowable = false;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    std::vector<CommitImageValueEntry>::iterator it =
-        find(allowableValues.begin(), allowableValues.end(),
-             static_cast<std::string>(inventoryPathIn));
+    auto it = std::ranges::find(allowableValues, inventoryPathIn,
+                                &CommitImageValueEntry::inventoryUri);
 
     isAllowable = it != allowableValues.end();
 
@@ -1688,9 +1685,8 @@ inline void handleCommitImagePost(
                     bool foundInChassis = false;
                     for (const auto& [chassisName, chassisInfo] : chassisMap)
                     {
-                        if (std::find(chassisInfo.softwarePaths.begin(),
-                                      chassisInfo.softwarePaths.end(),
-                                      dbusPath) !=
+                        if (std::ranges::find(chassisInfo.softwarePaths,
+                                              dbusPath) !=
                             chassisInfo.softwarePaths.end())
                         {
                             foundInChassis = true;
@@ -1719,9 +1715,8 @@ inline void handleCommitImagePost(
                 {
                     if (hasTargets)
                     {
-                        auto it = std::find_if(
-                            softwareObjectPaths.begin(),
-                            softwareObjectPaths.end(),
+                        auto it = std::ranges::find_if(
+                            softwareObjectPaths,
                             [&path](const std::pair<std::string, std::string>&
                                         swPathPair) {
                                 return swPathPair.first == path;
@@ -2073,16 +2068,8 @@ inline void handleSatBMCResponse(
 inline void forwardCommitImagePost(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2160,8 +2147,9 @@ inline bool handleSatBMCCommitImagePost(
         if (prefix && !noPrefix)
         {
             // targets with the prefix included only.
-            RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                forwardCommitImagePost, std::ref(req), asyncResp));
+            RedfishAggregator::getInstance().getSatelliteConfigs(
+                std::bind_front(forwardCommitImagePost, std::ref(req),
+                                asyncResp));
 
             // don't pass the request to the local
             return false;
@@ -2176,7 +2164,7 @@ inline bool handleSatBMCCommitImagePost(
     }
     else
     {
-        RedfishAggregator::getSatelliteConfigs(
+        RedfishAggregator::getInstance().getSatelliteConfigs(
             std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
         // forward the request with empty target.
     }
@@ -2229,17 +2217,8 @@ inline void getArrayObject(nlohmann::json::object_t* object,
 inline void forwardImage(
     const std::shared_ptr<crow::Request>& sharedReq, const bool updateAll,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-    // Something went wrong while querying dbus
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2254,7 +2233,8 @@ inline void forwardImage(
         std::bind_front(handleSatBMCResponse, asyncResp);
 
     MultipartParser parser;
-    ParserError parserEc = parser.parse(*sharedReq);
+    ParserError parserEc = parser.parse(
+        sharedReq->getHeaderValue("Content-Type"), sharedReq->body());
     if (parserEc != ParserError::PARSER_SUCCESS)
     {
         BMCWEB_LOG_ERROR("MIME parse failed, ec : {}",
@@ -2496,17 +2476,8 @@ inline void commitImageActionInfoResp(
 inline void forwardCommitImageActionInfo(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-    // Something went wrong while querying dbus
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2566,8 +2537,9 @@ inline void handleCommitImageActionInfoGet(
             updateParametersForCommitImageInfo(asyncResp, subtree);
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardCommitImageActionInfo, std::ref(req), asyncResp));
+                RedfishAggregator::getInstance().getSatelliteConfigs(
+                    std::bind_front(forwardCommitImageActionInfo, std::ref(req),
+                                    asyncResp));
             }
         });
 }

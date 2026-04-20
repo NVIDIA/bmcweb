@@ -36,6 +36,7 @@
 #include <utils/port_utils.hpp>
 #include <utils/processor_utils.hpp>
 
+#include <algorithm>
 #include <cstdint>
 #include <variant>
 
@@ -1663,11 +1664,8 @@ inline void requestRoutesSwitch(App& app)
                                                     getSwitchPowerModeLink(
                                                         asyncResp, path,
                                                         switchURI);
-                                                if (std::find(
-                                                        object2.front()
-                                                            .second.begin(),
-                                                        object2.front()
-                                                            .second.end(),
+                                                if (std::ranges::find(
+                                                        object2.front().second,
                                                         "com.nvidia.SwitchIsolation") !=
                                                     object2.front()
                                                         .second.end())
@@ -1680,11 +1678,8 @@ inline void requestRoutesSwitch(App& app)
                                                             path,
                                                             "com.nvidia.SwitchIsolation");
                                                 }
-                                                if (std::find(
-                                                        object2.front()
-                                                            .second.begin(),
-                                                        object2.front()
-                                                            .second.end(),
+                                                if (std::ranges::find(
+                                                        object2.front().second,
                                                         "com.nvidia.State.FabricManager") !=
                                                     object2.front()
                                                         .second.end())
@@ -1978,9 +1973,9 @@ inline void requestRoutesSwitchMetrics(App& app)
                                             const std::vector<std::string>&
                                                 interfaces =
                                                     object2.front().second;
-                                            if (std::find(
-                                                    interfaces.begin(),
-                                                    interfaces.end(),
+                                            if (std::ranges::find(
+                                                    interfaces,
+
                                                     "xyz.openbmc_project.Memory.MemoryECC") !=
                                                 interfaces.end())
                                             {
@@ -1988,9 +1983,9 @@ inline void requestRoutesSwitchMetrics(App& app)
                                                     asyncResp, connectionName,
                                                     path);
                                             }
-                                            if (std::find(
-                                                    interfaces.begin(),
-                                                    interfaces.end(),
+                                            if (std::ranges::find(
+                                                    interfaces,
+
                                                     "xyz.openbmc_project.PCIe.PCIeECC") !=
                                                 interfaces.end())
                                             {
@@ -2112,8 +2107,7 @@ inline void switchPostResetType(
     {
         for (const auto& iface : resetInterfaces)
         {
-            auto it =
-                std::find(interfaceList.begin(), interfaceList.end(), iface);
+            auto it = std::ranges::find(interfaceList, iface);
             if (it != interfaceList.end())
             {
                 inventoryService = &serviceName;
@@ -2681,6 +2675,90 @@ inline void getSwitchOnFabric(
         "xyz.openbmc_project.ObjectMapper", fabricPath + "/all_switches",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
+}
+
+// Find the fabric path, then the switch path, and invoke callback(switchPath).
+inline void getFabricSwitchPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& fabricId, const std::string& switchId,
+    std::function<void(const std::string& switchPath)> callback)
+{
+    dbus::utility::async_method_call(
+        [asyncResp, fabricId, switchId,
+         cb = std::move(callback)](const boost::system::error_code ec,
+                                   const std::vector<std::string>& objects) {
+            if (ec)
+            {
+                if (ec.value() == EBADR)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Fabric",
+                                               fabricId);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error");
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+            for (const std::string& fabricPath : objects)
+            {
+                if (!fabricPath.ends_with(fabricId))
+                {
+                    continue;
+                }
+                dbus::utility::async_method_call(
+                    [asyncResp, fabricId, switchId,
+                     cb](const boost::system::error_code ec2,
+                         std::variant<std::vector<std::string>>& resp2) {
+                        if (ec2)
+                        {
+                            if (ec2.value() == EBADR)
+                            {
+                                messages::resourceNotFound(asyncResp->res,
+                                                           "Switch", switchId);
+                            }
+                            else
+                            {
+                                BMCWEB_LOG_ERROR("DBUS response error");
+                                messages::internalError(asyncResp->res);
+                            }
+                            return;
+                        }
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp2);
+                        if (data == nullptr)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        for (const std::string& switchPath : *data)
+                        {
+                            if (!switchPath.ends_with(switchId))
+                            {
+                                continue;
+                            }
+                            cb(switchPath);
+                            return;
+                        }
+                        messages::resourceNotFound(
+                            asyncResp->res, "#Switch.v1_8_0.Switch", switchId);
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    fabricPath + "/all_switches",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+                return;
+            }
+            messages::resourceNotFound(asyncResp->res, "#Fabric.v1_2_0.Fabric",
+                                       fabricId);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 1>{
+            "xyz.openbmc_project.Inventory.Item.Fabric"});
 }
 
 /**
@@ -3403,8 +3481,7 @@ inline void getConnectedPortsLinks(
             // Add port link if exists in switch ports
             for (const std::string& portPath : portPaths)
             {
-                if (std::find(objects.begin(), objects.end(), portPath) !=
-                    objects.end())
+                if (std::ranges::find(objects, portPath) != objects.end())
                 {
                     sdbusplus::message::object_path portObjPath(portPath);
                     const std::string& portId = portObjPath.filename();
@@ -3525,7 +3602,7 @@ inline void getEndpointPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     nlohmann::json& linksConnectedPortsArray =
                         aResp->res.jsonValue["Links"]["ConnectedPorts"];
                     linksConnectedPortsArray = nlohmann::json::array();
-                    std::sort(data1->begin(), data1->end());
+                    std::ranges::sort(*data1);
                     for (const std::string& switchPath : *data1)
                     {
                         getConnectedPortsLinks(aResp, portPaths, fabricId,
@@ -3618,9 +3695,9 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string acceleratorInterface =
                                     "xyz.openbmc_project.Inventory.Item."
                                     "Accelerator";
-                                if (std::find(interfaces.begin(),
-                                              interfaces.end(),
-                                              acceleratorInterface) !=
+                                if (std::ranges::find(interfaces,
+
+                                                      acceleratorInterface) !=
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
@@ -3644,9 +3721,9 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string switchInterface =
                                     "xyz.openbmc_project.Inventory.Item.Switch";
 
-                                if (std::find(
-                                        interfaces.begin(), interfaces.end(),
-                                        switchInterface) != interfaces.end())
+                                if (std::ranges::find(interfaces,
+                                                      switchInterface) !=
+                                    interfaces.end())
                                 {
                                     BMCWEB_LOG_DEBUG("Item type switch ");
                                     std::string servName = connectionName.first;
@@ -3719,8 +3796,8 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 }
                                 const std::string cpuInterface =
                                     "xyz.openbmc_project.Inventory.Item.Cpu";
-                                if (std::find(interfaces.begin(),
-                                              interfaces.end(), cpuInterface) !=
+                                if (std::ranges::find(interfaces,
+                                                      cpuInterface) !=
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
@@ -5014,5 +5091,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                 }
             });
 }
+
+inline void requestRoutesFabrics(App& /*app*/) {}
 
 } // namespace redfish

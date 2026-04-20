@@ -68,8 +68,6 @@ constexpr const char* ldapRootObject = "/xyz/openbmc_project/user/ldap";
 constexpr const char* ldapDbusService = "xyz.openbmc_project.Ldap.Config";
 constexpr const char* ldapConfigInterface =
     "xyz.openbmc_project.User.Ldap.Config";
-constexpr const char* ldapCreateInterface =
-    "xyz.openbmc_project.User.Ldap.Create";
 constexpr const char* ldapEnableInterface = "xyz.openbmc_project.Object.Enable";
 constexpr const char* ldapPrivMapperInterface =
     "xyz.openbmc_project.User.PrivilegeMapper";
@@ -259,8 +257,7 @@ inline void patchAccountTypes(
 {
     // Check if User is disabling own Redfish Account Type
     if (userSelf &&
-        (accountTypes.cend() ==
-         std::find(accountTypes.cbegin(), accountTypes.cend(), "Redfish")))
+        (accountTypes.cend() == std::ranges::find(accountTypes, "Redfish")))
     {
         BMCWEB_LOG_ERROR(
             "User disabling OWN Redfish Account Type is not allowed");
@@ -566,7 +563,7 @@ inline void getLDAPConfigData(const std::string& ldapType,
                 return;
             }
             std::string service = resp.begin()->first;
-            sdbusplus::message::object_path path(ldapRootObject);
+            sdbusplus::object_path path(ldapRootObject);
             dbus::utility::getManagedObjects(
                 service, path,
                 [callback, ldapType](const boost::system::error_code& ec2,
@@ -1224,7 +1221,7 @@ inline void updateUserProperties(
     const std::optional<std::vector<std::string>>& accountTypes, bool userSelf,
     const std::shared_ptr<persistent_data::UserSession>& session)
 {
-    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+    sdbusplus::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
     std::string dbusObjectPath(tempObjPath);
 
@@ -1292,7 +1289,7 @@ inline void handleAccountServiceClientCertificatesInstanceGet(
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates/{}",
         id);
     std::string objPath =
-        sdbusplus::message::object_path(certs::authorityObjectPath) / id;
+        sdbusplus::object_path(certs::authorityObjectPath) / id;
     getCertificateProperties(
         asyncResp, objPath,
         "xyz.openbmc_project.Certs.Manager.Authority.Truststore", id, certURL,
@@ -1343,22 +1340,18 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::CommonName;
         }
-        break;
         case MTLSCommonNameParseMode::Whole:
         {
             return CertificateMappingAttribute::Whole;
         }
-        break;
         case MTLSCommonNameParseMode::UserPrincipalName:
         {
             return CertificateMappingAttribute::UserPrincipalName;
         }
-        break;
         default:
         {
             return CertificateMappingAttribute::Invalid;
         }
-        break;
     }
 }
 
@@ -1401,7 +1394,7 @@ inline void handleAccountServiceGet(
     nlohmann::json::array_t allowed;
     allowed.emplace_back(account_service::BasicAuthState::Enabled);
     allowed.emplace_back(account_service::BasicAuthState::Disabled);
-    json["HTTPBasicAuth@AllowableValues"] = std::move(allowed);
+    json["HTTPBasicAuth@Redfish.AllowableValues"] = std::move(allowed);
 
     nlohmann::json::object_t clientCertificate;
     clientCertificate["Enabled"] = authMethodsConfig.tls;
@@ -1423,14 +1416,8 @@ inline void handleAccountServiceGet(
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
-    certificates["@odata.type"] =
-        "#CertificateCollection.CertificateCollection";
     clientCertificate["Certificates"] = std::move(certificates);
     json["MultiFactorAuth"]["ClientCertificate"] = std::move(clientCertificate);
-
-    getClientCertificates(
-        asyncResp,
-        "/MultiFactorAuth/ClientCertificate/Certificates/Members"_json_pointer);
 
     json["Oem"]["OpenBMC"]["@odata.type"] =
         "#OpenBMCAccountService.v1_0_0.AccountService";
@@ -1668,11 +1655,11 @@ inline void handleAccountServicePatch(
 
     if (minPasswordLength)
     {
-        setDbusProperty(
-            asyncResp, "MinPasswordLength", "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
-            "xyz.openbmc_project.User.AccountPolicy", "MinPasswordLength",
-            *minPasswordLength);
+        setDbusProperty(asyncResp, "MinPasswordLength",
+                        "xyz.openbmc_project.User.Manager",
+                        sdbusplus::object_path("/xyz/openbmc_project/user"),
+                        "xyz.openbmc_project.User.AccountPolicy",
+                        "MinPasswordLength", *minPasswordLength);
     }
 
     if (maxPasswordLength)
@@ -1688,21 +1675,19 @@ inline void handleAccountServicePatch(
 
     if (unlockTimeout)
     {
-        setDbusProperty(
-            asyncResp, "AccountLockoutDuration",
-            "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
-            "xyz.openbmc_project.User.AccountPolicy", "AccountUnlockTimeout",
-            *unlockTimeout);
+        setDbusProperty(asyncResp, "AccountLockoutDuration",
+                        "xyz.openbmc_project.User.Manager",
+                        sdbusplus::object_path("/xyz/openbmc_project/user"),
+                        "xyz.openbmc_project.User.AccountPolicy",
+                        "AccountUnlockTimeout", *unlockTimeout);
     }
     if (lockoutThreshold)
     {
-        setDbusProperty(
-            asyncResp, "AccountLockoutThreshold",
-            "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
-            "xyz.openbmc_project.User.AccountPolicy",
-            "MaxLoginAttemptBeforeLockout", *lockoutThreshold);
+        setDbusProperty(asyncResp, "AccountLockoutThreshold",
+                        "xyz.openbmc_project.User.Manager",
+                        sdbusplus::object_path("/xyz/openbmc_project/user"),
+                        "xyz.openbmc_project.User.AccountPolicy",
+                        "MaxLoginAttemptBeforeLockout", *lockoutThreshold);
     }
 }
 
@@ -1753,7 +1738,7 @@ inline void handleAccountCollectionGet(
     {
         thisUser = req.session->username;
     }
-    sdbusplus::message::object_path path("/xyz/openbmc_project/user");
+    sdbusplus::object_path path("/xyz/openbmc_project/user");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.User.Manager", path,
         [asyncResp, thisUser, effectiveUserPrivileges](
@@ -1827,7 +1812,7 @@ inline void processAfterCreateUser(
         // created, but the password set
         // failed.Something is wrong, so delete the user
         // that we've already created
-        sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+        sdbusplus::object_path tempObjPath(rootUserDbusPath);
         tempObjPath /= username;
         const std::string userPath(tempObjPath);
 
@@ -2055,7 +2040,7 @@ inline void handleAccountGet(
         }
     }
 
-    sdbusplus::message::object_path path("/xyz/openbmc_project/user");
+    sdbusplus::object_path path("/xyz/openbmc_project/user");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.User.Manager", path,
         [asyncResp,
@@ -2069,7 +2054,7 @@ inline void handleAccountGet(
             const auto userIt = std::ranges::find_if(
                 users,
                 [accountName](
-                    const std::pair<sdbusplus::message::object_path,
+                    const std::pair<sdbusplus::object_path,
                                     dbus::utility::DBusInterfacesMap>& user) {
                     return accountName == user.first.filename();
                 });
@@ -2200,7 +2185,7 @@ inline void handleAccountDelete(
         messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
         return;
     }
-    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+    sdbusplus::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
@@ -2256,7 +2241,8 @@ inline void handleAccountPatch(
         redfish::getUserPrivileges(*req.session);
     Privileges configureUsers = {"ConfigureUsers"};
     bool userHasConfigureUsers =
-        effectiveUserPrivileges.isSupersetOf(configureUsers);
+        effectiveUserPrivileges.isSupersetOf(configureUsers) &&
+        !req.session->isConfigureSelfOnly;
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users

@@ -3,7 +3,6 @@
 #include "bmcweb_config.h"
 
 #include "app.hpp"
-#include "assembly.hpp"
 #include "boot_options.hpp"
 #include "component_integrity.hpp"
 #include "control.hpp"
@@ -37,8 +36,10 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_nic_debug_token.hpp"
 #include "nvidia_oem_chassis_recovery.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_oem_managed_entity.hpp"
@@ -85,7 +86,6 @@ namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
 {
-    requestAssemblyRoutes(app);
     requestPcieSlotsRoutes(app);
     requestRoutesSensorPatch(app);
 

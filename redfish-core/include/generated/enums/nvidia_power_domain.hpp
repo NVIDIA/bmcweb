@@ -29,5 +29,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ComparisonType, {
     {ComparisonType::Below, "Below"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_power_domain

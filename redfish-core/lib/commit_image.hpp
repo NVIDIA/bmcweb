@@ -415,7 +415,9 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
     }
 
     std::ifstream jsonFile(configPath);
-    auto data = Json::parse(jsonFile, nullptr, false);
+    std::string jsonContents((std::istreambuf_iterator<char>(jsonFile)),
+                             std::istreambuf_iterator<char>());
+    auto data = Json::parse(jsonContents, nullptr, false);
     if (data.is_discarded())
     {
         BMCWEB_LOG_ERROR("Unable to parse json data {}", configPath);

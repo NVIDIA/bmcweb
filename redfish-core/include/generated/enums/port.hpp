@@ -371,5 +371,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(UALinkGeneration, {
     {UALinkGeneration::UALink200G, "UALink200G"},
 });
 
-}
 // clang-format on
+} // namespace port

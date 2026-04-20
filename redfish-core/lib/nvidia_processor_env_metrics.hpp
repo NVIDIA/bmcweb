@@ -32,6 +32,7 @@
 #include <utils/json_utils.hpp>
 #include <utils/processor_utils.hpp>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -251,9 +252,9 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                     lambdaInterfaces =
                                         connectionNames[0].second;
 
-                                if (std::find(
-                                        lambdaInterfaces.begin(),
-                                        lambdaInterfaces.end(),
+                                if (std::ranges::find(
+                                        lambdaInterfaces,
+
                                         "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                                     lambdaInterfaces.end())
                                 {
@@ -263,9 +264,9 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                         objPath, resourceType, persistency);
                                 }
                                 else if (
-                                    std::find(
-                                        lambdaInterfaces.begin(),
-                                        lambdaInterfaces.end(),
+                                    std::ranges::find(
+                                        lambdaInterfaces,
+
                                         "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                     lambdaInterfaces.end())
                                 {
@@ -407,9 +408,10 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                             const std::vector<std::string>& lambdaInterfaces =
                                 connectionNames[0].second;
 
-                            if (std::find(lambdaInterfaces.begin(),
-                                          lambdaInterfaces.end(),
-                                          "com.nvidia.Common.ClearPowerCap") !=
+                            if (std::ranges::find(
+                                    lambdaInterfaces,
+
+                                    "com.nvidia.Common.ClearPowerCap") !=
                                 lambdaInterfaces.end())
                             {
                                 redfish::chassis_utils::resetPowerLimit(

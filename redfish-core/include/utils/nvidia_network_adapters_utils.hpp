@@ -67,8 +67,9 @@ inline void populateErrorInjectionLink(
 
             for (const auto& [_, interfaces] : serviceMap)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.ErrorInjection.ErrorInjection") ==
+                if (std::ranges::find(
+                        interfaces,
+                        "com.nvidia.ErrorInjection.ErrorInjection") ==
                     interfaces.end())
                 {
                     continue;
@@ -222,8 +223,8 @@ inline void populateProtectionOptions(
 
             for (const auto& [service, interfaces] : serviceMap)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.DeviceProtection") ==
+                if (std::ranges::find(interfaces,
+                                      "com.nvidia.DeviceProtection") ==
                     interfaces.end())
                 {
                     continue;
@@ -262,8 +263,8 @@ inline void patchProtectionOption(
     std::string serviceName;
     for (const auto& [service, interfaces] : serviceMap)
     {
-        if (std::find(interfaces.begin(), interfaces.end(),
-                      "com.nvidia.DeviceProtection") != interfaces.end())
+        if (std::ranges::find(interfaces, "com.nvidia.DeviceProtection") !=
+            interfaces.end())
         {
             serviceName = service;
             break;

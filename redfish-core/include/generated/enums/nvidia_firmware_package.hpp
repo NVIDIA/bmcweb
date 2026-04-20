@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(VerificationStatus, {
     {VerificationStatus::Failed, "Failed"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_firmware_package

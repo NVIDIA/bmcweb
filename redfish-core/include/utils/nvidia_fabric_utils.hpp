@@ -30,6 +30,7 @@
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -84,9 +85,9 @@ inline void patchL1PowerMode(
                             std::string serviceName;
                             for (const auto& [serv, interfaceList] : object)
                             {
-                                if (std::find(
-                                        interfaceList.begin(),
-                                        interfaceList.end(),
+                                if (std::ranges::find(
+                                        interfaceList,
+
                                         "xyz.openbmc_project.Object.Enable") !=
                                     interfaceList.end())
                                 {
@@ -260,8 +261,8 @@ inline void populateErrorInjectionData(
 
                     for (const auto& [_, interfaces] : serviceMap2)
                     {
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "com.nvidia.ErrorInjection.ErrorInjection") ==
                             interfaces.end())
                         {
@@ -388,8 +389,8 @@ inline void patchSwitchIsolationMode(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.SwitchIsolation") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.SwitchIsolation") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;

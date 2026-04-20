@@ -64,6 +64,7 @@ feature_options = [
     'cpu-ist',
     'enforce_sensor_name_format',
     'erot-reset',
+    'experimental-bmcweb-user',
     'experimental-redfish-dbus-log-subscription',
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',
@@ -128,8 +129,10 @@ feature_options = [
     'redfish',
     'redfish-aggregation',
     'redfish-aggregation-prefix-removal',
+    'redfish-allow-deprecated-indicatorled',
     'redfish-allow-deprecated-power-thermal',
     'redfish-allow-fw-inventory-patch',
+    'redfish-allow-rotational-fans',
     'redfish-allow-simple-update',
     'redfish-bmc-journal',
     'redfish-cables',
@@ -152,6 +155,7 @@ feature_options = [
     'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',
     'redfish-use-3-digit-messageid',
+    'redfish-use-hardcoded-system-location-indicator',
     'reset-bios-by-clear-nonvolatile',
     'rest',
     'rmedia',
@@ -196,6 +200,8 @@ string_options = [
     'platform-system-id',
     'platform-total-power-sensor-name',
     'redfish-aggregation-prefix',
+    'redfish-eventlog-location',
+    'redfish-fabric-uri-name',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
     'rfa-bmc-host-url',
@@ -298,6 +304,13 @@ conf_h_dep = declare_dependency(
 # Configure and install systemd unit files
 https_port = get_option('https_port')
 if https_port > 0
+    http_level_allowed = 'https'
+    if get_option('insecure-disable-ssl').allowed()
+        http_level_allowed = 'http'
+        if https_port == 443
+            https_port = 80
+        endif
+    endif
     configure_file(
         input: 'bmcweb.socket.in',
         output: 'bmcweb.socket',
@@ -364,6 +377,20 @@ foreach port_number : ports
     all_socket_units += 'bmcweb_' + port_number + '.socket'
 endforeach
 
+if get_option('experimental-bmcweb-user').allowed()
+    user = 'bmcweb'
+    group = 'bmcweb'
+    dynamic_user = 'yes'
+    state_directory = 'bmcweb'
+    work_dir = '-~'
+else
+    user = 'root'
+    group = 'root'
+    dynamic_user = 'no'
+    state_directory = '/home/root'
+    work_dir = '/home/root'
+endif
+
 configure_file(
     input: 'bmcweb.service.in',
     output: 'bmcweb.service',
@@ -372,6 +399,11 @@ configure_file(
     configuration: configuration_data(
         {
             'MESON_INSTALL_PREFIX': get_option('prefix'),
+            'BMCWEB_USER': user,
+            'BMCWEB_GROUP': group,
+            'BMCWEB_STATE_DIRECTORY': state_directory,
+            'BMCWEB_DYNAMICUSER': dynamic_user,
+            'BMCWEB_WORKING_DIRECTORY': work_dir,
             'BMCWEB_WATCHDOG_TIMEOUT_SECONDS': get_option(
                 'watchdog-timeout-seconds',
             ),

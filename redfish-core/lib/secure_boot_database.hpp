@@ -28,6 +28,7 @@
 #include <registries/privilege_registry.hpp>
 #include <utils/privilege_utils.hpp>
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -60,7 +61,7 @@ inline std::string signatureFormatDbusToRf(const std::string& dbusString)
 inline std::string signatureFormatRfToDbus(const std::string& rfString)
 {
     const auto& v = validSignatureFormat;
-    if (std::find(v.begin(), v.end(), rfString) != v.end())
+    if (std::ranges::find(v, rfString) != v.end())
     {
         return signatureFormatPrefix + rfString;
     }
@@ -179,8 +180,7 @@ inline void handleSecureBootDatabaseCollectionGet(
                 }
                 pathNames.push_back(leaf);
             }
-            std::sort(pathNames.begin(), pathNames.end(),
-                      AlphanumLess<std::string>());
+            std::ranges::sort(pathNames, AlphanumLess<std::string>());
 
             nlohmann::json& members = aResp->res.jsonValue["Members"];
             members = nlohmann::json::array();

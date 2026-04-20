@@ -575,8 +575,9 @@ inline void populateErrorInjectionChassis(
 
             for (const auto& [_, interfaces] : serviceMap)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.ErrorInjection.ErrorInjection") ==
+                if (std::ranges::find(
+                        interfaces,
+                        "com.nvidia.ErrorInjection.ErrorInjection") ==
                     interfaces.end())
                 {
                     continue;
@@ -610,8 +611,8 @@ inline void populatePowerSmoothingChassisIfPresent(
 {
     constexpr std::string_view stateOfChargeFeaturesIface =
         "com.nvidia.PowerSmoothing.StateOfChargeFeatures";
-    if (std::find(interfaces.begin(), interfaces.end(),
-                  stateOfChargeFeaturesIface) == interfaces.end())
+    if (std::ranges::find(interfaces, stateOfChargeFeaturesIface) ==
+        interfaces.end())
     {
         return;
     }
@@ -972,7 +973,7 @@ inline void getChassisFabricSwitchesLinks(
                     }
                     // Sort the switches links
                     std::vector<std::string> sortedData(resp1);
-                    std::sort(sortedData.begin(), sortedData.end());
+                    std::ranges::sort(sortedData);
                     nlohmann::json& linksArray =
                         aResp->res.jsonValue["Links"]["Switches"];
                     linksArray = nlohmann::json::array();
@@ -1846,8 +1847,8 @@ inline void maybePopulateStaticPowerHint(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path, const std::vector<std::string>& interfaces)
 {
-    const auto shouldFetch = std::any_of(
-        interfaces.begin(), interfaces.end(), [](std::string_view iface) {
+    const auto shouldFetch =
+        std::ranges::any_of(interfaces, [](std::string_view iface) {
             return iface == "xyz.openbmc_project.Inventory.Item.System" ||
                    iface == "xyz.openbmc_project.Inventory.Item.Chassis";
         });
@@ -1866,8 +1867,7 @@ inline void getNetworkAdapters(
     // NetworkAdapters collection
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
-    if (std::find(interfaces.begin(), interfaces.end(), networkInterface) !=
-        interfaces.end())
+    if (std::ranges::find(interfaces, networkInterface) != interfaces.end())
     {
         // networkInterface at the same chassis objPath
         asyncResp->res.jsonValue["NetworkAdapters"] = {
@@ -2829,8 +2829,8 @@ inline void getPhysicalSecurityData(
 inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
                          const std::string& sortField)
 {
-    auto it = std::lower_bound(
-        arr.begin(), arr.end(), element,
+    auto it = std::ranges::lower_bound(
+        arr, element,
         [sortField](const nlohmann::json& left, const nlohmann::json& right) {
             return left[sortField] < right[sortField];
         });
@@ -2985,8 +2985,7 @@ inline void setInBandEnabled(
         [asyncResp, enabled, chassisId](
             const std::vector<std::string>& inbandUpdatePolicyAllowList) {
             auto itAllowList =
-                std::find(inbandUpdatePolicyAllowList.begin(),
-                          inbandUpdatePolicyAllowList.end(), chassisId);
+                std::ranges::find(inbandUpdatePolicyAllowList, chassisId);
             if (itAllowList != inbandUpdatePolicyAllowList.end())
             {
                 enableInBand(asyncResp, enabled, chassisId);
@@ -3260,8 +3259,7 @@ inline void checkIndicatorChassis(const std::string& connectionName,
                     "Blade", "Enclosure", "Shelf", "StorageEnclosure"};
                 std::string strChassisType =
                     redfish::nvidia_chassis_utils::getChassisType(chassisType);
-                auto* it = std::find(supportedType.begin(), supportedType.end(),
-                                     strChassisType);
+                auto* it = std::ranges::find(supportedType, strChassisType);
                 if (it == supportedType.end())
                 {
                     // unsupported ChassisType

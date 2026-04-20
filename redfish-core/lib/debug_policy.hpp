@@ -194,8 +194,8 @@ inline void findDebugInterface(
             {
                 for (const auto& [svc, ifcs] : object)
                 {
-                    if (std::find(ifcs.begin(), ifcs.end(),
-                                  policy::impl::remoteDebugIntfc) != ifcs.end())
+                    if (std::ranges::find(
+                            ifcs, policy::impl::remoteDebugIntfc) != ifcs.end())
                     {
                         dbgCallback(asyncResp, svc, path);
                         return;

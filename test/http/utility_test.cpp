@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <ctime>
 #include <functional>
-#include <optional>
 #include <string>
 #include <string_view>
 
@@ -25,9 +24,6 @@ namespace crow::utility
 {
 namespace
 {
-
-using ::boost::asio::ip::make_address;
-using ::crow::utility::getParameterTag;
 
 TEST(Utility, Base64DecodeAuthString)
 {
@@ -112,10 +108,16 @@ TEST(Utility, Base64EncodeDecodeString)
     EXPECT_EQ(data, decoded);
 }
 
+TEST(Utility, CreateBasicAuthHeader)
+{
+    std::string authHeader = createBasicAuthHeader("username", "password");
+    EXPECT_EQ(authHeader, "Basic dXNlcm5hbWU6cGFzc3dvcmQ=");
+}
+
 TEST(Utility, readUrlSegments)
 {
     boost::system::result<boost::urls::url_view> parsed =
-        boost::urls::parse_relative_ref("/redfish/v1/Chassis#/Fans/0/Reading");
+        boost::urls::parse_relative_ref("/redfish/v1/Chassis");
 
     EXPECT_TRUE(readUrlSegments(*parsed, "redfish", "v1", "Chassis"));
 
@@ -171,6 +173,19 @@ TEST(Utility, readUrlSegments)
     EXPECT_TRUE(readUrlSegments(*parsed, OrMorePaths()));
 }
 
+TEST(Utility, readUrlSegmentsManager)
+{
+    boost::urls::url_view url(
+        "/redfish/v1/Managers/bmc#/Oem/OpenBmc/Fan/FanZones/Left");
+    std::string managerId;
+    std::string input;
+    EXPECT_TRUE(
+        readUrlSegments(url, "redfish", "v1", "Managers", std::ref(managerId),
+                        "Oem", "OpenBmc", "Fan", "FanZones", std::ref(input)));
+    EXPECT_EQ(managerId, "bmc");
+    EXPECT_EQ(input, "Left");
+}
+
 TEST(Router, ParameterTagging)
 {
     EXPECT_EQ(1, getParameterTag("<str>"));
@@ -205,7 +220,8 @@ TEST(GetClientIpAddress, ValidTcpSocket)
 {
     boost::asio::io_context io;
     boost::asio::ip::tcp::acceptor acceptor(
-        io, boost::asio::ip::tcp::endpoint(make_address("127.0.0.1"), 0));
+        io, boost::asio::ip::tcp::endpoint(
+                boost::asio::ip::make_address("127.0.0.1"), 0));
 
     boost::asio::ip::tcp::socket clientSocket(io);
     boost::asio::ip::tcp::socket serverSocket(io);
@@ -236,7 +252,8 @@ TEST(GetClientIpAddress, IPv6Socket)
 {
     boost::asio::io_context io;
     boost::asio::ip::tcp::acceptor acceptor(
-        io, boost::asio::ip::tcp::endpoint(make_address("::1"), 0));
+        io, boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("::1"),
+                                           0));
 
     boost::asio::ip::tcp::socket clientSocket(io);
     boost::asio::ip::tcp::socket serverSocket(io);

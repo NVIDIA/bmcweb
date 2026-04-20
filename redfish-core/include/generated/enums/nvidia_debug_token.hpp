@@ -49,5 +49,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AdditionalInfo, {
     {AdditionalInfo::DebugSessionActive, "DebugSessionActive"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_debug_token

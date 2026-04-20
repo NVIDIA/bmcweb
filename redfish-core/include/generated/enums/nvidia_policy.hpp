@@ -29,5 +29,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(CommonReactionEnum, {
     {CommonReactionEnum::HardPowerOff, "HardPowerOff"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_policy

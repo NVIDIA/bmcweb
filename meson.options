@@ -36,6 +36,20 @@ option(
                     removed Q2-2025''',
 )
 
+# BMCWEB_NBDPROXY
+# if you use this option and are seeing this comment, please comment here:
+# https://github.com/openbmc/bmcweb/issues/188 and put forward your intentions
+# for this code.  At this point, no daemon has been upstreamed that implements
+# this interface, so for the moment this appears to be dead code;  In leiu of
+# removing it, it has been disabled to try to give those that use it the
+# opportunity to upstream their backend implementation
+#option(
+#    'vm-nbdproxy',
+#    type: 'feature',
+#    value: 'disabled',
+#    description: 'Enable the Virtual Media WebSocket.'
+#)
+
 # BMCWEB_REST
 option(
     'shmem-platform-metrics',
@@ -131,7 +145,7 @@ option(
 option(
     'redfish-dump-log',
     type: 'feature',
-    value: 'disabled',
+    value: 'enabled',
     description: '''Enable Dump log service transactions through Redfish. Paths
                    are under /redfish/v1/Systems/system/LogServices/Dump
                    and /redfish/v1/Managers/bmc/LogServices/Dump''',
@@ -174,7 +188,7 @@ option(
         enabled.
         This option is currently non-functional, given Redfish requirements for
         MessageId support in Events.
-        Option will be removed begining of Q2-2025.
+        Option will be removed beginning of Q2-2026.
         Should not be enabled on any production systems.
     ''',
 )
@@ -213,6 +227,20 @@ option(
                     1Q 2024.''',
 )
 
+# BMCWEB_REDFISH_EVENTLOG_LOCATION
+option(
+    'redfish-eventlog-location',
+    type: 'combo',
+    choices: ['systems', 'managers'],
+    value: 'systems',
+    description: '''Set which Redfish resource enables event log service
+                    transactions through Redfish. By default, this option
+                    is set to systems. In that case paths are under
+                    /redfish/v1/Systems/<redfish-system-uri-name>/LogServices/EventLog
+                    Change to managers, for paths to be under
+                    /redfish/v1/Managers/<redfish-manager-uri-name>/LogServices/EventLog''',
+)
+
 # BMCWEB_REDFISH_PROVISIONING_FEATURE
 option(
     'redfish-provisioning-feature',
@@ -244,6 +272,18 @@ option(
                     /redfish/v1/Systems/<redfish-system-uri-name>.
                     Defaults to \'system\' which resolves to
                     /redfish/v1/Systems/system''',
+)
+
+# BMCWEB_REDFISH_FABRIC_URI_NAME
+option(
+    'redfish-fabric-uri-name',
+    type: 'string',
+    value: 'fabric',
+    description: '''The static Redfish Fabric ID representing the host
+                    instance. This option will appear in the Redfish tree at
+                    /redfish/v1/Fabrics/<redfish-fabric-uri-name>.
+                    Defaults to \'fabric\' which resolves to
+                    /redfish/v1/Fabrics/fabric''',
 )
 
 # BMCWEB_LOGGING_LEVEL
@@ -401,14 +441,51 @@ option(
                     sensors in the SensorCollection.''',
 )
 
+# BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED
+option(
+    'redfish-allow-deprecated-indicatorled',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable/disable the deprecated IndicatorLED property. The
+                    default condition is disabled. The code to enable this
+                    option will be removed by March 2026.''',
+)
+
+# BMCWEB_REDFISH_USE_HARDCODED_SYSTEM_LOCATION_INDICATOR
+option(
+    'redfish-use-hardcoded-system-location-indicator',
+    type: 'feature',
+    value: 'enabled',
+    description: '''Enable/disable the use of hard-coded LED group
+                    enclosure_identify_blink and enclosure_identify for getting
+                    and setting the LocationIndicatorActive for the Systems
+                    response. It, as well as the code still beneath it will
+                    be removed on June 2026.''',
+)
+
 # BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL
 option(
     'redfish-allow-deprecated-power-thermal',
     type: 'feature',
+    value: 'disabled',
+    description: '''Enable/disable the old Power / Thermal. This has been
+                    replaced by the new PowerSubsystem, ThermalSubsystem, and
+                    the redfish-new-powersubsystem-thermalsubsystem option.
+                    This option will be removed June 2026.''',
+)
+
+# BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS
+option(
+    'redfish-allow-rotational-fans',
+    type: 'feature',
     value: 'enabled',
-    description: '''Enable/disable the old Power / Thermal. The default
-                    condition is allowing the old Power / Thermal. This
-                    will be disabled by default June 2024. ''',
+    description: '''Enable/disable the reporting of fan_tach sensors as
+                    Rotational ReadingType. Redfish 2025.3 clarified the
+                    reporting of fan sensors should always be as a Percent
+                    ReadingType. When disabled fan_tach sensors will be
+                    converted to report in Percent. This option will
+                    default to disabled June 2026. The code to enable this
+                    option will be removed by June 2027.''',
 )
 
 # BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA
@@ -583,6 +660,18 @@ option(
                     /schemas/v1/JsonSchemas/NvidiaManager.v1_4_0.json#/definitions/SWErrorInjection''',
 )
 
+# BMCWEB_EXPERIMENTAL_BMCWEB_USER
+option(
+    'experimental-bmcweb-user',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable to run bmcweb as the bmcweb user.  This is
+    experimental.  Expect many things to be broken if you enable this
+    option, and this should not be used for production usage.  This
+    option will be removed Q1 2026.''',
+)
+
+# BMCWEB_HTTP2
 option(
     'nvidia-manager-ready-csm',
     type: 'feature',
@@ -1392,3 +1481,4 @@ option(
     /redfish/v1/Fabrics/<str>/Zones/<str>/
     ''',
 )
+

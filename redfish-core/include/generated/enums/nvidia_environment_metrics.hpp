@@ -21,5 +21,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PowerMode, {
     {PowerMode::Custom, "Custom"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_environment_metrics

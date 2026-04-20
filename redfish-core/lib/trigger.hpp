@@ -64,7 +64,7 @@ using DiscreteThresholdParams =
     std::tuple<std::string, std::string, uint64_t, std::string>;
 
 using TriggerSensorsParams =
-    std::vector<std::pair<sdbusplus::message::object_path, std::string>>;
+    std::vector<std::pair<sdbusplus::object_path, std::string>>;
 
 inline triggers::TriggerActionEnum toRedfishTriggerAction(
     std::string_view dbusValue)
@@ -79,11 +79,6 @@ inline triggers::TriggerActionEnum toRedfishTriggerAction(
     {
         return triggers::TriggerActionEnum::RedfishEvent;
     }
-    if (dbusValue ==
-        "xyz.openbmc_project.Telemetry.Trigger.TriggerAction.LogToJournal")
-    {
-        return triggers::TriggerActionEnum::LogToLogService;
-    }
     return triggers::TriggerActionEnum::Invalid;
 }
 
@@ -96,10 +91,6 @@ inline std::string toDbusTriggerAction(std::string_view redfishValue)
     if (redfishValue == "RedfishEvent")
     {
         return "xyz.openbmc_project.Telemetry.Trigger.TriggerAction.LogToRedfishEventLog";
-    }
-    if (redfishValue == "LogToLogService")
-    {
-        return "xyz.openbmc_project.Telemetry.Trigger.TriggerAction.LogToJournal";
     }
     return "";
 }
@@ -223,10 +214,8 @@ struct Context
     std::string id;
     std::string name;
     std::vector<std::string> actions;
-    std::vector<std::pair<sdbusplus::message::object_path, std::string>>
-        sensors;
-    std::vector<std::pair<std::string, std::string>> sensorNames;
-    std::vector<sdbusplus::message::object_path> reports;
+    std::vector<std::pair<sdbusplus::object_path, std::string>> sensors;
+    std::vector<sdbusplus::object_path> reports;
     std::vector<NumericThresholdParams> numericThresholds;
     std::vector<DiscreteThresholdParams> discreteThresholds;
     std::optional<DiscreteCondition> discreteCondition;
@@ -234,7 +223,7 @@ struct Context
     std::optional<std::vector<std::string>> metricProperties;
 };
 
-inline std::optional<sdbusplus::message::object_path>
+inline std::optional<sdbusplus::object_path>
     getReportPathFromReportDefinitionUri(const std::string& uri)
 {
     boost::system::result<boost::urls::url_view> parsed =
@@ -253,8 +242,7 @@ inline std::optional<sdbusplus::message::object_path>
         return std::nullopt;
     }
 
-    return sdbusplus::message::object_path(
-               "/xyz/openbmc_project/Telemetry/Reports") /
+    return sdbusplus::object_path("/xyz/openbmc_project/Telemetry/Reports") /
            "TelemetryService" / id;
 }
 
@@ -543,7 +531,7 @@ inline bool parseLinks(crow::Response& res,
     ctx.reports.reserve(metricReportDefinitions.size());
     for (const std::string& reportDefinionUri : metricReportDefinitions)
     {
-        std::optional<sdbusplus::message::object_path> reportPath =
+        std::optional<sdbusplus::object_path> reportPath =
             getReportPathFromReportDefinitionUri(reportDefinionUri);
         if (!reportPath)
         {
@@ -801,20 +789,18 @@ inline std::optional<nlohmann::json::object_t> getNumericThresholds(
 }
 
 inline std::optional<nlohmann::json> getMetricReportDefinitions(
-    const std::vector<sdbusplus::message::object_path>& reportPaths)
+    const std::vector<sdbusplus::object_path>& reportPaths)
 {
     nlohmann::json reports = nlohmann::json::array();
 
-    for (const sdbusplus::message::object_path& path : reportPaths)
+    for (const sdbusplus::object_path& path : reportPaths)
     {
         std::string reportId = path.filename();
         if (reportId.empty())
         {
-            {
-                BMCWEB_LOG_ERROR("Property Reports contains invalid value: {}",
-                                 path.str);
-                return std::nullopt;
-            }
+            BMCWEB_LOG_ERROR("Property Reports contains invalid value: {}",
+                             path.str);
+            return std::nullopt;
         }
 
         nlohmann::json::object_t report;
@@ -846,7 +832,7 @@ inline bool fillTrigger(nlohmann::json& json, const std::string& id,
     const std::string* name = nullptr;
     const bool* discrete = nullptr;
     const TriggerSensorsParams* sensors = nullptr;
-    const std::vector<sdbusplus::message::object_path>* reports = nullptr;
+    const std::vector<sdbusplus::object_path>* reports = nullptr;
     const std::vector<std::string>* triggerActions = nullptr;
 
     const std::vector<DiscreteThresholdParams>* discreteThresholds = nullptr;

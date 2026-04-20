@@ -103,5 +103,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SSHPreferredAuthentication, {
     {SSHPreferredAuthentication::HostBased, "HostBased"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_network_protocol

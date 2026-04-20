@@ -27,6 +27,7 @@
 #include "task.hpp"
 #include "utils/json_utils.hpp"
 
+#include <algorithm>
 #include <map>
 
 namespace redfish
@@ -609,8 +610,8 @@ inline void handleDriveSanitizePost(
                 return;
             }
 
-            auto drive = std::find_if(
-                subtree.begin(), subtree.end(),
+            auto drive = std::ranges::find_if(
+                subtree,
                 [&driveId](
                     const std::pair<std::string,
                                     dbus::utility::MapperServiceMap>& object) {
@@ -703,8 +704,8 @@ inline void handleDriveSanitizetActionInfoGet(
                 return;
             }
 
-            auto drive = std::find_if(
-                subtree.begin(), subtree.end(),
+            auto drive = std::ranges::find_if(
+                subtree,
                 [&driveId](
                     const std::pair<std::string,
                                     dbus::utility::MapperServiceMap>& object) {
@@ -752,8 +753,8 @@ inline void handleDriveSanitizetActionInfoGet(
                     nlohmann::json::object_t parameter;
                     nlohmann::json::array_t allowed;
 
-                    if (std::find(
-                            cap.begin(), cap.end(),
+                    if (std::ranges::find(
+                            cap,
                             "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.Overwrite") !=
                         cap.end())
                     {
@@ -763,15 +764,15 @@ inline void handleDriveSanitizetActionInfoGet(
 
                         allowed.emplace_back("Overwrite");
                     }
-                    if (std::find(
-                            cap.begin(), cap.end(),
+                    if (std::ranges::find(
+                            cap,
                             "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.BlockErase") !=
                         cap.end())
                     {
                         allowed.emplace_back("BlockErase");
                     }
-                    if (std::find(
-                            cap.begin(), cap.end(),
+                    if (std::ranges::find(
+                            cap,
                             "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.CryptoErase") !=
                         cap.end())
                     {
@@ -934,11 +935,12 @@ inline void driveCollectionGet(
                 uint32_t num = 0;
                 for (const std::string& interface : connNames.begin()->second)
                 {
-                    if (std::find_if(localDriveInterface.begin(),
-                                     localDriveInterface.end(),
-                                     [interface](std::string_view possible) {
-                                         return interface.starts_with(possible);
-                                     }) != localDriveInterface.end())
+                    if (std::ranges::find_if(
+                            localDriveInterface,
+
+                            [interface](std::string_view possible) {
+                                return interface.starts_with(possible);
+                            }) != localDriveInterface.end())
                     {
                         num++;
                     }

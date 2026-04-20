@@ -8,6 +8,7 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/sensor.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
 #include "nvidia_dbus_utility.hpp"
@@ -63,7 +64,7 @@ inline void afterGetTemperatureValue(
      */
     if (sensor_utils::objectExcerptToJson(
             path, chassisId, sensor_utils::ChassisSubNode::thermalMetricsNode,
-            "temperature", valuesDict, item))
+            sensor::ReadingType::Temperature, valuesDict, item))
     {
         nlohmann::json& temperatureReadings =
             asyncResp->res.jsonValue["TemperatureReadingsCelsius"];

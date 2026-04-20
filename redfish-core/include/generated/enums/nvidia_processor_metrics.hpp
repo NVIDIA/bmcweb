@@ -33,5 +33,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EDPViolationStateType, {
     {EDPViolationStateType::OutOfRange, "OutOfRange"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_processor_metrics

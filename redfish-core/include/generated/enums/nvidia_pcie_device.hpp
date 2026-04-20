@@ -55,5 +55,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LTSSMState, {
     {LTSSMState::IllegalState, "IllegalState"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_pcie_device

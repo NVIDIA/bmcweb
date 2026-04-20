@@ -56,15 +56,14 @@ inline void applyTaskServiceTaskUpdatePatch(
 {
     std::deque<std::shared_ptr<task::TaskData>>& tasks =
         task::TaskRegistry::getInstance().getTasks();
-    auto find =
-        std::find_if(tasks.begin(), tasks.end(),
-                     [&taskId](const std::shared_ptr<task::TaskData>& task) {
-                         if (!task)
-                         {
-                             return false;
-                         }
-                         return std::to_string(task->index) == taskId;
-                     });
+    auto find = std::ranges::find_if(
+        tasks, [&taskId](const std::shared_ptr<task::TaskData>& task) {
+            if (!task)
+            {
+                return false;
+            }
+            return std::to_string(task->index) == taskId;
+        });
 
     if (find == tasks.end())
     {
@@ -178,8 +177,8 @@ inline void handleTaskServiceTaskUpdate(
         req.ipAddress.to_string(), req.session->userGroups.size());
 
     const auto& sessionGroups = req.session->userGroups;
-    if (std::find(sessionGroups.begin(), sessionGroups.end(),
-                  "redfish-hostiface") != sessionGroups.end())
+    if (std::ranges::find(sessionGroups, "redfish-hostiface") !=
+        sessionGroups.end())
     {
         BMCWEB_LOG_DEBUG(
             "TaskService Tasks/{} Update: using session redfish-hostiface user={}",

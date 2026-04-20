@@ -21,13 +21,19 @@
 #include <endian.h>
 
 #include <algorithm>
+#include <concepts>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <format>
+#include <iterator>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <typeinfo>
+#include <utility>
+#include <vector>
 
 namespace debug_token::tlv_decoder
 {
@@ -296,10 +302,9 @@ std::pair<uint16_t, uint16_t> Structure::getVersion() const
 std::vector<uint16_t> Structure::getTypes() const
 {
     std::vector<uint16_t> types;
-    std::transform(data.begin(), data.end(), std::back_inserter(types),
-                   [](const std::pair<uint16_t, Item>& pair) {
-                       return pair.first;
-                   });
+    std::ranges::transform(
+        data, std::back_inserter(types),
+        [](const std::pair<uint16_t, Item>& pair) { return pair.first; });
     return types;
 }
 

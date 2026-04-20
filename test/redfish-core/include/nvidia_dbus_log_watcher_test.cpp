@@ -20,19 +20,18 @@
 #include <cstdint>
 #include <ranges>
 #include <string>
-#include <unordered_map>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using ::testing::ElementsAre;
-using ::testing::Pair;
 
 TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
 {
-    std::vector<std::pair<std::string, std::string>> data;
-    data.emplace_back("KEY1", "VALUE1");
-    data.emplace_back("KEY2", "VALUE2");
+    std::vector<std::string> data;
+    data.emplace_back("KEY1=VALUE1");
+    data.emplace_back("KEY2=VALUE2");
 
     const dbus::utility::DBusPropertiesMap propMap = {
         {"AdditionalData", dbus::utility::DbusVariantType(data)},
@@ -65,8 +64,8 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
         EXPECT_EQ(entry.UpdateTimestamp, 9876543210);
         EXPECT_EQ(entry.ServiceProviderNotify, "Test notify");
         EXPECT_EQ(entry.AdditionalData.size(), 2);
-        EXPECT_THAT(entry.AdditionalData, ElementsAre(Pair("KEY1", "VALUE1"),
-                                                      Pair("KEY2", "VALUE2")));
+        EXPECT_THAT(entry.AdditionalData,
+                    ElementsAre("KEY1=VALUE1", "KEY2=VALUE2"));
         EXPECT_EQ(*entry.Path, "/test/path");
         EXPECT_EQ(*entry.Resolution, "Test resolution");
     }
@@ -84,9 +83,9 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapEmptyMap)
 TEST(DbusEventLogEntry,
      FillDbusEventLogEntryFromPropertyMapMissingRequiredFields)
 {
-    std::vector<std::pair<std::string, std::string>> data;
-    data.emplace_back("KEY1", "VALUE1");
-    data.emplace_back("KEY2", "VALUE2");
+    std::vector<std::string> data;
+    data.emplace_back("KEY1=VALUE1");
+    data.emplace_back("KEY2=VALUE2");
 
     const dbus::utility::DBusPropertiesMap propMap = {
         {"AdditionalData", dbus::utility::DbusVariantType(data)},

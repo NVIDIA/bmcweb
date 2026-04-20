@@ -110,8 +110,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 doChassisPowerCycle(asyncResp);
             }
             std::string objectPath = "/xyz/openbmc_project/state/host_system0";
-            if ((std::find(hostList.begin(), hostList.end(), objectPath)) ==
-                hostList.end())
+            if (std::ranges::find(hostList, objectPath) == hostList.end())
             {
                 objectPath = "/xyz/openbmc_project/state/host0";
             }

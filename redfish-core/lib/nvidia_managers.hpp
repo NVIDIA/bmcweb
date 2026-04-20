@@ -1210,7 +1210,6 @@ inline void requestRouteAsyncRawOobCommand(App& app)
 }
 
 inline void handleGenericManager(
-    const crow::Request& /*req*/,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
@@ -1608,10 +1607,9 @@ inline void extendManagerOEM(
             if (line.starts_with(prefix))
             {
                 descriptionContent = line.substr(prefix.size());
-                descriptionContent.erase(
-                    std::remove(descriptionContent.begin(),
-                                descriptionContent.end(), '"'),
-                    descriptionContent.end());
+                auto [first,
+                      last] = std::ranges::remove(descriptionContent, '"');
+                descriptionContent.erase(first, last);
             }
         }
         if (descriptionContent.starts_with("debug-prov"))

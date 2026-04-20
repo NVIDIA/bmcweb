@@ -20,6 +20,8 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/time_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -173,7 +175,7 @@ inline void dimmPropToHex(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         return;
     }
-    asyncResp->res.jsonValue[jsonPtr][key] = "0x" + intToHexString(*value, 4);
+    asyncResp->res.jsonValue[jsonPtr][key] = std::format("{:#04X}", *value);
 }
 
 inline void getPersistentMemoryProperties(
@@ -190,7 +192,7 @@ inline void getPersistentMemoryProperties(
     const uint64_t* volatileSizeInKiB = nullptr;
     const uint64_t* pmSizeInKiB = nullptr;
     const uint64_t* cacheSizeInKB = nullptr;
-    const uint64_t* voltaileRegionMaxSizeInKib = nullptr;
+    const uint64_t* volatileRegionMaxSizeInKiB = nullptr;
     const uint64_t* pmRegionMaxSizeInKiB = nullptr;
     const uint64_t* allocationIncrementInKiB = nullptr;
     const uint64_t* allocationAlignmentInKiB = nullptr;
@@ -217,7 +219,7 @@ inline void getPersistentMemoryProperties(
         volatileRegionSizeLimitInKiB, "PmRegionSizeLimitInKiB",
         pmRegionSizeLimitInKiB, "VolatileSizeInKiB", volatileSizeInKiB,
         "PmSizeInKiB", pmSizeInKiB, "CacheSizeInKB", cacheSizeInKB,
-        "VoltaileRegionMaxSizeInKib", voltaileRegionMaxSizeInKib,
+        "VolatileRegionMaxSizeInKiB", volatileRegionMaxSizeInKiB,
         "PmRegionMaxSizeInKiB", pmRegionMaxSizeInKiB,
         "AllocationIncrementInKiB", allocationIncrementInKiB,
         "AllocationAlignmentInKiB", allocationAlignmentInKiB,
@@ -276,10 +278,10 @@ inline void getPersistentMemoryProperties(
             (*cacheSizeInKB >> 10);
     }
 
-    if (voltaileRegionMaxSizeInKib != nullptr)
+    if (volatileRegionMaxSizeInKiB != nullptr)
     {
         asyncResp->res.jsonValue[jsonPtr]["VolatileRegionSizeMaxMiB"] =
-            (*voltaileRegionMaxSizeInKib) >> 10;
+            (*volatileRegionMaxSizeInKiB) >> 10;
     }
 
     if (pmRegionMaxSizeInKiB != nullptr)
@@ -451,6 +453,7 @@ inline void assembleDimmProperties(
     const std::string* model = nullptr;
     const std::string* locationCode = nullptr;
     const bool* functional = nullptr;
+    const std::string* buildDate = nullptr;
 
     /* Nvidia Added Properties Start*/
     const std::string* locationType = nullptr;
@@ -470,9 +473,10 @@ inline void assembleDimmProperties(
         memoryConfiguredSpeedInMhz, "MemoryType", memoryType, "Channel",
         channel, "MemoryController", memoryController, "Slot", slot, "Socket",
         socket, "SparePartNumber", sparePartNumber, "Model", model,
-        "LocationCode", locationCode, "Functional", functional, "LocationType",
+        "LocationCode", locationCode, "Functional", functional, "BuildDate",
+        buildDate,
         /* Nvidia Added Properties Start*/
-        locationType, "LocationContext", locationContext,
+        "LocationType", locationType, "LocationContext", locationContext,
         "RowRemappingFailureState", rowMappingFailureState,
         "RowRemappingPendingState", rowMappingPendingState);
     /* Nvidia Added Properties End*/
@@ -692,6 +696,11 @@ inline void assembleDimmProperties(
     }
     /* Nvidia Added code End*/
 
+    if (buildDate != nullptr)
+    {
+        time_utils::productionDateReport(asyncResp->res, *buildDate);
+    }
+
     getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
 }
 
@@ -811,7 +820,7 @@ inline void afterGetDimmData(
     bool found = false;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
 
         bool dimmInterface = false;
         bool associationInterface = false;
@@ -880,8 +889,7 @@ inline void afterGetDimmData(
         return;
     }
     // Set @odata only if object is found
-    // Nvidia : Updated to v1_20_0.Memory from v1_11_0.Memory
-    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
+    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_23_0.Memory";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
@@ -940,7 +948,7 @@ inline void afterGetValidDimmPath(
     for (const auto& objectPath : subtree)
     {
         // Ignore any objects which don't end with our desired dimm name
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() == dimmId)
         {
             callback(path);
@@ -1040,51 +1048,42 @@ inline void handleMemoryGet(App& app, const crow::Request& req,
     getDimmData(asyncResp, dimmId);
 }
 
-inline void requestRoutesMemoryCollection(App& app)
+inline void handleMemoryCollectionGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/")
-        .privileges(redfish::privileges::getMemoryCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& systemName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-                {
-                    // Option currently returns no systems.  TBD
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                    return;
-                }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                    return;
-                }
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        // Option currently returns no systems.  TBD
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#MemoryCollection.MemoryCollection";
-                asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    boost::urls::format("/redfish/v1/Systems/{}/Memory",
-                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#MemoryCollection.MemoryCollection";
+    asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Memory", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
-                constexpr std::array<std::string_view, 1> interfaces{
-                    "xyz.openbmc_project.Inventory.Item.Dimm"};
-                collection_util::getCollectionMembers(
-                    asyncResp,
-                    boost::urls::format("/redfish/v1/Systems/{}/Memory",
-                                        BMCWEB_REDFISH_SYSTEM_URI_NAME),
-                    interfaces, "/xyz/openbmc_project/inventory");
-            });
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Inventory.Item.Dimm"};
+    collection_util::getCollectionMembers(
+        asyncResp,
+        boost::urls::format("/redfish/v1/Systems/{}/Memory",
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME),
+        interfaces, "/xyz/openbmc_project/inventory");
 }
 
 inline void requestRoutesMemory(App& app)
@@ -1092,6 +1091,11 @@ inline void requestRoutesMemory(App& app)
     /**
      * Functions triggers appropriate requests on DBus
      */
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/")
+        .privileges(redfish::privileges::getMemoryCollection)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleMemoryCollectionGet, std::ref(app)));
+
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
         .privileges(redfish::privileges::getMemory)
         .methods(boost::beast::http::verb::get)(
@@ -1102,6 +1106,8 @@ inline void requestRoutesMemory(App& app)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleMemoryPatch, std::ref(app)));
 }
+
+inline void requestRoutesMemoryCollection(App& /*app*/) {}
 
 // Nvidia : Added Code Start
 inline void requestRoutesMemoryMetrics(App& app)

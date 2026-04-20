@@ -45,6 +45,15 @@ struct Message
     std::array<const char*, 6> paramTypes;
     const char* resolution;
 };
+
+struct MessageId
+{
+    std::string registryName;
+    std::string majorVersion;
+    std::string minorVersion;
+    std::string messageKey;
+};
+
 using MessageEntry = std::pair<const char*, const Message>;
 using MessageEntries = std::span<const MessageEntry>;
 
@@ -120,19 +129,9 @@ inline nlohmann::json::object_t getLogFromRegistry(
     {
         jArgs.push_back(arg);
     }
-    std::string msgId;
-    if (BMCWEB_REDFISH_USE_3_DIGIT_MESSAGEID)
-    {
-        msgId = std::format("{}.{}.{}.{}.{}", header.registryPrefix,
-                            header.versionMajor, header.versionMinor,
-                            header.versionPatch, entry.first);
-    }
-    else
-    {
-        msgId =
-            std::format("{}.{}.{}.{}", header.registryPrefix,
-                        header.versionMajor, header.versionMinor, entry.first);
-    }
+    std::string msgId =
+        std::format("{}.{}.{}.{}", header.registryPrefix, header.versionMajor,
+                    header.versionMinor, entry.first);
     nlohmann::json::object_t response;
     response["@odata.type"] = "#Message.v1_1_1.Message";
     response["MessageId"] = std::move(msgId);
@@ -147,5 +146,7 @@ const Message* getMessage(std::string_view messageID);
 
 const Message* getMessageFromRegistry(const std::string& messageKey,
                                       std::span<const MessageEntry> registry);
+
+std::optional<MessageId> getMessageComponents(std::string_view message);
 
 } // namespace redfish::registries

@@ -23,6 +23,7 @@
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/asset_utils.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
@@ -198,7 +199,7 @@ inline chassis::ChassisType translateChassisTypeToRedfish(
  * @return None.
  */
 inline void getStorageLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const sdbusplus::message::object_path& path)
+                           const sdbusplus::object_path& path)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", (path / "storage").str,
@@ -214,8 +215,7 @@ inline void getStorageLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             nlohmann::json::array_t storages;
             for (const std::string& storagePath : storageList)
             {
-                std::string id =
-                    sdbusplus::message::object_path(storagePath).filename();
+                std::string id = sdbusplus::object_path(storagePath).filename();
                 if (id.empty())
                 {
                     continue;
@@ -279,6 +279,24 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
                     resource::PowerState::Off;
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::StandbyOffline;
+            }
+            else if (
+                chassisState ==
+                "xyz.openbmc_project.State.Chassis.PowerState.TransitioningToOff")
+            {
+                asyncResp->res.jsonValue["PowerState"] =
+                    resource::PowerState::PoweringOff;
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::StandbyOffline;
+            }
+            else if (
+                chassisState ==
+                "xyz.openbmc_project.State.Chassis.PowerState.TransitioningToOn")
+            {
+                asyncResp->res.jsonValue["PowerState"] =
+                    resource::PowerState::PoweringOn;
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Starting;
             }
         });
 }
@@ -415,8 +433,7 @@ inline void getChassisContainedBy(
         return;
     }
 
-    sdbusplus::message::object_path upstreamChassisPath(
-        upstreamChassisPaths[0]);
+    sdbusplus::object_path upstreamChassisPath(upstreamChassisPaths[0]);
     std::string upstreamChassis = upstreamChassisPath.filename();
     if (upstreamChassis.empty())
     {
@@ -455,7 +472,7 @@ inline void getChassisContains(
     }
     for (const auto& p : downstreamChassisPaths)
     {
-        sdbusplus::message::object_path downstreamChassisPath(p);
+        sdbusplus::object_path downstreamChassisPath(p);
         std::string downstreamChassis = downstreamChassisPath.filename();
         if (downstreamChassis.empty())
         {
@@ -479,13 +496,13 @@ inline void getChassisConnectivity(
 
     dbus::utility::getAssociatedSubTreePaths(
         chassisPath + "/contained_by",
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
         chassisInterfaces,
         std::bind_front(getChassisContainedBy, asyncResp, chassisId));
 
     dbus::utility::getAssociatedSubTreePaths(
         chassisPath + "/containing",
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
         chassisInterfaces,
         std::bind_front(getChassisContains, asyncResp, chassisId));
 }
@@ -547,49 +564,8 @@ inline void handleDecoratorAssetProperties(
     const std::string& chassisId, const std::string& path,
     const dbus::utility::DBusPropertiesMap& propertiesList)
 {
-    const std::string* partNumber = nullptr;
-    const std::string* serialNumber = nullptr;
-    const std::string* manufacturer = nullptr;
-    const std::string* model = nullptr;
-    const std::string* sparePartNumber = nullptr;
-
-    const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
-        partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "Model", model, "SparePartNumber", sparePartNumber);
-
-    if (!success)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    if (partNumber != nullptr)
-    {
-        asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-    }
-
-    if (serialNumber != nullptr)
-    {
-        asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-    }
-
-    if (manufacturer != nullptr)
-    {
-        asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
-    }
-
-    if (model != nullptr)
-    {
-        asyncResp->res.jsonValue["Model"] = *model;
-    }
-
-    // SparePartNumber is optional on D-Bus
-    // so skip if it is empty
-    if (sparePartNumber != nullptr && !sparePartNumber->empty())
-    {
-        asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
-    }
+    asset_utils::extractAssetInfo(asyncResp, ""_json_pointer, propertiesList,
+                                  true);
 
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
@@ -615,18 +591,32 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
                                 chassisId);
     }
+
+    asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId);
+
+    asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
+                            chassisId);
+
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    nlohmann::json::array_t computerSystems;
-    nlohmann::json::object_t system;
-    system["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    computerSystems.emplace_back(std::move(system));
-    asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
-        std::move(computerSystems);
+    // TODO (Alexander): Support Multi Computer System
+    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        nlohmann::json::array_t computerSystems;
+
+        nlohmann::json::object_t system;
+        system["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        computerSystems.emplace_back(std::move(system));
+
+        asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
+            std::move(computerSystems);
+    }
 
     nlohmann::json::array_t managedBy;
     nlohmann::json::object_t manager;
@@ -694,7 +684,7 @@ inline void handleChassisGetSubTree(
         const std::vector<std::pair<std::string, std::vector<std::string>>>&
             connectionNames = object.second;
 
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         if (objPath.filename() != chassisId)
         {
             continue;
@@ -1106,9 +1096,17 @@ inline void handleChassisPatch(
 
     if (indicatorLed)
     {
-        asyncResp->res.addHeader(
-            boost::beast::http::field::warning,
-            "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
+        if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED)
+        {
+            asyncResp->res.addHeader(
+                boost::beast::http::field::warning,
+                "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
+        }
+        else
+        {
+            messages::propertyUnknown(asyncResp->res, "IndicatorLED");
+            return;
+        }
     }
     // Nvidia added captured parameters  indicatorLed, partNumber,
     // serialNumber, cpuClockFrequency, workloadFactor,temperature,
@@ -1138,7 +1136,7 @@ inline void handleChassisPatch(
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 if (objPath.filename() != chassisId)
                 {
                     continue;
@@ -1180,16 +1178,19 @@ inline void handleChassisPatch(
                                                   "LocationIndicatorActive");
                     }
                 }
-                if (indicatorLed)
+                if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED)
                 {
-                    if (indicatorChassis)
+                    if (indicatorLed)
                     {
-                        setIndicatorLedState(asyncResp, *indicatorLed);
-                    }
-                    else
-                    {
-                        messages::propertyUnknown(asyncResp->res,
-                                                  "IndicatorLED");
+                        if (indicatorChassis)
+                        {
+                            setIndicatorLedState(asyncResp, *indicatorLed);
+                        }
+                        else
+                        {
+                            messages::propertyUnknown(asyncResp->res,
+                                                      "IndicatorLED");
+                        }
                     }
                 }
                 // Nvidia: added code start

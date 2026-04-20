@@ -39,6 +39,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_power_smoothing_util.hpp>
 
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <limits>
@@ -600,8 +601,9 @@ inline void getProcessorPowerSmoothingData(
 
                 for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(interfaceList.begin(), interfaceList.end(),
-                                  "com.nvidia.PowerSmoothing.PowerSmoothing") ==
+                    if (std::ranges::find(
+                            interfaceList,
+                            "com.nvidia.PowerSmoothing.PowerSmoothing") ==
                         interfaceList.end())
                     {
                         // no interface = no failures
@@ -609,8 +611,8 @@ inline void getProcessorPowerSmoothingData(
                     }
                     getProcessorPowerSmoothingControlData(aResp, service, path,
                                                           presetProfileURI);
-                    if (std::find(
-                            interfaceList.begin(), interfaceList.end(),
+                    if (std::ranges::find(
+                            interfaceList,
                             "com.nvidia.PowerSmoothing.CurrentPowerProfile") ==
                         interfaceList.end())
                     {
@@ -619,8 +621,8 @@ inline void getProcessorPowerSmoothingData(
                     getProcessorCurrentProfileData(aResp, service, path,
                                                    presetProfileURI);
 
-                    if (std::find(
-                            interfaceList.begin(), interfaceList.end(),
+                    if (std::ranges::find(
+                            interfaceList,
                             "com.nvidia.PowerSmoothing.StateOfChargeFeatures") !=
                         interfaceList.end())
                     {
@@ -851,9 +853,9 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                                                           interfaceList] :
                                              objectInner)
                                         {
-                                            if (std::find(
-                                                    interfaceList.begin(),
-                                                    interfaceList.end(),
+                                            if (std::ranges::find(
+                                                    interfaceList,
+
                                                     "com.nvidia.PowerSmoothing.AdminPowerProfile") !=
                                                 interfaceList.end())
                                             {
@@ -1199,8 +1201,9 @@ inline void patchPowerSmoothingFeature(
                 const std::string* inventoryService = nullptr;
                 for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(interfaceList.begin(), interfaceList.end(),
-                                  "com.nvidia.PowerSmoothing.PowerSmoothing") !=
+                    if (std::ranges::find(
+                            interfaceList,
+                            "com.nvidia.PowerSmoothing.PowerSmoothing") !=
                         interfaceList.end())
                     {
                         inventoryService = &service;
@@ -1288,8 +1291,8 @@ inline void patchProcessorStateOfChargeFeatures(
                 const std::string* servicePtr = nullptr;
                 for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(interfaceList.begin(), interfaceList.end(),
-                                  stateOfChargeIface) != interfaceList.end())
+                    if (std::ranges::find(interfaceList, stateOfChargeIface) !=
+                        interfaceList.end())
                     {
                         servicePtr = &service;
                         break;
@@ -1602,8 +1605,8 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
                 for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(
-                            interfaceList.begin(), interfaceList.end(),
+                    if (std::ranges::find(
+                            interfaceList,
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                         interfaceList.end())
                     {
@@ -1704,8 +1707,8 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
                 for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(
-                            interfaceList.begin(), interfaceList.end(),
+                    if (std::ranges::find(
+                            interfaceList,
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                         interfaceList.end())
                     {

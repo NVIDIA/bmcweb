@@ -26,6 +26,8 @@
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <algorithm>
+
 namespace redfish
 {
 
@@ -218,10 +220,9 @@ inline void populateRedfishSELEntry(
                     if (additional.contains("SENSOR_DATA"))
                     {
                         sensorData = additional["SENSOR_DATA"];
-                        std::transform(sensorData.begin(), sensorData.end(),
-                                       sensorData.begin(), [](unsigned char c) {
-                                           return std::tolower(c);
-                                       });
+                        std::ranges::transform(
+                            sensorData, sensorData.begin(),
+                            [](unsigned char c) { return std::tolower(c); });
                     }
                     // MessageId for SEL is of the form 0xNNaabbcc
                     // where 'NN' is the EventDir/EventType byte, aa is first

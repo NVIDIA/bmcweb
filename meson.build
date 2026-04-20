@@ -78,11 +78,8 @@ incdir = [
     ),
 ]
 
-incdir_cli = include_directories('http', 'include')
-
 # Add compiler arguments
-boost_flags = ['-Wno-unused-parameter']
-nghttp2_flags = []
+boost_flags = ['-Wno-pedantic']
 if (cxx.get_id() == 'clang')
     if (cxx.version().version_compare('<17.0'))
         error('This project requires clang-17 or higher')
@@ -125,7 +122,6 @@ if (cxx.get_id() == 'clang')
     endif
 
     boost_flags += ['-Wno-strict-prototypes', '-Wno-unused-but-set-variable']
-    nghttp2_flags += ['-Wno-extra-semi']
 endif
 
 if (cxx.get_id() == 'gcc')
@@ -160,13 +156,11 @@ if (get_option('buildtype') != 'plain')
         # dynamic symbol table entries
 
         add_project_arguments(
-            cxx.get_supported_arguments(
-                [
-                    '-fno-fat-lto-objects',
-                    '-fvisibility=hidden',
-                    '-fvisibility-inlines-hidden',
-                ],
-            ),
+            [
+                '-fno-fat-lto-objects',
+                '-fvisibility=hidden',
+                '-fvisibility-inlines-hidden',
+            ],
             language: 'cpp',
         )
 
@@ -214,6 +208,7 @@ add_project_arguments(
             '-DBOOST_URL_NO_SOURCE_LOCATION',
             '-DBOOST_SPIRIT_X3_NO_RTTI',
             '-DJSON_NOEXCEPTION',
+            '-DJSON_NO_IO',
             '-DJSON_USE_IMPLICIT_CONVERSIONS=0',
             '-DOPENSSL_NO_FILENAMES',
             '-DSDBUSPLUS_DISABLE_BOOST_COROUTINES',
@@ -252,37 +247,26 @@ endif
 zstd = dependency('libzstd', required: get_option('http-zstd').allowed())
 if zstd.found()
     add_project_arguments('-DHAVE_ZSTD', language: 'cpp')
-    bmcweb_dependencies += [zstd]
+    bmcweb_dependencies += zstd
 endif
-nghttp2 = dependency('libnghttp2', version: '>=1.52.0', required: false)
+
+nghttp2 = dependency('libnghttp2', version: '>=1.66.0', required: false)
 if not nghttp2.found()
     cmake = import('cmake')
     opt_var = cmake.subproject_options()
     opt_var.add_cmake_defines(
-        {
-            'CMAKE_C_FLAGS': ' '.join(nghttp2_flags),
-            'CMAKE_CXX_FLAGS': ' '.join(nghttp2_flags),
-            'ENABLE_LIB_ONLY': true,
-            'ENABLE_STATIC_LIB': true,
-        },
+        {'ENABLE_LIB_ONLY': true, 'BUILD_STATIC_LIBS': true},
     )
     nghttp2_ex = cmake.subproject('nghttp2', options: opt_var)
-    nghttp2 = nghttp2_ex.dependency('nghttp2')
+    nghttp2 = nghttp2_ex.dependency('nghttp2_static')
 endif
 bmcweb_dependencies += nghttp2
 
 sdbusplus = dependency('sdbusplus')
 bmcweb_dependencies += sdbusplus
-bmcweb_cli_dependencies += sdbusplus
 
-cli11 = dependency('CLI11', required: false, include_type: 'system')
-if not cli11.found()
-    cli11_proj = subproject('cli11', required: true)
-    cli11 = cli11_proj.get_variable('CLI11_dep')
-    cli11 = cli11.as_system('system')
-endif
-bmcweb_cli_dependencies += cli11
-
+cli11 = dependency('CLI11', include_type: 'system')
+bmcweb_dependencies += cli11
 
 tinyxml = dependency(
     'tinyxml2',
@@ -290,11 +274,6 @@ tinyxml = dependency(
     version: '>=9.0.0',
     default_options: ['tests=false'],
 )
-if not tinyxml.found()
-    tinyxml_proj = subproject('tinyxml2', required: true)
-    tinyxml = tinyxml_proj.get_variable('tinyxml_dep')
-    tinyxml = tinyxml.as_system('system')
-endif
 bmcweb_dependencies += tinyxml
 
 systemd = dependency('systemd')
@@ -316,28 +295,15 @@ bmcweb_dependencies += nlohmann_json_dep
 
 boost = dependency(
     'boost',
-    modules: ['url'],
-    version: '>=1.84.0',
-    required: false,
+    modules: ['url', 'process'],
+    version: '>=1.88.0',
     static: true,
+    required: false,
     include_type: 'system',
 )
 
-# Boost version is 1.86 or higher to include the 'process' module
-if boost.version().version_compare('>=1.86.0')
-    boost = dependency(
-        'boost',
-        modules: ['url', 'process'],
-        version: '>=1.86.0',
-        static: true,
-        required: false,
-        include_type: 'system',
-    )
-endif
-
 if boost.found()
     bmcweb_dependencies += [boost]
-    bmcweb_cli_dependencies += [boost]
 else
     cmake = import('cmake')
     opt = cmake.subproject_options()
@@ -360,6 +326,7 @@ else
             'CMAKE_C_FLAGS': ' '.join(boost_flags),
             'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_libs),
             'BUILD_SHARED_LIBS': 'OFF',
+            'BOOST_PROCESS_USE_STD_FS': 'ON',
         },
     )
 
@@ -367,14 +334,12 @@ else
     foreach boost_lib : boost_libs
         boost_lib_instance = boost.dependency('boost_' + boost_lib).as_system()
         bmcweb_dependencies += [boost_lib_instance]
-        bmcweb_cli_dependencies += [boost_lib_instance]
     endforeach
 endif
 
 systemd_system_unit_dir = systemd.get_variable('systemd_system_unit_dir')
 
 bindir = get_option('prefix') + '/' + get_option('bindir')
-libexec = get_option('prefix') + '/' + get_option('libexecdir')
 
 summary(
     {
@@ -391,7 +356,6 @@ subdir('redfish-core')
 # Config subdirectory
 subdir('config')
 bmcweb_dependencies += conf_h_dep
-bmcweb_cli_dependencies += conf_h_dep
 
 test_sources = []
 subdir('features')
@@ -403,6 +367,7 @@ srcfiles_bmcweb = files(
     'http/mutual_tls.cpp',
     'http/routing/sserule.cpp',
     'http/routing/websocketrule.cpp',
+    'http/zstd_compressor.cpp',
     'http/zstd_decompressor.cpp',
     'include/debug_token/tlv/tlv_decoder.cpp',
     'include/debug_token/tlv/tlv_encoder.cpp',
@@ -414,6 +379,7 @@ srcfiles_bmcweb = files(
     'redfish-core/src/filter_expr_executor.cpp',
     'redfish-core/src/filter_expr_printer.cpp',
     'redfish-core/src/heartbeat_messages.cpp',
+    'redfish-core/src/journal_read_state.cpp',
     'redfish-core/src/nvidia_error_messages.cpp',
     'redfish-core/src/redfish.cpp',
     'redfish-core/src/redfish_nvidia.cpp',
@@ -438,6 +404,7 @@ srcfiles_bmcweb = files(
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
     'src/ssl_key_handler.cpp',
+    'src/webserver_cli.cpp',
     'src/webserver_run.cpp',
 )
 
@@ -448,24 +415,14 @@ bmcweblib = static_library(
     dependencies: bmcweb_dependencies,
 )
 
-# Generate the bmcwebd daemon
+# Generate the bmcweb daemon
 executable(
-    'bmcwebd',
+    'bmcweb',
     'src/webserver_main.cpp',
     include_directories: incdir,
     dependencies: bmcweb_dependencies,
     link_with: bmcweblib,
     link_args: '-Wl,--gc-sections',
-    install: true,
-    install_dir: libexec,
-)
-
-# Generate the bmcweb CLI application
-executable(
-    'bmcweb',
-    ['src/webserver_cli.cpp', 'src/boost_asio.cpp'],
-    include_directories: incdir_cli,
-    dependencies: bmcweb_cli_dependencies,
     install: true,
     install_dir: bindir,
 )

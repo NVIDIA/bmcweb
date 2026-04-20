@@ -93,8 +93,8 @@ struct DateTimeString
 
     static bool isDateTimeKey(std::string_view key)
     {
-        auto out = std::equal_range(timeKeys.begin(), timeKeys.end(), key);
-        return out.first != out.second;
+        auto out = std::ranges::equal_range(timeKeys, key);
+        return out.begin() != out.end();
     }
 };
 
@@ -137,7 +137,9 @@ ValueVisitor::result_type ValueVisitor::operator()(
     {
         BMCWEB_LOG_ERROR("Key {} doesn't exist in output, cannot filter",
                          static_cast<std::string>(x));
-        BMCWEB_LOG_DEBUG("Output {}", body.dump());
+        BMCWEB_LOG_DEBUG(
+            "Output {}",
+            body.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace));
         return {};
     }
 
@@ -211,7 +213,7 @@ bool doDoubleComparison(double left, filter_ast::ComparisonOpEnum comparator,
 {
     if (!std::isfinite(left) || !std::isfinite(right))
     {
-        BMCWEB_LOG_ERROR("Refusing to do comparision of non finite numbers");
+        BMCWEB_LOG_ERROR("Refusing to do comparison of non finite numbers");
         return false;
     }
     switch (comparator)

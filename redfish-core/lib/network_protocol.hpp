@@ -125,7 +125,7 @@ inline void extractNTPServersAndDomainNamesData(
 template <typename CallbackFunc>
 void getEthernetIfaceData(CallbackFunc&& callback)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    sdbusplus::object_path path("/xyz/openbmc_project/network");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Network", path,
         [callback = std::forward<CallbackFunc>(callback)](
@@ -304,7 +304,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     // Populate SSH preferred authentication methods // Nvidia code
     populateSSHPreferredAuthentications(asyncResp);
-} // namespace redfish
+}
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const boost::system::error_code& ec)
@@ -464,6 +464,12 @@ inline void handleProtocolEnabled(
             {
                 if (entry.first.starts_with(netBasePath))
                 {
+                    if (entry.second.empty())
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Protocol handler: Mapper returned entry with no service");
+                        continue;
+                    }
                     setDbusProperty(
                         asyncResp, "IPMI/ProtocolEnabled",
                         entry.second.begin()->first, entry.first,
@@ -499,23 +505,9 @@ inline void getNTPProtocolEnabled(
 
 inline std::string encodeServiceObjectPath(std::string_view serviceName)
 {
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/control/service");
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/service");
     objPath /= serviceName;
     return objPath.str;
-}
-
-inline void handleBmcNetworkProtocolHead(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    asyncResp->res.addHeader(
-        boost::beast::http::field::link,
-        "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/ManagerNetworkProtocol.json>; rel=describedby");
 }
 
 inline void handleManagersNetworkProtocolPatch(

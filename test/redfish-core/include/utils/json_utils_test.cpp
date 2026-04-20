@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -162,16 +163,19 @@ TEST(ReadJson, JsonArrayAreUnpackedCorrectly)
     crow::Response res;
     nlohmann::json jsonRequest = R"(
         {
-            "TestJson": [{"hello": "yes"}, [{"there": "no"}, "nice"]]
+            "TestJson": [{"hello": "yes"}, {"there": "no"}]
         }
     )"_json;
 
-    std::vector<nlohmann::json> jsonVec;
+    std::vector<nlohmann::json::object_t> jsonVec;
     ASSERT_TRUE(readJson(jsonRequest, res, "TestJson", jsonVec));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
     EXPECT_THAT(res.jsonValue, IsEmpty());
-    EXPECT_THAT(jsonVec, ElementsAre(R"({"hello": "yes"})"_json,
-                                     R"([{"there": "no"}, "nice"])"_json));
+    nlohmann::json::object_t hello;
+    hello["hello"] = "yes";
+    nlohmann::json::object_t there;
+    there["there"] = "no";
+    EXPECT_THAT(jsonVec, ElementsAre(hello, there));
 }
 
 TEST(ReadJson, JsonSubElementValueAreUnpackedCorrectly)
@@ -702,6 +706,41 @@ TEST(ReadJsonSub, HandlesOptionalFields)
 
     EXPECT_EQ(presentField, 42);
     EXPECT_EQ(missingField, std::nullopt);
+}
+
+TEST(hashJsonWithoutKey, HashObject)
+{
+    nlohmann::json obj = R"(
+{
+  "key0": 123,
+  "key1": "123",
+  "key2": [1, 2, 3],
+  "key3": {"key4": "123"}
+}
+)"_json;
+
+    // Returns same value as std::hash when no key is ignored
+    size_t originalHash = std::hash<nlohmann::json>{}(obj);
+    EXPECT_EQ(originalHash, hashJsonWithoutKey(obj, "other"));
+
+    nlohmann::json modifiedObj;
+    // ast-grep-ignore: bmcweb.common-errors.throwing-json-items
+    for (const auto& element : obj.items())
+    {
+        // Hash with ignored key is different from original hash
+        EXPECT_NE(originalHash, hashJsonWithoutKey(obj, element.key()));
+
+        // Hash with ignored key is different than just removing the key
+        modifiedObj = obj;
+        modifiedObj.erase(element.key());
+        EXPECT_NE(std::hash<nlohmann::json>{}(modifiedObj),
+                  hashJsonWithoutKey(obj, element.key()));
+    }
+
+    // Ignored key is not removed recursively
+    modifiedObj = obj;
+    modifiedObj["key3"].erase("key4");
+    EXPECT_EQ(originalHash, hashJsonWithoutKey(obj, "key4"));
 }
 
 } // namespace

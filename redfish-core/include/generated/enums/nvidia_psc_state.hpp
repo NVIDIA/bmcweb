@@ -23,5 +23,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(StatusType, {
     {StatusType::Unknown, "Unknown"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_psc_state

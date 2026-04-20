@@ -162,7 +162,7 @@ inline SPDMMeasurementData parseSPDMInterfaceProperties(
             }
 
             config.measurement.resize(data->size());
-            std::copy(data->begin(), data->end(), config.measurement.begin());
+            std::ranges::copy(*data, config.measurement.begin());
             config.measurement =
                 crow::utility::base64encode(config.measurement);
         }
@@ -266,7 +266,8 @@ inline void handleSPDMGETSignedMeasurement(
     // the request body should either be empty (or pure whitespace),
     // contain an empty json, or be fully valid
     std::string body = req.body();
-    body.erase(std::remove_if(body.begin(), body.end(), isspace), body.end());
+    auto [first, last] = std::ranges::remove_if(body, isspace);
+    body.erase(first, last);
     if (!body.empty() && body != "{}" &&
         !json_util::readJsonAction(req, asyncResp->res, "Nonce", nonce,
                                    "SlotId", slotID, "MeasurementIndices",

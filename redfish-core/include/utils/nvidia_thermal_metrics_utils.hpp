@@ -45,8 +45,8 @@ inline void processSensorsValue(
     // Get sensor reading from managed object
     for (const std::string& sensorPath : sensorPaths)
     {
-        auto sensorElem = std::find_if(
-            managedObjectsResp.begin(), managedObjectsResp.end(),
+        auto sensorElem = std::ranges::find_if(
+            managedObjectsResp,
             [sensorPath](const std::pair<
                          sdbusplus::message::object_path,
                          boost::container::flat_map<
@@ -285,8 +285,7 @@ inline void getChassisHandler(
     // Add underneath chassis paths
     for (const std::string& path : chassisLinks)
     {
-        auto it =
-            std::find(allChassisPaths.begin(), allChassisPaths.end(), path);
+        auto it = std::ranges::find(allChassisPaths, path);
         if (it == allChassisPaths.end())
         {
             continue;
@@ -366,10 +365,9 @@ inline void getServiceRootManagedObjects(
                     connection, ec);
                 return;
             }
-            std::sort(resp.begin(), resp.end(),
-                      [](const auto& a, const auto& b) {
-                          return a.first.str < b.first.str;
-                      });
+            std::ranges::sort(resp, [](const auto& a, const auto& b) {
+                return a.first.str < b.first.str;
+            });
             processChassisSensors(asyncResp, resp, chassisPath, metricsType,
                                   sensingInterval, requestTimestamp);
         },
@@ -398,10 +396,9 @@ inline void getServiceManagedObjects(
                                              requestTimestamp);
                 return;
             }
-            std::sort(resp.begin(), resp.end(),
-                      [](const auto& a, const auto& b) {
-                          return a.first.str < b.first.str;
-                      });
+            std::ranges::sort(resp, [](const auto& a, const auto& b) {
+                return a.first.str < b.first.str;
+            });
             processChassisSensors(asyncResp, resp, chassisPath, metricsType,
                                   sensingInterval, requestTimestamp);
         },

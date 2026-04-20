@@ -36,26 +36,31 @@ std::optional<std::string> toDurationStringFromUint(uint64_t timeMs);
 
 // Returns the formatted date time string.
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
-// the given |secondsSinceEpoch| is too large, we return the maximum supported
-// date.
-std::string getDateTimeUint(uint64_t secondsSinceEpoch);
+// the given |secondsSinceEpoch| is too large, this call returns the maximum
+// supported date.  timezoneName allows selecting a specific time zone by the
+// tzdb name, for example "UTC" or "America/New_York".
+std::string getDateTimeUint(uint64_t secondsSinceEpoch,
+                            std::string_view timezoneName = "");
 
-// Returns the formatted date time string with millisecond precision
+// Returns the tz-aware formatted date time string with millisecond precision
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch);
+std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch,
+                              std::string_view timezoneName = "");
 
-// Returns the formatted date time string with microsecond precision
-std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch);
-
-std::string getDateTimeStdtime(std::time_t secondsSinceEpoch);
+// Returns the tz-aware formatted date time string with microsecond precision
+std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch,
+                              std::string_view timezoneName = "");
+std::string getDateTimeStdtime(std::time_t secondsSinceEpoch,
+                               std::string_view timezoneName = "");
 
 /**
  * Returns the current Date, Time & the local Time Offset
  * information in a pair
  *
- * @param[in] None
+ * @param[in] bool - true if the time is to be returned in local time, false if
+ * in UTC time
  *
  * @return std::pair<std::string, std::string>, which consist
  * of current DateTime & the TimeOffset strings respectively.

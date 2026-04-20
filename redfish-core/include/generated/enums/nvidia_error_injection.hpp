@@ -25,5 +25,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ErrorType, {
     {ErrorType::GPIOSpoofingErrors, "GPIOSpoofingErrors"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_error_injection

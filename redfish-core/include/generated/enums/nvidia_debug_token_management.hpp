@@ -271,5 +271,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TokenSubType, {
     {TokenSubType::CpldDebugEnable, "CpldDebugEnable"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_debug_token_management

@@ -143,5 +143,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RASRawCommandOpCode, {
     {RASRawCommandOpCode::Read, "Read"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_manager

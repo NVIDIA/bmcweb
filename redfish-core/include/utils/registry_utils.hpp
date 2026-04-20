@@ -50,8 +50,7 @@ inline std::vector<std::string> getRegistryPrefixes()
         // The supportedPrefixes list must stay sorted, so insert in the correct
         // position
         std::string bios = "BiosAttributeRegistry";
-        auto insert = std::upper_bound(supportedPrefixes.begin(),
-                                       supportedPrefixes.end(), bios);
+        auto insert = std::ranges::upper_bound(supportedPrefixes, bios);
         supportedPrefixes.insert(insert, bios);
     }
     return supportedPrefixes;

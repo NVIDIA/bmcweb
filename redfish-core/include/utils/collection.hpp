@@ -86,7 +86,7 @@ inline void handleCollectionMembers(
     boost::container::flat_set<std::string> pathNames;
     for (const auto& object : objects)
     {
-        sdbusplus::message::object_path path(object);
+        sdbusplus::object_path path(object);
         std::string leaf = path.filename();
         if (leaf.empty())
         {

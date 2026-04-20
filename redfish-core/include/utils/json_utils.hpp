@@ -468,6 +468,13 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key, Type& value)
 
     return ret;
 }
+
+//  boost::hash_combine
+inline std::size_t combine(std::size_t seed, std::size_t h) noexcept
+{
+    seed ^= h + 0x9e3779b9 + (seed << 6U) + (seed >> 2U);
+    return seed;
+}
 } // namespace details
 
 // clang-format off
@@ -482,6 +489,7 @@ using UnpackVariant = std::variant<
     bool*,
     double*,
     std::string*,
+    nlohmann::json*,
     nlohmann::json::object_t*,
     std::variant<std::string, std::nullptr_t>*,
     std::variant<uint8_t, std::nullptr_t>*,
@@ -503,6 +511,7 @@ using UnpackVariant = std::variant<
     //std::vector<bool>*,
     std::vector<double>*,
     std::vector<std::string>*,
+    std::vector<nlohmann::json>*,
     std::vector<nlohmann::json::object_t>*,
     std::optional<uint8_t>*,
     std::optional<uint16_t>*,
@@ -514,6 +523,7 @@ using UnpackVariant = std::variant<
     std::optional<bool>*,
     std::optional<double>*,
     std::optional<std::string>*,
+    std::optional<nlohmann::json>*,
     std::optional<nlohmann::json::object_t>*,
     std::optional<std::vector<uint8_t>>*,
     std::optional<std::vector<uint16_t>>*,
@@ -537,15 +547,7 @@ using UnpackVariant = std::variant<
     std::optional<std::variant<double, std::nullptr_t>>*,
     std::optional<std::variant<bool, std::nullptr_t>>*,
     std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>*,
-    std::optional<std::vector<std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>>>*,
-
-    // Note, these types are kept for historical completeness, but should not be used,
-    // As they do not provide object type safety.  Instead, rely on nlohmann::json::object_t
-    // Will be removed Q2 2025
-    nlohmann::json*,
-    std::optional<std::vector<nlohmann::json>>*,
-    std::vector<nlohmann::json>*,
-    std::optional<nlohmann::json>*
+    std::optional<std::vector<std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>>>*
 >;
 // clang-format on
 
@@ -986,6 +988,33 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  4. bytes: len(bytes) characters
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
+
+// Hashes a json value, recursively omitting every member with key `keyToIgnore`
+inline size_t hashJsonWithoutKey(const nlohmann::json& jsonValue,
+                                 std::string_view keyToIgnore)
+{
+    const nlohmann::json::object_t* obj =
+        jsonValue.get_ptr<const nlohmann::json::object_t*>();
+    if (obj == nullptr)
+    {
+        // Object has no keys to remove so just return hash
+        return std::hash<nlohmann::json>{}(jsonValue);
+    }
+
+    const size_t type = static_cast<std::size_t>(jsonValue.type());
+    size_t seed = details::combine(type, jsonValue.size());
+    for (const auto& element : *obj)
+    {
+        const size_t h = std::hash<std::string>{}(element.first);
+        seed = details::combine(seed, h);
+        if (element.first != keyToIgnore)
+        {
+            seed = details::combine(
+                seed, std::hash<nlohmann::json>{}(element.second));
+        }
+    }
+    return seed;
+}
 
 } // namespace json_util
 } // namespace redfish

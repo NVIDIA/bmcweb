@@ -35,5 +35,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PresetConfiguration, {
     {PresetConfiguration::Preset8, "Preset8"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_pcie_equalization

@@ -1,462 +1,406 @@
-/*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
- * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include <app.hpp>
-#include <health.hpp>
-#include <openbmc_dbus_rest.hpp>
-#include <query.hpp>
-#include <utils/chassis_utils.hpp>
-#include <utils/dbus_utils.hpp>
-#include <utils/json_utils.hpp>
-#include <utils/nvidia_chassis_util.hpp>
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "led.hpp"
+#include "logging.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/assembly_utils.hpp"
+#include "utils/asset_utils.hpp"
+#include "utils/chassis_utils.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
 
-#include <iostream>
-#include <regex>
-#include <variant>
+#include <boost/beast/http/verb.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/unpack_properties.hpp>
+
+#include <cstddef>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <ranges>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace redfish
 {
 
 /**
- * @brief Get all assembly info by requesting data
- * from the given D-Bus object.
- *
- * @param[in,out]   asyncResp   Async HTTP response.
- * @param[in]       service     D-Bus service to query.
- * @param[in]       objPath     D-Bus object to query.
- * @param[in]       chassisId   Chassis that contains the assembly.
+ * @brief Get Location code for the given assembly.
+ * @param[in] asyncResp - Shared pointer for asynchronous calls.
+ * @param[in] serviceName - Service in which the assembly is hosted.
+ * @param[in] assembly - Assembly object.
+ * @param[in] assemblyJsonPtr - json-keyname on the assembly list output.
+ * @return None.
  */
-inline void updateAssemblies(
+inline void getAssemblyLocationCode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service, const std::string& objPath,
-    const std::string& chassisId)
+    const std::string& serviceName, const std::string& assembly,
+    const nlohmann::json::json_pointer& assemblyJsonPtr)
 {
-    BMCWEB_LOG_DEBUG("Get Assemblies Data");
-    // Get Assembly ID
-    size_t devStart = objPath.rfind('/');
-    if (devStart == std::string::npos)
-    {
-        BMCWEB_LOG_ERROR("Assembly not found {}", objPath);
-        return;
-    }
-    std::string assemblyName = objPath.substr(devStart + 1);
-    if (assemblyName.empty())
-    {
-        BMCWEB_LOG_ERROR("Empty assembly");
-        return;
-    }
-    // seek the last number of the path leaf name.
-    std::regex assemblyRegex(".*[^0-9]([0-9]+)$");
-    std::cmatch match;
-    std::string memberId;
-    if (regex_match(assemblyName.c_str(), match, assemblyRegex))
-    {
-        const std::string& assemblyId = match[1].first;
-        memberId = assemblyId;
-    }
-    // Get interface properties
-    dbus::utility::getAllProperties(
-        service, objPath, "",
-        [asyncResp{asyncResp}, chassisId, memberId,
-         objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& propertiesList) {
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, serviceName, assembly,
+        "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
+        [asyncResp, assembly, assemblyJsonPtr](
+            const boost::system::error_code& ec, const std::string& value) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error for assembly properties");
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error: {} for assembly {}",
+                                     ec.value(), assembly);
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
-            // Assemblies data
-            std::string id = memberId;
-            nlohmann::json assemblyRes;
-            for (const auto& property : propertiesList)
+
+            asyncResp->res.jsonValue[assemblyJsonPtr]["Location"]
+                                    ["PartLocation"]["ServiceLabel"] = value;
+        });
+}
+
+inline void getAssemblyState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const auto& serviceName, const auto& assembly,
+    const nlohmann::json::json_pointer& assemblyJsonPtr)
+{
+    asyncResp->res.jsonValue[assemblyJsonPtr]["Status"]["State"] =
+        resource::State::Enabled;
+
+    dbus::utility::getProperty<bool>(
+        serviceName, assembly, "xyz.openbmc_project.Inventory.Item", "Present",
+        [asyncResp, assemblyJsonPtr,
+         assembly](const boost::system::error_code& ec, const bool value) {
+            if (ec)
             {
-                // Store DBus properties that are also Redfish
-                // properties with same name and a string value
-                const std::string& propertyName = property.first;
-                if ((propertyName == "Model") || (propertyName == "Name") ||
-                    (propertyName == "PartNumber") ||
-                    (propertyName == "SerialNumber") ||
-                    (propertyName == "Version"))
+                if (ec.value() != EBADR)
                 {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for asset properties");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    if (!value->empty())
-                    {
-                        assemblyRes[propertyName] = *value;
-                    }
+                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
+                    messages::internalError(asyncResp->res);
                 }
-                else if (propertyName == "Manufacturer")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for manufacturer");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["Vendor"] = *value;
-                }
-                else if (propertyName == "BuildDate")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for build date");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["ProductionDate"] = *value;
-                }
-                else if (propertyName == "LocationContext")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for PartLocationContext");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["Location"]["PartLocationContext"] = *value;
-                }
-                else if (propertyName == "LocationType")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for LocationType");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["Location"]["PartLocation"]["LocationType"] =
-                        redfish::dbus_utils::toLocationType(*value);
-                }
-                else if (propertyName == "LocationCode")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for ServiceLabel");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["Location"]["PartLocation"]["ServiceLabel"] =
-                        *value;
-                }
-                else if (propertyName == "PhysicalContext")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for PhysicalContext");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    assemblyRes["PhysicalContext"] =
-                        redfish::dbus_utils::toPhysicalContext(*value);
-                }
-                else if (propertyName == "AssemblyID")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("NULL Value returned AssemblyID");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    id = std::to_string(*value);
-                }
+                return;
             }
-            assemblyRes["@odata.id"] = "/redfish/v1/Chassis/" + chassisId +
-                                       "/Assembly#/Assemblies/" + id;
-            assemblyRes["MemberId"] = id;
-            nlohmann::json& jResp = asyncResp->res.jsonValue["Assemblies"];
-            // inserting the assembly object to Assemblies array
-            std::string sortField = "MemberId";
-            redfish::nvidia_chassis_utils::insertSorted(jResp, assemblyRes,
-                                                        sortField);
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+
+            if (!value)
             {
-                // Assembly OEM properties if exist, search by association
-                redfish::nvidia_chassis_utils::getOemAssemblyAssert(
-                    asyncResp, id, objPath);
+                asyncResp->res.jsonValue[assemblyJsonPtr]["Status"]["State"] =
+                    resource::State::Absent;
             }
         });
 }
 
+void getAssemblyHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const auto& serviceName, const auto& assembly,
+                       const nlohmann::json::json_pointer& assemblyJsonPtr)
+{
+    asyncResp->res.jsonValue[assemblyJsonPtr]["Status"]["Health"] =
+        resource::Health::OK;
+
+    dbus::utility::getProperty<bool>(
+        serviceName, assembly,
+        "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
+        [asyncResp, assemblyJsonPtr](const boost::system::error_code& ec,
+                                     bool functional) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+
+            if (!functional)
+            {
+                asyncResp->res.jsonValue[assemblyJsonPtr]["Status"]["Health"] =
+                    resource::Health::Critical;
+            }
+        });
+}
+
+inline void afterGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& assembly,
+    const nlohmann::json::json_pointer& assemblyJsonPtr,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error : {} for assembly {}", ec.value(),
+                         assembly);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& [serviceName, interfaceList] : object)
+    {
+        for (const auto& interface : interfaceList)
+        {
+            if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")
+            {
+                asset_utils::getAssetInfo(asyncResp, serviceName, assembly,
+                                          assemblyJsonPtr, true, false);
+            }
+            else if (interface ==
+                     "xyz.openbmc_project.Inventory.Decorator.LocationCode")
+            {
+                getAssemblyLocationCode(asyncResp, serviceName, assembly,
+                                        assemblyJsonPtr);
+            }
+            else if (interface == "xyz.openbmc_project.Inventory.Item")
+            {
+                getAssemblyState(asyncResp, serviceName, assembly,
+                                 assemblyJsonPtr);
+            }
+            else if (interface ==
+                     "xyz.openbmc_project.State.Decorator.OperationalStatus")
+            {
+                getAssemblyHealth(asyncResp, serviceName, assembly,
+                                  assemblyJsonPtr);
+            }
+        }
+    }
+}
+
 /**
- * Assembly override class for delivering Chassis/Assembly Schema
- * Functions triggers appropriate requests on DBus
+ * @brief Get properties for the assemblies associated to given chassis
+ * @param[in] asyncResp - Shared pointer for asynchronous calls.
+ * @param[in] chassisId - Chassis the assemblies are associated with.
+ * @param[in] assemblies - list of all the assemblies associated with the
+ * chassis.
+ * @return None.
  */
-inline void requestAssemblyRoutes(App& app)
+inline void getAssemblyProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::vector<std::string>& assemblies)
+{
+    BMCWEB_LOG_DEBUG("Get properties for assembly associated");
+
+    std::size_t assemblyIndex = 0;
+    for (const std::string& assembly : assemblies)
+    {
+        nlohmann::json::object_t item;
+        item["@odata.type"] = "#Assembly.v1_6_0.AssemblyData";
+        item["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Assembly#/Assemblies/{}", chassisId,
+            std::to_string(assemblyIndex));
+        item["MemberId"] = std::to_string(assemblyIndex);
+        item["Name"] = sdbusplus::object_path(assembly).filename();
+
+        asyncResp->res.jsonValue["Assemblies"].emplace_back(item);
+
+        nlohmann::json::json_pointer assemblyJsonPtr(
+            "/Assemblies/" + std::to_string(assemblyIndex));
+
+        dbus::utility::getDbusObject(
+            assembly, assemblyInterfaces,
+            std::bind_front(afterGetDbusObject, asyncResp, assembly,
+                            assemblyJsonPtr));
+
+        getLocationIndicatorActive(
+            asyncResp, assembly, [asyncResp, assemblyJsonPtr](bool asserted) {
+                asyncResp->res
+                    .jsonValue[assemblyJsonPtr]["LocationIndicatorActive"] =
+                    asserted;
+            });
+
+        nlohmann::json& assemblyArray = asyncResp->res.jsonValue["Assemblies"];
+        asyncResp->res.jsonValue["Assemblies@odata.count"] =
+            assemblyArray.size();
+
+        assemblyIndex++;
+    }
+}
+
+inline void afterHandleChassisAssemblyGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const boost::system::error_code& ec,
+    const std::vector<std::string>& assemblyList)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_WARNING("Chassis {} not found, ec={}", chassisID, ec);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
+        return;
+    }
+
+    asyncResp->res.addHeader(
+        boost::beast::http::field::link,
+        "</redfish/v1/JsonSchemas/Assembly/Assembly.json>; rel=describedby");
+
+    asyncResp->res.jsonValue["@odata.type"] = "#Assembly.v1_6_0.Assembly";
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisID);
+    asyncResp->res.jsonValue["Name"] = "Assembly Collection";
+    asyncResp->res.jsonValue["Id"] = "Assembly";
+
+    asyncResp->res.jsonValue["Assemblies"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["Assemblies@odata.count"] = 0;
+
+    if (!assemblyList.empty())
+    {
+        getAssemblyProperties(asyncResp, chassisID, assemblyList);
+    }
+}
+
+/**
+ * @param[in] asyncResp - Shared pointer for asynchronous calls.
+ * @param[in] chassisID - Chassis to which the assemblies are
+ * associated.
+ *
+ * @return None.
+ */
+inline void handleChassisAssemblyGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("Get chassis Assembly");
+    assembly_utils::getChassisAssembly(
+        asyncResp, chassisID,
+        std::bind_front(afterHandleChassisAssemblyGet, asyncResp, chassisID));
+}
+
+inline void handleChassisAssemblyHead(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    assembly_utils::getChassisAssembly(
+        asyncResp, chassisID,
+        [asyncResp,
+         chassisID](const boost::system::error_code& ec,
+                    const std::vector<std::string>& /*assemblyList*/) {
+            if (ec)
+            {
+                BMCWEB_LOG_WARNING("Chassis {} not found, ec={}", chassisID,
+                                   ec);
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisID);
+                return;
+            }
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/Assembly.json>; rel=describedby");
+        });
+}
+
+inline void afterHandleChassisAssemblyPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID,
+    std::vector<nlohmann::json::object_t>& assemblyData,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& assemblyList)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_WARNING("Chassis {} not found, ec={}", chassisID, ec);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
+        return;
+    }
+
+    if (assemblyData.size() > assemblyList.size())
+    {
+        BMCWEB_LOG_WARNING(
+            "The number of the input Assemblies is larger than the actual number of Assemblies");
+        messages::arraySizeTooLong(asyncResp->res, "Assemblies",
+                                   assemblyList.size());
+        return;
+    }
+    if (assemblyData.size() < assemblyList.size())
+    {
+        BMCWEB_LOG_WARNING(
+            "The number of the input Assemblies is smaller than the actual number of Assemblies");
+        messages::arraySizeTooShort(asyncResp->res, "Assemblies",
+                                    assemblyList.size());
+        return;
+    }
+
+    std::size_t assemblyIndex = 0;
+    for (nlohmann::json::object_t& item : assemblyData)
+    {
+        std::optional<bool> locationIndicatorActive;
+        if (json_util::readJsonObject(item, asyncResp->res,
+                                      "LocationIndicatorActive",
+                                      locationIndicatorActive))
+        {
+            if (locationIndicatorActive.has_value())
+            {
+                const auto& assembly = assemblyList[assemblyIndex];
+                setLocationIndicatorActive(asyncResp, assembly,
+                                           *locationIndicatorActive);
+            }
+        }
+        assemblyIndex++;
+    }
+}
+
+inline void handleChassisAssemblyPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::vector<nlohmann::json::object_t> assemblyData;
+    if (!redfish::json_util::readJsonPatch(req, asyncResp->res, "Assemblies",
+                                           assemblyData))
+    {
+        return;
+    }
+
+    assembly_utils::getChassisAssembly(
+        asyncResp, chassisID,
+        std::bind_front(afterHandleChassisAssemblyPatch, asyncResp, chassisID,
+                        assemblyData));
+}
+
+inline void requestRoutesAssembly(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Assembly/")
-        .privileges({{"Login"}})
+        .privileges(redfish::privileges::headAssembly)
+        .methods(boost::beast::http::verb::head)(
+            std::bind_front(handleChassisAssemblyHead, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Assembly/")
+        .privileges(redfish::privileges::getAssembly)
         .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisId) {
-                BMCWEB_LOG_DEBUG("Assembly doGet enter");
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                const std::array<std::string_view, 1> interface = {
-                    "xyz.openbmc_project.Inventory.Item.Chassis"};
-                // Get chassis collection
-                dbus::
-                    utility::getSubTree("/xyz/openbmc_project/inventory", 0,
-                                        interface,
-                                        [asyncResp,
-                                         chassisId(std::string(chassisId))](
-                                            const boost::system::error_code& ec,
-                                            const dbus::utility::GetSubTreeType&
-                                                subtree) {
-                                            if (ec)
-                                            {
-                                                BMCWEB_LOG_DEBUG(
-                                                    "DBUS response error");
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                return;
-                                            }
-                                            // Iterate over all retrieved
-                                            // ObjectPaths.
-                                            for (const std::pair<
-                                                     std::string,
-                                                     std::vector<std::pair<
-                                                         std::string,
-                                                         std::vector<
-                                                             std::string>>>>&
-                                                     object : subtree)
-                                            {
-                                                const std::string& path =
-                                                    object.first;
-                                                const std::vector<std::pair<
-                                                    std::string,
-                                                    std::vector<std::string>>>&
-                                                    connectionNames =
-                                                        object.second;
-                                                sdbusplus::message::object_path
-                                                    objPath(path);
-                                                if (objPath.filename() !=
-                                                    chassisId)
-                                                {
-                                                    continue;
-                                                }
-                                                if (connectionNames.empty())
-                                                {
-                                                    std::cerr
-                                                        << "Got 0 Connection names";
-                                                    continue;
-                                                }
-                                                const std::string&
-                                                    connectionName =
-                                                        connectionNames[0]
-                                                            .first;
-                                                // Chassis assembly properties
-                                                asyncResp->res
-                                                    .jsonValue["@odata.type"] =
-                                                    "#Assembly.v1_3_0.Assembly";
-                                                asyncResp->res
-                                                    .jsonValue["@odata.id"] =
-                                                    "/redfish/v1/Chassis/" +
-                                                    chassisId + "/Assembly";
-                                                asyncResp->res.jsonValue["Id"] =
-                                                    "Assembly";
-                                                asyncResp->res
-                                                    .jsonValue["Name"] =
-                                                    "Assembly data for " +
-                                                    chassisId;
-                                                // Get Chassis assembly through
-                                                // association
-                                                dbus::utility::getProperty<std::vector<
-                                                    std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                                  path +
-                                                                      "/assembly",
-                                                                  "xyz.openbmc_project.Association",
-                                                                  "endpoints",
-                                                                  [asyncResp,
-                                                                   path,
-                                                                   chassisId(std::string(
-                                                                       chassisId)),
-                                                                   connectionName](
-                                                                      const boost::
-                                                                          system::error_code&
-                                                                              ec1,
-                                                                      const std::
-                                                                          variant<std::vector<std::string>>& resp) {
-                                                                      const std::array<
-                                                                          std::
-                                                                              string_view,
-                                                                          1>
-                                                                          assemblyIntf =
-                                                                              {"xyz.openbmc_project.Inventory.Item.Assembly"};
-                                                                      if (ec1)
-                                                                      {
-                                                                          BMCWEB_LOG_ERROR(
-                                                                              "Chassis and assembly are not connected through association. ec : {}",
-                                                                              ec1);
+            std::bind_front(handleChassisAssemblyGet, std::ref(app)));
 
-                                                                          dbus::utility::getSubTreePaths(
-                                                                              path +
-                                                                                  "/",
-                                                                              0,
-                                                                              assemblyIntf,
-                                                                              [asyncResp,
-                                                                               chassisId(
-                                                                                   std::string(
-                                                                                       chassisId)),
-                                                                               connectionName](
-                                                                                  const boost::
-                                                                                      system::error_code&
-                                                                                          ec2,
-                                                                                  const std::vector<
-                                                                                      std::
-                                                                                          string>&
-                                                                                      assemblyList) {
-                                                                                  if (ec2)
-                                                                                  {
-                                                                                      BMCWEB_LOG_DEBUG(
-                                                                                          "DBUS response error");
-                                                                                      messages::internalError(
-                                                                                          asyncResp
-                                                                                              ->res);
-                                                                                      return;
-                                                                                  }
-                                                                                  // Update the Assemblies
-                                                                                  asyncResp
-                                                                                      ->res
-                                                                                      .jsonValue
-                                                                                          ["Assemblies"] =
-                                                                                      nlohmann::json::
-                                                                                          array();
-                                                                                  for (
-                                                                                      const std::
-                                                                                          string&
-                                                                                              assembly :
-                                                                                      assemblyList)
-                                                                                  {
-                                                                                      updateAssemblies(
-                                                                                          asyncResp,
-                                                                                          connectionName,
-                                                                                          assembly,
-                                                                                          chassisId);
-                                                                                  }
-                                                                              });
-                                                                          return;
-                                                                      }
-
-                                                                      const std::vector<
-                                                                          std::
-                                                                              string>* assemblyList =
-                                                                          std::get_if<
-                                                                              std::vector<
-                                                                                  std::
-                                                                                      string>>(
-                                                                              &resp);
-
-                                                                      for (
-                                                                          const std::
-                                                                              string&
-                                                                                  assembly :
-                                                                          *assemblyList)
-                                                                      {
-                                                                          BMCWEB_LOG_DEBUG(
-                                                                              "Found Assembly Path, {}",
-                                                                              assembly);
-                                                                          asyncResp
-                                                                              ->res
-                                                                              .jsonValue
-                                                                                  ["Assemblies"] =
-                                                                              nlohmann::json::
-                                                                                  array();
-                                                                          dbus::utility::getDbusObject(
-                                                                              assembly,
-                                                                              assemblyIntf,
-                                                                              [asyncResp,
-                                                                               assembly,
-                                                                               chassisId(
-                                                                                   std::string(
-                                                                                       chassisId))](
-                                                                                  const boost::
-                                                                                      system::error_code&
-                                                                                          ec2,
-                                                                                  const std::vector<std::pair<
-                                                                                      std::
-                                                                                          string,
-                                                                                      std::vector<
-                                                                                          std::
-                                                                                              string>>>&
-                                                                                      objInfo) mutable {
-                                                                                  if (ec2)
-                                                                                  {
-                                                                                      BMCWEB_LOG_ERROR(
-                                                                                          "error_code = {}",
-                                                                                          ec2);
-
-                                                                                      messages::internalError(
-                                                                                          asyncResp
-                                                                                              ->res);
-
-                                                                                      return;
-                                                                                  }
-
-                                                                                  updateAssemblies(
-                                                                                      asyncResp,
-                                                                                      objInfo[0]
-                                                                                          .first,
-                                                                                      assembly,
-                                                                                      chassisId);
-                                                                              });
-                                                                      }
-                                                                  });
-
-                                                return;
-                                            }
-                                            // Couldn't find an object with that
-                                            // name. return an error
-                                            messages::resourceNotFound(
-                                                asyncResp->res,
-                                                "#Chassis.v1_15_0.Chassis",
-                                                chassisId);
-                                        });
-            });
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Assembly/")
+        .privileges(redfish::privileges::patchAssembly)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleChassisAssemblyPatch, std::ref(app)));
 }
 
 } // namespace redfish

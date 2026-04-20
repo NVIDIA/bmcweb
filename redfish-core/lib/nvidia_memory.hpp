@@ -28,6 +28,7 @@
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/message/types.hpp>
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <utility>
@@ -414,22 +415,24 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 }
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Inventory.Item.Dimm") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Inventory.Item.Dimm") !=
                         interfaces.end())
                     {
                         redfish::nvidia_memory::getMemoryDataByService(
                             aResp, service, path);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Memory.MemoryECC") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Memory.MemoryECC") !=
                         interfaces.end())
                     {
                         redfish::nvidia_memory::getMemoryECCData(aResp, service,
                                                                  path);
                     }
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                    if (std::ranges::find(
+                            interfaces,
                             "xyz.openbmc_project.Inventory.Item.Dimm.MemoryMetrics") !=
                         interfaces.end())
                     {
@@ -440,8 +443,8 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.MemoryRowRemapping") !=
+                        if (std::ranges::find(
+                                interfaces, "com.nvidia.MemoryRowRemapping") !=
                             interfaces.end())
                         {
                             aResp->res

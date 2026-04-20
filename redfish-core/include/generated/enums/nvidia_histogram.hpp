@@ -45,5 +45,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(BucketFormat, {
     {BucketFormat::NvS64, "NvS64"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_histogram

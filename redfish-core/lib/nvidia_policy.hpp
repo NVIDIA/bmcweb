@@ -339,7 +339,7 @@ inline void handleLeakDetectionPolicyPatch(
         // level is maintained for backwards compatibility.
         if (policyReactions->empty())
         {
-            messages::arraySizeTooShort(asyncResp->res, "PolicyReactions", "1");
+            messages::arraySizeTooShort(asyncResp->res, "PolicyReactions", 1);
             return;
         }
         if (policyReactions->size() > 1)

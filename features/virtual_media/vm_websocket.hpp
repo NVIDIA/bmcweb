@@ -428,8 +428,7 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 static SessionMap sessions;
 
 inline void afterGetSocket(
-    crow::websocket::Connection& conn,
-    const sdbusplus::message::object_path& path,
+    crow::websocket::Connection& conn, const sdbusplus::object_path& path,
     const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& propertiesList)
 {
@@ -546,14 +545,14 @@ inline void requestRoutes(App& app)
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
-        BMCWEB_ROUTE(app, "/nbd/<str>")
+        BMCWEB_ROUTE(app, "/nbd/<str>/")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
 
-        BMCWEB_ROUTE(app, "/vm/0/0")
+        BMCWEB_ROUTE(app, "/vm/0/0/")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
             .onopen(nbd_proxy::onOpen)
@@ -562,7 +561,7 @@ inline void requestRoutes(App& app)
     }
     if constexpr (BMCWEB_VM_WEBSOCKET)
     {
-        BMCWEB_ROUTE(app, "/vm/0/0")
+        BMCWEB_ROUTE(app, "/vm/0/0/")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
             .onopen([](crow::websocket::Connection& conn) {

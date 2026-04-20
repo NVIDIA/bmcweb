@@ -581,8 +581,9 @@ class Handler : public std::enable_shared_from_this<Handler>
         if ((capabilities & spdmCertCapability) != 0U)
         {
             auto certificateSlot =
-                std::find_if(certificates.begin(), certificates.end(),
-                             [](const auto& e) { return std::get<0>(e) == 0; });
+                std::ranges::find_if(certificates, [](const auto& e) {
+                    return std::get<0>(e) == 0;
+                });
             if (certificateSlot == certificates.end())
             {
                 errorHandler(self, "cannot find certificate for slot 0");

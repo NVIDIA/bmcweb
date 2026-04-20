@@ -2,8 +2,12 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/physical_context.hpp"
 #include "generated/enums/resource.hpp"
 #include "generated/enums/sensor.hpp"
 #include "generated/enums/thermal.hpp"
@@ -13,6 +17,8 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
+
+#include <asm-generic/errno.h>
 
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
@@ -26,6 +32,7 @@
 #include <format>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <set>
@@ -44,6 +51,8 @@ namespace sensor_utils
 
 enum class ChassisSubNode
 {
+    environmentMetricsNode,
+    fansNode,
     powerNode,
     sensorsNode,
     thermalNode,
@@ -55,6 +64,10 @@ constexpr std::string_view chassisSubNodeToString(ChassisSubNode subNode)
 {
     switch (subNode)
     {
+        case ChassisSubNode::environmentMetricsNode:
+            return "EnvironmentMetrics";
+        case ChassisSubNode::fansNode:
+            return "Fans";
         case ChassisSubNode::powerNode:
             return "Power";
         case ChassisSubNode::sensorsNode:
@@ -74,7 +87,15 @@ inline ChassisSubNode chassisSubNodeFromString(const std::string& subNodeStr)
     // If none match unknownNode is returned
     ChassisSubNode subNode = ChassisSubNode::unknownNode;
 
-    if (subNodeStr == "Power")
+    if (subNodeStr == "EnvironmentMetrics")
+    {
+        subNode = ChassisSubNode::environmentMetricsNode;
+    }
+    else if (subNodeStr == "Fans")
+    {
+        subNode = ChassisSubNode::fansNode;
+    }
+    else if (subNodeStr == "Power")
     {
         subNode = ChassisSubNode::powerNode;
     }
@@ -96,7 +117,9 @@ inline ChassisSubNode chassisSubNodeFromString(const std::string& subNodeStr)
 
 inline bool isExcerptNode(const ChassisSubNode subNode)
 {
-    return (subNode == ChassisSubNode::thermalMetricsNode);
+    return ((subNode == ChassisSubNode::thermalMetricsNode) ||
+            (subNode == ChassisSubNode::fansNode) ||
+            (subNode == ChassisSubNode::environmentMetricsNode));
 }
 
 /**
@@ -119,7 +142,7 @@ class InventoryItem
     explicit InventoryItem(const std::string& objPath) : objectPath(objPath)
     {
         // Set inventory item name to last node of object path
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         name = path.filename();
         if (name.empty())
         {
@@ -188,7 +211,14 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     }
     if (sensorType == "fan_tach")
     {
-        return "RPM";
+        if constexpr (BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS)
+        {
+            return "RPM";
+        }
+        else
+        {
+            return "%";
+        }
     }
     if (sensorType == "temperature")
     {
@@ -244,7 +274,14 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     }
     if (sensorType == "fan_tach")
     {
-        return sensor::ReadingType::Rotational;
+        if constexpr (BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS)
+        {
+            return sensor::ReadingType::Rotational;
+        }
+        else
+        {
+            return sensor::ReadingType::Percent;
+        }
     }
     if (sensorType == "temperature")
     {
@@ -288,6 +325,47 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
 }
 
 } // namespace sensors
+
+// represents metric Id, metadata, reading value and timestamp of single
+// reading update in milliseconds
+using Reading = std::tuple<std::string, std::string, double, uint64_t>;
+// represents multiple independent readings
+using Readings = std::vector<Reading>;
+// represents a timestamp and multiple independent readings
+using Statistics = std::tuple<uint64_t, Readings>;
+// represents sensor's path, its metadata
+using SensorPaths =
+    std::vector<std::tuple<sdbusplus::object_path, std::string>>;
+// represents reading parameters for statistics readings
+using ReadingParameters =
+    std::vector<std::tuple<SensorPaths, std::string, std::string, uint64_t>>;
+
+inline void updateSensorStatistics(
+    nlohmann::json& sensorJson, const std::optional<Statistics>& statistics,
+    const std::optional<ReadingParameters>& readingParameters)
+{
+    if (statistics.has_value() && readingParameters.has_value())
+    {
+        Readings metrics = std::get<1>(*statistics);
+        for (const auto& [sensorPaths, operationType, metricId, duration] :
+             *readingParameters)
+        {
+            if (operationType ==
+                "xyz.openbmc_project.Telemetry.Report.OperationType.Maximum")
+            {
+                if (metrics.size() == 1)
+                {
+                    const auto& [id, metadata, value, timestamp] = metrics[0];
+                    sensorJson["PeakReading"] = value;
+                    if (timestamp != 0)
+                    {
+                        sensorJson["PeakReadingTime"] = timestamp;
+                    }
+                }
+            }
+        }
+    }
+}
 
 /**
  * @brief Returns the Redfish State value for the specified inventory item.
@@ -429,6 +507,482 @@ inline void setLedState(nlohmann::json& sensorJson,
     }
 }
 
+inline sensor::ReadingBasisType dBusSensorReadingBasisToRedfish(
+    const std::string& readingBasis)
+{
+    if (readingBasis ==
+        "xyz.openbmc_project.Sensor.Type.ReadingBasisType.Headroom")
+    {
+        return sensor::ReadingBasisType::Headroom;
+    }
+    if (readingBasis ==
+        "xyz.openbmc_project.Sensor.Type.ReadingBasisType.Delta")
+    {
+        return sensor::ReadingBasisType::Delta;
+    }
+    if (readingBasis == "xyz.openbmc_project.Sensor.Type.ReadingBasisType.Zero")
+    {
+        return sensor::ReadingBasisType::Zero;
+    }
+
+    return sensor::ReadingBasisType::Invalid;
+}
+
+/**
+ * @brief Computes percent value for Rotational Fan (fan_tach)
+ * @param[in] sensorName  The name of the fan_tach sensor
+ * @param[in] maxValue The MaxValue D-Bus value
+ * @param[in] minValue The MinValue D-Bus value
+ * @param[in] value The Value D-Bus value
+ * @return Computed percent returned here if sanity checks pass
+ */
+inline std::optional<long> getFanPercent(
+    std::string_view sensorName, std::optional<double> maxValue,
+    std::optional<double> minValue, std::optional<double> value)
+{
+    /* Sanity check values to be used to compute the percent and guard against
+     * divide by zero.
+     */
+    if (!value.has_value() || !std::isfinite(*value))
+    {
+        BMCWEB_LOG_DEBUG("No Value for {}", sensorName);
+        return std::nullopt;
+    }
+
+    if (!maxValue.has_value() || !std::isfinite(*maxValue))
+    {
+        BMCWEB_LOG_DEBUG("maxValue not available for {}", sensorName);
+        return std::nullopt;
+    }
+
+    if (!minValue.has_value() || !std::isfinite(*minValue))
+    {
+        BMCWEB_LOG_DEBUG("minValue not available for {}", sensorName);
+        return std::nullopt;
+    }
+
+    double range = *maxValue - *minValue;
+    if (range <= 0)
+    {
+        BMCWEB_LOG_ERROR("Bad min/max for {}", sensorName);
+        return std::nullopt;
+    }
+
+    // Compute fan's RPM Percent value
+    return std::lround(((*value - *minValue) * 100) / range);
+}
+
+inline void convertToFanPercent(
+    nlohmann::json& sensorJson, std::string_view sensorName,
+    nlohmann::json::json_pointer& unit, std::optional<double> maxValue,
+    std::optional<double> minValue, std::optional<double> value, bool isExcerpt)
+{
+    // RPM value reported under SpeedRPM only
+    unit = "/SpeedRPM"_json_pointer;
+
+    if (!isExcerpt)
+    {
+        // Convert max/min to percent range to match Reading
+        sensorJson["ReadingRangeMax"] = 100;
+        sensorJson["ReadingRangeMin"] = 0;
+    }
+
+    std::optional<long> percentValue =
+        getFanPercent(sensorName, maxValue, minValue, value);
+    if (percentValue.has_value())
+    {
+        sensorJson["Reading"] = *percentValue;
+    }
+    else
+    {
+        // Indication that percent couldn't be computed
+        sensorJson["Reading"] = nullptr;
+    }
+}
+
+inline sensor::ImplementationType dBusSensorImplementationToRedfish(
+    const std::string& implementation)
+{
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Physical")
+    {
+        return sensor::ImplementationType::PhysicalSensor;
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Synthesized")
+    {
+        return sensor::ImplementationType::Synthesized;
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Reported")
+    {
+        return sensor::ImplementationType::Reported;
+    }
+
+    return sensor::ImplementationType::Invalid;
+}
+
+inline void fillSensorStatus(
+    const dbus::utility::DBusPropertiesMap& propertiesDict,
+    nlohmann::json& sensorJson, InventoryItem* inventoryItem)
+{
+    const bool* checkAvailable = nullptr;
+    bool available = true;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesDict, "Available",
+        checkAvailable);
+    if (!success)
+    {
+        messages::internalError();
+    }
+    if (checkAvailable != nullptr)
+    {
+        available = *checkAvailable;
+    }
+
+    sensorJson["Status"]["State"] = getState(inventoryItem, available);
+    sensorJson["Status"]["Health"] =
+        getHealth(sensorJson, propertiesDict, inventoryItem);
+}
+
+inline physical_context::PhysicalContext dBusSensorPhysicalContextToRedfish(
+    const std::string& sensorPhysicalContext)
+{
+    // Currently the PDI only defines the Accelerator type.
+    // TODO: Expand this mapping when additional PhysicalContext types are
+    // added to phosphor-dbus-interfaces.
+    if (sensorPhysicalContext ==
+        "xyz.openbmc_project.Common.PhysicalContext.PhysicalContextType.Accelerator")
+    {
+        return physical_context::PhysicalContext::Accelerator;
+    }
+
+    BMCWEB_LOG_WARNING("Unknown PhysicalContext: {}", sensorPhysicalContext);
+    return physical_context::PhysicalContext::Invalid;
+}
+
+inline bool fillSensorIdentity(
+    std::string_view sensorName, std::string_view sensorType,
+    const dbus::utility::DBusPropertiesMap& propertiesDict,
+    nlohmann::json& sensorJson, bool isExcerpt,
+    nlohmann::json::json_pointer& unit)
+{
+    std::optional<std::string> readingBasis;
+    std::optional<std::string> implementation;
+    std::optional<std::string> physicalContext;
+    std::optional<Statistics> statistics;
+    std::optional<ReadingParameters> readingParameters;
+    std::optional<double> maxValue;
+    std::optional<double> minValue;
+    std::optional<double> value;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesDict, "ReadingBasis",
+        readingBasis, "Implementation", implementation, "Type", physicalContext,
+        "Readings", statistics, "ReadingParameters", readingParameters,
+        "MaxValue", maxValue, "MinValue", minValue, "Value", value);
+    if (!success)
+    {
+        BMCWEB_LOG_ERROR("Failed to unpack properties");
+        messages::internalError();
+        return false;
+    }
+
+    /* Sensor excerpts use different keys to reference the sensor. These are
+     * built by the caller.
+     * Additionally they don't include these additional properties.
+     */
+    if (!isExcerpt)
+    {
+        std::string subNodeEscaped = getSensorId(sensorName, sensorType);
+        // For sensors in SensorCollection we set Id instead of MemberId,
+        // including power sensors.
+        sensorJson["Id"] = std::move(subNodeEscaped);
+
+        std::string sensorNameEs(sensorName);
+        std::ranges::replace(sensorNameEs, '_', ' ');
+        sensorJson["Name"] = std::move(sensorNameEs);
+        sensorJson["@odata.type"] = "#Sensor.v1_11_1.Sensor";
+
+        sensor::ReadingType readingType = sensors::toReadingType(sensorType);
+        if (readingType == sensor::ReadingType::Invalid)
+        {
+            BMCWEB_LOG_ERROR("Redfish cannot map reading type for {}",
+                             sensorType);
+        }
+        else
+        {
+            sensorJson["ReadingType"] = readingType;
+        }
+
+        std::string_view readingUnits = sensors::toReadingUnits(sensorType);
+        if (readingUnits.empty())
+        {
+            BMCWEB_LOG_ERROR("Redfish cannot map reading unit for {}",
+                             sensorType);
+        }
+        else
+        {
+            sensorJson["ReadingUnits"] = readingUnits;
+        }
+
+        if (readingBasis.has_value())
+        {
+            sensor::ReadingBasisType readingBasisOpt =
+                dBusSensorReadingBasisToRedfish(*readingBasis);
+            if (readingBasisOpt != sensor::ReadingBasisType::Invalid)
+            {
+                sensorJson["ReadingBasis"] = readingBasisOpt;
+            }
+        }
+
+        if (implementation.has_value())
+        {
+            sensor::ImplementationType implementationOpt =
+                dBusSensorImplementationToRedfish(*implementation);
+            if (implementationOpt != sensor::ImplementationType::Invalid)
+            {
+                sensorJson["Implementation"] = implementationOpt;
+            }
+        }
+
+        if (physicalContext.has_value())
+        {
+            physical_context::PhysicalContext redfishContext =
+                dBusSensorPhysicalContextToRedfish(*physicalContext);
+            if (redfishContext != physical_context::PhysicalContext::Invalid)
+            {
+                sensorJson["PhysicalContext"] = redfishContext;
+            }
+        }
+
+        updateSensorStatistics(sensorJson, statistics, readingParameters);
+    }
+
+    if (sensorType == "fan_tach")
+    {
+        if constexpr (BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS)
+        {
+            if (value.has_value() && std::isfinite(*value))
+            {
+                sensorJson["SpeedRPM"] = *value;
+            }
+        }
+        else
+        {
+            // Convert fan's RPM value to Percent value for Reading
+            convertToFanPercent(sensorJson, sensorName, unit, maxValue,
+                                minValue, value, isExcerpt);
+        }
+    }
+
+    return true;
+}
+
+inline bool fillPowerThermalIdentity(
+    std::string_view sensorName, std::string_view sensorType,
+    nlohmann::json& sensorJson, InventoryItem* inventoryItem,
+    nlohmann::json::json_pointer& unit, bool& forceToInt)
+{
+    if (sensorType != "power")
+    {
+        // Set MemberId and Name for non-power sensors.  For PowerSupplies
+        // and PowerControl, those properties have more general values
+        // because multiple sensors can be stored in the same JSON object.
+        std::string sensorNameEs(sensorName);
+        std::ranges::replace(sensorNameEs, '_', ' ');
+        sensorJson["Name"] = std::move(sensorNameEs);
+    }
+
+    if (sensorType == "temperature")
+    {
+        unit = "/ReadingCelsius"_json_pointer;
+        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Temperature";
+        // TODO(ed) Documentation says that path should be type fan_tach,
+        // implementation seems to implement fan
+        return true;
+    }
+
+    if (sensorType == "fan" || sensorType == "fan_tach")
+    {
+        unit = "/Reading"_json_pointer;
+        sensorJson["ReadingUnits"] = thermal::ReadingUnits::RPM;
+        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+        if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED)
+        {
+            setLedState(sensorJson, inventoryItem);
+        }
+        forceToInt = true;
+        return true;
+    }
+
+    if (sensorType == "fan_pwm")
+    {
+        unit = "/Reading"_json_pointer;
+        sensorJson["ReadingUnits"] = thermal::ReadingUnits::Percent;
+        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+        if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED)
+        {
+            setLedState(sensorJson, inventoryItem);
+        }
+        forceToInt = true;
+        return true;
+    }
+
+    if (sensorType == "voltage")
+    {
+        unit = "/ReadingVolts"_json_pointer;
+        sensorJson["@odata.type"] = "#Power.v1_0_0.Voltage";
+        return true;
+    }
+
+    if (sensorType == "power")
+    {
+        std::string lower;
+        std::ranges::transform(sensorName, std::back_inserter(lower),
+                               bmcweb::asciiToLower);
+        if (lower == "total_power")
+        {
+            sensorJson["@odata.type"] = "#Power.v1_0_0.PowerControl";
+            // Put multiple "sensors" into a single PowerControl, so have
+            // generic names for MemberId and Name. Follows Redfish mockup.
+            sensorJson["MemberId"] = "0";
+            sensorJson["Name"] = "Chassis Power Control";
+            unit = "/PowerConsumedWatts"_json_pointer;
+        }
+        else if (lower.find("input") != std::string::npos)
+        {
+            unit = "/PowerInputWatts"_json_pointer;
+        }
+        else
+        {
+            unit = "/PowerOutputWatts"_json_pointer;
+        }
+        return true;
+    }
+
+    BMCWEB_LOG_ERROR("Redfish cannot map object type for {}", sensorName);
+    return false;
+}
+
+// Map of dbus interface name, dbus property name and redfish property_name
+using SensorPropertyMap = std::tuple<std::string_view, std::string_view,
+                                     nlohmann::json::json_pointer>;
+using SensorPropertyList = std::vector<SensorPropertyMap>;
+
+inline void mapPropertiesBySubnode(
+    std::string_view sensorType, ChassisSubNode chassisSubNode,
+    SensorPropertyList& properties, nlohmann::json::json_pointer& unit,
+    bool isExcerpt)
+{
+    // unit contains the redfish property_name based on the sensor type/node
+    properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value", unit);
+
+    if (isExcerpt)
+    {
+        // Excerpts don't have any of these extended properties
+        return;
+    }
+
+    if (chassisSubNode == ChassisSubNode::sensorsNode)
+    {
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningHigh",
+            "/Thresholds/UpperCaution/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningLow",
+            "/Thresholds/LowerCaution/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalHigh",
+            "/Thresholds/UpperCritical/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
+            "/Thresholds/LowerCritical/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
+            "HardShutdownHigh", "/Thresholds/UpperFatal/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
+            "HardShutdownLow", "/Thresholds/LowerFatal/Reading"_json_pointer);
+    }
+    else if (sensorType != "power")
+    {
+        properties.emplace_back("xyz.openbmc_project.Sensor.Threshold.Warning",
+                                "WarningHigh",
+                                "/UpperThresholdNonCritical"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Threshold.Warning",
+                                "WarningLow",
+                                "/LowerThresholdNonCritical"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Threshold.Critical",
+                                "CriticalHigh",
+                                "/UpperThresholdCritical"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Threshold.Critical",
+                                "CriticalLow",
+                                "/LowerThresholdCritical"_json_pointer);
+    }
+
+    // TODO Need to get UpperThresholdFatal and LowerThresholdFatal
+
+    if (chassisSubNode == ChassisSubNode::sensorsNode)
+    {
+        if constexpr (BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS)
+        {
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MinValue",
+                                    "/ReadingRangeMin"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MaxValue",
+                                    "/ReadingRangeMax"_json_pointer);
+        }
+        else
+        {
+            /* fan_tach sensors are converted to percent by
+             * convertToFanPercent() called from fillSensorIdentity().
+             * ReadingRangeMin and ReadingRangeMax converted to percent range in
+             * that function as well.
+             */
+            if (sensorType != "fan_tach")
+            {
+                properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                        "MinValue",
+                                        "/ReadingRangeMin"_json_pointer);
+                properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                        "MaxValue",
+                                        "/ReadingRangeMax"_json_pointer);
+            }
+        }
+        properties.emplace_back("xyz.openbmc_project.Inventory.Decorator.Area",
+                                "PhysicalContext",
+                                "/PhysicalContext"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Type",
+                                "Implementation",
+                                "/Implementation"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                "MaxAllowableValue",
+                                "/MaxAllowableOperatingValue"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                "MinAllowableValue",
+                                "/MinAllowableOperatingValue"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Accuracy",
+                                "Accuracy", "/Accuracy"_json_pointer);
+    }
+    else if (sensorType == "temperature")
+    {
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value", "MinValue",
+                                "/MinReadingRangeTemp"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value", "MaxValue",
+                                "/MaxReadingRangeTemp"_json_pointer);
+    }
+    else if (sensorType != "power")
+    {
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value", "MinValue",
+                                "/MinReadingRange"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Value", "MaxValue",
+                                "/MaxReadingRange"_json_pointer);
+    }
+}
+
 /**
  * @brief Builds a json sensor representation of a sensor.
  * @param sensorName  The name of the sensor to be built
@@ -456,269 +1010,37 @@ inline void objectPropertiesToJson(
 
     // This ChassisSubNode builds sensor excerpts
     bool isExcerpt = isExcerptNode(chassisSubNode);
+    bool filledOk = false;
 
-    /* Sensor excerpts use different keys to reference the sensor. These are
-     * built by the caller.
-     * Additionally they don't include these additional properties.
-     */
+    if (chassisSubNode == ChassisSubNode::sensorsNode || isExcerpt)
+    {
+        filledOk = fillSensorIdentity(sensorName, sensorType, propertiesDict,
+                                      sensorJson, isExcerpt, unit);
+    }
+    else
+    {
+        filledOk =
+            fillPowerThermalIdentity(sensorName, sensorType, sensorJson,
+                                     inventoryItem, unit, std::ref(forceToInt));
+    }
+    if (!filledOk)
+    {
+        return;
+    }
+
     if (!isExcerpt)
     {
-        if (chassisSubNode == ChassisSubNode::sensorsNode)
-        {
-            std::string subNodeEscaped =
-                redfish::nvidia_sensor_utils::getSensorId(sensorName,
-                                                          sensorType);
-            // For sensors in SensorCollection we set Id instead of MemberId,
-            // including power sensors.
-            sensorJson["Id"] = std::move(subNodeEscaped);
-
-            std::string sensorNameEs(sensorName);
-            std::replace(sensorNameEs.begin(), sensorNameEs.end(), '_', ' ');
-            sensorJson["Name"] = std::move(sensorNameEs);
-        }
-        else if (sensorType != "power")
-        {
-            // Set MemberId and Name for non-power sensors.  For PowerSupplies
-            // and PowerControl, those properties have more general values
-            // because multiple sensors can be stored in the same JSON object.
-            std::string sensorNameEs(sensorName);
-            std::replace(sensorNameEs.begin(), sensorNameEs.end(), '_', ' ');
-            sensorJson["Name"] = std::move(sensorNameEs);
-        }
-
-        const bool* checkAvailable = nullptr;
-        bool available = true;
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesDict, "Available",
-            checkAvailable);
-        if (!success)
-        {
-            messages::internalError();
-        }
-        if (checkAvailable != nullptr)
-        {
-            available = *checkAvailable;
-        }
-
-        sensorJson["Status"]["State"] = getState(inventoryItem, available);
-        sensorJson["Status"]["Health"] =
-            getHealth(sensorJson, propertiesDict, inventoryItem);
-
-        if (chassisSubNode == ChassisSubNode::sensorsNode)
-        {
-            sensorJson["@odata.type"] = "#Sensor.v1_7_0.Sensor";
-
-            sensor::ReadingType readingType =
-                sensors::toReadingType(sensorType);
-            if (readingType == sensor::ReadingType::Invalid)
-            {
-                BMCWEB_LOG_ERROR("Redfish cannot map reading type for {}",
-                                 sensorType);
-            }
-            else
-            {
-                sensorJson["ReadingType"] = readingType;
-            }
-
-            std::string_view readingUnits = sensors::toReadingUnits(sensorType);
-            if (readingUnits.empty())
-            {
-                BMCWEB_LOG_ERROR("Redfish cannot map reading unit for {}",
-                                 sensorType);
-            }
-            else
-            {
-                sensorJson["ReadingUnits"] = readingUnits;
-            }
-        }
-        else if (sensorType == "temperature")
-        {
-            unit = "/ReadingCelsius"_json_pointer;
-            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Temperature";
-            // TODO(ed) Documentation says that path should be type fan_tach,
-            // implementation seems to implement fan
-        }
-        else if (sensorType == "fan" || sensorType == "fan_tach")
-        {
-            unit = "/Reading"_json_pointer;
-            sensorJson["ReadingUnits"] = thermal::ReadingUnits::RPM;
-            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Fan";
-            setLedState(sensorJson, inventoryItem);
-            forceToInt = true;
-        }
-        else if (sensorType == "fan_pwm")
-        {
-            unit = "/Reading"_json_pointer;
-            sensorJson["ReadingUnits"] = thermal::ReadingUnits::Percent;
-            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Fan";
-            setLedState(sensorJson, inventoryItem);
-            forceToInt = true;
-        }
-        else if (sensorType == "voltage")
-        {
-            unit = "/ReadingVolts"_json_pointer;
-            sensorJson["@odata.type"] = "#Power.v1_0_0.Voltage";
-        }
-        else if (sensorType == "power")
-        {
-            std::string lower;
-            std::ranges::transform(sensorName, std::back_inserter(lower),
-                                   bmcweb::asciiToLower);
-            if (lower == "total_power")
-            {
-                sensorJson["@odata.type"] = "#Power.v1_0_0.PowerControl";
-                // Put multiple "sensors" into a single PowerControl, so have
-                // generic names for MemberId and Name. Follows Redfish mockup.
-                sensorJson["MemberId"] = "0";
-                sensorJson["Name"] = "Chassis Power Control";
-                unit = "/PowerConsumedWatts"_json_pointer;
-            }
-            else if (lower.find("input") != std::string::npos)
-            {
-                unit = "/PowerInputWatts"_json_pointer;
-            }
-            else
-            {
-                unit = "/PowerOutputWatts"_json_pointer;
-            }
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("Redfish cannot map object type for {}",
-                             sensorName);
-            return;
-        }
+        fillSensorStatus(propertiesDict, sensorJson, inventoryItem);
     }
 
     // Map of dbus interface name, dbus property name and redfish property_name
-    std::vector<
-        std::tuple<const char*, const char*, nlohmann::json::json_pointer>>
-        properties;
+    SensorPropertyList properties;
 
-    properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value", unit);
+    // Add additional property mappings based on the sensor type/node
+    mapPropertiesBySubnode(sensorType, chassisSubNode, properties, unit,
+                           isExcerpt);
 
-    if (!isExcerpt)
-    {
-        if (chassisSubNode == ChassisSubNode::sensorsNode)
-        {
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningHigh",
-                "/Thresholds/UpperCaution/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningLow",
-                "/Thresholds/LowerCaution/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalHigh",
-                "/Thresholds/UpperCritical/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
-                "/Thresholds/LowerCritical/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
-                "HardShutdownHigh",
-                "/Thresholds/UpperFatal/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
-                "HardShutdownLow",
-                "/Thresholds/LowerFatal/Reading"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Time.EpochTime",
-                                    "Elapsed", "/ReadingTime"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.ReadingBasis",
-                                    "ReadingBasis",
-                                    "/ReadingBasis"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Description",
-                                    "Description", "/Description"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
-                                    "PeakValue", "/PeakReading"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
-                                    "Timestamp",
-                                    "/PeakReadingTime"_json_pointer);
-
-            /* Add additional properties specific to sensorType */
-            if (sensorType == "fan_tach")
-            {
-                properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                        "Value", "/SpeedRPM"_json_pointer);
-            }
-        }
-        else if (sensorType != "power")
-        {
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningHigh",
-                "/UpperThresholdNonCritical"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Warning", "WarningLow",
-                "/LowerThresholdNonCritical"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalHigh",
-                "/UpperThresholdCritical"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
-                "/LowerThresholdCritical"_json_pointer);
-        }
-
-        // TODO Need to get UpperThresholdFatal and LowerThresholdFatal
-
-        if (chassisSubNode == ChassisSubNode::sensorsNode)
-        {
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MinValue",
-                                    "/ReadingRangeMin"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MaxValue",
-                                    "/ReadingRangeMax"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Accuracy",
-                                    "Accuracy", "/Accuracy"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Inventory.Decorator.Area",
-                "PhysicalContext", "/PhysicalContext"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Type",
-                                    "Implementation",
-                                    "/Implementation"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MaxAllowableValue",
-                                    "/MaxAllowableOperatingValue"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MinAllowableValue",
-                                    "/MinAllowableOperatingValue"_json_pointer);
-        }
-        else if (sensorType == "temperature")
-        {
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MinValue",
-                                    "/MinReadingRangeTemp"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MaxValue",
-                                    "/MaxReadingRangeTemp"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MaxAllowableValue",
-                                    "/MaxAllowableOperatingValue"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MinAllowableValue",
-                                    "/MinAllowableOperatingValue"_json_pointer);
-        }
-        else if (sensorType != "power")
-        {
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MinValue",
-                                    "/MinReadingRange"_json_pointer);
-            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
-                                    "MaxValue",
-                                    "/MaxReadingRange"_json_pointer);
-            if (sensorType != "voltage")
-            {
-                properties.emplace_back(
-                    "xyz.openbmc_project.Sensor.Value", "MaxAllowableValue",
-                    "/MaxAllowableOperatingValue"_json_pointer);
-                properties.emplace_back(
-                    "xyz.openbmc_project.Sensor.Value", "MinAllowableValue",
-                    "/MinAllowableOperatingValue"_json_pointer);
-            }
-        }
-    }
-
-    for (const std::tuple<const char*, const char*,
-                          nlohmann::json::json_pointer>& p : properties)
+    for (const SensorPropertyMap& p : properties)
     {
         for (const auto& [valueName, valueVariant] : propertiesDict)
         {
@@ -829,7 +1151,7 @@ inline void objectPropertiesToJson(
  * @param path The D-Bus path to the sensor to be built
  * @param chassisId The Chassis Id for the sensor
  * @param chassisSubNode The subnode (e.g. ThermalMetrics) of the sensor
- * @param sensorTypeExpected The expected type of the sensor
+ * @param sensorTypeExpected The expected ReadingType of the sensor
  * @param propertiesDict A dictionary of the properties to build the sensor
  * from.
  * @param sensorJson  The json object to fill
@@ -839,7 +1161,7 @@ inline void objectPropertiesToJson(
 inline bool objectExcerptToJson(
     const std::string& path, const std::string_view chassisId,
     ChassisSubNode chassisSubNode,
-    const std::optional<std::string>& sensorTypeExpected,
+    const std::optional<sensor::ReadingType>& sensorTypeExpected,
     const dbus::utility::DBusPropertiesMap& propertiesDict,
     nlohmann::json& sensorJson)
 {
@@ -850,7 +1172,7 @@ inline bool objectExcerptToJson(
         return false;
     }
 
-    sdbusplus::message::object_path sensorPath(path);
+    sdbusplus::object_path sensorPath(path);
     std::string sensorName = sensorPath.filename();
     std::string sensorType = sensorPath.parent_path().filename();
     if (sensorName.empty() || sensorType.empty())
@@ -859,10 +1181,10 @@ inline bool objectExcerptToJson(
         return false;
     }
 
-    if (sensorTypeExpected && (sensorType != *sensorTypeExpected))
+    if (sensorTypeExpected &&
+        (sensors::toReadingType(sensorType) != *sensorTypeExpected))
     {
-        BMCWEB_LOG_DEBUG("{} is not expected type {}", path,
-                         *sensorTypeExpected);
+        BMCWEB_LOG_DEBUG("{} is not expected ReadingType", path);
         return false;
     }
 
@@ -888,11 +1210,11 @@ inline void getAllSensorObjects(
     std::function<void(const boost::system::error_code& ec,
                        SensorServicePathList&)>&& callback)
 {
-    sdbusplus::message::object_path endpointPath{associatedPath};
+    sdbusplus::object_path endpointPath{associatedPath};
     endpointPath /= "all_sensors";
 
     dbus::utility::getAssociatedSubTree(
-        endpointPath, sdbusplus::message::object_path(path), depth, interfaces,
+        endpointPath, sdbusplus::object_path(path), depth, interfaces,
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -914,6 +1236,143 @@ inline void getAllSensorObjects(
 
             callback(ec, sensorsServiceAndPath);
         });
+}
+
+enum class SensorPurpose
+{
+    totalPower,
+    unknownPurpose,
+};
+
+constexpr std::string_view sensorPurposeToString(SensorPurpose subNode)
+{
+    if (subNode == SensorPurpose::totalPower)
+    {
+        return "xyz.openbmc_project.Sensor.Purpose.SensorPurpose.TotalPower";
+    }
+
+    return "Unknown Purpose";
+}
+
+inline SensorPurpose sensorPurposeFromString(const std::string& subNodeStr)
+{
+    // If none match unknownNode is returned
+    SensorPurpose subNode = SensorPurpose::unknownPurpose;
+
+    if (subNodeStr ==
+        "xyz.openbmc_project.Sensor.Purpose.SensorPurpose.TotalPower")
+    {
+        subNode = SensorPurpose::totalPower;
+    }
+
+    return subNode;
+}
+
+inline void checkSensorPurpose(
+    const std::string& serviceName, const std::string& sensorPath,
+    const SensorPurpose sensorPurpose,
+    const std::shared_ptr<SensorServicePathList>& sensorMatches,
+    const std::shared_ptr<boost::system::error_code>& asyncErrors,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& purposeList)
+{
+    // If not found this sensor will be skipped but allow to
+    // continue processing remaining sensors
+    if (ec && (ec != boost::system::errc::io_error) && (ec.value() != EBADR))
+    {
+        BMCWEB_LOG_DEBUG("D-Bus response error : {}", ec);
+        *asyncErrors = ec;
+    }
+
+    if (!ec)
+    {
+        const std::string_view checkPurposeStr =
+            sensorPurposeToString(sensorPurpose);
+
+        BMCWEB_LOG_DEBUG("checkSensorPurpose: {}", checkPurposeStr);
+
+        for (const std::string& purposeStr : purposeList)
+        {
+            if (purposeStr == checkPurposeStr)
+            {
+                // Add to list
+                BMCWEB_LOG_DEBUG("checkSensorPurpose adding {} {}", serviceName,
+                                 sensorPath);
+                sensorMatches->emplace_back(serviceName, sensorPath);
+                return;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Gets sensors from list with specified purpose
+ *
+ * Checks the <sensorListIn> sensors for any which implement the specified
+ * <sensorPurpose> in interface xyz.openbmc_project.Sensor.Purpose. Adds any
+ * matches to the <sensorMatches> list. After checking all sensors in
+ * <sensorListIn> the <callback> is called with just the list of matching
+ * sensors, which could be an empty list. Additionally the <callback> is called
+ * on error and error handling is left to the callback.
+ *
+ * @param asyncResp Response data
+ * @param[in] sensorListIn List of sensors to check
+ * @param[in] sensorPurpose Looks for sensors matching this purpose
+ * @param[out] sensorMatches Sensors from sensorListIn with sensorPurpose
+ * @param[in] callback Callback to handle list of matching sensors
+ */
+inline void getSensorsByPurpose(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const SensorServicePathList& sensorListIn,
+    const SensorPurpose sensorPurpose,
+    const std::shared_ptr<SensorServicePathList>& sensorMatches,
+    const std::function<void(
+        const boost::system::error_code& ec,
+        const std::shared_ptr<SensorServicePathList>& sensorMatches)>& callback)
+{
+    /* Keeps track of number of asynchronous calls made. Once all handlers have
+     * been called the callback function is called with the results.
+     */
+    std::shared_ptr<int> remainingSensorsToVist =
+        std::make_shared<int>(sensorListIn.size());
+
+    /* Holds last unrecoverable error returned by any of the asynchronous
+     * handlers. Once all handlers have been called the callback will be sent
+     * the error to handle.
+     */
+    std::shared_ptr<boost::system::error_code> asyncErrors =
+        std::make_shared<boost::system::error_code>();
+
+    BMCWEB_LOG_DEBUG("getSensorsByPurpose enter {}", *remainingSensorsToVist);
+
+    for (const auto& [serviceName, sensorPath] : sensorListIn)
+    {
+        dbus::utility::getProperty<std::vector<std::string>>(
+            serviceName, sensorPath, "xyz.openbmc_project.Sensor.Purpose",
+            "Purpose",
+            [asyncResp, serviceName, sensorPath, sensorPurpose, sensorMatches,
+             callback, remainingSensorsToVist,
+             asyncErrors](const boost::system::error_code& ec,
+                          const std::vector<std::string>& purposeList) {
+                // Keep track of sensor visited
+                (*remainingSensorsToVist)--;
+                BMCWEB_LOG_DEBUG("Visited {}. Remaining sensors {}", sensorPath,
+                                 *remainingSensorsToVist);
+
+                checkSensorPurpose(serviceName, sensorPath, sensorPurpose,
+                                   sensorMatches, asyncErrors, ec, purposeList);
+
+                // All sensors have been visited
+                if (*remainingSensorsToVist == 0)
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "getSensorsByPurpose, exit found {} matches",
+                        sensorMatches->size());
+                    callback(*asyncErrors, sensorMatches);
+                    return;
+                }
+            });
+    }
 }
 
 } // namespace sensor_utils

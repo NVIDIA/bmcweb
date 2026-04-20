@@ -20,10 +20,13 @@
 #include <endian.h>
 
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <format>
 #include <limits>
+#include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace debug_token::tlv_encoder
 {

@@ -20,8 +20,9 @@ inline std::vector<uint8_t> getBytes(const std::string& s)
     std::vector<uint8_t> bytes;
     bytes.reserve(s.size());
 
-    std::transform(std::begin(s), std::end(s), std::back_inserter(bytes),
-                   [](char c) { return static_cast<uint8_t>(c); });
+    std::ranges::transform(s, std::back_inserter(bytes), [](char c) {
+        return static_cast<uint8_t>(c);
+    });
 
     return bytes;
 }

@@ -14,8 +14,8 @@ class DbusEventLogMonitor
     sdbusplus::bus::match_t dbusEventLogMonitor;
 
     static bool eventLogObjectFromDBus(
-        const dbus::utility::DBusPropertiesMap& map,
-        EventLogObjectsType& event);
+        const dbus::utility::DBusPropertiesMap& map, EventLogObjectsType& event,
+        std::string_view tz = "");
     // Nvidia specific function to convert DbusEventLogEntry to
     // RedfishEventEntry
     static bool redfishEventEntryToSendEvent(const DbusEventLogEntry& entry);

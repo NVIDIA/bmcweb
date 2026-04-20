@@ -17,5 +17,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(NvidiaManagerType, {
     {NvidiaManagerType::PowerManager, "PowerManager"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_power_compliance_manager

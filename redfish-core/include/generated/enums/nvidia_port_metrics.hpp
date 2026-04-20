@@ -117,5 +117,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LinkDownReasonCodeTypes, {
     {LinkDownReasonCodeTypes::PeerResetEvent, "PeerResetEvent"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_port_metrics

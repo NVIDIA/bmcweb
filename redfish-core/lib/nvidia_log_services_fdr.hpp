@@ -107,8 +107,8 @@ inline void requestRoutesSystemFDREntryDownload(App& app)
                     [asyncResp,
                      entryID](const boost::system::error_code& ec,
                               const sdbusplus::message::unix_fd& unixfd) {
-                        downloadEntryCallback(asyncResp, entryID, "FDR", ec,
-                                              unixfd);
+                        log_services_utils::downloadEntryCallback(
+                            asyncResp, entryID, "FDR", ec, unixfd);
                     };
 
                 sdbusplus::message::object_path entry(

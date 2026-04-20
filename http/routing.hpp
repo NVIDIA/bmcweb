@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <format>

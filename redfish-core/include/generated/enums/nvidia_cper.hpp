@@ -57,5 +57,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventOriginator, {
     {EventOriginator::VF_DRIVER, "VF_DRIVER"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_cper

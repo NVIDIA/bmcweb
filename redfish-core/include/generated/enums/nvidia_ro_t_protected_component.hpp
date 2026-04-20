@@ -57,5 +57,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Failed, "Failed"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_ro_t_protected_component

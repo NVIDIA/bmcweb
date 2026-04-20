@@ -79,5 +79,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(CollectionTimeScope, {
     {CollectionTimeScope::StartupInterval, "StartupInterval"},
 });
 
-}
 // clang-format on
+} // namespace metric_report_definition

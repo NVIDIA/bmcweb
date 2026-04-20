@@ -63,5 +63,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SigningType, {
     {SigningType::DOT, "DOT"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_ro_t_image_slot

@@ -291,8 +291,10 @@ def get_response_code(entry_id: str) -> str | None:
         "PropertyValueExternalConflict": "conflict",
         "PropertyValueModified": "ok",
         "PropertyValueResourceConflict": "conflict",
+        "ResourceAlreadyExists": "conflict",
         "ResourceAtUriUnauthorized": "unauthorized",
         "ResourceCannotBeDeleted": "method_not_allowed",
+        "ResourceCreationConflict": "conflict",
         "ResourceExhaustion": "service_unavailable",
         "ResourceInStandby": "service_unavailable",
         "ResourceInUse": "service_unavailable",
@@ -349,12 +351,6 @@ def make_error_function(
             "QueryParameterValueFormatError": [1],
             "QueryParameterValueTypeError": [1],
         },
-        "uint64_t": {
-            "ArraySizeTooLong": [2],
-            "InvalidIndex": [1],
-            "StringValueTooLong": [2],
-            "TaskProgressChanged": [2],
-        },
     }
 
     out = ""
@@ -363,6 +359,8 @@ def make_error_function(
     for arg_index, arg in enumerate(entry.get("ParamTypes", [])):
         arg_index += 1
         typename = "std::string_view"
+        if arg == "number":
+            typename = "uint64_t"
         for typestring, entries in arg_nonstring_types.items():
             if arg_index in entries.get(entry_id, []):
                 typename = typestring
@@ -452,7 +450,6 @@ def make_error_function(
                 "AccountRemoved",
                 "Created",
                 "Success",
-                "PasswordChangeRequired",
             ]
 
             if entry_id in addMessageToJson:
@@ -567,10 +564,6 @@ namespace messages
         headers.append("<array>")
         headers.append("<cstddef>")
         headers.append("<span>")
-
-        if registry_name not in ("ResourceEvent", "HeartbeatEvent"):
-            headers.append("<cstdint>")
-            headers.append("<string>")
         headers.append("<string_view>")
 
         for header in headers:
@@ -579,6 +572,10 @@ namespace messages
         out.write("""
 // Clang can't seem to decide whether this header needs to be included or not,
 // and is inconsistent.  Include it for now
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <cstdint>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <string>
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <utility>
 

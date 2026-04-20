@@ -1078,9 +1078,10 @@ inline void getAggregatedDeviceMetrics(
     }
 
     nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
-    auto timestampIterator = std::find_if(
-        portInterfacesProperties.begin(), portInterfacesProperties.end(),
-        [](const auto& i) { return i.first == "oem.nvidia.Timestamp"; });
+    auto timestampIterator =
+        std::ranges::find_if(portInterfacesProperties, [](const auto& i) {
+            return i.first == "oem.nvidia.Timestamp";
+        });
     if (timestampIterator != portInterfacesProperties.end())
     {
         for (const auto& interface : portInterfacesProperties)
@@ -1097,9 +1098,10 @@ inline void getAggregatedDeviceMetrics(
             }
             std::string subDeviceName;
             auto timeStampMap = timestampIterator->second;
-            auto timestampPropertiesIterator = std::find_if(
-                timeStampMap.begin(), timeStampMap.end(),
-                [keyName](const auto& i) { return i.first == keyName; });
+            auto timestampPropertiesIterator =
+                std::ranges::find_if(timeStampMap, [keyName](const auto& i) {
+                    return i.first == keyName;
+                });
             if (timestampPropertiesIterator != timeStampMap.end())
             {
                 for (const auto& property : interface.second)
@@ -1139,9 +1141,10 @@ inline void getAggregatedSubDeviceMetrics(
         return;
     }
     nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
-    auto timestampIterator = std::find_if(
-        portInterfacesProperties.begin(), portInterfacesProperties.end(),
-        [](const auto& i) { return i.first == "oem.nvidia.Timestamp"; });
+    auto timestampIterator =
+        std::ranges::find_if(portInterfacesProperties, [](const auto& i) {
+            return i.first == "oem.nvidia.Timestamp";
+        });
     if (timestampIterator != portInterfacesProperties.end())
     {
         for (const auto& interface : portInterfacesProperties)
@@ -1159,9 +1162,10 @@ inline void getAggregatedSubDeviceMetrics(
             }
 
             auto timeStampMap = timestampIterator->second;
-            auto timestampPropertiesIterator = std::find_if(
-                timeStampMap.begin(), timeStampMap.end(),
-                [keyName](const auto& i) { return i.first == keyName; });
+            auto timestampPropertiesIterator =
+                std::ranges::find_if(timeStampMap, [keyName](const auto& i) {
+                    return i.first == keyName;
+                });
             if (timestampPropertiesIterator != timeStampMap.end())
             {
                 for (const auto& property : interface.second)
@@ -1336,8 +1340,8 @@ inline bool isMetricIdSupported(
 {
     bool supported = true;
     // If metricId not found in supportedMetricId list
-    if (std::find(supportedMetricIds.begin(), supportedMetricIds.end(),
-                  requestedMetricId) == supportedMetricIds.end())
+    if (std::ranges::find(supportedMetricIds, requestedMetricId) ==
+        supportedMetricIds.end())
     {
         supported = false;
     }

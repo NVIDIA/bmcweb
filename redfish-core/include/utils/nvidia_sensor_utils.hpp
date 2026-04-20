@@ -273,7 +273,7 @@ inline void processSensorThresholdValues(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& objectPath)
 {
-    std::optional<nlohmann::json> thresholdsObj;
+    std::optional<nlohmann::json::object_t> thresholdsObj;
 
     if (!json_util::readJsonAction(req, asyncResp->res, "Thresholds",
                                    thresholdsObj))
@@ -282,13 +282,14 @@ inline void processSensorThresholdValues(
     }
     if (thresholdsObj)
     {
-        std::optional<nlohmann::json> lowerCritical;
-        std::optional<nlohmann::json> upperCritical;
-        std::optional<nlohmann::json> upperCaution;
-        std::optional<nlohmann::json> lowerCaution;
+        std::optional<nlohmann::json::object_t> lowerCritical;
+        std::optional<nlohmann::json::object_t> upperCritical;
+        std::optional<nlohmann::json::object_t> upperCaution;
+        std::optional<nlohmann::json::object_t> lowerCaution;
 
+        nlohmann::json thresholdsJson(*thresholdsObj);
         if (!redfish::json_util::readJson(
-                *thresholdsObj, asyncResp->res, "LowerCritical", lowerCritical,
+                thresholdsJson, asyncResp->res, "LowerCritical", lowerCritical,
                 "UpperCritical", upperCritical, "UpperCaution", upperCaution,
                 "LowerCaution", lowerCaution))
         {
@@ -297,7 +298,8 @@ inline void processSensorThresholdValues(
         if (lowerCritical)
         {
             std::optional<double> readingValue;
-            if (redfish::json_util::readJson(*lowerCritical, asyncResp->res,
+            nlohmann::json lowerCriticalJson(*lowerCritical);
+            if (redfish::json_util::readJson(lowerCriticalJson, asyncResp->res,
                                              "Reading", readingValue))
             {
                 if (readingValue)
@@ -312,7 +314,8 @@ inline void processSensorThresholdValues(
         if (upperCritical)
         {
             std::optional<double> readingValue;
-            if (redfish::json_util::readJson(*upperCritical, asyncResp->res,
+            nlohmann::json upperCriticalJson(*upperCritical);
+            if (redfish::json_util::readJson(upperCriticalJson, asyncResp->res,
                                              "Reading", readingValue))
             {
                 if (readingValue)
@@ -327,7 +330,8 @@ inline void processSensorThresholdValues(
         if (upperCaution)
         {
             std::optional<double> readingValue;
-            if (redfish::json_util::readJson(*upperCaution, asyncResp->res,
+            nlohmann::json upperCautionJson(*upperCaution);
+            if (redfish::json_util::readJson(upperCautionJson, asyncResp->res,
                                              "Reading", readingValue))
             {
                 if (readingValue)
@@ -342,7 +346,8 @@ inline void processSensorThresholdValues(
         if (lowerCaution)
         {
             std::optional<double> readingValue;
-            if (redfish::json_util::readJson(*lowerCaution, asyncResp->res,
+            nlohmann::json lowerCautionJson(*lowerCaution);
+            if (redfish::json_util::readJson(lowerCautionJson, asyncResp->res,
                                              "Reading", readingValue))
             {
                 if (readingValue)
@@ -364,7 +369,7 @@ inline void processAsyncSensorThresholdValues(
 {
     std::optional<double> maxAllowableOperatingValue;
     std::optional<double> minAllowableOperatingValue;
-    std::optional<nlohmann::json> thresholdsObj;
+    std::optional<nlohmann::json::object_t> thresholdsObj;
 
     // Read MaxAllowableOperatingValue and MinAllowableOperatingValue
     if (!json_util::readJsonAction(
@@ -400,9 +405,10 @@ inline void processAsyncSensorThresholdValues(
 
     if (thresholdsObj)
     {
-        std::optional<nlohmann::json> lowerCritical;
+        std::optional<nlohmann::json::object_t> lowerCritical;
 
-        if (!redfish::json_util::readJson(*thresholdsObj, asyncResp->res,
+        nlohmann::json thresholdsJson(*thresholdsObj);
+        if (!redfish::json_util::readJson(thresholdsJson, asyncResp->res,
                                           "LowerCritical", lowerCritical))
         {
             return;
@@ -411,7 +417,8 @@ inline void processAsyncSensorThresholdValues(
         if (lowerCritical)
         {
             std::optional<double> readingValue;
-            if (redfish::json_util::readJson(*lowerCritical, asyncResp->res,
+            nlohmann::json lowerCriticalJson(*lowerCritical);
+            if (redfish::json_util::readJson(lowerCriticalJson, asyncResp->res,
                                              "Reading", readingValue))
             {
                 if (readingValue)
@@ -496,9 +503,8 @@ inline void findSensorServiceAndPathInChassis(
                         return;
                     }
 
-                    auto sensorIt = std::find_if(
-                        subtree.begin(), subtree.end(),
-                        [&sensorId](const auto& subtreeObj) {
+                    auto sensorIt = std::ranges::find_if(
+                        subtree, [&sensorId](const auto& subtreeObj) {
                             return subtreeObj.first.find(sensorId) !=
                                    std::string::npos;
                         });
@@ -702,8 +708,8 @@ inline void handleSensorPatchAfterSetup(
 
             const auto& [serviceName, objectPath, interfaces] = *svcPath;
 
-            if (std::find(interfaces.begin(), interfaces.end(),
-                          "com.nvidia.Async.Set") != interfaces.end())
+            if (std::ranges::find(interfaces, "com.nvidia.Async.Set") !=
+                interfaces.end())
             {
                 nvidia_sensor_utils::processAsyncSensorThresholdValues(
                     req, asyncResp, serviceName, objectPath);

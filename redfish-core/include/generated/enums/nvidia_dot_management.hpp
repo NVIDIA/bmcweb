@@ -21,5 +21,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(CAKInstalledState, {
     {CAKInstalledState::Error, "Error"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_dot_management

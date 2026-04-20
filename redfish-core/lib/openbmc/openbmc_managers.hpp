@@ -59,7 +59,7 @@ inline void asyncPopulatePid(
     const std::vector<std::string>& supportedProfiles,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::message::object_path objPath(path);
+    sdbusplus::object_path objPath(path);
     dbus::utility::getManagedObjects(
         connection, objPath,
         [asyncResp, currentProfile, supportedProfiles](
@@ -151,8 +151,8 @@ inline void asyncPopulatePid(
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            if (std::find(profiles->begin(), profiles->end(),
-                                          currentProfile) == profiles->end())
+                            if (std::ranges::find(*profiles, currentProfile) ==
+                                profiles->end())
                             {
                                 BMCWEB_LOG_INFO(
                                     "{} not supported in current profile",
@@ -180,9 +180,9 @@ inline void asyncPopulatePid(
                                             BMCWEB_REDFISH_MANAGER_URI_NAME));
                     if (intfPair.first == pidZoneConfigurationIface)
                     {
-                        std::string chassis;
-                        if (!dbus::utility::getNthStringFromPath(
-                                pathPair.first.str, 5, chassis))
+                        sdbusplus::object_path pidPath(pathPair.first.str);
+                        std::string chassis = pidPath.filename();
+                        if (chassis.empty())
                         {
                             chassis = "#IllegalValue";
                         }
@@ -499,7 +499,7 @@ inline const dbus::utility::ManagedObjectType::value_type* findChassis(
     BMCWEB_LOG_DEBUG("Find Chassis: {}", value);
 
     std::string escaped(value);
-    std::replace(escaped.begin(), escaped.end(), ' ', '_');
+    std::ranges::replace(escaped, ' ', '_');
     escaped = "/" + escaped;
     auto it = std::ranges::find_if(managedObj, [&escaped](const auto& obj) {
         if (obj.first.str.ends_with(escaped))
@@ -514,14 +514,11 @@ inline const dbus::utility::ManagedObjectType::value_type* findChassis(
     {
         return nullptr;
     }
-    // 5 comes from <chassis-name> being the 5th element
     // /xyz/openbmc_project/inventory/system/chassis/<chassis-name>
-    if (dbus::utility::getNthStringFromPath(it->first.str, 5, chassis))
-    {
-        return &(*it);
-    }
+    sdbusplus::object_path path(it->first.str);
+    chassis = path.filename();
 
-    return nullptr;
+    return &(*it);
 }
 
 inline bool getZonesFromJsonReq(
@@ -543,19 +540,31 @@ inline bool getZonesFromJsonReq(
         {
             return false;
         }
+
+        boost::system::result<boost::urls::url_view> parsed =
+            boost::urls::parse_relative_ref(path);
+        if (!parsed)
+        {
+            BMCWEB_LOG_WARNING("Got invalid path {}", path);
+            messages::propertyValueFormatError(response->res, path, "Zones");
+            return false;
+        }
+
         std::string input;
 
         // 8 below comes from
         // /redfish/v1/Managers/bmc#/Oem/OpenBmc/Fan/FanZones/Left
-        //     0    1     2      3    4    5      6     7      8
-        if (!dbus::utility::getNthStringFromPath(path, 8, input))
+        std::string managerId;
+        if (!crow::utility::readUrlSegments(
+                *parsed, "redfish", "v1", "Managers", std::ref(managerId),
+                "Oem", "OpenBmc", "Fan", "FanZones", std::ref(input)))
         {
             BMCWEB_LOG_ERROR("Got invalid path {}", path);
             BMCWEB_LOG_ERROR("Illegal Type Zones");
             messages::propertyValueFormatError(response->res, odata, "Zones");
             return false;
         }
-        std::replace(input.begin(), input.end(), '_', ' ');
+        std::ranges::replace(input, '_', ' ');
         zones.emplace_back(std::move(input));
     }
     return true;
@@ -663,8 +672,7 @@ inline CreatePIDRet createPidInterface(
                                 messages::internalError(response->res);
                                 return CreatePIDRet::fail;
                             }
-                            if (std::find(curProfiles->begin(),
-                                          curProfiles->end(), profile) ==
+                            if (std::ranges::find(*curProfiles, profile) ==
                                 curProfiles->end())
                             {
                                 std::vector<std::string> newProfiles =
@@ -748,7 +756,7 @@ inline CreatePIDRet createPidInterface(
         {
             for (std::string& value : *inputs)
             {
-                std::replace(value.begin(), value.end(), '_', ' ');
+                std::ranges::replace(value, '_', ' ');
             }
             output.emplace_back("Inputs", *inputs);
         }
@@ -757,7 +765,7 @@ inline CreatePIDRet createPidInterface(
         {
             for (std::string& value : *outputs)
             {
-                std::replace(value.begin(), value.end(), '_', ' ');
+                std::ranges::replace(value, '_', ' ');
             }
             output.emplace_back("Outputs", *outputs);
         }
@@ -820,16 +828,26 @@ inline CreatePIDRet createPidInterface(
 
         if (chassisId)
         {
-            // /redfish/v1/chassis/chassis_name/
-            if (!dbus::utility::getNthStringFromPath(*chassisId, 3, chassis))
+            boost::system::result<boost::urls::url_view> parsed =
+                boost::urls::parse_relative_ref(*chassisId);
+            if (!parsed)
             {
-                BMCWEB_LOG_ERROR("Got invalid path {}", *chassisId);
-                messages::invalidObject(
-                    response->res,
-                    boost::urls::format("/redfish/v1/Chassis/{}", *chassisId));
+                BMCWEB_LOG_WARNING("Got invalid path {}", *chassisId);
+                messages::propertyValueFormatError(response->res, *chassisId,
+                                                   "Chassis/@odata.id");
+                return CreatePIDRet::fail;
+            }
+
+            if (!crow::utility::readUrlSegments(*parsed, "redfish", "v1",
+                                                "Chassis", std::ref(chassis)))
+            {
+                BMCWEB_LOG_WARNING("Got invalid path {}", *parsed);
+                messages::propertyValueFormatError(response->res, *chassisId,
+                                                   "Chassis/@odata.id");
                 return CreatePIDRet::fail;
             }
         }
+
         if (minThermalOutput)
         {
             output.emplace_back("MinThermalOutput", *minThermalOutput);
@@ -908,7 +926,7 @@ inline CreatePIDRet createPidInterface(
         {
             for (std::string& value : *inputs)
             {
-                std::replace(value.begin(), value.end(), '_', ' ');
+                std::ranges::replace(value, '_', ' ');
             }
             output.emplace_back("Inputs", std::move(*inputs));
         }
@@ -1148,8 +1166,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
 
         // todo(james): might make sense to do a mapper call here if this
         // interface gets more traction
-        sdbusplus::message::object_path objPath(
-            "/xyz/openbmc_project/inventory");
+        sdbusplus::object_path objPath("/xyz/openbmc_project/inventory");
         dbus::utility::getManagedObjects(
             "xyz.openbmc_project.EntityManager", objPath,
             [self](const boost::system::error_code& ec,
@@ -1282,7 +1299,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             for (auto& [name, value] : *container)
             {
                 std::string dbusObjName = name;
-                std::replace(dbusObjName.begin(), dbusObjName.end(), ' ', '_');
+                std::ranges::replace(dbusObjName, ' ', '_');
                 BMCWEB_LOG_DEBUG("looking for {}", name);
 
                 auto pathItr = std::ranges::find_if(
@@ -1365,7 +1382,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                     continue;
                 }
                 std::string escaped = name;
-                std::replace(escaped.begin(), escaped.end(), '_', ' ');
+                std::ranges::replace(escaped, '_', ' ');
                 output.emplace_back("Name", escaped);
 
                 std::string chassis;

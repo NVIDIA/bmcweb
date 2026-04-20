@@ -30,38 +30,6 @@
 #include <unordered_map>
 #include <vector>
 
-namespace nlohmann
-{
-template <typename T>
-struct adl_serializer<std::optional<T>>
-{
-    // NOLINTNEXTLINE(readability-identifier-naming)
-    static void to_json(json& j, const std::optional<T>& opt)
-    {
-        if (opt.has_value())
-        {
-            j = *opt;
-        }
-        else
-        {
-            j = nullptr;
-        }
-    }
-
-    static void fromJson(const json& j, std::optional<T>& opt)
-    {
-        if (j.is_null())
-        {
-            opt = std::nullopt;
-        }
-        else
-        {
-            opt = j.get<T>();
-        }
-    }
-};
-} // namespace nlohmann
-
 namespace nvidia
 {
 namespace nsm_utils

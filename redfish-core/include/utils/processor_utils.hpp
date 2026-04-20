@@ -21,6 +21,7 @@
 
 #include <utils/nvidia_utils.hpp>
 
+#include <algorithm>
 #include <string>
 namespace redfish
 {
@@ -100,8 +101,7 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 {
                     for (const auto& iface : processorInterfaces)
                     {
-                        auto it = std::find(interfaceList.begin(),
-                                            interfaceList.end(), iface);
+                        auto it = std::ranges::find(interfaceList, iface);
                         if (it != interfaceList.end())
                         {
                             if (*it == "com.nvidia.GPMMetrics")

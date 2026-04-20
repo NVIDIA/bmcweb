@@ -21,5 +21,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TargetType, {
     {TargetType::DownstreamEdgePort, "DownstreamEdgePort"},
 });
 
-}
 // clang-format on
+} // namespace rf_switch

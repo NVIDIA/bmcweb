@@ -179,5 +179,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(FailoverPolicy, {
     {FailoverPolicy::AutomaticFailover, "AutomaticFailover"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_chassis

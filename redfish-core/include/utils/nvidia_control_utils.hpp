@@ -22,6 +22,8 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
+
+#include <algorithm>
 namespace redfish
 {
 namespace nvidia_control_utils
@@ -583,12 +585,12 @@ inline void getControlCpuObjects(
                     }
                     for (auto [service, interfaces] : objType)
                     {
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                 interfaces.end() ||
-                            std::find(
-                                interfaces.begin(), interfaces.end(),
+                            std::ranges::find(
+                                interfaces,
                                 "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
                                 interfaces.end())
                         {

@@ -66,11 +66,13 @@ TEST(RedfishEventLog, GetUniqueEntryIDIndex)
 
     ASSERT_NE(index, std::string::npos);
 
+    // ast-grep-ignore: bmcweb.common-errors.unsafe-int-parse
     const long n1 = std::stol(entryID2.substr(index + 1));
 
     // unique index for repeated timestamp is >= 0
     ASSERT_GE(n1, 0);
 
+    // ast-grep-ignore: bmcweb.common-errors.unsafe-int-parse
     const long n2 = std::stol(entryID3.substr(entryID3.find('_') + 1));
 
     // unique index is monotonic increasing
@@ -147,7 +149,7 @@ TEST(RedfishEventLog, FormatEventLogEntrySuccess)
     ASSERT_EQ(logEntryJson["Message"], "Power supply PSU 1 fan FAN 2 failed.");
 
     ASSERT_TRUE(logEntryJson.contains("MessageId"));
-    ASSERT_EQ(logEntryJson["MessageId"], "OpenBMC.0.1.PowerSupplyFanFailed");
+    ASSERT_EQ(logEntryJson["MessageId"], "OpenBMC.0.5.PowerSupplyFanFailed");
 
     ASSERT_TRUE(logEntryJson.contains("MessageArgs"));
     ASSERT_EQ(logEntryJson["MessageArgs"].size(), 2);

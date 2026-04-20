@@ -35,6 +35,7 @@ extern "C"
 #include <openssl/x509v3.h>
 }
 
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <filesystem>
@@ -49,8 +50,6 @@ extern "C"
 namespace ensuressl
 {
 
-static EVP_PKEY* createEcKey();
-
 // Mozilla intermediate cipher suites v5.7
 // Sourced from: https://ssl-config.mozilla.org/guidelines/5.7.json
 constexpr const char* mozillaIntermediate =
@@ -63,6 +62,9 @@ constexpr const char* mozillaIntermediate =
     "DHE-RSA-AES128-GCM-SHA256:"
     "DHE-RSA-AES256-GCM-SHA384:"
     "DHE-RSA-CHACHA20-POLY1305";
+
+constexpr std::array<unsigned char, 6> sessionIdContext = {
+    'b', 'm', 'c', 'w', 'e', 'b'};
 
 // Trust chain related errors.`
 bool isTrustChainError(int errnum)
@@ -273,6 +275,63 @@ void writeCertificateToFile(const std::string& filepath,
     }
 }
 
+X509* constructX509(const std::string& cn, EVP_PKEY* pPrivKey)
+{
+    X509* x509 = X509_new();
+    if (x509 == nullptr)
+    {
+        return nullptr;
+    }
+
+    // get a random number from the RNG for the certificate serial
+    // number If this is not random, regenerating certs throws browser
+    // errors
+    bmcweb::OpenSSLGenerator gen;
+    std::uniform_int_distribution<int> dis(1, std::numeric_limits<int>::max());
+    int serial = dis(gen);
+
+    ASN1_INTEGER_set(X509_get_serialNumber(x509), serial);
+
+    // not before this moment
+    X509_gmtime_adj(X509_get_notBefore(x509), 0);
+    // Cert is valid for 10 years
+    X509_gmtime_adj(X509_get_notAfter(x509), 60L * 60L * 24L * 365L * 10L);
+
+    // set the public key to the key we just generated
+    X509_set_pubkey(x509, pPrivKey);
+
+    // get the subject name
+    X509_NAME* name = X509_get_subject_name(x509);
+
+    using x509String = const unsigned char;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto* country = reinterpret_cast<x509String*>("US");
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto* company = reinterpret_cast<x509String*>("OpenBMC");
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    const auto* cnStr = reinterpret_cast<x509String*>(cn.c_str());
+
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, country, -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, company, -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, cnStr, -1, -1, 0);
+    // set the CSR options
+    X509_set_issuer_name(x509, name);
+
+    X509_set_version(x509, 2);
+    addExt(x509, NID_basic_constraints, ("critical,CA:TRUE"));
+    addExt(x509, NID_subject_alt_name, ("DNS:" + cn).c_str());
+    addExt(x509, NID_subject_key_identifier, ("hash"));
+    addExt(x509, NID_authority_key_identifier, ("keyid"));
+    addExt(x509, NID_key_usage, ("digitalSignature, keyEncipherment"));
+    addExt(x509, NID_ext_key_usage, ("serverAuth"));
+    addExt(x509, NID_netscape_comment, (x509Comment));
+
+    // Sign the certificate with our private key
+    X509_sign(x509, pPrivKey, EVP_sha256());
+
+    return x509;
+}
+
 std::string generateSslCertificate(const std::string& cn)
 {
     BMCWEB_LOG_INFO("Generating new keys");
@@ -283,61 +342,9 @@ std::string generateSslCertificate(const std::string& cn)
     if (pPrivKey != nullptr)
     {
         BMCWEB_LOG_INFO("Generating x509 Certificates");
-        // Use this code to directly generate a certificate
-        X509* x509 = X509_new();
+        X509* x509 = constructX509(cn, pPrivKey);
         if (x509 != nullptr)
         {
-            // get a random number from the RNG for the certificate serial
-            // number If this is not random, regenerating certs throws browser
-            // errors
-            bmcweb::OpenSSLGenerator gen;
-            std::uniform_int_distribution<int> dis(
-                1, std::numeric_limits<int>::max());
-            int serial = dis(gen);
-
-            ASN1_INTEGER_set(X509_get_serialNumber(x509), serial);
-
-            // not before this moment
-            X509_gmtime_adj(X509_get_notBefore(x509), 0);
-            // Cert is valid for 10 years
-            X509_gmtime_adj(X509_get_notAfter(x509),
-                            60L * 60L * 24L * 365L * 10L);
-
-            // set the public key to the key we just generated
-            X509_set_pubkey(x509, pPrivKey);
-
-            // get the subject name
-            X509_NAME* name = X509_get_subject_name(x509);
-
-            using x509String = const unsigned char;
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            x509String* country = reinterpret_cast<x509String*>("US");
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            x509String* company = reinterpret_cast<x509String*>("OpenBMC");
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            x509String* cnStr = reinterpret_cast<x509String*>(cn.c_str());
-
-            X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, country, -1, -1,
-                                       0);
-            X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, company, -1, -1,
-                                       0);
-            X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, cnStr, -1, -1,
-                                       0);
-            // set the CSR options
-            X509_set_issuer_name(x509, name);
-
-            X509_set_version(x509, 2);
-            addExt(x509, NID_basic_constraints, ("critical,CA:TRUE"));
-            addExt(x509, NID_subject_alt_name, ("DNS:" + cn).c_str());
-            addExt(x509, NID_subject_key_identifier, ("hash"));
-            addExt(x509, NID_authority_key_identifier, ("keyid"));
-            addExt(x509, NID_key_usage, ("digitalSignature, keyEncipherment"));
-            addExt(x509, NID_ext_key_usage, ("serverAuth"));
-            addExt(x509, NID_netscape_comment, (x509Comment));
-
-            // Sign the certificate with our private key
-            X509_sign(x509, pPrivKey, EVP_sha256());
-
             BIO* bufio = BIO_new(BIO_s_mem());
 
             int pkeyRet = PEM_write_bio_PrivateKey(
@@ -367,12 +374,10 @@ std::string generateSslCertificate(const std::string& cn)
             BMCWEB_LOG_INFO("Cert size is {}", buffer.size());
             X509_free(x509);
         }
-
-        EVP_PKEY_free(pPrivKey);
-        pPrivKey = nullptr;
     }
 
-    // cleanup_openssl();
+    EVP_PKEY_free(pPrivKey);
+
     return buffer;
 }
 
@@ -525,13 +530,6 @@ static bool getSslContext(boost::asio::ssl::context& mSslContext,
         }
     }
 
-    // Set up EC curves to auto (boost asio doesn't have a method for this)
-    // There is a pull request to add this.  Once this is included in an asio
-    // drop, use the right way
-    // http://stackoverflow.com/questions/18929049/boost-asio-with-ecdsa-certificate-issue
-    if (SSL_CTX_set_ecdh_auto(mSslContext.native_handle(), 1) != 1)
-    {}
-
     if (SSL_CTX_set_cipher_list(mSslContext.native_handle(),
                                 mozillaIntermediate) != 1)
     {
@@ -593,6 +591,25 @@ std::shared_ptr<boost::asio::ssl::context> getSslServerContext()
 
         SSL_CTX_set_alpn_select_cb(sslCtx.native_handle(),
                                    alpnSelectProtoCallback, nullptr);
+    }
+
+    // Enable server-side in memory session caching, so they can be looked up
+    // by ID.
+    SSL_CTX_set_session_cache_mode(sslCtx.native_handle(), SSL_SESS_CACHE_BOTH);
+
+    // Set session cache size to prevent session ID DoS attack
+    SSL_CTX_sess_set_cache_size(sslCtx.native_handle(), 100);
+
+    // Set the Session ID Context
+    // OpenSSL REQUIRES this to be set for the server to support session
+    // caching. It prevents sessions from one application context (e.g., a
+    // different port/app) from being used in another.
+    if (SSL_CTX_set_session_id_context(sslCtx.native_handle(),
+                                       sessionIdContext.data(),
+                                       sessionIdContext.size()) != 1)
+    {
+        BMCWEB_LOG_ERROR("Error setting session ID context");
+        return nullptr;
     }
 
     return std::make_shared<boost::asio::ssl::context>(std::move(sslCtx));

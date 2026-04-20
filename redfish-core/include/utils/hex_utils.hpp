@@ -8,8 +8,10 @@
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <iomanip>
 #include <regex>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -30,13 +32,13 @@ inline std::string intToHexString(uint64_t value, size_t digits)
     return rc;
 }
 
-inline std::string bytesToHexString(const std::vector<uint8_t>& bytes)
+inline std::string bytesToHexString(const std::span<const uint8_t>& bytes)
 {
-    std::string rc(bytes.size() * 2, '0');
-    for (size_t i = 0; i < bytes.size(); ++i)
+    std::string rc;
+    rc.reserve(bytes.size() * 2);
+    for (uint8_t byte : bytes)
     {
-        rc[i * 2] = digitsArray[(bytes[i] & 0xf0) >> 4];
-        rc[(i * 2) + 1] = digitsArray[bytes[i] & 0x0f];
+        rc += std::format("{:02X}", byte);
     }
     return rc;
 }

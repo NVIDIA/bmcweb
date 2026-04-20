@@ -59,5 +59,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(HostPrivilegeLevelInput, {
     {HostPrivilegeLevelInput::Restricted, "Restricted"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_host_privilege_config

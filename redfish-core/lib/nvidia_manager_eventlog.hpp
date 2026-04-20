@@ -86,7 +86,7 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     objectToFillOut["Message"] = entry.Message;
     objectToFillOut["Resolved"] = entry.Resolved;
     std::optional<bool> notifyAction =
-        getProviderNotifyAction(entry.ServiceProviderNotify);
+        eventlog_utils::getProviderNotifyAction(entry.ServiceProviderNotify);
     if (notifyAction)
     {
         objectToFillOut["ServiceProviderNotified"] = *notifyAction;

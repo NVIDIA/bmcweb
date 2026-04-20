@@ -23,7 +23,6 @@
 
 #include <asm-generic/errno.h>
 
-#include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
@@ -129,11 +128,11 @@ inline void requestRoutesEventService(App& app)
                     return;
                 }
                 std::optional<bool> serviceEnabled;
-                std::optional<uint32_t> retryAttemps;
+                std::optional<uint32_t> retryAttempts;
                 std::optional<uint32_t> retryInterval;
                 if (!json_util::readJsonPatch(                         //
                         req, asyncResp->res,                           //
-                        "DeliveryRetryAttempts", retryAttemps,         //
+                        "DeliveryRetryAttempts", retryAttempts,        //
                         "DeliveryRetryIntervalSeconds", retryInterval, //
                         "ServiceEnabled", serviceEnabled               //
                         ))
@@ -150,18 +149,18 @@ inline void requestRoutesEventService(App& app)
                     eventServiceConfig.enabled = *serviceEnabled;
                 }
 
-                if (retryAttemps)
+                if (retryAttempts)
                 {
                     // Supported range [1-3]
-                    if ((*retryAttemps < 1) || (*retryAttemps > 3))
+                    if ((*retryAttempts < 1) || (*retryAttempts > 3))
                     {
                         messages::queryParameterOutOfRange(
-                            asyncResp->res, std::to_string(*retryAttemps),
+                            asyncResp->res, std::to_string(*retryAttempts),
                             "DeliveryRetryAttempts", "[1-3]");
                     }
                     else
                     {
-                        eventServiceConfig.retryAttempts = *retryAttemps;
+                        eventServiceConfig.retryAttempts = *retryAttempts;
                     }
                 }
 
@@ -252,7 +251,7 @@ inline void doSubscriptionCollection(
     nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
     for (const auto& objpath : resp)
     {
-        sdbusplus::message::object_path path(objpath.first);
+        sdbusplus::object_path path(objpath.first);
         const std::string snmpId = path.filename();
         if (snmpId.empty())
         {

@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <format>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -34,9 +35,10 @@ namespace webassets
 
 inline std::string getStaticEtag(const std::filesystem::path& webpath)
 {
-    // webpack outputs production chunks in the form:
+    // Build tools output production chunks in the form:
     // <filename>.<hash>.<extension>
-    // For example app.63e2c453.css
+    // Webpack example: app.63e2c453.css (8 hex chars)
+    // Vite example: app.DhhjLIym.js (8 alphanumeric chars)
     // Try to detect this, so we can use the hash as the ETAG
     std::vector<std::string> split;
     bmcweb::split(split, webpath.filename().string(), '.');
@@ -48,13 +50,15 @@ inline std::string getStaticEtag(const std::filesystem::path& webpath)
     // get the second to last element
     std::string hash = split.rbegin()[1];
 
-    // Webpack hashes are 8 characters long
+    // Build tool hashes are 8 characters long
     if (hash.size() != 8)
     {
         return "";
     }
-    // Webpack hashes only include hex printable characters
-    if (hash.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+    // Build tool hashes only include alphanumeric characters
+    if (hash.find_first_not_of(
+            "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") !=
+        std::string::npos)
     {
         return "";
     }
@@ -190,7 +194,8 @@ inline void addFile(App& app, const std::filesystem::directory_entry& dir)
 
     file.etag = getStaticEtag(webpath);
 
-    if (webpath.filename().string().starts_with("index."))
+    if (webpath.filename().string().starts_with("index.") &&
+        webpath.extension() == ".html")
     {
         webpath = webpath.parent_path();
         if (webpath.string().empty() || webpath.string().back() != '/')
@@ -245,7 +250,7 @@ inline void requestRoutes(App& app)
     // guaranteed to get the gzip version first.
     std::vector<std::filesystem::directory_entry> paths(
         std::filesystem::begin(dirIter), std::filesystem::end(dirIter));
-    std::sort(paths.rbegin(), paths.rend());
+    std::ranges::sort(std::ranges::reverse_view(paths));
 
     for (const std::filesystem::directory_entry& dir : paths)
     {

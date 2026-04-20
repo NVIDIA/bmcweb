@@ -27,6 +27,8 @@
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
+
+#include <algorithm>
 namespace redfish
 {
 
@@ -251,8 +253,8 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
 
                         const std::string inventoryItemInterface =
                             "xyz.openbmc_project.Inventory.Item";
-                        if (std::find(interfaces2.begin(), interfaces2.end(),
-                                      inventoryItemInterface) !=
+                        if (std::ranges::find(interfaces2,
+                                              inventoryItemInterface) !=
                             interfaces2.end())
                         {
                             dbus::utility::getProperty<std::string>(

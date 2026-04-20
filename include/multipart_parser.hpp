@@ -30,6 +30,7 @@ enum class ParserError
     ERROR_HEADER_ENDING,
     ERROR_UNEXPECTED_END_OF_HEADER,
     ERROR_UNEXPECTED_END_OF_INPUT,
+    ERROR_DATA_AFTER_FINAL_BOUNDARY,
     ERROR_OUT_OF_RANGE,
     ERROR_FILE_OPEN,
     ERROR_FILE_WRITE,
@@ -97,17 +98,31 @@ class MultipartParser
      */
     explicit MultipartParser(int fdIn) : targetFd(fdIn) {}
 
-    [[nodiscard]] ParserError parse(const crow::Request& req)
+    [[nodiscard]] ParserError parse(std::string_view contentType,
+                                    std::string_view body)
     {
-        std::string_view contentType = req.getHeaderValue("content-type");
-        size_t contentTypeSize = 0;
+        ParserError ret = start(contentType);
+        if (ret != ParserError::PARSER_SUCCESS)
+        {
+            return ret;
+        }
 
-        if (!isValidContentType(contentType, contentTypeSize))
+        ret = parsePart(body);
+        if (ret != ParserError::PARSER_SUCCESS)
+        {
+            return ret;
+        }
+        return finish();
+    }
+
+    [[nodiscard]] ParserError start(std::string_view contentType)
+    {
+        const std::string boundaryFormat = "multipart/form-data; boundary=";
+        if (!contentType.starts_with(boundaryFormat))
         {
             return ParserError::ERROR_BOUNDARY_FORMAT;
         }
-
-        std::string_view ctBoundary = contentType.substr(contentTypeSize);
+        std::string_view ctBoundary = contentType.substr(boundaryFormat.size());
 
         boundary = "\r\n--";
         boundary += ctBoundary;
@@ -115,7 +130,11 @@ class MultipartParser
         lookbehind.resize(boundary.size() + 8);
         state = State::START;
 
-        const std::string& buffer = req.body();
+        return ParserError::PARSER_SUCCESS;
+    }
+
+    ParserError parsePart(std::string_view buffer)
+    {
         size_t len = buffer.size();
         char cl = 0;
 
@@ -307,12 +326,38 @@ class MultipartParser
                     break;
                 }
                 case State::END:
+                    switch (index)
+                    {
+                        case 0:
+                            if (c != cr)
+                            {
+                                return ParserError::
+                                    ERROR_DATA_AFTER_FINAL_BOUNDARY;
+                            }
+                            index++;
+                            break;
+                        case 1:
+                            if (c != lf)
+                            {
+                                return ParserError::
+                                    ERROR_DATA_AFTER_FINAL_BOUNDARY;
+                            }
+                            index++;
+                            break;
+                        default:
+                            return ParserError::ERROR_DATA_AFTER_FINAL_BOUNDARY;
+                    }
                     break;
                 default:
                     return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
             }
         }
 
+        return ParserError::PARSER_SUCCESS;
+    }
+
+    ParserError finish()
+    {
         if (state != State::END)
         {
             return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
@@ -329,6 +374,7 @@ class MultipartParser
 
         return ParserError::PARSER_SUCCESS;
     }
+
     std::vector<FormPart> mime_fields;
     std::string boundary;
 
@@ -352,8 +398,7 @@ class MultipartParser
         return boundaryIndex[static_cast<unsigned char>(c)];
     }
 
-    void skipNonBoundary(const std::string& buffer, size_t boundaryEnd,
-                         size_t& i)
+    void skipNonBoundary(std::string_view buffer, size_t boundaryEnd, size_t& i)
     {
         // boyer-moore derived algorithm to safely skip non-boundary data
         while (i + boundary.size() <= buffer.length())
@@ -365,7 +410,8 @@ class MultipartParser
             i += boundary.size();
         }
     }
-    ParserError processPartData(const std::string& buffer, size_t& i, char c)
+
+    ParserError processPartData(std::string_view buffer, size_t& i, char c)
     {
         FormPart& current = mime_fields.back();
         bool isFile = current.isUpdateFile || current.isTokenFile;
@@ -521,6 +567,10 @@ class MultipartParser
             // reconsider the current character even so it interrupted
             // the sequence it could be the beginning of a new sequence
             i--;
+        }
+        if (state == State::END)
+        {
+            index = 0;
         }
         return ParserError::PARSER_SUCCESS;
     }

@@ -2083,9 +2083,8 @@ static void updateBiosAttrRegistry(
                             std::get<BaseBiosTableIndex::baseBiosAttrType>(
                                 attrIt.second)));
 
-                        auto it = std::find_if(
-                            attributes.begin(), attributes.end(),
-                            [&](const nlohmann::json& attr) {
+                        auto it = std::ranges::find_if(
+                            attributes, [&](const nlohmann::json& attr) {
                                 return attr["AttributeName"] == attrIt.first;
                             });
 
@@ -2199,9 +2198,8 @@ inline void handleBiosServicePut(
                 return;
             }
 
-            auto found = std::find_if(
-                userGroupPtr->begin(), userGroupPtr->end(),
-                [](const auto& group) {
+            auto found =
+                std::ranges::find_if(*userGroupPtr, [](const auto& group) {
                     return static_cast<bool>(group == "redfish-hostiface");
                 });
 
@@ -2275,9 +2273,8 @@ inline void handleBiosServicePatch(
                 return;
             }
 
-            auto found = std::find_if(
-                userGroupPtr->begin(), userGroupPtr->end(),
-                [](const auto& group) {
+            auto found =
+                std::ranges::find_if(*userGroupPtr, [](const auto& group) {
                     return static_cast<bool>(group == "redfish-hostiface");
                 });
 
@@ -2590,9 +2587,8 @@ inline void handleBiosAttrRegistryPut(
                 return;
             }
 
-            auto found = std::find_if(
-                userGroupPtr->begin(), userGroupPtr->end(),
-                [](const auto& group) {
+            auto found =
+                std::ranges::find_if(*userGroupPtr, [](const auto& group) {
                     return static_cast<bool>(group == "redfish-hostiface");
                 });
 

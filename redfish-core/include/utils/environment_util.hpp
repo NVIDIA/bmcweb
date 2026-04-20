@@ -24,6 +24,7 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -59,8 +60,8 @@ inline void patchEdppSetPoint(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.Edpp") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.Edpp") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -1206,8 +1207,9 @@ inline void getPowerAndControlData(
                 const std::vector<std::string>& interfaceList =
                     connectionNames[0].second;
 
-                if (std::find(interfaceList.begin(), interfaceList.end(),
-                              "xyz.openbmc_project.Inventory.Item.Cpu") !=
+                if (std::ranges::find(
+                        interfaceList,
+                        "xyz.openbmc_project.Inventory.Item.Cpu") !=
                     interfaceList.end())
                 {
                     // Skip PowerAndControlData for
@@ -1226,37 +1228,39 @@ inline void getPowerAndControlData(
                      path](
                         const boost::system::error_code& primaryEc,
                         std::variant<std::vector<std::string>>& primaryResp) {
-                        auto populateControl = [&asyncResp, &connectionName,
-                                                &interfaceList, &resourceId](
-                                                   const std::string& ctrlPath,
-                                                   bool setDataSourceUri) {
-                            if (setDataSourceUri)
-                            {
-                                getPowerLimitDataSourceUri(
-                                    asyncResp, resourceId, ctrlPath);
-                            }
-                            getPowerCap(asyncResp, connectionName, ctrlPath);
-                            getPowerCap(asyncResp, resourceId, ctrlPath);
-                            // Skip getControlMode if it does not support
-                            // the Control Mode
-                            if (std::find(interfaceList.begin(),
-                                          interfaceList.end(),
-                                          "xyz.openbmc_project.Control.Mode") !=
-                                interfaceList.end())
-                            {
-                                getControlMode(asyncResp, connectionName,
-                                               ctrlPath);
-                            }
-                            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                            {
-                                getPowerMode(asyncResp, connectionName,
-                                             ctrlPath);
-                                getClearPowerCap(asyncResp, resourceId,
+                        auto populateControl =
+                            [&asyncResp, &connectionName, &interfaceList,
+                             &resourceId](const std::string& ctrlPath,
+                                          bool setDataSourceUri) {
+                                if (setDataSourceUri)
+                                {
+                                    getPowerLimitDataSourceUri(
+                                        asyncResp, resourceId, ctrlPath);
+                                }
+                                getPowerCap(asyncResp, connectionName,
+                                            ctrlPath);
+                                getPowerCap(asyncResp, resourceId, ctrlPath);
+                                // Skip getControlMode if it does not support
+                                // the Control Mode
+                                if (std::ranges::find(
+                                        interfaceList,
+
+                                        "xyz.openbmc_project.Control.Mode") !=
+                                    interfaceList.end())
+                                {
+                                    getControlMode(asyncResp, connectionName,
+                                                   ctrlPath);
+                                }
+                                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                                {
+                                    getPowerMode(asyncResp, connectionName,
                                                  ctrlPath);
-                            }
-                            getPowerReadings(asyncResp, connectionName,
-                                             ctrlPath, resourceId);
-                        };
+                                    getClearPowerCap(asyncResp, resourceId,
+                                                     ctrlPath);
+                                }
+                                getPowerReadings(asyncResp, connectionName,
+                                                 ctrlPath, resourceId);
+                            };
 
                         if (!primaryEc)
                         {
@@ -1514,8 +1518,8 @@ inline void patchBasePowerWattsByService(
             }
             for (const auto& [serv, interfaces] : object)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "xyz.openbmc_project.Control.Power.Cap") ==
+                if (std::ranges::find(
+                        interfaces, "xyz.openbmc_project.Control.Power.Cap") ==
                     interfaces.end())
                 {
                     continue;
@@ -1710,8 +1714,8 @@ inline void getSensorDataService(
 
             for (const auto& [serviceEntry, interfaces] : object)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "xyz.openbmc_project.Sensor.Value") !=
+                if (std::ranges::find(interfaces,
+                                      "xyz.openbmc_project.Sensor.Value") !=
                     interfaces.end())
                 {
                     getSensorDataByService(aResp, serviceEntry, chassisId,
@@ -2029,8 +2033,8 @@ inline void getCpuPowerCapService(
 
             for (const auto& [serviceEntry, interfaces] : object)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "xyz.openbmc_project.Control.Power.Cap") !=
+                if (std::ranges::find(
+                        interfaces, "xyz.openbmc_project.Control.Power.Cap") !=
                     interfaces.end())
                 {
                     getCpuPowerCapData(aResp, serviceEntry, objPath, cpuId,
@@ -2537,8 +2541,8 @@ inline void getProcessorEnvironmentMetricsData(
                 }
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                    if (std::ranges::find(
+                            interfaces,
                             "xyz.openbmc_project.Inventory.Decorator.PowerLimit") !=
                         interfaces.end())
                     {
@@ -2549,14 +2553,15 @@ inline void getProcessorEnvironmentMetricsData(
                         getEnvironmentMetricsDataByService(aResp, service, path,
                                                            resourceType, true);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Control.Power.Cap") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Control.Power.Cap") !=
                         interfaces.end())
                     {
                         getPowerCap(aResp, processorId, path);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Control.Mode") !=
+                    if (std::ranges::find(interfaces,
+                                          "xyz.openbmc_project.Control.Mode") !=
                         interfaces.end())
                     {
                         getControlMode(aResp, service, path);
@@ -2564,8 +2569,8 @@ inline void getProcessorEnvironmentMetricsData(
 
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.Edpp") != interfaces.end())
+                        if (std::ranges::find(interfaces, "com.nvidia.Edpp") !=
+                            interfaces.end())
                         {
                             getEDPpData(aResp, service, path);
                             aResp->res.jsonValue
@@ -2582,8 +2587,9 @@ inline void getProcessorEnvironmentMetricsData(
                                 "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
                         }
 
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.Common.ClearPowerCap") !=
+                        if (std::ranges::find(
+                                interfaces,
+                                "com.nvidia.Common.ClearPowerCap") !=
                             interfaces.end())
                         {
                             aResp->res.jsonValue
@@ -2597,8 +2603,8 @@ inline void getProcessorEnvironmentMetricsData(
                                      "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
                         }
 
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "xyz.openbmc_project.Control.Power.Persistency") !=
                             interfaces.end())
                         {
@@ -2608,8 +2614,8 @@ inline void getProcessorEnvironmentMetricsData(
                                 "#NvidiaEnvironmentMetrics.v1_4_0.NvidiaEnvironmentMetrics";
                         }
 
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.GPMMetrics") !=
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.GPMMetrics") !=
                             interfaces.end())
                         {
                             getEnvironmentMetricsDataByService(
@@ -2623,16 +2629,16 @@ inline void getProcessorEnvironmentMetricsData(
                         }
                     }
 
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                    if (std::ranges::find(
+                            interfaces,
                             "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                         interfaces.end())
                     {
                         getEnvironmentMetricsDataByService(aResp, service, path,
                                                            resourceType);
                     }
-                    else if (std::find(
-                                 interfaces.begin(), interfaces.end(),
+                    else if (std::ranges::find(
+                                 interfaces,
                                  "xyz.openbmc_project.Inventory.Item.Cpu") !=
                              interfaces.end())
                     {
@@ -2708,8 +2714,8 @@ inline void postEdppReset(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.Edpp") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.Edpp") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;

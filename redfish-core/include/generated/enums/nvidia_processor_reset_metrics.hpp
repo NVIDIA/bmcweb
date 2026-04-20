@@ -23,5 +23,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LastResetType, {
     {LastResetType::IRoTReset, "IRoTReset"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_processor_reset_metrics

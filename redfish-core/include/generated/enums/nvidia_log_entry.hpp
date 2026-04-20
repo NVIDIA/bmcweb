@@ -51,5 +51,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ISTResult, {
     {ISTResult::Error, "Error"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_log_entry

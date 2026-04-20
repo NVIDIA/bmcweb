@@ -1,3 +1,5 @@
+// ast-grep-ignore: bmcweb.common-errors.route-missing-trailing-slash
+
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "app.hpp"
@@ -34,7 +36,7 @@ TEST(GetRoutes, TestOneRoute)
     App app;
 
     BMCWEB_ROUTE(app, "/")
-    ([](const crow::Request& /*req*/,
+    ([](const Request& /*req*/,
         const std::shared_ptr<AsyncResp>& /*asyncResp*/) {});
 
     // TODO: "/" doesn't get reported in |getRoutes| today. Uncomment this once

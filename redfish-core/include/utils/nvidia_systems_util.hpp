@@ -162,8 +162,8 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     // existing in new BootOrder.
                     for (const auto& bootReference : activeBootOrder)
                     {
-                        auto result = std::find(bootOrder.begin(),
-                                                bootOrder.end(), bootReference);
+                        auto result =
+                            std::ranges::find(bootOrder, bootReference);
                         if (result == bootOrder.end())
                         {
                             BMCWEB_LOG_DEBUG("{} missing in new BootOrder",

@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(RequestType, {
     {RequestType::Disable, "Disable"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_ro_t_chassis

@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(UpdateOptionSupport, {
     {UpdateOptionSupport::StageAndActivate, "StageAndActivate"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_update_service

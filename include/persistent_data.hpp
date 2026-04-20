@@ -7,6 +7,7 @@
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
+#include "parsing.hpp"
 #include "utility.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_persistent_data.hpp"
@@ -20,7 +21,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -35,9 +35,22 @@ class ConfigFile
     uint64_t jsonRevision = 1;
 
   public:
-    // todo(ed) should read this from a fixed location somewhere, not CWD
-    static constexpr const char* filename =
-        "/var/lib/bmcweb/bmcweb_persistent_data.json";
+    static std::string getStateFile()
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
+        const char* stateDir = std::getenv("STATE_DIRECTORY");
+        if (stateDir == nullptr)
+        {
+            stateDir = ".";
+        }
+        return std::string(stateDir) + "/bmcweb_persistent_data.json";
+    }
+
+    static const std::string& filename()
+    {
+        const static std::string fname = getStateFile();
+        return fname;
+    }
 
     ConfigFile()
     {
@@ -64,20 +77,37 @@ class ConfigFile
     // this application for the moment
     void readData()
     {
-        std::ifstream persistentFile(filename);
+        boost::beast::file_posix persistentFile;
+        boost::system::error_code ec;
+        const std::string& file = filename();
+        persistentFile.open(file.c_str(), boost::beast::file_mode::read, ec);
         uint64_t fileRevision = 0;
-        if (persistentFile.is_open())
+        if (!ec)
         {
+            uint64_t size = persistentFile.size(ec);
+            if (ec)
+            {
+                BMCWEB_LOG_CRITICAL("Can't get filesize of {}", file);
+                return;
+            }
+            std::string str;
+            str.resize(static_cast<size_t>(size), '\0');
+            persistentFile.read(str.data(), str.size(), ec);
+            if (ec)
+            {
+                BMCWEB_LOG_CRITICAL("Failed to read file {}", file);
+                return;
+            }
             // call with exceptions disabled
-            auto data = nlohmann::json::parse(persistentFile, nullptr, false);
-            if (data.is_discarded())
+            std::optional<nlohmann::json> data = parseStringAsJson(str);
+            if (!data)
             {
                 BMCWEB_LOG_ERROR("Error parsing persistent data in json file.");
             }
             else
             {
                 const nlohmann::json::object_t* obj =
-                    data.get_ptr<nlohmann::json::object_t*>();
+                    data->get_ptr<nlohmann::json::object_t*>();
                 if (obj == nullptr)
                 {
                     return;
@@ -132,7 +162,15 @@ class ConfigFile
                     }
                     else if (item.first == "sessions")
                     {
-                        for (const auto& elem : item.second)
+                        const nlohmann::json::array_t* arr =
+                            item.second
+                                .get_ptr<const nlohmann::json::array_t*>();
+                        if (arr == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("Sessions wasn't an array");
+                            continue;
+                        }
+                        for (const auto& elem : *arr)
                         {
                             const nlohmann::json::object_t* jObj =
                                 elem.get_ptr<const nlohmann::json::object_t*>();
@@ -192,7 +230,15 @@ class ConfigFile
                     }
                     else if (item.first == "subscriptions")
                     {
-                        for (const auto& elem : item.second)
+                        const nlohmann::json::array_t* subarr =
+                            item.second
+                                .get_ptr<const nlohmann::json::array_t*>();
+                        if (subarr == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("Problem reading Subscriptions");
+                            continue;
+                        }
+                        for (const auto& elem : *subarr)
                         {
                             const nlohmann::json::object_t* subobj =
                                 elem.get_ptr<const nlohmann::json::object_t*>();
@@ -287,7 +333,8 @@ class ConfigFile
 
     void writeData()
     {
-        std::filesystem::path path(filename);
+        const std::string& fname = filename();
+        std::filesystem::path path(fname);
         path = path.parent_path();
         if (!path.empty())
         {
@@ -302,7 +349,7 @@ class ConfigFile
         }
         boost::beast::file_posix persistentFile;
         boost::system::error_code ec;
-        persistentFile.open(filename, boost::beast::file_mode::write, ec);
+        persistentFile.open(fname.c_str(), boost::beast::file_mode::write, ec);
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("Unable to store persistent data to file {}",
@@ -315,7 +362,7 @@ class ConfigFile
             std::filesystem::perms::owner_read |
             std::filesystem::perms::owner_write |
             std::filesystem::perms::group_read;
-        std::filesystem::permissions(filename, permission, ec);
+        std::filesystem::permissions(fname, permission, ec);
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("Failed to set filesystem permissions {}",

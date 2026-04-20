@@ -17,6 +17,7 @@
 
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
 #include "task.hpp"
 #include "utils/dbus_fd_download_utils.hpp"
 
@@ -25,11 +26,16 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
+#include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -49,7 +55,14 @@ class ProcessProgressPropertiesTest : public ::testing::Test
 
     void SetUp() override
     {
-        conn = std::make_unique<sdbusplus::asio::connection>(ioc);
+        try
+        {
+            conn = std::make_unique<sdbusplus::asio::connection>(ioc);
+        }
+        catch (const std::exception& e)
+        {
+            GTEST_SKIP() << "D-Bus not available: " << e.what();
+        }
         crow::connections::systemBus = conn.get();
     }
 

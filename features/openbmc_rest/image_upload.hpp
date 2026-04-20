@@ -21,7 +21,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -79,7 +78,7 @@ inline void uploadImageHandler(
         [asyncResp](sdbusplus::message_t& m) {
             BMCWEB_LOG_DEBUG("Match fired");
 
-            sdbusplus::message::object_path path;
+            sdbusplus::object_path path;
             dbus::utility::DBusInterfacesMap interfaces;
             m.read(path, interfaces);
 
@@ -118,14 +117,14 @@ inline void uploadImageHandler(
 
 inline void requestRoutes(App& app)
 {
-    BMCWEB_ROUTE(app, "/upload/image/<str>")
+    BMCWEB_ROUTE(app, "/upload/image/<str>/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put)(
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string&) { uploadImageHandler(req, asyncResp); });
 
-    BMCWEB_ROUTE(app, "/upload/image")
+    BMCWEB_ROUTE(app, "/upload/image/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put)(
             [](const crow::Request& req,

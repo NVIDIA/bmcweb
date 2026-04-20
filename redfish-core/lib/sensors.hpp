@@ -37,7 +37,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -465,7 +464,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             const std::string* chassisPath = nullptr;
             for (const std::string& chassis : chassisPaths)
             {
-                sdbusplus::message::object_path path(chassis);
+                sdbusplus::object_path path(chassis);
                 std::string chassisName = path.filename();
                 if (chassisName.empty())
                 {
@@ -635,8 +634,7 @@ inline void populateFanRedundancy(
                                     return;
                                 }
 
-                                sdbusplus::message::object_path objectPath(
-                                    path);
+                                sdbusplus::object_path objectPath(path);
                                 std::string name = objectPath.filename();
                                 if (name.empty())
                                 {
@@ -667,8 +665,7 @@ inline void populateFanRedundancy(
                                         .jsonValue["Fans"];
                                 for (const std::string& item : *collection)
                                 {
-                                    sdbusplus::message::object_path itemPath(
-                                        item);
+                                    sdbusplus::object_path itemPath(item);
                                     std::string itemName = itemPath.filename();
                                     if (itemName.empty())
                                     {
@@ -1043,7 +1040,7 @@ void getInventoryItemsData(
         const std::string& invConnection = *it;
 
         // Get all object paths and their interfaces for current connection
-        sdbusplus::message::object_path path("/xyz/openbmc_project/inventory");
+        sdbusplus::object_path path("/xyz/openbmc_project/inventory");
         dbus::utility::getManagedObjects(
             invConnection, path,
             [sensorsAsyncResp, inventoryItems, invConnections,
@@ -1199,7 +1196,7 @@ void getInventoryItemAssociations(
     BMCWEB_LOG_DEBUG("getInventoryItemAssociations enter");
 
     // Call GetManagedObjects on the ObjectMapper to get all associations
-    sdbusplus::message::object_path path("/");
+    sdbusplus::object_path path("/");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.ObjectMapper", path,
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
@@ -1843,7 +1840,10 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupply["Model"] = inventoryItem.model;
     powerSupply["PartNumber"] = inventoryItem.partNumber;
     powerSupply["SerialNumber"] = inventoryItem.serialNumber;
-    sensor_utils::setLedState(powerSupply, &inventoryItem);
+    if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_INDICATORLED)
+    {
+        sensor_utils::setLedState(powerSupply, &inventoryItem);
+    }
 
     if (inventoryItem.powerSupplyEfficiencyPercent >= 0)
     {
@@ -1894,8 +1894,7 @@ inline void getSensorData(
     // Get managed objects from all services exposing sensors
     for (const std::string& connection : connections)
     {
-        sdbusplus::message::object_path sensorPath(
-            "/xyz/openbmc_project/sensors");
+        sdbusplus::object_path sensorPath("/xyz/openbmc_project/sensors");
         dbus::utility::getManagedObjects(
             connection, sensorPath,
             [sensorsAsyncResp, sensorNames,
@@ -2194,7 +2193,7 @@ inline bool findSensorNameUsingSensorPath(
 {
     for (const auto& chassisSensor : sensorsList)
     {
-        sdbusplus::message::object_path path(chassisSensor);
+        sdbusplus::object_path path(chassisSensor);
         std::string thisSensorName = path.filename();
         if (thisSensorName.empty())
         {
@@ -2303,7 +2302,7 @@ inline void setSensorsOverride(
             }
             for (const auto& item : objectsWithConnection)
             {
-                sdbusplus::message::object_path path(item.first);
+                sdbusplus::object_path path(item.first);
                 std::string sensorName = path.filename();
                 if (sensorName.empty())
                 {
@@ -2393,7 +2392,7 @@ inline void getChassisCallback(
     {
         BMCWEB_LOG_DEBUG("Adding sensor: {}", sensor);
 
-        sdbusplus::message::object_path path(sensor);
+        sdbusplus::object_path path(sensor);
         std::string sensorName = path.filename();
         if (sensorName.empty())
         {
@@ -2480,7 +2479,7 @@ inline void getSensorFromDbus(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            sdbusplus::message::object_path path(sensorPath);
+            sdbusplus::object_path path(sensorPath);
             std::string name = path.filename();
             path = path.parent_path();
             std::string type = path.filename();

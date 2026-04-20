@@ -215,6 +215,7 @@ local.properties
 # subproject directories
 /subprojects/*
 !/subprojects/*.wrap
+/subprojects/stdexec.wrap
 
 # Meson Directories
 meson-logs

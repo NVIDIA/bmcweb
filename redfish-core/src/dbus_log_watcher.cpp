@@ -7,9 +7,11 @@
 #include "event_logs_object_type.hpp"
 #include "event_service_manager.hpp"
 #include "logging.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
 #include "metric_report.hpp"
 #include "nvidia_event_service_manager.hpp"
 #include "str_utility.hpp"
+#include "telemetry_readings.hpp"
 #include "utils/dbus_event_log_entry.hpp"
 #include "utils/dbus_log_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
@@ -23,6 +25,7 @@
 #include <algorithm>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -51,7 +54,8 @@ static void nvDbusEventLogMatchHandlerSingleEntry(
 }
 
 bool DbusEventLogMonitor::eventLogObjectFromDBus(
-    const dbus::utility::DBusPropertiesMap& map, EventLogObjectsType& event)
+    const dbus::utility::DBusPropertiesMap& map, EventLogObjectsType& event,
+    std::string_view tz)
 {
     std::optional<DbusEventLogEntry> optEntry =
         fillDbusEventLogEntryFromPropertyMap(map);
@@ -64,7 +68,8 @@ bool DbusEventLogMonitor::eventLogObjectFromDBus(
     }
     DbusEventLogEntry& entry = optEntry.value();
     event.id = std::to_string(entry.Id);
-    event.timestamp = redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
+    event.timestamp =
+        redfish::time_utils::getDateTimeUintMs(entry.Timestamp, tz);
 
     // This dbus property is not documented to contain the Redfish Message Id,
     // but can be used as such. As a temporary solution that is sufficient,
@@ -104,7 +109,7 @@ static void onDbusEventLogCreated(sdbusplus::message_t& msg)
 {
     BMCWEB_LOG_DEBUG("Handling new DBus Event Log Entry");
 
-    sdbusplus::message::object_path objectPath;
+    sdbusplus::object_path objectPath;
     dbus::utility::DBusInterfacesMap interfaces;
 
     msg.read(objectPath, interfaces);
@@ -140,13 +145,7 @@ DbusEventLogMonitor::DbusEventLogMonitor() :
 
 static void getReadingsForReport(sdbusplus::message_t& msg)
 {
-    if (msg.is_method_error())
-    {
-        BMCWEB_LOG_ERROR("TelemetryMonitor Signal error");
-        return;
-    }
-
-    sdbusplus::message::object_path path(msg.get_path());
+    sdbusplus::object_path path(msg.get_path());
     std::string id = path.filename();
     if (id.empty())
     {

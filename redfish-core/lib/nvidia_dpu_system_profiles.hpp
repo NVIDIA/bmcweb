@@ -32,6 +32,7 @@
 #include <utils/memfd_utils.hpp>
 #include <utils/privilege_utils.hpp>
 
+#include <algorithm>
 #include <cstdint> //max uint
 #include <fstream>
 #include <iostream>
@@ -908,7 +909,9 @@ inline void handleGetProfile(crow::App& app, const crow::Request& req,
         messages::resourceNotFound(aResp->res, "Profile", profileNumber);
         return;
     }
-    auto jsonProfile = nlohmann::json::parse(profileFile, nullptr, false);
+    std::string profileContents((std::istreambuf_iterator<char>(profileFile)),
+                                std::istreambuf_iterator<char>());
+    auto jsonProfile = nlohmann::json::parse(profileContents, nullptr, false);
     if (jsonProfile.is_discarded())
     {
         BMCWEB_LOG_ERROR("Profile file parse error.");
@@ -1508,8 +1511,7 @@ inline std::string getProfileTruststorePath(const std::string& truststoreName)
 
 inline bool isTruststoreSupported(const std::string& truststoreName)
 {
-    const auto* it = std::find(profileTruststores.begin(),
-                               profileTruststores.end(), truststoreName);
+    const auto* it = std::ranges::find(profileTruststores, truststoreName);
     return it != profileTruststores.end();
 }
 

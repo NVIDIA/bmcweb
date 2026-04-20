@@ -47,6 +47,7 @@
 #include <utils/nvidia_histogram_utils.hpp>
 #include <utils/systemd_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -331,8 +332,8 @@ inline void postResetType(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "xyz.openbmc_project.Control.Processor.Reset") !=
+        if (std::ranges::find(interfaceList,
+                              "xyz.openbmc_project.Control.Processor.Reset") !=
             interfaceList.end())
         {
             inventoryService = &serviceName;
@@ -1733,8 +1734,8 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                         for (const auto& [serviceName, interfaces] : object)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Control.Processor.RemoteDebug") !=
                                 interfaces.end())
                             {
@@ -2277,8 +2278,8 @@ inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.MigMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.MigMode") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -2457,8 +2458,8 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                         for (const auto& [serviceName, interfaces] : object)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.Control.Processor.RemoteDebug") !=
                                 interfaces.end())
                             {
@@ -2501,8 +2502,8 @@ inline void patchSpeedConfig(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(
-                interfaceList.begin(), interfaceList.end(),
+        if (std::ranges::find(
+                interfaceList,
                 "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig") !=
             interfaceList.end())
         {
@@ -2649,8 +2650,8 @@ inline void patchSpeedLocked(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(
-                interfaceList.begin(), interfaceList.end(),
+        if (std::ranges::find(
+                interfaceList,
                 "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig") !=
             interfaceList.end())
         {
@@ -2704,8 +2705,8 @@ inline void patchSpeedLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(
-                interfaceList.begin(), interfaceList.end(),
+        if (std::ranges::find(
+                interfaceList,
                 "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig") !=
             interfaceList.end())
         {
@@ -3047,31 +3048,33 @@ inline void getStateSensorMetric(
 
                         for (const auto& [serviceName, interfaces] : object)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.State.ProcessorPerformance") !=
                                 interfaces.end())
                             {
                                 getProcessorPerformanceData(
                                     aResp, serviceName, sensorPath, deviceType);
                             }
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
+                            if (std::ranges::find(
+                                    interfaces,
                                     "xyz.openbmc_project.State.Decorator.PowerSystemInputs") !=
                                 interfaces.end())
                             {
                                 getPowerSystemInputsData(
                                     aResp, serviceName, sensorPath, deviceType);
                             }
-                            if (std::find(interfaces.begin(), interfaces.end(),
-                                          "com.nvidia.MemorySpareChannel") !=
+                            if (std::ranges::find(
+                                    interfaces,
+                                    "com.nvidia.MemorySpareChannel") !=
                                 interfaces.end())
                             {
                                 getMemorySpareChannelPresenceData(
                                     aResp, serviceName, sensorPath, deviceType);
                             }
-                            if (std::find(interfaces.begin(), interfaces.end(),
-                                          "com.nvidia.ProcessorPowerBreak") !=
+                            if (std::ranges::find(
+                                    interfaces,
+                                    "com.nvidia.ProcessorPowerBreak") !=
                                 interfaces.end())
                             {
                                 getPowerBreakThrottleData(
@@ -3130,8 +3133,8 @@ inline void getProcessorMetricsData(
                 for (const auto& [service, interfaces] : object)
                 {
                     std::string deviceType;
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                    if (std::ranges::find(
+                            interfaces,
                             "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                         interfaces.end())
                     {
@@ -3143,20 +3146,22 @@ inline void getProcessorMetricsData(
                         deviceType = "xyz.openbmc_project.Inventory.Item.Cpu";
                     }
 
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Inventory.Item.Cpu."
-                                  "OperatingConfig") != interfaces.end())
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Inventory.Item.Cpu."
+                            "OperatingConfig") != interfaces.end())
                     {
                         getProcessorDataByService(aResp, service, path);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Memory.MemoryECC") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Memory.MemoryECC") !=
                         interfaces.end())
                     {
                         getProcessorMemoryECCData(aResp, service, path);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.PCIe.PCIeECC") !=
+                    if (std::ranges::find(interfaces,
+                                          "xyz.openbmc_project.PCIe.PCIeECC") !=
                         interfaces.end())
                     {
                         redfish::processor_utils::getPCIeErrorData(
@@ -3164,8 +3169,9 @@ inline void getProcessorMetricsData(
                     }
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.NVLink.NVLinkMetrics") !=
+                        if (std::ranges::find(
+                                interfaces,
+                                "com.nvidia.NVLink.NVLinkMetrics") !=
                             interfaces.end())
                         {
                             getGPUNvlinkMetricsData(
@@ -3173,8 +3179,8 @@ inline void getProcessorMetricsData(
                                 "com.nvidia.NVLink.NVLinkMetrics");
                         }
 
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.GPMMetrics") !=
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.GPMMetrics") !=
                             interfaces.end())
                         {
                             // Assign the device type to Accelerator because we
@@ -3185,8 +3191,8 @@ inline void getProcessorMetricsData(
                                               "com.nvidia.GPMMetrics");
                         }
 
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.SMUtilization") !=
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.SMUtilization") !=
                             interfaces.end())
                         {
                             nvidia_processor_utils::getSMUtilizationData(
@@ -3195,8 +3201,8 @@ inline void getProcessorMetricsData(
 
                         // Move to the end because deviceType might be
                         // reassigned
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "xyz.openbmc_project.State.ProcessorPerformance") !=
                             interfaces.end())
                         {
@@ -3429,8 +3435,8 @@ inline void getProcessorMemoryMetricsData(
                     const std::string memoryMetricIface =
                         "xyz.openbmc_project.Inventory.Item.Dimm.MemoryMetrics";
 
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  memoryECCInterface) != interfaces.end())
+                    if (std::ranges::find(interfaces, memoryECCInterface) !=
+                        interfaces.end())
                     {
                         dbus::utility::async_method_call(
                             [path = path, aResp{aResp}](
@@ -3481,8 +3487,8 @@ inline void getProcessorMemoryMetricsData(
                             service, path, "org.freedesktop.DBus.Properties",
                             "GetAll", memoryECCInterface);
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  memoryMetricIface) != interfaces.end())
+                    if (std::ranges::find(interfaces, memoryMetricIface) !=
+                        interfaces.end())
                     {
                         dbus::utility::async_method_call(
                             [aResp{aResp}](
@@ -3581,8 +3587,9 @@ inline void getProcessorSettingsData(
                 json["Name"] = processorId + "PendingSettings";
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Memory.MemoryECC") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Memory.MemoryECC") !=
                         interfaces.end())
                     {
                         redfish::nvidia_processor::getEccPendingData(
@@ -3590,23 +3597,26 @@ inline void getProcessorSettingsData(
                     }
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.CCMode") != interfaces.end())
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.CCMode") !=
+                            interfaces.end())
                         {
                             redfish::nvidia_processor_utils::
                                 getCCModePendingData(aResp, processorId,
                                                      service, path);
                         }
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.EgmMode") != interfaces.end())
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.EgmMode") !=
+                            interfaces.end())
                         {
                             redfish::nvidia_processor_utils::
                                 getEgmModePendingData(aResp, processorId,
                                                       service, path);
                         }
                     }
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Software.ApplyTime") !=
+                    if (std::ranges::find(
+                            interfaces,
+                            "xyz.openbmc_project.Software.ApplyTime") !=
                         interfaces.end())
                     {
                         dbus::utility::async_method_call(
@@ -3669,8 +3679,8 @@ inline void patchEccMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "xyz.openbmc_project.Memory.MemoryECC") !=
+        if (std::ranges::find(interfaceList,
+                              "xyz.openbmc_project.Memory.MemoryECC") !=
             interfaceList.end())
         {
             inventoryService = &serviceName;

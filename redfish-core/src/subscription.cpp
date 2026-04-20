@@ -13,17 +13,15 @@
 #include "http_client.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
-#include "metric_report.hpp"
 #include "server_sent_event.hpp"
 #include "ssl_key_handler.hpp"
-#include "utils/nvidia_time_utils.hpp"
+#include "telemetry_readings.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/http/field.hpp>
-#include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/url/format.hpp>
@@ -33,9 +31,6 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
-#include <ctime>
-#include <format>
 #include <functional>
 #include <memory>
 #include <span>
@@ -98,8 +93,8 @@ void Subscription::sendHeartbeatEvent()
     // send the heartbeat message
     nlohmann::json eventMessage = messages::redfishServiceFunctional();
     eventMessage["EventTimestamp"] = time_utils::getDateTimeOffsetNow().first;
-    eventMessage["OriginOfCondition"] =
-        std::format("/redfish/v1/EventService/Subscriptions/{}", userSub->id);
+    eventMessage["OriginOfCondition"] = boost::urls::format(
+        "/redfish/v1/EventService/Subscriptions/{}", userSub->id);
     eventMessage["MemberId"] = "0";
 
     nlohmann::json::array_t eventRecord;
@@ -223,8 +218,10 @@ void Subscription::filterAndSendEventLogs(
 
         if (!eventMatchesFilter(*userSub, bmcLogEntry, ""))
         {
-            BMCWEB_LOG_DEBUG("Event {} did not match the filter",
-                             nlohmann::json(bmcLogEntry).dump());
+            nlohmann::json jsonEntry = bmcLogEntry;
+            std::string strEntry = jsonEntry.dump(
+                -1, ' ', true, nlohmann::json::error_handler_t::replace);
+            BMCWEB_LOG_DEBUG("Event {} did not match the filter", strEntry);
             continue;
         }
 

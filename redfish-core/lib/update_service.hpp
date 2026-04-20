@@ -53,6 +53,7 @@
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -87,6 +88,9 @@ static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 constexpr auto fwObjectCreationDefaultTimeout = 40;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match::match> loggingMatch = nullptr;
+
+/* @brief String that indicates the Software Update D-Bus interface */
+constexpr const char* updateInterface = "xyz.openbmc_project.Software.Update";
 
 struct MemoryFileDescriptor
 {
@@ -270,7 +274,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload,
-                       const sdbusplus::message::object_path& objPath)
+                       const sdbusplus::object_path& objPath)
 {
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
         std::bind_front(handleCreateTask),
@@ -310,7 +314,7 @@ inline void softwareInterfaceAdded(
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
 
-    sdbusplus::message::object_path objPath;
+    sdbusplus::object_path objPath;
 
     m.read(objPath, interfacesProperties);
 
@@ -476,7 +480,7 @@ inline void afterUpdateErrorMatcher(
     sdbusplus::message_t& m)
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
-    sdbusplus::message::object_path objPath;
+    sdbusplus::object_path objPath;
     m.read(objPath, interfacesProperties);
     BMCWEB_LOG_DEBUG("obj path = {}", objPath.str);
     for (const std::pair<std::string, dbus::utility::DBusPropertiesMap>&
@@ -744,11 +748,11 @@ inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    setDbusProperty(asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
-                    sdbusplus::message::object_path(
-                        "/xyz/openbmc_project/software/apply_time"),
-                    "xyz.openbmc_project.Software.ApplyTime",
-                    "RequestedApplyTime", applyTimeNewVal);
+    setDbusProperty(
+        asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
+        sdbusplus::object_path("/xyz/openbmc_project/software/apply_time"),
+        "xyz.openbmc_project.Software.ApplyTime", "RequestedApplyTime",
+        applyTimeNewVal);
 }
 
 struct MultiPartUpdate
@@ -815,8 +819,8 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     std::string_view content)
 {
     MultiPartUpdate::UpdateParameters multiRet;
-    nlohmann::json jsonContent = nlohmann::json::parse(content, nullptr, false);
-    if (jsonContent.is_discarded())
+    std::optional<nlohmann::json> jsonContent = parseStringAsJson(content);
+    if (!jsonContent)
     {
         // Nvidia code starts here
         messages::unrecognizedRequestBody(asyncResp->res);
@@ -824,7 +828,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
         return std::nullopt;
     }
     nlohmann::json::object_t* obj =
-        jsonContent.get_ptr<nlohmann::json::object_t*>();
+        jsonContent->get_ptr<nlohmann::json::object_t*>();
     if (obj == nullptr)
     {
         messages::propertyValueTypeError(asyncResp->res, content,
@@ -832,40 +836,41 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
         return std::nullopt;
     }
 
-    std::vector<std::string> tempTargets;
-    if (!json_util::readJsonObject(
-            *obj, asyncResp->res, "@Redfish.OperationApplyTime",
-            multiRet.applyTime, "Targets", multiRet.targets, "ForceUpdate",
-            multiRet.forceUpdate))
+    if (!json_util::readJsonObject(                            //
+            *obj, asyncResp->res,                              //
+            "@Redfish.OperationApplyTime", multiRet.applyTime, //
+            "Targets", multiRet.targets,                       //
+            "ForceUpdate", multiRet.forceUpdate                //
+            ))
     {
         addUnsupportedActionParametersMessages(asyncResp, *obj);
         return std::nullopt;
     }
 
-    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+    if (multiRet.targets)
     {
-        for (size_t urlIndex = 0; !tempTargets.empty(); urlIndex++)
-        {
-            const std::string& target = tempTargets[urlIndex];
-            boost::system::result<boost::urls::url_view> url =
-                boost::urls::parse_origin_form(target);
-            auto res = processUrl(url);
-            if (!res.has_value())
-            {
-                messages::propertyValueFormatError(
-                    asyncResp->res, target,
-                    std::format("Targets/{}", urlIndex));
-                return std::nullopt;
-            }
-            multiRet.targets->emplace_back(res.value());
-        }
-        if (multiRet.targets->size() != 1)
+        if (multiRet.targets->size() > 1)
         {
             messages::propertyValueFormatError(asyncResp->res,
                                                *multiRet.targets, "Targets");
             return std::nullopt;
         }
+
+        for (auto& target : *multiRet.targets)
+        {
+            boost::system::result<boost::urls::url_view> url =
+                boost::urls::parse_origin_form(target);
+            auto res = processUrl(url);
+            if (!res.has_value())
+            {
+                messages::propertyValueFormatError(asyncResp->res, target,
+                                                   "Targets");
+                return std::nullopt;
+            }
+            target = res.value();
+        }
     }
+
     return multiRet;
 }
 
@@ -965,28 +970,14 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
         messages::propertyMissing(asyncResp->res, "UpdateFile");
         return std::nullopt;
     }
-    // Nvidia added code end
-    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
-    {
-        if (multiRet.uploadData.empty())
-        {
-            BMCWEB_LOG_ERROR("Upload data is NULL");
-            messages::propertyMissing(asyncResp->res, "UpdateFile");
-            return std::nullopt;
-        }
-        if (!multiRet.params.targets || multiRet.params.targets->empty())
-        {
-            messages::propertyMissing(asyncResp->res, "Targets");
-            return std::nullopt;
-        }
-    }
+
     return multiRet;
 }
 
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
     const std::string& objectPath, const boost::system::error_code& ec,
-    const sdbusplus::message::object_path& retPath)
+    const sdbusplus::object_path& retPath)
 {
     if (ec)
     {
@@ -1019,13 +1010,14 @@ inline void startUpdate(
         asyncResp,
         [asyncResp, payload = std::move(payload), memfd,
          objectPath](const boost::system::error_code& ec1,
-                     const sdbusplus::message::object_path& retPath) mutable {
+                     const sdbusplus::object_path& retPath) mutable {
             handleStartUpdate(asyncResp, std::move(payload), objectPath, ec1,
                               retPath);
         },
-        serviceName, objectPath, "xyz.openbmc_project.Software.Update",
-        "StartUpdate", sdbusplus::message::unix_fd(memfd->fd), applyTime,
-        forceUpdate, targets);
+        // Nvidia modified: added forceUpdate and targets parameters
+        serviceName, objectPath, updateInterface, "StartUpdate",
+        sdbusplus::message::unix_fd(memfd->fd), applyTime, forceUpdate,
+        targets);
 }
 
 inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1034,8 +1026,9 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    using SwInfoMap = std::unordered_map<
-        std::string, std::pair<sdbusplus::message::object_path, std::string>>;
+    using SwInfoMap =
+        std::unordered_map<std::string,
+                           std::pair<sdbusplus::object_path, std::string>>;
     SwInfoMap swInfoMap;
 
     if (ec)
@@ -1049,7 +1042,7 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     for (const auto& entry : subtree)
     {
-        sdbusplus::message::object_path path(entry.first);
+        sdbusplus::object_path path(entry.first);
         std::string swId = path.filename();
         swInfoMap.emplace(swId, make_pair(path, entry.second[0].first));
     }
@@ -1115,7 +1108,8 @@ inline void processUpdateRequest(
 
     // Nvidia code starts here
     MultipartParser parser(memfd->fd);
-    ParserError parseResult = parser.parse(req);
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    ParserError parseResult = parser.parse(contentType, req.body());
     if (parseResult != ParserError::PARSER_SUCCESS)
     {
         BMCWEB_LOG_ERROR(
@@ -1256,7 +1250,8 @@ inline void processUpdateRequest(
 }
 
 inline void updateMultipartContext(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
     std::optional<MultiPartUpdate> multipart =
@@ -1365,10 +1360,10 @@ inline void updateMultipartContext(
                 {
                     // All URIs in Target has the prepended prefix
                     BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                    auto sharedReq =
-                        std::make_shared<crow::Request>(std::move(req));
-                    RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                        forwardImage, sharedReq, updateAll, asyncResp));
+                    auto sharedReq = std::make_shared<crow::Request>(req);
+                    RedfishAggregator::getInstance().getSatelliteConfigs(
+                        std::bind_front(forwardImage, sharedReq, updateAll,
+                                        asyncResp));
                 }
                 return;
             }
@@ -1466,7 +1461,7 @@ inline void handleUpdateServicePost(
 }
 
 inline void handleUpdateServiceMultipartUpdatePost(
-    App& app, crow::Request& req,
+    App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -1498,7 +1493,7 @@ inline void handleUpdateServiceMultipartUpdatePost(
         MultipartParser parser(true);
         // Nvidia code ends here
 
-        ParserError ec = parser.parse(req);
+        ParserError ec = parser.parse(contentType, req.body());
         if (ec != ParserError::PARSER_SUCCESS)
         {
             // handle error
@@ -1647,6 +1642,7 @@ inline void getSoftwareVersionCallback(
 {
     if (ec)
     {
+        BMCWEB_LOG_ERROR("D-Bus error {}", ec);
         messages::internalError(asyncResp->res);
         return;
     }
@@ -1714,6 +1710,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     BMCWEB_LOG_DEBUG("doGet callback...");
     if (ec)
     {
+        BMCWEB_LOG_ERROR("D-Bus error {}", ec);
         messages::internalError(asyncResp->res);
         return;
     }
@@ -1726,7 +1723,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
              std::vector<std::pair<std::string, std::vector<std::string>>>>&
              obj : subtree)
     {
-        sdbusplus::message::object_path path(obj.first);
+        sdbusplus::object_path path(obj.first);
         std::string id = path.filename();
         if (id.empty())
         {

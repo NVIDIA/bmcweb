@@ -326,8 +326,8 @@ inline void convertDbusObjectToOriginOfCondition(
             {
                 std::string chassisName = std::format(
                     "{}{}", BMCWEB_PLATFORM_DEVICE_PREFIX, deviceName);
-                std::string sensorName;
-                dbus::utility::getNthStringFromPath(path, 4, sensorName);
+                sdbusplus::message::object_path sensorObjPath(path);
+                std::string sensorName = sensorObjPath.filename();
                 newPath = chassisName + "/Sensors/";
                 newPath += sensorName;
             }

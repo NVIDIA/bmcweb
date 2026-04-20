@@ -12,6 +12,7 @@
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <optional>
@@ -239,8 +240,8 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.CCMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.CCMode") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -346,8 +347,8 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.CCMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.CCMode") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -556,8 +557,8 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.EgmMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.EgmMode") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -807,8 +808,8 @@ inline void populateErrorInjectionData(
 
                     for (const auto& [_, interfaces] : serviceMap2)
                     {
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "com.nvidia.ErrorInjection.ErrorInjection") ==
                             interfaces.end())
                         {
@@ -1263,8 +1264,7 @@ inline void getPortLinkStatusSetting(
                     }
 
                     // check port number if present in vector
-                    auto it = std::find(portsToDisable.begin(),
-                                        portsToDisable.end(), *value);
+                    auto it = std::ranges::find(portsToDisable, *value);
                     if (it != portsToDisable.end())
                     {
                         aResp->res.jsonValue["LinkState"] = "Disabled";
@@ -1288,8 +1288,8 @@ inline void getPortDisableFutureStatus(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.NVLink.NVLinkDisableFuture") !=
+        if (std::ranges::find(interfaceList,
+                              "com.nvidia.NVLink.NVLinkDisableFuture") !=
             interfaceList.end())
         {
             inventoryService = &serviceName;
@@ -1388,154 +1388,106 @@ inline void getPortNumberAndCallSetAsync(
     const std::string& portService, const std::string& portPath,
     const std::vector<uint8_t>& portsToDisable)
 {
-    dbus::
-        utility::getAllProperties(portService, portPath,
-                                  "xyz.openbmc_project.Inventory.Item.Port",
-                                  [aResp, processorId, portId, propertyValue,
-                                   propertyName, processorPath,
-                                   processorService, portsToDisable](
-                                      const boost::system::error_code& ec,
-                                      const dbus::utility::DBusPropertiesMap&
-                                          properties) {
-                                      if (ec)
-                                      {
-                                          BMCWEB_LOG_ERROR(
-                                              "DBUS response error");
-                                          messages::internalError(aResp->res);
-                                          return;
-                                      }
+    dbus::utility::getAllProperties(
+        portService, portPath, "xyz.openbmc_project.Inventory.Item.Port",
+        [aResp, processorId, portId, propertyValue, propertyName, processorPath,
+         processorService,
+         portsToDisable](const boost::system::error_code& ec,
+                         const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
+                return;
+            }
 
-                                      for (const auto& property : properties)
-                                      {
-                                          const std::string& propName =
-                                              property.first;
-                                          if (propName == "PortNumber")
-                                          {
-                                              const size_t* value =
-                                                  std::get_if<size_t>(
-                                                      &property.second);
-                                              if (value == nullptr)
-                                              {
-                                                  BMCWEB_LOG_DEBUG(
-                                                      "Null value returned "
-                                                      "for port number");
-                                                  messages::internalError(
-                                                      aResp->res);
-                                                  return;
-                                              }
-                                              uint32_t portNumber =
-                                                  static_cast<uint32_t>(*value);
+            for (const auto& property : properties)
+            {
+                const std::string& propName = property.first;
+                if (propName == "PortNumber")
+                {
+                    const size_t* value = std::get_if<size_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for port number");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    uint32_t portNumber = static_cast<uint32_t>(*value);
 
-                                              dbus::
-                                                  utility::getDbusObject(processorPath,
-                                                                         std::array<
-                                                                             std::
-                                                                                 string_view,
-                                                                             1>{
-                                                                             nvidia_async_operation_utils::
-                                                                                 setAsyncInterfaceName},
-                                                                         [aResp,
-                                                                          propertyValue,
-                                                                          propertyName,
-                                                                          portNumber,
-                                                                          processorId,
-                                                                          processorPath,
-                                                                          processorService,
-                                                                          portsToDisable](
-                                                                             const boost::
-                                                                                 system::error_code&
-                                                                                     ec1,
-                                                                             const dbus::utility::
-                                                                                 MapperGetObject&
-                                                                                     object) {
-                                                                             if (!ec1)
-                                                                             {
-                                                                                 for (
-                                                                                     const auto& [serv,
-                                                                                                  _] :
-                                                                                     object)
-                                                                                 {
-                                                                                     if (serv !=
-                                                                                         processorService)
-                                                                                     {
-                                                                                         continue;
-                                                                                     }
+                    dbus::utility::getDbusObject(
+                        processorPath,
+                        std::array<std::string_view, 1>{
+                            nvidia_async_operation_utils::
+                                setAsyncInterfaceName},
+                        [aResp, propertyValue, propertyName, portNumber,
+                         processorId, processorPath, processorService,
+                         portsToDisable](
+                            const boost::system::error_code& ec1,
+                            const dbus::utility::MapperGetObject& object) {
+                            if (!ec1)
+                            {
+                                for (const auto& [serv, _] : object)
+                                {
+                                    if (serv != processorService)
+                                    {
+                                        continue;
+                                    }
 
-                                                                                     std::vector<
-                                                                                         uint8_t>
-                                                                                         portListToDisable =
-                                                                                             portsToDisable;
-                                                                                     auto it = std::find(
-                                                                                         portListToDisable
-                                                                                             .begin(),
-                                                                                         portListToDisable
-                                                                                             .end(),
-                                                                                         portNumber);
-                                                                                     if (propertyValue ==
-                                                                                         "Disabled")
-                                                                                     {
-                                                                                         if (it ==
-                                                                                             portListToDisable
-                                                                                                 .end())
-                                                                                         {
-                                                                                             portListToDisable
-                                                                                                 .push_back(
-                                                                                                     static_cast<
-                                                                                                         uint8_t>(
-                                                                                                         portNumber));
-                                                                                         }
-                                                                                     }
-                                                                                     else if (
-                                                                                         propertyValue ==
-                                                                                         "Enabled")
-                                                                                     {
-                                                                                         if (it !=
-                                                                                             portListToDisable
-                                                                                                 .end())
-                                                                                         {
-                                                                                             portListToDisable
-                                                                                                 .erase(
-                                                                                                     it);
-                                                                                         }
-                                                                                     }
-                                                                                     else
-                                                                                     {
-                                                                                         BMCWEB_LOG_ERROR(
-                                                                                             "Invalid value for patch on property {}",
-                                                                                             propertyName);
-                                                                                         messages::internalError(
-                                                                                             aResp
-                                                                                                 ->res);
-                                                                                         return;
-                                                                                     }
+                                    std::vector<uint8_t> portListToDisable =
+                                        portsToDisable;
+                                    auto it =
+                                        std::ranges::find(portListToDisable,
 
-                                                                                     BMCWEB_LOG_DEBUG(
-                                                                                         "Performing Patch using Set Async Method Call for {}",
-                                                                                         propertyName);
+                                                          portNumber);
+                                    if (propertyValue == "Disabled")
+                                    {
+                                        if (it == portListToDisable.end())
+                                        {
+                                            portListToDisable.push_back(
+                                                static_cast<uint8_t>(
+                                                    portNumber));
+                                        }
+                                    }
+                                    else if (propertyValue == "Enabled")
+                                    {
+                                        if (it != portListToDisable.end())
+                                        {
+                                            portListToDisable.erase(it);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Invalid value for patch on property {}",
+                                            propertyName);
+                                        messages::internalError(aResp->res);
+                                        return;
+                                    }
 
-                                                                                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-                                                                                         aResp,
-                                                                                         std::chrono::
-                                                                                             seconds(
-                                                                                                 60),
-                                                                                         processorService,
-                                                                                         processorPath,
-                                                                                         "com.nvidia.NVLink.NVLinkDisableFuture",
-                                                                                         propertyName,
-                                                                                         std::variant<
-                                                                                             std::vector<
-                                                                                                 uint8_t>>(
-                                                                                             portListToDisable),
-                                                                                         nvidia_async_operation_utils::
-                                                                                             PatchPortDisableCallback{
-                                                                                                 aResp});
-                                                                                     return;
-                                                                                 }
-                                                                             }
-                                                                         });
-                                          }
-                                      }
-                                  });
+                                    BMCWEB_LOG_DEBUG(
+                                        "Performing Patch using Set Async Method Call for {}",
+                                        propertyName);
+
+                                    nvidia_async_operation_utils::
+                                        doGenericSetAsyncAndGatherResult(
+                                            aResp, std::chrono::seconds(60),
+                                            processorService, processorPath,
+                                            "com.nvidia.NVLink.NVLinkDisableFuture",
+                                            propertyName,
+                                            std::variant<std::vector<uint8_t>>(
+                                                portListToDisable),
+                                            nvidia_async_operation_utils::
+                                                PatchPortDisableCallback{
+                                                    aResp});
+                                    return;
+                                }
+                            }
+                        });
+                }
+            }
+        });
 }
 
 inline void patchPortDisableFuture(
@@ -1549,8 +1501,8 @@ inline void patchPortDisableFuture(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.NVLink.NVLinkDisableFuture") !=
+        if (std::ranges::find(interfaceList,
+                              "com.nvidia.NVLink.NVLinkDisableFuture") !=
             interfaceList.end())
         {
             inventoryService = &serviceName;
@@ -1872,7 +1824,7 @@ inline std::string convertMsbToLsb(const std::string* ibGuid)
     }
 
     // Reverse entire string
-    std::reverse(lsb.begin(), lsb.end());
+    std::ranges::reverse(lsb);
 
     return lsb;
 }
@@ -2143,8 +2095,8 @@ inline void setOperatingSpeedRange(
 
             for (const auto& [service, interfaces] : objInfo)
             {
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
+                if (std::ranges::find(
+                        interfaces,
                         nvidia_async_operation_utils::setAsyncInterfaceName) ==
                     interfaces.end())
                 {

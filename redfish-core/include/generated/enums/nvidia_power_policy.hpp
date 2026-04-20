@@ -47,5 +47,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ComparisonType, {
     {ComparisonType::Inclusive, "Inclusive"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_power_policy

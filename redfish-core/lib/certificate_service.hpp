@@ -67,8 +67,6 @@ constexpr const char* certInstallIntf = "xyz.openbmc_project.Certs.Install";
 constexpr const char* certReplaceIntf = "xyz.openbmc_project.Certs.Replace";
 constexpr const char* objDeleteIntf = "xyz.openbmc_project.Object.Delete";
 constexpr const char* certPropIntf = "xyz.openbmc_project.Certs.Certificate";
-constexpr const char* dbusPropIntf = "org.freedesktop.DBus.Properties";
-constexpr const char* dbusObjManagerIntf = "org.freedesktop.DBus.ObjectManager";
 constexpr const char* httpsServiceName =
     "xyz.openbmc_project.Certs.Manager.Server.Https";
 constexpr const char* ldapServiceName =
@@ -277,7 +275,7 @@ inline void getCertificateList(
             links = nlohmann::json::array();
             for (const auto& certPath : certPaths)
             {
-                sdbusplus::message::object_path objPath(certPath);
+                sdbusplus::object_path objPath(certPath);
                 std::string certId = objPath.filename();
                 if (certId.empty())
                 {
@@ -422,8 +420,7 @@ inline void getCertificateProperties(
 
 inline void deleteCertificate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service,
-    const sdbusplus::message::object_path& objectPath)
+    const std::string& service, const sdbusplus::object_path& objectPath)
 {
     dbus::utility::async_method_call(
         asyncResp,
@@ -582,7 +579,7 @@ inline void handleReplaceCertificateAction(
     }
 
     std::string id;
-    sdbusplus::message::object_path objectPath;
+    sdbusplus::object_path objectPath;
     std::string name;
     std::string service;
     if (crow::utility::readUrlSegments(
@@ -590,17 +587,15 @@ inline void handleReplaceCertificateAction(
             BMCWEB_REDFISH_MANAGER_URI_NAME, "NetworkProtocol", "HTTPS",
             "Certificates", std::ref(id)))
     {
-        objectPath = sdbusplus::message::object_path(certs::httpsObjectPath) /
-                     id;
-        name = "HTTPS Certificate";
+        objectPath = sdbusplus::object_path(certs::httpsObjectPath) / id;
+        name = "HTTPS certificate";
         service = certs::httpsServiceName;
     }
     else if (crow::utility::readUrlSegments(*parsedUrl, "redfish", "v1",
                                             "AccountService", "LDAP",
                                             "Certificates", std::ref(id)))
     {
-        objectPath = sdbusplus::message::object_path(certs::ldapObjectPath) /
-                     id;
+        objectPath = sdbusplus::object_path(certs::ldapObjectPath) / id;
         name = "LDAP certificate";
         service = certs::ldapServiceName;
     }
@@ -609,8 +604,7 @@ inline void handleReplaceCertificateAction(
                  BMCWEB_REDFISH_MANAGER_URI_NAME, "Truststore", "Certificates",
                  std::ref(id)))
     {
-        objectPath =
-            sdbusplus::message::object_path(certs::authorityObjectPath) / id;
+        objectPath = sdbusplus::object_path(certs::authorityObjectPath) / id;
         name = "TrustStore certificate";
         service = certs::authorityServiceName;
     }
@@ -896,16 +890,9 @@ inline void handleGenerateCSRAction(
         *crow::connections::systemBus, match,
         [asyncResp, service, objectPath, certURI](sdbusplus::message_t& m) {
             timeout.cancel();
-            if (m.is_method_error())
-            {
-                BMCWEB_LOG_ERROR("Dbus method error!!!");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
             dbus::utility::DBusInterfacesMap interfacesProperties;
 
-            sdbusplus::message::object_path csrObjectPath;
+            sdbusplus::object_path csrObjectPath;
             m.read(csrObjectPath, interfacesProperties);
             BMCWEB_LOG_DEBUG("CSR object added{}", csrObjectPath.str);
             for (const auto& interface : interfacesProperties)
@@ -1049,7 +1036,7 @@ inline void handleHTTPSCertificateCollectionPost(
                 // Nvidia code ends here
                 return;
             }
-            sdbusplus::message::object_path path(objectPath);
+            sdbusplus::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(
                 "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
@@ -1085,7 +1072,7 @@ inline void handleHTTPSCertificateGet(
         "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
     std::string objPath =
-        sdbusplus::message::object_path(certs::httpsObjectPath) / certId;
+        sdbusplus::object_path(certs::httpsObjectPath) / certId;
     getCertificateProperties(asyncResp, objPath, certs::httpsServiceName,
                              certId, certURL, "HTTPS Certificate");
 }
@@ -1177,7 +1164,7 @@ inline void handleLDAPCertificateCollectionPost(
                 // Nvidia code ends here
                 return;
             }
-            sdbusplus::message::object_path path(objectPath);
+            sdbusplus::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(
                 "/redfish/v1/AccountService/LDAP/Certificates/{}", certId);
@@ -1203,8 +1190,7 @@ inline void handleLDAPCertificateGet(
     BMCWEB_LOG_DEBUG("LDAP Certificate ID={}", id);
     const boost::urls::url certURL = boost::urls::format(
         "/redfish/v1/AccountService/LDAP/Certificates/{}", id);
-    std::string objPath =
-        sdbusplus::message::object_path(certs::ldapObjectPath) / id;
+    std::string objPath = sdbusplus::object_path(certs::ldapObjectPath) / id;
     getCertificateProperties(asyncResp, objPath, certs::ldapServiceName, id,
                              certURL, "LDAP Certificate");
 }
@@ -1219,8 +1205,7 @@ inline void handleLDAPCertificateDelete(
     }
 
     BMCWEB_LOG_DEBUG("Delete LDAP Certificate ID={}", id);
-    std::string objPath =
-        sdbusplus::message::object_path(certs::ldapObjectPath) / id;
+    std::string objPath = sdbusplus::object_path(certs::ldapObjectPath) / id;
 
     deleteCertificate(asyncResp, certs::ldapServiceName, objPath);
 }
@@ -1265,7 +1250,7 @@ inline void handleTrustStoreCertificateCollectionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates/",
+        boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] =
         "#CertificateCollection.CertificateCollection";
@@ -1329,7 +1314,7 @@ inline void handleTrustStoreCertificateCollectionPost(
                 return;
             }
 
-            sdbusplus::message::object_path path(objectPath);
+            sdbusplus::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(
                 "/redfish/v1/Managers/{}/Truststore/Certificates/{}",
@@ -1365,7 +1350,7 @@ inline void handleTrustStoreCertificateGet(
         "/redfish/v1/Managers/{}/Truststore/Certificates/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
     std::string objPath =
-        sdbusplus::message::object_path(certs::authorityObjectPath) / certId;
+        sdbusplus::object_path(certs::authorityObjectPath) / certId;
     getCertificateProperties(asyncResp, objPath, certs::authorityServiceName,
                              certId, certURL, "TrustStore Certificate");
 }
@@ -1388,7 +1373,7 @@ inline void handleTrustStoreCertificateDelete(
 
     BMCWEB_LOG_DEBUG("Delete TrustStore Certificate ID={}", certId);
     std::string objPath =
-        sdbusplus::message::object_path(certs::authorityObjectPath) / certId;
+        sdbusplus::object_path(certs::authorityObjectPath) / certId;
 
     deleteCertificate(asyncResp, certs::authorityServiceName, objPath);
 }

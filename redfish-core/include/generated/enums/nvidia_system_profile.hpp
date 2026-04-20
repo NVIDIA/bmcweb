@@ -39,5 +39,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ActionStatus, {
     {ActionStatus::Invalid, "Invalid"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_system_profile

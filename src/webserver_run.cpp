@@ -21,6 +21,7 @@
 #include "nvidia_persistent_data.hpp"
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
+#include "persistent_data.hpp"
 #include "redfish.hpp"
 #include "redfish_aggregator.hpp"
 #include "user_monitor.hpp"
@@ -50,7 +51,7 @@ static void setLogLevel(const std::string& logLevel)
     BMCWEB_LOG_INFO("Requested log-level change to: {}", logLevel);
 }
 
-int run()
+int runWebserver()
 {
     boost::asio::io_context& io = getIoContext();
     App app;
@@ -72,7 +73,7 @@ int run()
     // Enable SystemD service watchdog kicking. Service file has timeout of 60s.
     // crow::watchdog::ServiceWD watchdog;
 
-    // Load the peristent data
+    // Load the persistent data
     persistent_data::getConfig();
 
     // Static assets need to be initialized before Authorization, because auth

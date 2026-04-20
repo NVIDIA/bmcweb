@@ -28,6 +28,8 @@
 
 #include <boost/url/format.hpp>
 
+#include <algorithm>
+
 namespace redfish
 {
 
@@ -80,8 +82,7 @@ inline void getNetworkAdapterCollectionMembers(
                 }
                 pathNames.push_back(leaf);
             }
-            std::sort(pathNames.begin(), pathNames.end(),
-                      AlphanumLess<std::string>());
+            std::ranges::sort(pathNames, AlphanumLess<std::string>());
 
             nlohmann::json& members = aResp->res.jsonValue["Members"];
             members = nlohmann::json::array();
@@ -451,8 +452,8 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     {
                         auto& capabilitiesArray =
                             asyncResp->res.jsonValue["NetDevFuncCapabilities"];
-                        if (std::find(capabilitiesArray.begin(),
-                                      capabilitiesArray.end(), "InfiniBand") ==
+                        if (std::ranges::find(capabilitiesArray,
+                                              "InfiniBand") ==
                             capabilitiesArray.end())
                         {
                             capabilitiesArray.push_back("InfiniBand");

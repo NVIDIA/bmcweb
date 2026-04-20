@@ -17,6 +17,7 @@
 #include "registries/privilege_registry.hpp"
 #include "str_utility.hpp"
 #include "utility.hpp"
+#include "utils/etag_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/query_param.hpp"
@@ -74,17 +75,17 @@ inline void handleSystemsLogServicesPostCodesGet(
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        boost::urls::format("/redfish/v1/Systems/{}/LogServices/PostCodes",
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
     asyncResp->res.jsonValue["Name"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Description"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Id"] = "PostCodes";
     asyncResp->res.jsonValue["OverWritePolicy"] =
         log_service::OverWritePolicy::WrapsWhenFull;
-    asyncResp->res.jsonValue["Entries"]["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["Entries"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
     std::pair<std::string, std::string> redfishDateTimeOffset =
         redfish::time_utils::getDateTimeOffsetNow();
@@ -96,6 +97,8 @@ inline void handleSystemsLogServicesPostCodesGet(
         .jsonValue["Actions"]["#LogService.ClearLog"]["target"] = std::format(
         "/redfish/v1/Systems/{}/LogServices/PostCodes/Actions/LogService.ClearLog",
         BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+    etag_utils::setEtagOmitDateTimeHandler(asyncResp);
 }
 
 inline void handleSystemsLogServicesPostCodesPost(
@@ -486,9 +489,9 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
     }
     asyncResp->res.jsonValue["@odata.type"] =
         "#LogEntryCollection.LogEntryCollection";
-    asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["Name"] = "BIOS POST Code Log Entries";
     asyncResp->res.jsonValue["Description"] =
         "Collection of POST Code Log Entries";
@@ -579,8 +582,7 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
 
             asyncResp->res.addHeader(boost::beast::http::field::content_type,
                                      "application/octet-stream");
-            asyncResp->res.addHeader(
-                boost::beast::http::field::content_transfer_encoding, "Base64");
+            asyncResp->res.addHeader("Content-Transfer-Encoding", "Base64");
             asyncResp->res.write(crow::utility::base64encode(strData));
         },
         "xyz.openbmc_project.State.Boot.PostCode0",

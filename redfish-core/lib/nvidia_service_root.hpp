@@ -20,8 +20,6 @@
 #include <string>
 namespace redfish
 {
-constexpr std::array<const char*, 1> bmcInterfaces = {
-    "xyz.openbmc_project.Inventory.Item.BMC"};
 
 /**
  * Fill out Asset information from from given D-Bus object

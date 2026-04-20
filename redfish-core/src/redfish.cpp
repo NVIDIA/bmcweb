@@ -7,6 +7,8 @@
 #include "account_service.hpp"
 #include "aggregation_service.hpp"
 #include "app.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "assembly.hpp"
 #include "bios.hpp"
 #include "cable.hpp"
 #include "certificate_service.hpp"
@@ -15,23 +17,26 @@
 #include "ethernet.hpp"
 #include "event_service.hpp"
 #include "eventservice_sse.hpp"
+#include "fabric.hpp"
 #include "fabric_adapters.hpp"
+#include "fabric_ports.hpp"
 #include "fan.hpp"
 #include "hypervisor_system.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
+#include "manager_logservices_dbus_eventlog.hpp"
 #include "manager_logservices_journal.hpp"
+#include "manager_logservices_journal_eventlog.hpp"
 #include "managers.hpp"
 #include "memory.hpp"
 #include "message_registries.hpp"
 #include "metadata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
+#include "network_adapter.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_managers.hpp"
-#include "nvidia_nic_debug_token.hpp"
-#include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "odata.hpp"
 #include "openbmc/openbmc_managers.hpp"
@@ -40,6 +45,7 @@
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
+#include "processor_operating_config.hpp"
 #include "redfish_nvidia.hpp"
 #include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
@@ -47,8 +53,13 @@
 #include "sensors.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
+#include "storage_chassis.hpp"
+#include "storage_controller.hpp"
+#include "switch_port.hpp"
 #include "systems.hpp"
+#include "systems_logservices_dbus_eventlog.hpp"
 #include "systems_logservices_hostlogger.hpp"
+#include "systems_logservices_journal_eventlog.hpp"
 #include "systems_logservices_postcodes.hpp"
 #include "task.hpp"
 #include "telemetry_service.hpp"
@@ -71,6 +82,8 @@ RedfishService::RedfishService(App& app)
     {
         requestAccountServiceRoutes(app);
     }
+    requestRoutesAssembly(app);
+
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
         requestRoutesAggregationService(app);
@@ -108,14 +121,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesThermalMetrics(app);
         requestRoutesThermalSubsystem(app);
         requestRoutesFan(app);
-        requestRoutesFanCollection(app);
     }
 
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
     requestRoutesManagerResetAction(app);
-    requestRoutesManagerResetActionInfo(app);
-    requestRoutesManagerResetToDefaultsAction(app);
     requestRoutesManagerDiagnosticData(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
@@ -124,12 +134,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesChassisResetAction(app);
         requestRoutesChassisResetActionInfo(app);
     }
+    requestRoutesChassisNetworkAdapter(app);
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesUpdateService(app);
-    requestRoutesStorageCollection(app);
     requestRoutesStorage(app);
-    requestRoutesStorageControllerCollection(app);
     requestRoutesStorageController(app);
     requestRoutesDrive(app);
     if constexpr (BMCWEB_REDFISH_CABLES)
@@ -137,11 +146,39 @@ RedfishService::RedfishService(App& app)
         requestRoutesCable(app);
         requestRoutesCableCollection(app);
     }
+    requestRoutesFabrics(app);
+    requestRoutesFabricSwitchPort(app);
 
-    requestRoutesSystemLogServiceCollection(app);
-    requestRoutesEventLogService(app);
+    requestRoutesSystemsLogServiceCollection(app);
+    requestRoutesManagersLogServiceCollection(app);
 
     requestRoutesSystemsLogServicesPostCode(app);
+
+    if constexpr (BMCWEB_REDFISH_EVENTLOG_LOCATION == "systems")
+    {
+        requestRoutesSystemsEventLogService(app);
+        if constexpr (BMCWEB_REDFISH_DBUS_LOG)
+        {
+            requestRoutesSystemsDBusEventLog(app);
+        }
+        else
+        {
+            requestRoutesSystemsJournalEventLog(app);
+        }
+    }
+
+    if constexpr (BMCWEB_REDFISH_EVENTLOG_LOCATION == "managers")
+    {
+        requestRoutesManagersEventLogService(app);
+        if constexpr (BMCWEB_REDFISH_DBUS_LOG)
+        {
+            requestRoutesManagersDBusEventLog(app);
+        }
+        else
+        {
+            requestRoutesManagersJournalEventLog(app);
+        }
+    }
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
@@ -168,8 +205,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesFaultLogDumpClear(app);
     }
 
-    requestRoutesBMCLogServiceCollection(app);
-
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
@@ -185,9 +220,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesCrashdumpCollect(app);
     }
 
-    requestRoutesProcessorCollection(app);
     requestRoutesProcessor(app);
-    requestRoutesOperatingConfigCollection(app);
     requestRoutesOperatingConfig(app);
 
     requestRoutesMemoryCollection(app);
@@ -203,20 +236,6 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         requestNBDVirtualMediaRoutes(app);
-    }
-
-    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-    {
-        requestRoutesDBusLogServiceActionsClear(app);
-        requestRoutesDBusEventLogEntryCollection(app);
-        requestRoutesDBusEventLogEntry(app);
-        requestRoutesDBusEventLogEntryDownload(app);
-    }
-    else
-    {
-        requestRoutesJournalEventLogEntryCollection(app);
-        requestRoutesJournalEventLogEntry(app);
-        requestRoutesJournalEventLogClear(app);
     }
 
     if constexpr (BMCWEB_REDFISH_HOST_LOGGER)
@@ -252,6 +271,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesEventDestination(app);
     requestRoutesFabricAdapters(app);
     requestRoutesFabricAdapterCollection(app);
+    requestRoutesFabricPort(app);
     requestRoutesSubmitTestEvent(app);
 
     if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)

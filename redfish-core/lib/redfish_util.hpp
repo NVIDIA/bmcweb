@@ -59,8 +59,8 @@ enum NetworkProtocolListenResponseElements
  */
 using UnitStruct =
     std::tuple<std::string, std::string, std::string, std::string, std::string,
-               std::string, sdbusplus::message::object_path, uint32_t,
-               std::string, sdbusplus::message::object_path>;
+               std::string, sdbusplus::object_path, uint32_t, std::string,
+               sdbusplus::object_path>;
 
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;

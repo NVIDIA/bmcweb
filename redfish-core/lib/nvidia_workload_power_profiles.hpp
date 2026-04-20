@@ -38,6 +38,7 @@
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string>
@@ -184,8 +185,9 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
 
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "com.nvidia.PowerProfile.ProfileInfo") ==
+                    if (std::ranges::find(
+                            interfaces,
+                            "com.nvidia.PowerProfile.ProfileInfo") ==
                         interfaces.end())
                     {
                         // no interface = no failures
@@ -528,8 +530,9 @@ inline void postEnableWorkLoadPowerProfile(
                 }
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "com.nvidia.PowerProfile.ProfileInfoAsync") ==
+                    if (std::ranges::find(
+                            interfaces,
+                            "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                         interfaces.end())
                     {
                         // no interface = no failures
@@ -627,8 +630,9 @@ inline void postDisableWorkLoadPowerProfile(
                 }
                 for (const auto& [service, interfaces] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "com.nvidia.PowerProfile.ProfileInfoAsync") ==
+                    if (std::ranges::find(
+                            interfaces,
+                            "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                         interfaces.end())
                     {
                         // no interface = no failures

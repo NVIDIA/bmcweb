@@ -115,19 +115,10 @@ class Connection :
     Connection& operator=(Connection&&) = delete;
 
     bool tlsVerifyCallback(bool preverified,
-                           boost::asio::ssl::verify_context& ctx)
+                           boost::asio::ssl::verify_context& /*ctx*/)
     {
         BMCWEB_LOG_DEBUG("{} tlsVerifyCallback called with preverified {}",
                          logPtr(this), preverified);
-        if (preverified)
-        {
-            mtlsSession = verifyMtlsUser(ip, ctx);
-            if (mtlsSession)
-            {
-                BMCWEB_LOG_DEBUG("{} Generated TLS session: {}", logPtr(this),
-                                 mtlsSession->uniqueId);
-            }
-        }
         const persistent_data::AuthConfigMethods& c =
             persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
         if (c.tlsStrict)
@@ -254,6 +245,19 @@ class Connection :
             return;
         }
         BMCWEB_LOG_DEBUG("{} SSL handshake succeeded", logPtr(this));
+
+        if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
+        {
+            BMCWEB_LOG_DEBUG(
+                "{} Establishing mTLS session after handshake, session reused: {}",
+                logPtr(this), SSL_session_reused(adaptor.native_handle()) != 0);
+            mtlsSession = verifyMtlsUser(ip, adaptor.native_handle());
+            if (mtlsSession != nullptr)
+            {
+                BMCWEB_LOG_DEBUG("{} Generated TLS session: {}", logPtr(this),
+                                 mtlsSession->uniqueId);
+            }
+        }
         // If http2 is enabled, negotiate the protocol
         if constexpr (BMCWEB_HTTP2)
         {
@@ -332,7 +336,7 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
-            std::string_view base64settings = req->req[field::http2_settings];
+            std::string_view base64settings = req->req["HTTP2-Settings"];
             if (utility::base64Decode<true>(base64settings, http2settings))
             {
                 res.result(boost::beast::http::status::switching_protocols);
@@ -384,7 +388,7 @@ class Connection :
         {
             return;
         }
-        req = std::make_shared<crow::Request>(parser->release(), reqEc);
+        req = std::make_shared<Request>(parser->release(), reqEc);
         if (reqEc)
         {
             BMCWEB_LOG_DEBUG("Request failed to construct{}", reqEc.message());
@@ -458,19 +462,18 @@ class Connection :
         auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
         BMCWEB_LOG_DEBUG("Setting completion handler");
         asyncResp->res.setCompleteRequestHandler(
-            [self(shared_from_this())](crow::Response& thisRes) {
+            [self(shared_from_this())](Response& thisRes) {
                 self->completeRequest(thisRes);
             });
         if (doUpgrade(asyncResp))
         {
             return;
         }
-
-        std::string_view expected =
+        std::string_view expectedEtag =
             req->getHeaderValue(boost::beast::http::field::if_none_match);
-        if (!expected.empty())
+        if (!expectedEtag.empty())
         {
-            asyncResp->res.setExpectedHash(expected);
+            asyncResp->res.setExpectedEtag(expectedEtag);
         }
 
         handler->handle(req, asyncResp);
@@ -516,7 +519,7 @@ class Connection :
         }
     }
 
-    void completeRequest(crow::Response& thisRes)
+    void completeRequest(Response& thisRes)
     {
         res = std::move(thisRes);
         res.keepAlive(keepAlive);
@@ -708,10 +711,10 @@ class Connection :
 
     void afterRead(const std::shared_ptr<self_type>& /*self*/,
                    const boost::system::error_code& ec,
-                   std::size_t bytesTransferred)
+                   std::size_t /*bytesTransferred*/)
     {
-        BMCWEB_LOG_DEBUG("{} async_read_some {} Bytes", logPtr(this),
-                         bytesTransferred);
+        // BMCWEB_LOG_DEBUG("{} async_read_some {} Bytes", logPtr(this),
+        //                  bytesTransferred);
 
         if (ec)
         {
@@ -768,7 +771,7 @@ class Connection :
 
     void doRead()
     {
-        BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
+        // BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
         if (!parser)
         {
             return;
@@ -934,7 +937,7 @@ class Connection :
         {
             if (ec == boost::asio::error::operation_aborted)
             {
-                BMCWEB_LOG_DEBUG("{} Timer canceled", logPtr(self.get()));
+                // BMCWEB_LOG_DEBUG("{} Timer canceled", logPtr(self.get()));
                 return;
             }
             BMCWEB_LOG_CRITICAL("{} Timer failed {}", logPtr(self.get()), ec);
@@ -970,7 +973,7 @@ class Connection :
                                          weak_from_this()));
 
         timerStarted = true;
-        BMCWEB_LOG_DEBUG("{} timer started", logPtr(this));
+        // BMCWEB_LOG_DEBUG("{} timer started", logPtr(this));
     }
     /* @brief : This function is used to get the user from the Authorization
      * header and return the user name If the header is not present or the
@@ -1027,12 +1030,12 @@ class Connection :
 
     boost::beast::flat_static_buffer<8192> buffer;
 
-    std::shared_ptr<crow::Request> req;
+    std::shared_ptr<Request> req;
     std::string accept;
     std::string http2settings;
     std::string acceptEncoding;
 
-    crow::Response res;
+    Response res;
 
     std::shared_ptr<persistent_data::UserSession> userSession;
     std::shared_ptr<persistent_data::UserSession> mtlsSession;

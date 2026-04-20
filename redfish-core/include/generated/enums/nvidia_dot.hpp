@@ -75,5 +75,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(DOTState, {
     {DOTState::Disabled, "Disabled"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_dot

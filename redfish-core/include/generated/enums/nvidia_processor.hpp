@@ -19,5 +19,5 @@ NLOHMANN_JSON_SERIALIZE_ENUM(MLNVLPeerType, {
     {MLNVLPeerType::Direct, "Direct"},
 });
 
-}
 // clang-format on
+} // namespace nvidia_processor

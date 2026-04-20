@@ -21,6 +21,7 @@
 #include <optional>
 #include <ratio>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -226,192 +227,133 @@ std::optional<std::string> toDurationStringFromUint(uint64_t timeMs)
 
 namespace details
 {
-// This code is left for support of gcc < 13 which didn't have support for
-// timezones. It should be removed at some point in the future.
-#if __cpp_lib_chrono < 201907L
 
-// Returns year/month/day triple in civil calendar
-// Preconditions:  z is number of days since 1970-01-01 and is in the range:
-//                   [numeric_limits<Int>::min(),
-//                   numeric_limits<Int>::max()-719468].
-// Algorithm sourced from
-// https://howardhinnant.github.io/date_algorithms.html#civil_from_days
-// All constants are explained in the above
-template <class IntType>
-constexpr std::tuple<IntType, unsigned, unsigned> civilFromDays(
-    IntType z) noexcept
+static const std::chrono::time_zone* getTimeZone(std::string_view tzName = "")
 {
-    z += 719468;
-    IntType era = (z >= 0 ? z : z - 146096) / 146097;
-    unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
-    unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) /
-                   365;                                     // [0, 399]
-    IntType y = static_cast<IntType>(yoe) + era * 400;
-    unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    unsigned mp = (5 * doy + 2) / 153;                      // [0, 11]
-    unsigned d = doy - (153 * mp + 2) / 5 + 1;              // [1, 31]
-    unsigned m = mp < 10 ? mp + 3 : mp - 9;                 // [1, 12]
-
-    return std::tuple<IntType, unsigned, unsigned>(y + (m <= 2), m, d);
+    const std::chrono::time_zone* tz = nullptr;
+    try
+    {
+        if (tzName.empty())
+        {
+            tz = std::chrono::current_zone();
+        }
+        else
+        {
+            tz = std::chrono::locate_zone(tzName);
+        }
+    }
+    catch (const std::runtime_error& e)
+    {
+        BMCWEB_LOG_ERROR("Error getting time zone: {}", e.what());
+    }
+    return tz;
 }
 
 template <typename IntType, typename Period>
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t)
-{
-    using seconds = std::chrono::duration<int>;
-    using minutes = std::chrono::duration<int, std::ratio<60>>;
-    using hours = std::chrono::duration<int, std::ratio<3600>>;
-    using days = std::chrono::duration<
-        IntType, std::ratio_multiply<hours::period, std::ratio<24>>>;
-
-    // d is days since 1970-01-01
-    days d = std::chrono::duration_cast<days>(t);
-
-    // t is now time duration since midnight of day d
-    t -= d;
-
-    // break d down into year/month/day
-    int year = 0;
-    int month = 0;
-    int day = 0;
-    std::tie(year, month, day) = details::civilFromDays(d.count());
-    // Check against limits.  Can't go above year 9999, and can't go below epoch
-    // (1970)
-    if (year >= 10000)
-    {
-        year = 9999;
-        month = 12;
-        day = 31;
-        t = days(1) - std::chrono::duration<IntType, Period>(1);
-    }
-    else if (year < 1970)
-    {
-        year = 1970;
-        month = 1;
-        day = 1;
-        t = std::chrono::duration<IntType, Period>::zero();
-    }
-
-    hours hr = std::chrono::duration_cast<hours>(t);
-    t -= hr;
-
-    minutes mt = std::chrono::duration_cast<minutes>(t);
-    t -= mt;
-
-    seconds se = std::chrono::duration_cast<seconds>(t);
-
-    t -= se;
-
-    std::string subseconds;
-    if constexpr (std::is_same_v<typename decltype(t)::period, std::milli>)
-    {
-        using MilliDuration = std::chrono::duration<int, std::milli>;
-        MilliDuration subsec = std::chrono::duration_cast<MilliDuration>(t);
-        subseconds = std::format(".{:03}", subsec.count());
-    }
-    else if constexpr (std::is_same_v<typename decltype(t)::period, std::micro>)
-    {
-        using MicroDuration = std::chrono::duration<int, std::micro>;
-        MicroDuration subsec = std::chrono::duration_cast<MicroDuration>(t);
-        subseconds = std::format(".{:06}", subsec.count());
-    }
-
-    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}+00:00", year,
-                       month, day, hr.count(), mt.count(), se.count(),
-                       subseconds);
-}
-
-#else
-
-template <typename IntType, typename Period>
-
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur)
+std::string toISO8061ExtendedStr(
+    const std::chrono::duration<IntType, Period> dur, std::string_view tzName)
 {
     using namespace std::literals::chrono_literals;
+    static_assert(sizeof(IntType) <= sizeof(uint64_t),
+                  "IntType must be less than or equal to uint64_t");
+    using SubType = std::chrono::duration<uint64_t, Period>;
 
-    using SubType = std::chrono::duration<IntType, Period>;
+    const std::chrono::time_zone* tz = getTimeZone(tzName);
+    if (tz == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Cannot find time zone: {}", tzName);
+        return "";
+    }
 
-    // d is days since 1970-01-01
-    std::chrono::days days = std::chrono::floor<std::chrono::days>(dur);
-    std::chrono::sys_days sysDays(days);
-    std::chrono::year_month_day ymd(sysDays);
+    std::chrono::sys_time<SubType> sysTimeOriginal(dur);
+
+    std::chrono::zoned_time<SubType> zonedTime(tz, sysTimeOriginal);
+
+    // Protect against integer overflow/underflow when adding offset
+    std::chrono::local_time<SubType> duration(zonedTime.get_local_time());
 
     // Enforce 3 constraints
-    // the result cant under or overflow the calculation
+    // the result can't under or overflow the calculation
     // the resulting string needs to be representable as 4 digits
-    // The resulting string can't be before epoch
-    if (dur.count() <= 0)
+
+    // Midnight of the year 1970 in that timezone is the lowest representable
+    // date
+    using std::chrono::January;
+    std::chrono::year_month_day tzEpoch(1970y, January, 1d);
+    std::chrono::local_days tzEpochDays(tzEpoch);
+    std::chrono::zoned_time<SubType> tzMin(tz, tzEpochDays);
+    // We might underflow because the duration is negative (at which point our
+    // unsigned timezone will underflow) or because the duration is not
+    // representable in that timezone. Handle both by setting to 1970 in that
+    // timezone
+    if (dur.count() <= 0 || zonedTime.get_local_time() < tzMin.get_local_time())
     {
-        BMCWEB_LOG_WARNING("Underflow from value {}", dur.count());
-        ymd = 1970y / std::chrono::January / 1d;
-        dur = std::chrono::duration<IntType, Period>::zero();
-    }
-    else if (dur > SubType::max() - std::chrono::days(1))
-    {
-        BMCWEB_LOG_WARNING("Overflow from value {}", dur.count());
-        ymd = 9999y / std::chrono::December / 31d;
-        dur = std::chrono::days(1) - SubType(1);
-    }
-    else if (ymd.year() >= 10000y)
-    {
-        BMCWEB_LOG_WARNING("Year {} not representable", ymd.year());
-        ymd = 9999y / std::chrono::December / 31d;
-        dur = std::chrono::days(1) - SubType(1);
-    }
-    else if (ymd.year() < 1970y)
-    {
-        BMCWEB_LOG_WARNING("Year {} not representable", ymd.year());
-        ymd = 1970y / std::chrono::January / 1d;
-        dur = SubType::zero();
+        BMCWEB_LOG_WARNING("Underflow from value {}",
+                           duration.time_since_epoch().count());
+        zonedTime = std::chrono::zoned_time<SubType>(tz, tzEpochDays);
     }
     else
     {
-        // t is now time duration since midnight of day d
-        dur -= days;
+        // Midnight of the year 10000 is the first non representable
+        // date as a string, so go back one tick to get the last representable
+        // date
+        std::chrono::year_month_day overflowDate(10000y, std::chrono::January,
+                                                 1d);
+        std::chrono::local_days maxDays(overflowDate);
+        std::chrono::local_time<SubType> maxDuration(maxDays);
+        maxDuration = maxDuration - SubType(1U);
+        if (duration > maxDuration)
+        {
+            BMCWEB_LOG_WARNING("Overflow from value {}",
+                               duration.time_since_epoch().count());
+            zonedTime = std::chrono::zoned_time<SubType>(tz, maxDuration);
+        }
     }
-    std::chrono::hh_mm_ss<SubType> hms(dur);
 
-    return std::format("{}T{}+00:00", ymd, hms);
+    return std::format("{:%Y-%m-%dT%H:%M:%S%Ez}", zonedTime);
 }
 
-#endif
 } // namespace details
 
 // Returns the formatted date time string.
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUint(uint64_t secondsSinceEpoch)
+std::string getDateTimeUint(uint64_t secondsSinceEpoch,
+                            std::string_view timezoneName)
 {
     using DurationType = std::chrono::duration<uint64_t>;
     DurationType sinceEpoch(secondsSinceEpoch);
-    return details::toISO8061ExtendedStr(sinceEpoch);
+    return details::toISO8061ExtendedStr(sinceEpoch, timezoneName);
 }
 
 // Returns the formatted date time string with millisecond precision
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch)
+std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch,
+                              std::string_view timezoneName)
 {
     using DurationType = std::chrono::duration<uint64_t, std::milli>;
     DurationType sinceEpoch(milliSecondsSinceEpoch);
-    return details::toISO8061ExtendedStr(sinceEpoch);
+    return details::toISO8061ExtendedStr(sinceEpoch, timezoneName);
 }
 
 // Returns the formatted date time string with microsecond precision
-std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch)
+std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch,
+                              std::string_view timezoneName)
 {
     using DurationType = std::chrono::duration<uint64_t, std::micro>;
     DurationType sinceEpoch(microSecondsSinceEpoch);
-    return details::toISO8061ExtendedStr(sinceEpoch);
+    return details::toISO8061ExtendedStr(sinceEpoch, timezoneName);
 }
 
-std::string getDateTimeStdtime(std::time_t secondsSinceEpoch)
+std::string getDateTimeStdtime(std::time_t secondsSinceEpoch,
+                               std::string_view timezoneName)
 {
     using DurationType = std::chrono::duration<std::time_t>;
     DurationType sinceEpoch(secondsSinceEpoch);
-    return details::toISO8061ExtendedStr(sinceEpoch);
+    return details::toISO8061ExtendedStr(sinceEpoch, timezoneName);
 }
 
 /**
@@ -425,21 +367,30 @@ std::string getDateTimeStdtime(std::time_t secondsSinceEpoch)
  */
 std::pair<std::string, std::string> getDateTimeOffsetNow()
 {
-    std::time_t time = std::time(nullptr);
-    std::string dateTime = getDateTimeStdtime(time);
-
-    /* extract the local Time Offset value from the
-     * received dateTime string.
-     */
-    std::string timeOffset("Z00:00");
-    std::size_t lastPos = dateTime.size();
-    std::size_t len = timeOffset.size();
-    if (lastPos > len)
+    const std::chrono::time_zone* tz = nullptr;
+    try
     {
-        timeOffset = dateTime.substr(lastPos - len);
+        tz = std::chrono::current_zone();
     }
+    catch (const std::runtime_error& e)
+    {
+        BMCWEB_LOG_ERROR("Error getting time zone: {}", e.what());
+        return std::make_pair("", "");
+    }
+    using std::chrono::floor;
+    using std::chrono::seconds;
+    using std::chrono::system_clock;
+    using std::chrono::time_point;
+    system_clock::time_point now = system_clock::now();
 
-    return std::make_pair(dateTime, timeOffset);
+    // Round down to the nearest second
+    time_point<system_clock, seconds> nowSeconds = floor<seconds>(now);
+
+    std::chrono::zoned_time zt{tz, nowSeconds};
+    std::string datetime = std::format("{:%Y-%m-%dT%H:%M:%S%Ez}", zt);
+    std::string timeOffset = std::format("{:%Ez}", zt);
+
+    return std::make_pair(std::move(datetime), std::move(timeOffset));
 }
 
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
@@ -465,7 +416,7 @@ std::optional<std::string> getDateTimeIso8601(std::string_view datetime)
         std::chrono::duration_cast<std::chrono::seconds>(*us);
 
     return std::make_optional(
-        getDateTimeUint(static_cast<uint64_t>(secondsDuration.count())));
+        getDateTimeUint(static_cast<uint64_t>(secondsDuration.count()), "UTC"));
 }
 
 /**

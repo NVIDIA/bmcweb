@@ -61,7 +61,7 @@ struct DebugTokenRequest
     uint8_t tokenOpcode;
     uint8_t status;
     uint16_t deviceIndex:12;
-    uint8_t reserved3:4;
+    uint16_t reserved3:4;
     std::array<uint8_t, 16> keypairUuid;
     std::array<uint8_t, 8> baseMac;
     std::array<uint8_t, 16> psid;

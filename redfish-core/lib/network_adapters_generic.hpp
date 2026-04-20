@@ -32,6 +32,7 @@
 #include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>
 
+#include <algorithm>
 #include <map>
 #include <optional>
 #include <string>
@@ -54,8 +55,8 @@ void getValidNetworkAdapterPath(
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
 
-    if (std::find(chassisIntfList.begin(), chassisIntfList.end(),
-                  networkInterface) != chassisIntfList.end())
+    if (std::ranges::find(chassisIntfList, networkInterface) !=
+        chassisIntfList.end())
     {
         // networkInterface at the same chassis objPath
         const std::array<std::string_view, 1> interfaces = {
@@ -166,8 +167,8 @@ inline void doNetworkAdaptersCollectionGeneric(
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
     const std::string& path = *validChassisPath;
 
-    if (std::find(chassisIntfList.begin(), chassisIntfList.end(),
-                  networkInterface) != chassisIntfList.end())
+    if (std::ranges::find(chassisIntfList, networkInterface) !=
+        chassisIntfList.end())
     {
         // networkInterface at the same chassis objPath
         dbus::utility::getSubTreePaths(
@@ -2077,8 +2078,8 @@ inline void networkAdapterPostResetType(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "xyz.openbmc_project.Control.ResetAsync") !=
+        if (std::ranges::find(interfaceList,
+                              "xyz.openbmc_project.Control.ResetAsync") !=
             interfaceList.end())
         {
             inventoryService = &serviceName;

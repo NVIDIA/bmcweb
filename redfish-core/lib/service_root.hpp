@@ -90,6 +90,7 @@ inline void handleServiceRootGetImpl(
     }
     // nvidida code ends here
     asyncResp->res.jsonValue["Systems"]["@odata.id"] = "/redfish/v1/Systems";
+    asyncResp->res.jsonValue["Fabrics"]["@odata.id"] = "/redfish/v1/Fabrics";
     asyncResp->res.jsonValue["Registries"]["@odata.id"] =
         "/redfish/v1/Registries";
     asyncResp->res.jsonValue["UpdateService"]["@odata.id"] =
@@ -115,10 +116,7 @@ inline void handleServiceRootGetImpl(
     }
 
     manager_utils::getServiceIdentification(asyncResp, true);
-    if constexpr (BMCWEB_REDFISH_CABLES)
-    {
-        asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
-    }
+    asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
