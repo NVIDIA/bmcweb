@@ -139,6 +139,10 @@ inline void fillProperties(
             json["Location"]["PartLocation"]["ServiceLabel"] =
                 std::get<std::string>(val);
         }
+        else if (std::holds_alternative<bool>(val))
+        {
+            json[key] = std::get<bool>(val);
+        }
         else if (std::holds_alternative<uint32_t>(val))
         {
             json[key] = std::get<uint32_t>(val);
@@ -618,6 +622,19 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         messages::internalError(asyncResp->res);
                         return;
                     }
+                }
+                else if (propertyName == "HotPluggable")
+                {
+                    const bool* value = std::get_if<bool>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for HotPluggable");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    dbusProperties.insert(std::pair<std::string, propertyTypes>(
+                        propertyName, *value));
                 }
                 else if (propertyName == "LocationCode")
                 {
