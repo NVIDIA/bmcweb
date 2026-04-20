@@ -1329,6 +1329,8 @@ inline void handleAccountServiceClientCertificatesGet(
     json["Name"] = "MultiFactorAuth Certificates Collection";
     json["Description"] =
         "A Collection of MultiFactorAuth certificate instances";
+    json["Members"] = nlohmann::json::array();
+    json["Members@odata.count"] = 0;
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
