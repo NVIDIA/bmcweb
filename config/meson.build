@@ -63,7 +63,6 @@ feature_options = [
     'enable-ist-mode',
     'cpu-ist',
     'enforce_sensor_name_format',
-    'erot-reset',
     'experimental-redfish-dbus-log-subscription',
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',

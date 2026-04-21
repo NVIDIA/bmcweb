@@ -45,13 +45,6 @@ option(
 )
 
 option(
-    'erot-reset',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable/disable ERoT reset option',
-)
-
-option(
     'vm-nbdproxy',
     type: 'feature',
     value: 'disabled',
