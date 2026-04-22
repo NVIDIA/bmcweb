@@ -762,6 +762,30 @@ inline void updateIPv4DefaultGateway(
         gateway);
 }
 
+// Returns true and sets the response if the D-Bus call failed.
+// Maps NotAllowed to operationNotAllowed; everything else to internalError.
+inline bool handleDbusError(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const boost::system::error_code& ec,
+                            const sdbusplus::message_t& msg)
+{
+    if (!ec)
+    {
+        return false;
+    }
+    const sd_bus_error* dbusError = msg.get_error();
+    if (dbusError != nullptr &&
+        std::string_view("xyz.openbmc_project.Common.Error.NotAllowed") ==
+            dbusError->name)
+    {
+        messages::operationNotAllowed(asyncResp->res);
+    }
+    else
+    {
+        messages::internalError(asyncResp->res);
+    }
+    return true;
+}
+
 /**
  * @brief Deletes given static IP address for the interface
  *
@@ -775,14 +799,11 @@ inline void deleteIPAddress(const std::string& ifaceId,
                             const std::string& ipHash,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-            }
-        },
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message_t& msg) {
+        handleDbusError(asyncResp, ec, msg);
+    },
         "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId + ipHash,
         "xyz.openbmc_project.Object.Delete", "Delete");
@@ -803,14 +824,11 @@ inline void createIPv4(const std::string& ifaceId, uint8_t prefixLength,
                        const std::string& gateway, const std::string& address,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto createIpHandler =
-        [asyncResp, ifaceId, gateway](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        };
+    auto createIpHandler = [asyncResp, ifaceId,
+                            gateway](const boost::system::error_code& ec,
+                                     const sdbusplus::message_t& msg) {
+        handleDbusError(asyncResp, ec, msg);
+    };
 
     dbus::utility::async_method_call(
         asyncResp, std::move(createIpHandler), "xyz.openbmc_project.Network",
@@ -843,25 +861,23 @@ inline void deleteAndCreateIPAddress(
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, version, ifaceId, address, prefixLength,
-         gateway](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-            }
-            std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
-            protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
-            dbus::utility::async_method_call(
-                asyncResp,
-                [asyncResp](const boost::system::error_code& ec2) {
-                    if (ec2)
-                    {
-                        messages::internalError(asyncResp->res);
-                    }
-                },
-                "xyz.openbmc_project.Network",
-                "/xyz/openbmc_project/network/" + ifaceId,
-                "xyz.openbmc_project.Network.IP.Create", "IP", protocol,
-                address, prefixLength, gateway);
+         gateway](const boost::system::error_code& ec,
+                  const sdbusplus::message_t& msg) {
+        if (handleDbusError(asyncResp, ec, msg))
+        {
+            return;
+        }
+        std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
+        protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec2,
+                        const sdbusplus::message_t& msg2) {
+            handleDbusError(asyncResp, ec2, msg2);
+        },
+            "xyz.openbmc_project.Network",
+            "/xyz/openbmc_project/network/" + ifaceId,
+            "xyz.openbmc_project.Network.IP.Create", "IP", protocol,
+            address, prefixLength, gateway);
         },
         "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId + id,
@@ -923,21 +939,20 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
 
-    auto createIpHandler =
-        [asyncResp, address](const boost::system::error_code& ec) {
-            if (ec)
+    auto createIpHandler = [asyncResp,
+                            address](const boost::system::error_code& ec,
+                                     const sdbusplus::message_t& msg) {
+        if (ec)
+        {
+            if (ec == boost::system::errc::io_error)
             {
-                if (ec == boost::system::errc::io_error)
-                {
-                    messages::propertyValueFormatError(asyncResp->res, address,
-                                                       "Address");
-                }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                }
+                messages::propertyValueFormatError(asyncResp->res, address,
+                                                   "Address");
+                return;
             }
-        };
+            handleDbusError(asyncResp, ec, msg);
+        }
+    };
     // Passing null for gateway, as per redfish spec IPv6StaticAddresses
     // object does not have associated gateway property
     dbus::utility::async_method_call(
@@ -963,14 +978,11 @@ inline void deleteIPv6Gateway(
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
     path /= gatewayId;
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-            }
-        },
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message_t& msg) {
+        handleDbusError(asyncResp, ec, msg);
+    },
         "xyz.openbmc_project.Network", path,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
@@ -990,11 +1002,9 @@ inline void createIPv6DefaultGateway(
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
-    auto createIpHandler = [asyncResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-        }
+    auto createIpHandler = [asyncResp](const boost::system::error_code& ec,
+                                       const sdbusplus::message_t& msg) {
+        handleDbusError(asyncResp, ec, msg);
     };
     dbus::utility::async_method_call(
         asyncResp, std::move(createIpHandler), "xyz.openbmc_project.Network",
@@ -2104,6 +2114,12 @@ inline void afterDelete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         dbusError->name)
     {
         messages::resourceCannotBeDeleted(asyncResp->res);
+        return;
+    }
+    if (std::string_view("xyz.openbmc_project.Common.Error.NotAllowed") ==
+        dbusError->name)
+    {
+        messages::operationNotAllowed(asyncResp->res);
         return;
     }
     messages::internalError(asyncResp->res);
