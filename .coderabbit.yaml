@@ -105,6 +105,7 @@ reviews:
 
                   - More than 3 lines of downstream-only changes in an upstream
                       file (redfish-core/lib/*.hpp that is NOT nvidia_*.hpp)
+    commit_status: false
 
 chat:
     auto_reply: true
