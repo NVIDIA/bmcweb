@@ -122,70 +122,65 @@ inline void processNDFDbusObject(
 }
 
 /**
- * @brief Process NetworkDeviceFunction association for MAC address lookup
+ * @brief Find the NDF matching targetNdfFilename and kick off MAC lookup.
  */
-inline void processNDFAssociation(
+inline void processNDFAssociationsForMAC(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& networkAdapterPath, const boost::system::error_code& ec,
-    const std::vector<std::string>& data)
+    const std::string& targetNdfFilename, const boost::system::error_code& ec,
+    const std::vector<std::string>& ndfPaths)
 {
-    if (ec)
+    if (ec || ndfPaths.empty())
     {
         BMCWEB_LOG_DEBUG(
-            "getNetworkAdapterMACAddress: No NDF association for {}",
-            networkAdapterPath);
+            "getNetworkAdapterMACAddressForNDF: No NDF associations");
         return;
     }
 
-    if (data.empty())
+    for (const std::string& ndfPath : ndfPaths)
     {
-        BMCWEB_LOG_DEBUG("getNetworkAdapterMACAddress: No NDF found for {}",
-                         networkAdapterPath);
+        sdbusplus::message::object_path p(ndfPath);
+        if (p.filename() != targetNdfFilename)
+        {
+            continue;
+        }
+        constexpr std::string_view linkTypeInterface =
+            "xyz.openbmc_project.Network.LinkType";
+        dbus::utility::getDbusObject(
+            ndfPath, std::array<std::string_view, 1>{linkTypeInterface},
+            std::bind_front(processNDFDbusObject, asyncResp, ndfPath));
         return;
     }
-
-    const std::string& ndfPath = data[0];
-    constexpr std::string_view linkTypeInterface =
-        "xyz.openbmc_project.Network.LinkType";
-
-    dbus::utility::getDbusObject(
-        ndfPath, std::array<std::string_view, 1>{linkTypeInterface},
-        [asyncResp, ndfPath](
-            const boost::system::error_code& ec2,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                object) {
-            processNDFDbusObject(asyncResp, ndfPath, ec2, object);
-        });
+    BMCWEB_LOG_DEBUG(
+        "getNetworkAdapterMACAddressForNDF: NDF {} not found in associations",
+        targetNdfFilename);
 }
 
 /**
- * @brief Get MAC address from NetworkDeviceFunction for a given NetworkAdapter
+ * @brief Get MAC address from a specific NetworkDeviceFunction by filename.
  *
- * Retrieves the MAC address from the associated port address of the first
- * NetworkDeviceFunction under a NetworkAdapter. On any lookup failure the MAC
- * property is simply omitted from the response (it is optional per D-Bus usage
- * guidelines).
+ * Searches the NDF associations of the given adapter for an NDF whose D-Bus
+ * path filename matches targetNdfFilename, then follows the same
+ * associated_ethernet_port_address chain to read MACAddress. On any lookup
+ * failure the MAC property is simply omitted (it is optional).
  */
-inline void getNetworkAdapterMACAddress(
+inline void getNetworkAdapterMACAddressForNDF(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& networkAdapterPath)
+    const std::string& networkAdapterPath, const std::string& targetNdfFilename)
 {
     std::string ndfAssociationPath =
         networkAdapterPath + "/network_device_functions";
-
     dbus::utility::findAssociations(
-        ndfAssociationPath,
-        [asyncResp, networkAdapterPath](const boost::system::error_code& ec,
-                                        const std::vector<std::string>& resp) {
-            processNDFAssociation(asyncResp, networkAdapterPath, ec, resp);
-        });
+        ndfAssociationPath, std::bind_front(processNDFAssociationsForMAC,
+                                            asyncResp, targetNdfFilename));
 }
 
 /**
  * @brief Process NetworkAdapter paths and populate EthernetInterface response
  *
- * Searches for a matching NetworkAdapter and populates the EthernetInterface
- * data if found. Must be defined before onNetworkAdapterPathsForGet.
+ * ifaceId has the format {adapterId}_{ndfFilename}. Finds the adapter whose
+ * D-Bus filename is a prefix of ifaceId, extracts the NDF filename, and
+ * populates the EthernetInterface data for that specific NDF.
+ * Must be defined before onNetworkAdapterPathsForGet.
  */
 inline void processNetworkAdapterEthInterface(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -193,18 +188,29 @@ inline void processNetworkAdapterEthInterface(
     const dbus::utility::MapperGetSubTreePathsResponse& networkAdapterPaths)
 {
     std::optional<std::string> matchedAdapterPath;
+    std::string ndfFilename;
+    std::string adapterId;
+    size_t matchedPrefixLen = 0;
+
     for (const std::string& networkAdapterPath : networkAdapterPaths)
     {
         sdbusplus::message::object_path path(networkAdapterPath);
-        std::string networkAdapterId = path.filename();
-        if (networkAdapterId == ifaceId)
+        std::string candidateId = path.filename();
+        if (candidateId.empty())
+        {
+            continue;
+        }
+        std::string prefix = candidateId + "_";
+        if (ifaceId.starts_with(prefix) && prefix.size() > matchedPrefixLen)
         {
             matchedAdapterPath = networkAdapterPath;
-            break;
+            adapterId = std::move(candidateId);
+            ndfFilename = ifaceId.substr(prefix.size());
+            matchedPrefixLen = prefix.size();
         }
     }
 
-    if (!matchedAdapterPath)
+    if (!matchedAdapterPath || ndfFilename.empty())
     {
         messages::resourceNotFound(asyncResp->res, "EthernetInterface",
                                    ifaceId);
@@ -219,12 +225,14 @@ inline void processNetworkAdapterEthInterface(
     asyncResp->res.jsonValue["Id"] = ifaceId;
     asyncResp->res.jsonValue["Name"] = "Network Adapter Ethernet Interface";
     asyncResp->res.jsonValue["Description"] =
-        "Ethernet Interface mapped from Network Adapter " + ifaceId;
+        "Ethernet Interface mapped from Network Adapter " + adapterId +
+        " function " + ndfFilename;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
     asyncResp->res.jsonValue["InterfaceEnabled"] = true;
 
-    getNetworkAdapterMACAddress(asyncResp, *matchedAdapterPath);
+    getNetworkAdapterMACAddressForNDF(asyncResp, *matchedAdapterPath,
+                                      ndfFilename);
 }
 
 /**
@@ -248,46 +256,112 @@ inline void onNetworkAdapterPathsForGet(
 }
 
 /**
+ * @brief RAII helper that writes Members@odata.count from the destructor.
+ *
+ * Held as a shared_ptr captured by every per-adapter callback. The last
+ * callback to complete drops the final reference, firing the destructor
+ * exactly once with the true Members.size(). This keeps the count write in
+ * a single place instead of scattering it across every code path.
+ */
+struct CountWriter
+{
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+
+    explicit CountWriter(std::shared_ptr<bmcweb::AsyncResp> resp) :
+        asyncResp(std::move(resp))
+    {}
+    CountWriter(const CountWriter&) = delete;
+    CountWriter& operator=(const CountWriter&) = delete;
+    CountWriter(CountWriter&&) = delete;
+    CountWriter& operator=(CountWriter&&) = delete;
+
+    ~CountWriter()
+    {
+        nlohmann::json& m = asyncResp->res.jsonValue["Members"];
+        asyncResp->res.jsonValue["Members@odata.count"] = m.size();
+    }
+};
+
+/**
+ * @brief Append one Members entry per NDF path for a single adapter.
+ */
+inline void appendAdapterNDFMembers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& adapterId, const boost::system::error_code& ec,
+    const std::vector<std::string>& ndfPaths)
+{
+    nlohmann::json& arr = asyncResp->res.jsonValue["Members"];
+
+    if (!ec)
+    {
+        for (const std::string& ndfPath : ndfPaths)
+        {
+            sdbusplus::message::object_path p(ndfPath);
+            std::string ndfFilename = p.filename();
+            if (ndfFilename.empty())
+            {
+                continue;
+            }
+            std::string entryId = adapterId;
+            entryId += '_';
+            entryId += ndfFilename;
+            nlohmann::json::object_t iface;
+            iface["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Systems/{}/EthernetInterfaces/{}",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME, entryId);
+            arr.push_back(std::move(iface));
+        }
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("appendAdapterNDFMembers: No NDFs for adapter {}",
+                         adapterId);
+    }
+}
+
+/**
  * @brief Named callback for GetSubTreePaths used by
  * addNetworkAdapterEthInterfaces.
  *
- * This is the final step of the collection-build chain. By the time this
- * callback fires, the host ethernet interfaces have already been appended to
- * Members (the adapter D-Bus call is launched only after the host-list callback
- * completes). Writing Members@odata.count here captures the true combined
- * total, eliminating the race where two async flows each overwrote the count.
+ * For each NetworkAdapter, enumerates all NetworkDeviceFunctions and appends
+ * one EthernetInterface entry per NDF using the Id format
+ * {adapterId}_{ndfFilename}. A CountWriter shared_ptr is captured by every
+ * per-adapter callback; the last callback to complete drops the final
+ * reference, firing the destructor that writes Members@odata.count exactly
+ * once with the true combined total. Early-exit paths simply return and let
+ * the local writer's destructor write the count.
  */
 inline void onNetworkAdapterSubTreePaths(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreePathsResponse& networkAdapterPaths)
 {
-    nlohmann::json& ifaceArray = asyncResp->res.jsonValue["Members"];
+    auto writer = std::make_shared<CountWriter>(asyncResp);
 
-    if (!ec)
-    {
-        for (const std::string& networkAdapterPath : networkAdapterPaths)
-        {
-            sdbusplus::message::object_path path(networkAdapterPath);
-            std::string networkAdapterId = path.filename();
-            if (networkAdapterId.empty())
-            {
-                continue;
-            }
-            nlohmann::json::object_t iface;
-            iface["@odata.id"] = boost::urls::format(
-                "/redfish/v1/Systems/{}/EthernetInterfaces/{}",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME, networkAdapterId);
-            ifaceArray.push_back(std::move(iface));
-        }
-    }
-    else
+    if (ec)
     {
         BMCWEB_LOG_DEBUG(
             "addNetworkAdapterEthInterfaces: No network adapters found");
+        return;
     }
 
-    asyncResp->res.jsonValue["Members@odata.count"] = ifaceArray.size();
+    for (const std::string& networkAdapterPath : networkAdapterPaths)
+    {
+        sdbusplus::message::object_path path(networkAdapterPath);
+        std::string adapterId = path.filename();
+        if (adapterId.empty())
+        {
+            continue;
+        }
+        std::string ndfAssocPath =
+            networkAdapterPath + "/network_device_functions";
+        dbus::utility::findAssociations(
+            ndfAssocPath, [asyncResp, writer, adapterId = std::move(adapterId)](
+                              const boost::system::error_code& ndfEc,
+                              const std::vector<std::string>& ndfPaths) {
+                appendAdapterNDFMembers(asyncResp, adapterId, ndfEc, ndfPaths);
+            });
+    }
 }
 
 /**
