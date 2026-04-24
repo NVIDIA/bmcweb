@@ -458,35 +458,10 @@ static void installTokenRedfishURLCallback(
         return;
     }
 
-    constexpr size_t tokenFileHeaderSize = sizeof(TokenFileHeader);
-    if (fileData.size() < tokenFileHeaderSize)
-    {
-        BMCWEB_LOG_ERROR("Token file too small: {} bytes", fileData.size());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    TokenFileHeader header{};
-    std::memcpy(&header, fileData.data(), tokenFileHeaderSize);
-    if (header.version != 0x02)
-    {
-        BMCWEB_LOG_ERROR("Invalid token file version: {}", header.version);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (header.type != static_cast<uint8_t>(TokenFileType::DebugToken))
-    {
-        BMCWEB_LOG_ERROR("Invalid token file type: {}", header.type);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    std::vector<uint8_t> tlvTokenData(
-        fileData.begin() + static_cast<std::ptrdiff_t>(tokenFileHeaderSize),
-        fileData.end());
     auto tlvMemFd = std::make_shared<MemoryFD>();
     try
     {
-        tlvMemFd->write(tlvTokenData);
+        tlvMemFd->write(fileData);
     }
     catch (const std::exception& e)
     {
