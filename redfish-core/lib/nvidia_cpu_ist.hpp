@@ -42,6 +42,8 @@ constexpr std::string_view istControlInterface =
     "xyz.openbmc_project.ist.Control";
 constexpr std::string_view istRunStateInterface =
     "com.nvidia.vera.ist.run.State";
+constexpr std::string_view istResultsInterface =
+    "com.nvidia.vera.ist.run.Results";
 
 struct IstTaskContext
 {
@@ -100,6 +102,18 @@ inline void onStageChange(const std::weak_ptr<task::TaskData>& weakTask,
     }
 }
 
+inline void fetchIstResults(const std::string& runPathStr,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message::unix_fd& unixfd) {
+            dbus_fd_utils::streamFdResponse(asyncResp, ec, unixfd);
+        },
+        std::string(istServiceName), runPathStr,
+        std::string(istResultsInterface), "GetResultsFd");
+}
+
 inline void onStartIstComplete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task::Payload&& payload, const boost::system::error_code& ec,
@@ -138,6 +152,9 @@ inline void onStartIstComplete(
         },
         std::string(sdbusplus::bus::match::rules::propertiesChanged(
             runPathStr, "xyz.openbmc_project.Common.Progress")));
+
+    taskData->taskResponse.emplace<task::TaskResponseCallback>(
+        std::bind_front(fetchIstResults, runPathStr));
 
     taskData->payload.emplace(std::move(payload));
     taskData->populateResp(asyncResp->res);
