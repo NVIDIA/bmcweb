@@ -158,6 +158,7 @@ const static std::string processorModule =
     platformDevicePrefix + "ProcessorModule_";
 const static std::string cpu = platformDevicePrefix + "CPU_";
 constexpr const std::string_view nvLink = "NVLink_";
+constexpr const std::string_view cLink = "CLink_";
 constexpr const std::string_view nvLinkType =
     "(NVLink|InterswitchPort|NVLinkManagement)_";
 constexpr const std::string_view cpuProcessor = "CPU_";
@@ -301,6 +302,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     bool allowNVSwitchId = (wildcardSet.contains("NVSwitchId"));
     bool allowLinkType = (wildcardSet.contains("LinkType"));
     bool allowNvlinkId = (wildcardSet.contains("NvlinkId"));
+    bool allowCLinkId = (wildcardSet.contains("CLinkId"));
     bool allowGpuId = (wildcardSet.contains("GpuId"));
     bool allowCpuId = (wildcardSet.contains("CpuId"));
     bool allowProcessorId = (wildcardSet.contains("ProcessorId"));
@@ -329,6 +331,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::set<int> processorId;
     std::set<int> coreId;
     std::set<int> nvLinkId;
+    std::set<int> cLinkId;
     std::set<int> pcieLinkId;
     std::set<int> networkAdapterCXId;
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
@@ -524,6 +527,15 @@ inline void metricsReplacementsNonPlatformMetrics(
                 {
                     int number = std::stoi(match[1].str());
                     nvLinkId.insert(number);
+                }
+            }
+            if (allowCLinkId)
+            {
+                std::regex cLinkPattern(std::string(cLink) + "(\\d+)");
+                if (std::regex_search(property, match, cLinkPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    cLinkId.insert(number);
                 }
             }
             if (allowPCIeLinkId)
@@ -834,6 +846,18 @@ inline void metricsReplacementsNonPlatformMetrics(
             wildCards.push_back({
                 {"Name", "NvlinkId"},
                 {"Values", devCountNvlinkId},
+            });
+        }
+        if (allowCLinkId)
+        {
+            nlohmann::json devCountCLinkId = nlohmann::json::array();
+            for (const auto& e : cLinkId)
+            {
+                devCountCLinkId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "CLinkId"},
+                {"Values", devCountCLinkId},
             });
         }
         if (allowPCIeLinkId)
