@@ -36,71 +36,80 @@ namespace redfish
 namespace nvidia_cpu_ist
 {
 
-constexpr std::string_view istServiceName = "com.nvidia.vera.ist";
-constexpr std::string_view istObjectPath = "/com/nvidia/vera/ist";
-constexpr std::string_view istControlInterface =
-    "xyz.openbmc_project.ist.Control";
-constexpr std::string_view istRunStateInterface =
-    "com.nvidia.vera.ist.run.State";
-constexpr std::string_view istResultsInterface =
-    "com.nvidia.vera.ist.run.Results";
-
-struct IstTaskContext
+class IstTaskContext
 {
-    std::unique_ptr<sdbusplus::bus::match_t> stageMatch;
-};
+  public:
+    IstTaskContext(const std::weak_ptr<task::TaskData>& weakTaskIn,
+                   const std::string& runPath) :
+        weakTask(weakTaskIn),
+        stageMatch(
+            static_cast<sdbusplus::bus::bus&>(*crow::connections::systemBus),
+            sdbusplus::bus::match::rules::propertiesChanged(
+                runPath, "com.nvidia.vera.ist.run.State"),
+            std::bind_front(&IstTaskContext::onStageChange, this))
+    {}
 
-inline void onStageChange(const std::weak_ptr<task::TaskData>& weakTask,
-                          sdbusplus::message_t& message)
-{
-    std::shared_ptr<task::TaskData> taskData = weakTask.lock();
-    if (!taskData)
-    {
-        return;
-    }
+  private:
+    std::weak_ptr<task::TaskData> weakTask;
+    sdbusplus::bus::match_t stageMatch;
 
-    std::string iface;
-    dbus::utility::DBusPropertiesMap propertiesChanged;
+    void onStageChange(sdbusplus::message_t& message)
+    {
+        std::shared_ptr<task::TaskData> taskData = weakTask.lock();
+        if (!taskData)
+        {
+            BMCWEB_LOG_ERROR(
+                "Task data is no longer valid but IST callback still exists");
+            return;
+        }
 
-    try
-    {
-        message.read(iface, propertiesChanged);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        BMCWEB_LOG_ERROR("Failed to read stage change message: {}", e.what());
-        return;
-    }
+        std::string iface;
+        dbus::utility::DBusPropertiesMap propertiesChanged;
 
-    const std::string* stage = nullptr;
-    if (!sdbusplus::unpackPropertiesNoThrow(
-            redfish::dbus_utils::UnpackErrorPrinter(), propertiesChanged,
-            "Stage", stage))
-    {
-        return;
-    }
+        try
+        {
+            message.read(iface, propertiesChanged);
+        }
+        catch (const sdbusplus::exception::SdBusError& e)
+        {
+            BMCWEB_LOG_ERROR("Failed to read stage change message: {}",
+                             e.what());
+            return;
+        }
 
-    if (stage == nullptr)
-    {
-        return;
-    }
+        const std::string* stage = nullptr;
+        if (!sdbusplus::unpackPropertiesNoThrow(
+                redfish::dbus_utils::UnpackErrorPrinter(), propertiesChanged,
+                "Stage", stage))
+        {
+            return;
+        }
 
-    BMCWEB_LOG_INFO("IST Stage: {}", *stage);
+        if (stage == nullptr)
+        {
+            return;
+        }
 
-    if (*stage == "PendingPowerCycle")
-    {
-        taskData->state = "Suspended";
-        // The IST service times out and aborts the run after 10 minutes,
-        // so the task timer should never expire, but use 20 minutes as a
-        // safety margin since no progress signals arrive until IST is running
-        taskData->extendTimer(std::chrono::minutes(20));
-    }
-    else if (*stage == "RunningIST")
-    {
-        taskData->state = "Running";
+        BMCWEB_LOG_INFO("IST Stage: {}", *stage);
+
+        if (*stage == "PendingPowerCycle")
+        {
+            taskData->state = "Suspended";
+            // The IST service times out and aborts the run after 10 minutes,
+            // so the task timer should never expire, but use 20 minutes as a
+            // safety margin since no progress signals arrive until IST is
+            // running
+            taskData->extendTimer(std::chrono::minutes(20));
+            return;
+        }
+        if (*stage == "RunningIST")
+        {
+            taskData->state = "Running";
+        }
+        // All other progress signals reset the timer
         taskData->extendTimer(std::chrono::minutes(5));
     }
-}
+};
 
 inline void fetchIstResults(const std::string& runPathStr,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -110,8 +119,8 @@ inline void fetchIstResults(const std::string& runPathStr,
                     const sdbusplus::message::unix_fd& unixfd) {
             dbus_fd_utils::streamFdResponse(asyncResp, ec, unixfd);
         },
-        std::string(istServiceName), runPathStr,
-        std::string(istResultsInterface), "GetResultsFd");
+        "com.nvidia.vera.ist", runPathStr, "com.nvidia.vera.ist.run.Results",
+        "GetResultsFd");
 }
 
 inline void onStartIstComplete(
@@ -142,30 +151,28 @@ inline void onStartIstComplete(
     }
     BMCWEB_LOG_INFO("IST run object: {}", runPathStr);
 
-    std::shared_ptr<IstTaskContext> ctx = std::make_shared<IstTaskContext>();
-
-    // ctx is captured to tie stageMatch lifetime to the task
     std::shared_ptr<task::TaskData> taskData = task::TaskData::createTask(
-        [ctx](boost::system::error_code ec2, sdbusplus::message_t& msg,
-              const std::shared_ptr<task::TaskData>& td) {
+        [](boost::system::error_code ec2, sdbusplus::message_t& msg,
+           const std::shared_ptr<task::TaskData>& td) {
             return dbus_fd_utils::handleTaskMessage(ec2, msg, td);
         },
         std::string(sdbusplus::bus::match::rules::propertiesChanged(
             runPathStr, "xyz.openbmc_project.Common.Progress")));
 
+    std::weak_ptr<task::TaskData> weakTask = taskData;
+
+    std::shared_ptr<IstTaskContext> ctx =
+        std::make_shared<IstTaskContext>(weakTask, runPathStr);
+
+    // ctx captured to tie stageMatch lifetime to the task
     taskData->taskResponse.emplace<task::TaskResponseCallback>(
-        std::bind_front(fetchIstResults, runPathStr));
+        [runPathStr, ctx](const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+            fetchIstResults(runPathStr, aResp);
+        });
 
     taskData->payload.emplace(std::move(payload));
     taskData->populateResp(asyncResp->res);
     taskData->startTimer(std::chrono::minutes(5));
-
-    std::weak_ptr<task::TaskData> weakTask = taskData;
-    ctx->stageMatch = std::make_unique<sdbusplus::bus::match_t>(
-        static_cast<sdbusplus::bus::bus&>(*crow::connections::systemBus),
-        sdbusplus::bus::match::rules::propertiesChanged(
-            runPathStr, std::string(istRunStateInterface)),
-        std::bind_front(onStageChange, weakTask));
 }
 
 inline void handlePostStartIst(
@@ -187,26 +194,30 @@ inline void handlePostStartIst(
 
     BMCWEB_LOG_DEBUG("IST: Handling StartIST request");
 
-    std::optional<int32_t> istTimeoutSec;
-    std::optional<std::string> continueOnFail;
-    std::optional<bool> autoRebootOnComplete;
-    std::optional<std::string> testList;
-    std::optional<std::string> packageList;
-    std::optional<std::string> saveResultsOnPass;
-    std::optional<std::string> saveResultsOnFail;
+    std::optional<int32_t> istTimeoutSec = 0;
+    std::optional<std::string> continueOnFail = "Default";
+    std::optional<bool> autoRebootOnComplete = false;
+    std::optional<std::string> testList = "";
+    std::optional<std::string> packageList = "";
+    std::optional<std::string> saveResultsOnPass = "Default";
+    std::optional<std::string> saveResultsOnFail = "Default";
 
     if (!json_util::readJsonAction(
-            req, asyncResp->res, "ISTTimeoutSec", istTimeoutSec,
-            "ContinueOnFail", continueOnFail, "AutoRebootOnComplete",
-            autoRebootOnComplete, "TestList", testList, "PackageList",
-            packageList, "SaveResultsOnPass", saveResultsOnPass,
-            "SaveResultsOnFail", saveResultsOnFail))
+            req, asyncResp->res,                          //
+            "AutoRebootOnComplete", autoRebootOnComplete, //
+            "ContinueOnFail", continueOnFail,             //
+            "ISTTimeoutSec", istTimeoutSec,               //
+            "PackageList", packageList,                   //
+            "SaveResultsOnFail", saveResultsOnFail,       //
+            "SaveResultsOnPass", saveResultsOnPass,       //
+            "TestList", testList                          //
+            ))
     {
         return;
     }
 
-    if (continueOnFail && *continueOnFail != "Enable" &&
-        *continueOnFail != "Disable" && *continueOnFail != "Default")
+    if (*continueOnFail != "Enable" && *continueOnFail != "Disable" &&
+        *continueOnFail != "Default")
     {
         messages::actionParameterValueNotInList(
             asyncResp->res, *continueOnFail, "ContinueOnFail",
@@ -214,8 +225,8 @@ inline void handlePostStartIst(
         return;
     }
 
-    if (saveResultsOnPass && *saveResultsOnPass != "Enable" &&
-        *saveResultsOnPass != "Disable" && *saveResultsOnPass != "Default")
+    if (*saveResultsOnPass != "Enable" && *saveResultsOnPass != "Disable" &&
+        *saveResultsOnPass != "Default")
     {
         messages::actionParameterValueNotInList(
             asyncResp->res, *saveResultsOnPass, "SaveResultsOnPass",
@@ -223,11 +234,19 @@ inline void handlePostStartIst(
         return;
     }
 
-    if (saveResultsOnFail && *saveResultsOnFail != "Enable" &&
-        *saveResultsOnFail != "Disable" && *saveResultsOnFail != "Default")
+    if (*saveResultsOnFail != "Enable" && *saveResultsOnFail != "Disable" &&
+        *saveResultsOnFail != "Default")
     {
         messages::actionParameterValueNotInList(
             asyncResp->res, *saveResultsOnFail, "SaveResultsOnFail",
+            "NvidiaComputerSystem.StartIST");
+        return;
+    }
+
+    if (*istTimeoutSec < 0)
+    {
+        messages::actionParameterValueOutOfRange(
+            asyncResp->res, std::to_string(*istTimeoutSec), "ISTTimeoutSec",
             "NvidiaComputerSystem.StartIST");
         return;
     }
@@ -240,13 +259,10 @@ inline void handlePostStartIst(
             const sdbusplus::message::object_path& runPath) mutable {
             onStartIstComplete(asyncResp, std::move(payload), ec, runPath);
         },
-        std::string(istServiceName), std::string(istObjectPath),
-        std::string(istControlInterface), "StartIST", istTimeoutSec.value_or(0),
-        continueOnFail.value_or(std::string("Default")),
-        autoRebootOnComplete.value_or(false), testList.value_or(std::string()),
-        packageList.value_or(std::string()),
-        saveResultsOnPass.value_or(std::string("Default")),
-        saveResultsOnFail.value_or(std::string("Default")));
+        "com.nvidia.vera.ist", "/com/nvidia/vera/ist",
+        "xyz.openbmc_project.ist.Control", "StartIST", *istTimeoutSec,
+        *continueOnFail, *autoRebootOnComplete, *testList, *packageList,
+        *saveResultsOnPass, *saveResultsOnFail);
 }
 
 inline void handleGetIstActionInfo(
