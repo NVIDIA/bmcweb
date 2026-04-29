@@ -1360,7 +1360,8 @@ inline void updateMultipartContext(
                 {
                     // All URIs in Target has the prepended prefix
                     BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                    auto sharedReq = std::make_shared<crow::Request>(req.copy());
+                    auto sharedReq =
+                        std::make_shared<crow::Request>(req.copy());
                     RedfishAggregator::getInstance().getSatelliteConfigs(
                         std::bind_front(forwardImage, sharedReq, updateAll,
                                         asyncResp));
