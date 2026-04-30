@@ -916,6 +916,12 @@ option(
     description: 'Enable OpenOCD service.',
 )
 option(
+    'nvidia-oem-openocd-port-forward',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish-controlled OpenOCD port forward backend.',
+)
+option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
     value: 'disabled',

@@ -112,6 +112,7 @@ feature_options = [
     'nvidia-oem-logservices',
     'nvidia-manager-ready-csm',
     'nvidia-oem-openocd',
+    'nvidia-oem-openocd-port-forward',
     'nvidia-oem-pmc',
     'nvidia-oem-policies',
     'nvidia-oem-properties',

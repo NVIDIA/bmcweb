@@ -34,6 +34,8 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/connection.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <functional>
 #include <memory>
 #include <string>

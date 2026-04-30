@@ -29,6 +29,81 @@ namespace redfish
 using AuthMethod =
     std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
+constexpr const char* openocdPortForwardService =
+    "xyz.openbmc_project.OpenOCDPortForward";
+constexpr const char* openocdPortForwardPath =
+    "/xyz/openbmc_project/control/service/openocd_port_forward";
+constexpr const char* openocdPortForwardInterface =
+    "xyz.openbmc_project.Control.Service.OpenOCDPortForward";
+constexpr const char* openocdPortForwardProperty = "Enabled";
+
+inline void getOemNvidiaOpenOCDPortForward(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getProperty<bool>(
+        openocdPortForwardService, openocdPortForwardPath,
+        openocdPortForwardInterface, openocdPortForwardProperty,
+        [asyncResp](const boost::system::error_code& ec, const bool& enabled) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["OpenOCDPortForward"]["Enable"] =
+                enabled;
+        });
+}
+
+inline void setOemNvidiaOpenOCDPortForward(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, openocdPortForwardService,
+        openocdPortForwardPath, openocdPortForwardInterface,
+        openocdPortForwardProperty, value,
+        [asyncResp, value](const boost::system::error_code& ec) {
+            if (!ec)
+            {
+                return;
+            }
+
+            std::string msg = ec.message();
+            std::transform(msg.begin(), msg.end(), msg.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+
+            if (msg.find("address already in use") != std::string::npos ||
+                msg.find("already in use") != std::string::npos)
+            {
+                messages::resourceInUse(asyncResp->res);
+                return;
+            }
+            if (msg.find("not found") != std::string::npos ||
+                msg.find("unknown") != std::string::npos ||
+                msg.find("service") != std::string::npos)
+            {
+                messages::serviceTemporarilyUnavailable(asyncResp->res,
+                                                        "OpenOCDPortForward");
+                return;
+            }
+            if (msg.find("permission") != std::string::npos ||
+                msg.find("denied") != std::string::npos ||
+                msg.find("access") != std::string::npos)
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
+
+            if (value)
+            {
+                messages::serviceTemporarilyUnavailable(asyncResp->res,
+                                                        "OpenOCDPortForward");
+                return;
+            }
+            messages::internalError(asyncResp->res);
+        });
+}
+
 static constexpr std::string_view sshAuthPolicyIface =
     "com.nvidia.User.AccountPolicy";
 static constexpr std::string_view sshAuthPolicyPath =
