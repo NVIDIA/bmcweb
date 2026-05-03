@@ -30,78 +30,64 @@ using AuthMethod =
     std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
 constexpr const char* openocdPortForwardService =
-    "xyz.openbmc_project.OpenOCDPortForward";
-constexpr const char* openocdPortForwardPath =
-    "/xyz/openbmc_project/control/service/openocd_port_forward";
+    "com.nvidia.openocdportforward";
+constexpr const char* openocdPortForwardPath = "/com/nvidia/openocdportforward";
 constexpr const char* openocdPortForwardInterface =
-    "xyz.openbmc_project.Control.Service.OpenOCDPortForward";
+    "xyz.openbmc_project.Object.Enable";
 constexpr const char* openocdPortForwardProperty = "Enabled";
+
+inline void afterGetOemNvidiaOpenOCDPortForwardEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const bool& enabled)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to read {}: {}", openocdPortForwardProperty,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCDPortForward"]["Enable"] =
+        enabled;
+}
 
 inline void getOemNvidiaOpenOCDPortForward(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::getProperty<bool>(
-        openocdPortForwardService, openocdPortForwardPath,
-        openocdPortForwardInterface, openocdPortForwardProperty,
-        [asyncResp](const boost::system::error_code& ec, const bool& enabled) {
-            if (ec)
+    constexpr std::array<std::string_view, 1> interfaces = {
+        openocdPortForwardInterface};
+
+    dbus::utility::getDbusObject(
+        openocdPortForwardPath, interfaces,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetObject& mapperResponse) {
+            if (ec || mapperResponse.empty())
             {
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_DEBUG(
+                    "OpenOCDPortForward backend not registered: {}",
+                    ec.message());
                 return;
             }
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["OpenOCDPortForward"]["Enable"] =
-                enabled;
+            const std::string& service = mapperResponse[0].first;
+            dbus::utility::getProperty<bool>(
+                service, openocdPortForwardPath, openocdPortForwardInterface,
+                openocdPortForwardProperty,
+                [asyncResp](const boost::system::error_code& ec2,
+                            const bool& enabled) {
+                    afterGetOemNvidiaOpenOCDPortForwardEnabled(asyncResp, ec2,
+                                                               enabled);
+                });
         });
 }
 
 inline void setOemNvidiaOpenOCDPortForward(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, openocdPortForwardService,
-        openocdPortForwardPath, openocdPortForwardInterface,
-        openocdPortForwardProperty, value,
-        [asyncResp, value](const boost::system::error_code& ec) {
-            if (!ec)
-            {
-                return;
-            }
-
-            std::string msg = ec.message();
-            std::transform(msg.begin(), msg.end(), msg.begin(),
-                           [](unsigned char c) { return std::tolower(c); });
-
-            if (msg.find("address already in use") != std::string::npos ||
-                msg.find("already in use") != std::string::npos)
-            {
-                messages::resourceInUse(asyncResp->res);
-                return;
-            }
-            if (msg.find("not found") != std::string::npos ||
-                msg.find("unknown") != std::string::npos ||
-                msg.find("service") != std::string::npos)
-            {
-                messages::serviceTemporarilyUnavailable(asyncResp->res,
-                                                        "OpenOCDPortForward");
-                return;
-            }
-            if (msg.find("permission") != std::string::npos ||
-                msg.find("denied") != std::string::npos ||
-                msg.find("access") != std::string::npos)
-            {
-                messages::insufficientPrivilege(asyncResp->res);
-                return;
-            }
-
-            if (value)
-            {
-                messages::serviceTemporarilyUnavailable(asyncResp->res,
-                                                        "OpenOCDPortForward");
-                return;
-            }
-            messages::internalError(asyncResp->res);
-        });
+    setDbusProperty(asyncResp, "Oem/Nvidia/OpenOCDPortForward/Enable",
+                    openocdPortForwardService,
+                    sdbusplus::message::object_path(openocdPortForwardPath),
+                    openocdPortForwardInterface, openocdPortForwardProperty,
+                    value);
 }
 
 static constexpr std::string_view sshAuthPolicyIface =
