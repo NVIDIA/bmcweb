@@ -1028,6 +1028,37 @@ inline void extendLogServiceOEMGet(
     }
 }
 
+inline void fillBIOSPostCodeOemFields(const AdditionalData& additional,
+                                      nlohmann::json& objectToFillOut)
+{
+    auto it = additional.find("NVIDIA_POST_CODE");
+    if (it == additional.end())
+    {
+        return;
+    }
+
+    nlohmann::json& biosPostCode =
+        objectToFillOut["Oem"]["Nvidia"]["BIOSPostCode"];
+    biosPostCode["PostCode"] = it->second;
+
+    if (auto s = additional.find("NVIDIA_CPU_NUM"); s != additional.end())
+    {
+        biosPostCode["Socket"] = s->second;
+    }
+    if (auto s = additional.find("NVIDIA_FIRMWARE"); s != additional.end())
+    {
+        biosPostCode["Firmware"] = s->second;
+    }
+    if (auto s = additional.find("NVIDIA_INSTANCE"); s != additional.end())
+    {
+        biosPostCode["Instance"] = s->second;
+    }
+    if (auto s = additional.find("NVIDIA_OPCODE"); s != additional.end())
+    {
+        biosPostCode["Opcode"] = s->second;
+    }
+}
+
 inline void fillIstOemFields(const AdditionalData& additional,
                              nlohmann::json& objectToFillOut)
 {
@@ -1187,6 +1218,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         }
 
         fillIstOemFields(additional, objectToFillOut);
+        fillBIOSPostCodeOemFields(additional, objectToFillOut);
     }
 
     if (deviceEventData && (entry.Path != nullptr) && (entry.Id != 0U))
@@ -1237,7 +1269,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         if (nvidiaIt != oemIt->end())
         {
             (*nvidiaIt)["@odata.type"] =
-                "#NvidiaLogEntry.v1_2_0.NvidiaLogEntry";
+                "#NvidiaLogEntry.v1_3_0.NvidiaLogEntry";
         }
     }
 }

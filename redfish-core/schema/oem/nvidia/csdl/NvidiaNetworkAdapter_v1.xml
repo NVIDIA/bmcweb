@@ -127,5 +127,46 @@
         </Member>
       </EnumType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter">
+        <Property Name="LLDP" Type="NvidiaNetworkAdapter.v1_3_0.LLDP" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="LLDP discovery mode configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the LLDP TX/RX/DCBX mode configuration for this NetworkAdapter."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="LLDP">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="LLDP discovery mode configuration for the NetworkAdapter."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the LLDP discovery mode configuration for the NetworkAdapter."/>
+        <Property Name="TXMode" Type="NvidiaNetworkAdapter.v1_3_0.LLDPModeType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="LLDP transmit mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall control which LLDP TLVs the device transmits."/>
+        </Property>
+        <Property Name="RXMode" Type="NvidiaNetworkAdapter.v1_3_0.LLDPModeType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="LLDP receive mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall control how the device processes received LLDP frames."/>
+        </Property>
+        <Property Name="DCBXModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Data Center Bridging Exchange (DCBX) protocol enable state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the Data Center Bridging Exchange (DCBX) protocol is enabled. Effective only when TXMode and RXMode are both All."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="LLDPModeType">
+        <Member Name="Off">
+          <Annotation Term="OData.Description" String="LLDP processing disabled on this direction."/>
+        </Member>
+        <Member Name="Mandatory">
+          <Annotation Term="OData.Description" String="Only mandatory TLVs processed."/>
+        </Member>
+        <Member Name="All">
+          <Annotation Term="OData.Description" String="All TLVs processed."/>
+        </Member>
+      </EnumType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

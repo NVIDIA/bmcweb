@@ -71,6 +71,23 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="Reset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action performs a chassis or Data Processing Unit (DPU) reset as specified by the ResetType parameter."/>
+        <Annotation Term="OData.LongDescription" String="This action shall perform the reset type specified by the ResetType parameter for this chassis."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Parameter Name="ResetType" Type="NvidiaChassis.v1_14_0.NvidiaChassisResetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of chassis or DPU reset."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of chassis or DPU reset to perform."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_14_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
       <Action Name="BootProtectedDevice" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to send an ap boot signal when manual boot is enabled."/>
         <Annotation Term="OData.LongDescription" String="This action shall send an ap boot signal when manual boot is enabled."/>
@@ -992,6 +1009,23 @@
         </Member>
         <Member Name="FWFaultCompleted">
           <Annotation Term="OData.Description" String="The firmware has finished collecting diagnostic data related to internal fault or operation error. Device can be safely powered off in this state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="NvidiaChassisResetType">
+        <Member Name="FullReset">
+          <Annotation Term="OData.Description" String="Card Level Orchestrated Reset.  This takes effect after the next PCIe reset."/>
+        </Member>
+        <Member Name="ForceDpuReset">
+          <Annotation Term="OData.Description" String="DPU Level Immediate Reset"/>
+        </Member>
+        <Member Name="DpuReset">
+          <Annotation Term="OData.Description" String="DPU Level Orchestrated Reset"/>
+        </Member>
+        <Member Name="ArmReset">
+          <Annotation Term="OData.Description" String="ARM Only Reset"/>
+        </Member>
+        <Member Name="ArmShutdown">
+          <Annotation Term="OData.Description" String="ARM Shutdown"/>
         </Member>
       </EnumType>
     </Schema>

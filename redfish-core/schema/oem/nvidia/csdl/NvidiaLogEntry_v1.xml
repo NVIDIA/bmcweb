@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaLogEntry  v1.2.0                                          -->
+<!--# Redfish OEM Schema:  NvidiaLogEntry  v1.3.0                                          -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -213,6 +213,47 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="In-System Test (IST) details for this log entry."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the IST-specific details when this log entry is associated with an In-System Test (IST) event. This property shall only be present for IST-related platform events."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+
+      <ComplexType Name="NvidiaBIOSPostCode">
+        <Annotation Term="OData.Description" String="BIOS POST code details decoded from a platform error log entry."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain the decoded BIOS POST code fields for a log entry that is associated with a pre-UEFI platform error."/>
+        <Property Name="PostCode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The raw BIOS POST code value as a hex string."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the raw 32-bit BIOS POST code value encoded as a hexadecimal string."/>
+        </Property>
+        <Property Name="Socket" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The CPU socket number that reported this POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the CPU socket number identifying which processor package reported this BIOS POST code."/>
+        </Property>
+        <Property Name="Firmware" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The firmware stage that reported this POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the firmware stage (e.g., PSCROM, PSCFMC, MB1) that generated this BIOS POST code."/>
+        </Property>
+        <Property Name="Instance" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The firmware instance number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the instance field extracted from the BIOS POST code, identifying the specific sub-component or context within the reporting firmware stage."/>
+        </Property>
+        <Property Name="Opcode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The operation code from the POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the opcode field extracted from the BIOS POST code, identifying the specific operation that was in progress when the error occurred."/>
+        </Property>
+      </ComplexType>
+
+      <ComplexType Name="NvidiaLogEntry" BaseType="NvidiaLogEntry.v1_2_0.NvidiaLogEntry">
+        <Property Name="BIOSPostCode" Type="NvidiaLogEntry.v1_3_0.NvidiaBIOSPostCode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="BIOS POST code details for this log entry."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the decoded BIOS POST code details when this log entry is associated with a pre-UEFI platform error. This property shall only be present for BIOS POST code platform error events."/>
         </Property>
       </ComplexType>
     </Schema>

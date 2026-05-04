@@ -176,5 +176,32 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPort" BaseType="NvidiaPort.v1_0_0.NvidiaPort">
+        <Property Name="LLDP" Type="NvidiaPort.v1_6_0.LLDP" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="LLDP raw frame byte streams for this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently observed LLDP frame byte streams for this port in hex-encoded form. Frames are encoded per IEEE 802.1AB."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="LLDP">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="LLDP raw frame byte streams (RX and TX) for the port."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the latest cached LLDP frame byte streams in both receive and transmit directions, encoded as hexadecimal strings. The byte format follows IEEE 802.1AB."/>
+        <Property Name="RXDataStream" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Hex-encoded last received LLDP frame bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently received LLDP frame as a hex-encoded byte string. Bytes are formatted per IEEE 802.1AB."/>
+          <Annotation Term="Validation.Pattern" String="^([0-9A-Fa-f]{2}){0,1024}$"/>
+        </Property>
+        <Property Name="TXDataStream" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Hex-encoded last transmitted LLDP frame bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently transmitted LLDP frame as a hex-encoded byte string. Bytes are formatted per IEEE 802.1AB."/>
+          <Annotation Term="Validation.Pattern" String="^([0-9A-Fa-f]{2}){0,1024}$"/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
