@@ -21,6 +21,13 @@ enum class DPUOperationMode{
     NIC,
 };
 
+enum class LLDPModeType{
+    Invalid,
+    Off,
+    Mandatory,
+    All,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(ProtectionOption, {
     {ProtectionOption::Invalid, "Invalid"},
     {ProtectionOption::NoProtection, "NoProtection"},
@@ -33,6 +40,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(DPUOperationMode, {
     {DPUOperationMode::Invalid, "Invalid"},
     {DPUOperationMode::DPU, "DPU"},
     {DPUOperationMode::NIC, "NIC"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(LLDPModeType, {
+    {LLDPModeType::Invalid, "Invalid"},
+    {LLDPModeType::Off, "Off"},
+    {LLDPModeType::Mandatory, "Mandatory"},
+    {LLDPModeType::All, "All"},
 });
 
 // clang-format on

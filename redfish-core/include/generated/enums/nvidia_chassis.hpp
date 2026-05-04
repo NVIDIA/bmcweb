@@ -109,6 +109,15 @@ enum class EmbeddedProcessorOSState{
     FWFaultCompleted,
 };
 
+enum class NvidiaChassisResetType{
+    Invalid,
+    FullReset,
+    ForceDpuReset,
+    DpuReset,
+    ArmReset,
+    ArmShutdown,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Invalid, "Invalid"},
     {BackgroundCopyStatus::Pending, "Pending"},
@@ -209,6 +218,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EmbeddedProcessorOSState, {
     {EmbeddedProcessorOSState::OSCrashDumpCompleted, "OSCrashDumpCompleted"},
     {EmbeddedProcessorOSState::FWFaultInProgress, "FWFaultInProgress"},
     {EmbeddedProcessorOSState::FWFaultCompleted, "FWFaultCompleted"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(NvidiaChassisResetType, {
+    {NvidiaChassisResetType::Invalid, "Invalid"},
+    {NvidiaChassisResetType::FullReset, "FullReset"},
+    {NvidiaChassisResetType::ForceDpuReset, "ForceDpuReset"},
+    {NvidiaChassisResetType::DpuReset, "DpuReset"},
+    {NvidiaChassisResetType::ArmReset, "ArmReset"},
+    {NvidiaChassisResetType::ArmShutdown, "ArmShutdown"},
 });
 
 // clang-format on
