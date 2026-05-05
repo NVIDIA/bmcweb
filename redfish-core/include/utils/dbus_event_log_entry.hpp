@@ -17,7 +17,7 @@ struct DbusEventLogEntry
 {
     // represents a subset of an instance of dbus interface
     // xyz.openbmc_project.Logging.Entry
-    std::vector<std::string> AdditionalData;
+    std::vector<std::pair<std::string, std::string>> AdditionalData;
     uint32_t Id = 0;
     std::string Message;
     const std::string* Path = nullptr;

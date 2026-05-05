@@ -247,19 +247,19 @@ static boost::urls::url getDumpEntriesPath(const std::string& dumpType)
     if (dumpType == "BMC")
     {
         entriesPath = boost::urls::format(
-            "/redfish/v1/Managers/{}/LogServices/Dump/Entries",
+            "/redfish/v1/Managers/{}/LogServices/Dump/Entries/",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
     else if (dumpType == "FaultLog")
     {
         entriesPath = boost::urls::format(
-            "/redfish/v1/Managers/{}/LogServices/FaultLog/Entries",
+            "/redfish/v1/Managers/{}/LogServices/FaultLog/Entries/",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
     else if (dumpType == "System")
     {
         entriesPath = boost::urls::format(
-            "/redfish/v1/Systems/{}/LogServices/Dump/Entries",
+            "/redfish/v1/Systems/{}/LogServices/Dump/Entries/",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
     // NVIDIA code starts here

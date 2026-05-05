@@ -29,9 +29,9 @@ using ::testing::ElementsAre;
 
 TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
 {
-    std::vector<std::string> data;
-    data.emplace_back("KEY1=VALUE1");
-    data.emplace_back("KEY2=VALUE2");
+    std::vector<std::pair<std::string, std::string>> data;
+    data.emplace_back("KEY1", "VALUE1");
+    data.emplace_back("KEY2", "VALUE2");
 
     const dbus::utility::DBusPropertiesMap propMap = {
         {"AdditionalData", dbus::utility::DbusVariantType(data)},
@@ -65,7 +65,10 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
         EXPECT_EQ(entry.ServiceProviderNotify, "Test notify");
         EXPECT_EQ(entry.AdditionalData.size(), 2);
         EXPECT_THAT(entry.AdditionalData,
-                    ElementsAre("KEY1=VALUE1", "KEY2=VALUE2"));
+                    ElementsAre(std::make_pair(std::string("KEY1"),
+                                               std::string("VALUE1")),
+                                std::make_pair(std::string("KEY2"),
+                                               std::string("VALUE2"))));
         EXPECT_EQ(*entry.Path, "/test/path");
         EXPECT_EQ(*entry.Resolution, "Test resolution");
     }
@@ -83,9 +86,9 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapEmptyMap)
 TEST(DbusEventLogEntry,
      FillDbusEventLogEntryFromPropertyMapMissingRequiredFields)
 {
-    std::vector<std::string> data;
-    data.emplace_back("KEY1=VALUE1");
-    data.emplace_back("KEY2=VALUE2");
+    std::vector<std::pair<std::string, std::string>> data;
+    data.emplace_back("KEY1", "VALUE1");
+    data.emplace_back("KEY2", "VALUE2");
 
     const dbus::utility::DBusPropertiesMap propMap = {
         {"AdditionalData", dbus::utility::DbusVariantType(data)},
