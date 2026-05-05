@@ -176,7 +176,7 @@ class Server
     using AcceptSocket = boost::asio::ip::tcp::socket;
     using SocketPtr = std::unique_ptr<AcceptSocket>;
 
-    void afterAccept(SocketPtr socket, HttpType httpType,
+    void afterAccept(Acceptor* acceptor, SocketPtr socket, HttpType httpType,
                      const boost::system::error_code& ec)
     {
         if (ec)
@@ -202,21 +202,23 @@ class Server
         boost::asio::post(getIoContext(),
                           [connection] { connection->start(); });
 
-        doAccept();
+        doAcceptOne(*acceptor);
+    }
+
+    void doAcceptOne(Acceptor& acceptor)
+    {
+        SocketPtr socket = std::make_unique<AcceptSocket>(getIoContext());
+        AcceptSocket* socketPtr = socket.get();
+        acceptor.acceptor.async_accept(
+            *socketPtr, std::bind_front(&self_t::afterAccept, this, &acceptor,
+                                       std::move(socket), acceptor.httpType));
     }
 
     void doAccept()
     {
         for (Acceptor& accept : acceptors)
         {
-            SocketPtr socket = std::make_unique<AcceptSocket>(getIoContext());
-            // Keep a raw pointer so when the socket is moved, the pointer is
-            // still valid
-            AcceptSocket* socketPtr = socket.get();
-            accept.acceptor.async_accept(
-                *socketPtr,
-                std::bind_front(&self_t::afterAccept, this, std::move(socket),
-                                accept.httpType));
+            doAcceptOne(accept);
         }
     }
 
