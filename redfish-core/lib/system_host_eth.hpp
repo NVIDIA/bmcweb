@@ -29,6 +29,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/port_utils.hpp"
 namespace redfish
 {
 
@@ -175,6 +176,162 @@ inline void getNetworkAdapterMACAddressForNDF(
 }
 
 /**
+ * @brief Read LinkStatus from port properties and set it in the response.
+ */
+inline void onPortPropertiesForLinkStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("onPortPropertiesForLinkStatus: D-Bus error: {}",
+                         ec.message());
+        return;
+    }
+
+    const std::string* linkStatus = nullptr;
+    sdbusplus::unpackPropertiesNoThrow(dbus_utils::UnpackErrorPrinter(),
+                                       properties, "LinkStatus", linkStatus);
+
+    if (linkStatus == nullptr)
+    {
+        return;
+    }
+
+    std::string status = port_utils::getLinkStatusType(*linkStatus);
+    if (!status.empty())
+    {
+        asyncResp->res.jsonValue["LinkStatus"] = status;
+    }
+}
+
+/**
+ * @brief Given a port D-Bus object path and its service, fetch all properties
+ *        and extract LinkStatus.
+ */
+inline void getLinkStatusFromPortPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& portPath)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, portPath, "",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            onPortPropertiesForLinkStatus(asyncResp, ec, properties);
+        });
+}
+
+/**
+ * @brief Given a port path, find its service (requires Item.Port interface)
+ *        and then fetch LinkStatus.
+ */
+inline void onPortObjectForLinkStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& portPath, const boost::system::error_code& ec,
+    const std::vector<std::pair<std::string, std::vector<std::string>>>& object)
+{
+    if (ec || object.empty())
+    {
+        BMCWEB_LOG_DEBUG("onPortObjectForLinkStatus: No Port interface for {}",
+                         portPath);
+        return;
+    }
+    getLinkStatusFromPortPath(asyncResp, object.front().first, portPath);
+}
+
+/**
+ * @brief Follow optional associated_port redirect from a state sensor path,
+ *        then resolve the Port object and fetch LinkStatus.
+ * associated_port is optional: if absent, fall back to the state sensor
+ * path itself, which may directly expose Item.Port on some hardware.
+ * Either way, onPortObjectForLinkStatus will silently no-op if the
+ * resolved path lacks Item.Port, leaving LinkStatus absent from the
+ * response — this is intentional, as LinkStatus is optional per D-Bus
+ * usage guidelines.
+ */
+inline void onAssociatedPortForLinkStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& stateSensorPath, const boost::system::error_code& ec,
+    const std::variant<std::vector<std::string>>& portResp)
+{
+    std::string portPath = stateSensorPath;
+    if (!ec)
+    {
+        const std::vector<std::string>* portData =
+            std::get_if<std::vector<std::string>>(&portResp);
+        if (portData != nullptr && !portData->empty())
+        {
+            portPath = (*portData)[0];
+        }
+    }
+
+    constexpr std::string_view portInterface =
+        "xyz.openbmc_project.Inventory.Item.Port";
+    dbus::utility::getDbusObject(
+        portPath, std::array<std::string_view, 1>{portInterface},
+        std::bind_front(onPortObjectForLinkStatus, asyncResp, portPath));
+}
+
+/**
+ * @brief From the adapter's all_states association, find the state sensor
+ *        whose D-Bus path filename matches ndfFilename, then follow
+ *        associated_port (if present) to read LinkStatus.
+ */
+inline void onAllStatesForLinkStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ndfFilename, const boost::system::error_code& ec,
+    const std::variant<std::vector<std::string>>& statesResp)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG(
+            "onAllStatesForLinkStatus: No all_states association: {}",
+            ec.message());
+        return;
+    }
+
+    const std::vector<std::string>* statePaths =
+        std::get_if<std::vector<std::string>>(&statesResp);
+    if (statePaths == nullptr || statePaths->empty())
+    {
+        return;
+    }
+
+    for (const std::string& statePath : *statePaths)
+    {
+        sdbusplus::message::object_path p(statePath);
+        if (p.filename() != ndfFilename)
+        {
+            continue;
+        }
+        dbus::utility::findAssociations(
+            statePath + "/associated_port",
+            std::bind_front(onAssociatedPortForLinkStatus, asyncResp,
+                            statePath));
+        return;
+    }
+    BMCWEB_LOG_DEBUG(
+        "onAllStatesForLinkStatus: No state sensor found for NDF {}",
+        ndfFilename);
+}
+
+/**
+ * @brief Start the LinkStatus lookup chain for a specific NDF on a network
+ *        adapter.  ndfFilename is the D-Bus path filename of the NDF object
+ *        (e.g. "eth0_func0"), which also matches the filename of the
+ *        corresponding entry in the adapter's all_states association.
+ */
+inline void getNetworkAdapterLinkStatusForNDF(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath, const std::string& ndfFilename)
+{
+    dbus::utility::findAssociations(
+        networkAdapterPath + "/all_states",
+        std::bind_front(onAllStatesForLinkStatus, asyncResp, ndfFilename));
+}
+
+/**
  * @brief Process NetworkAdapter paths and populate EthernetInterface response
  *
  * ifaceId has the format {adapterId}_{ndfFilename}. Finds the adapter whose
@@ -232,6 +389,8 @@ inline void processNetworkAdapterEthInterface(
     asyncResp->res.jsonValue["InterfaceEnabled"] = true;
 
     getNetworkAdapterMACAddressForNDF(asyncResp, *matchedAdapterPath,
+                                      ndfFilename);
+    getNetworkAdapterLinkStatusForNDF(asyncResp, *matchedAdapterPath,
                                       ndfFilename);
 }
 
