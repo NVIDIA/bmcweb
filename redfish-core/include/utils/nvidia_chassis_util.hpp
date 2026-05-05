@@ -40,6 +40,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <variant>
 
 namespace redfish
@@ -114,6 +115,34 @@ struct TrayTopology
 #pragma pack()
 
 using AllowListMap = std::map<std::string, std::vector<std::string>>;
+
+inline const std::unordered_map<std::string_view, std::string_view>
+    dbusBootProgressToOSStateMap = {
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.ResetBootROM",
+         "ResetBootROM"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.PrimaryProcInit",
+         "FWBootStage1"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.MotherboardInit",
+         "FWBootStage2"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.SystemInitComplete",
+         "PreOS"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.OSStart",
+         "OSBooting"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.OSRunning",
+         "OSRunning"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.OSQuiesced",
+         "OSQuiesced"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.FWUpdateInProgress",
+         "FWUpdateInProgress"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.OSCrashDumpInProgress",
+         "OSCrashDumpInProgress"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.OSCrashDumpCompleted",
+         "OSCrashDumpCompleted"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.FWFaultInProgress",
+         "FWFaultInProgress"},
+        {"xyz.openbmc_project.State.Boot.Progress.ProgressStages.FWFaultCompleted",
+         "FWFaultCompleted"},
+};
 
 inline std::string getBootReasonTypes(const std::string& bootReasonType)
 {
@@ -2312,6 +2341,83 @@ inline void afterGetAssociatedDomains(
     oem["WriteProtectDomains"]["@odata.id"] = domainUri;
 }
 
+inline std::string dbusToEmbeddedProcessorOSState(
+    const std::string& dbusBootProgress)
+{
+    auto it = dbusBootProgressToOSStateMap.find(dbusBootProgress);
+    if (it != dbusBootProgressToOSStateMap.end())
+    {
+        return std::string(it->second);
+    }
+    return "";
+}
+
+inline void getEmbeddedProcessorOSState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisObjPath)
+{
+    dbus::utility::findAssociations(
+        chassisObjPath + "/os_states",
+        [asyncResp,
+         chassisObjPath](const boost::system::error_code& ec,
+                         const std::vector<std::string>& associations) {
+            if (ec || associations.empty())
+            {
+                // no os_states association found, no error
+                BMCWEB_LOG_DEBUG("No os_states association found for {}: {}",
+                                 chassisObjPath, ec.message());
+                return;
+            }
+            const std::string& osStatePath = associations.front();
+            constexpr std::array<std::string_view, 1> bootProgressIface{
+                "xyz.openbmc_project.State.Boot.Progress"};
+            dbus::utility::getDbusObject(
+                osStatePath, bootProgressIface,
+                [asyncResp, osStatePath](
+                    const boost::system::error_code& ecObj,
+                    const dbus::utility::MapperGetObject& mapperResponse) {
+                    if (ecObj || mapperResponse.empty())
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "No BootProgress interface found for {}: {}",
+                            osStatePath, ecObj.message());
+                        return;
+                    }
+                    const std::string& service = mapperResponse.begin()->first;
+                    sdbusplus::asio::getProperty<std::string>(
+                        *crow::connections::systemBus, service, osStatePath,
+                        "xyz.openbmc_project.State.Boot.Progress",
+                        "BootProgress",
+                        [asyncResp,
+                         osStatePath](const boost::system::error_code& ecProp,
+                                      const std::string& bootProgress) {
+                            if (ecProp)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "BootProgress getProperty error for {}: {}",
+                                    osStatePath, ecProp.message());
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            const std::string rfState =
+                                dbusToEmbeddedProcessorOSState(bootProgress);
+                            if (rfState.empty())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Unknown BootProgress state for {}: {}",
+                                    osStatePath, bootProgress);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            asyncResp->res
+                                .jsonValue["Oem"]["Nvidia"]
+                                          ["EmbeddedProcessorOSState"] =
+                                rfState;
+                        });
+                });
+        });
+}
+
 inline void populateWriteProtectDomainLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -2440,8 +2546,9 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_12_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_14_0.NvidiaChassis";
         populateWriteProtectDomainLink(asyncResp, chassisId);
+        getEmbeddedProcessorOSState(asyncResp, path);
 
         if (writeProtected != nullptr)
         {
