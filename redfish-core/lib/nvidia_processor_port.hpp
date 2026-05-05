@@ -369,7 +369,7 @@ struct CpuPortOemMetricMapping
     std::string_view oemTypeName;
 };
 
-inline constexpr std::array<CpuPortOemMetricMapping, 3>
+inline constexpr std::array<CpuPortOemMetricMapping, 6>
     cpuPortOemMetricMappings = {{
         {"CLinkPacketCrcCount", "PacketCRCErrors",
          "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
@@ -377,6 +377,12 @@ inline constexpr std::array<CpuPortOemMetricMapping, 3>
          "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
         {"CLinkBandwidth", "BandwidthBytes",
          "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
+        {"NVLinkPacketCrcCount", "PacketCRCErrors",
+         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
+        {"NVLinkPacketReplayCount", "PacketReplayErrors",
+         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
+        {"NVLinkBandwidth", "BandwidthBytes",
+         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
     }};
 
 // Continuation for getProperty<double> on Metric.Value. Emits the value as
