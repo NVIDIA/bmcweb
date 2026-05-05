@@ -654,6 +654,13 @@ class Connection :
             }
         }
 
+        if (!handleContentLengthError())
+        {
+            return;
+        }
+
+        parse.body_limit(getContentLengthLimit());
+
         std::string_view expect = value[boost::beast::http::field::expect];
         if (bmcweb::asciiIEquals(expect, "100-continue"))
         {
@@ -661,13 +668,6 @@ class Connection :
             doWrite();
             return;
         }
-
-        if (!handleContentLengthError())
-        {
-            return;
-        }
-
-        parse.body_limit(getContentLengthLimit());
 
         if (parse.is_done())
         {
