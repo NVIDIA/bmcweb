@@ -920,10 +920,28 @@ inline void handleGenerateCSRAction(
         });
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp](const boost::system::error_code& ec, const std::string&) {
+        [asyncResp, commonName](boost::system::error_code ec,
+                                sdbusplus::message::message& msg) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec.message());
+                // Nvidia code starts here
+                // cancel timer to avoid double error message (internal
+                // error)after timeout
+                timeout.cancel();
+                // reset csrMatcher
+                csrMatcher = nullptr;
+                const sd_bus_error* dbusError = msg.get_error();
+                if (dbusError != nullptr &&
+                    std::string_view(
+                        "xyz.openbmc_project.Certs.Error.InvalidCommonName") ==
+                        dbusError->name)
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, commonName, "CommonName",
+                        "GenerateCSR");
+                    return;
+                }
                 messages::internalError(asyncResp->res);
                 return;
             }
