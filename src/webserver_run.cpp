@@ -153,6 +153,7 @@ int run()
     }
 
     bmcweb::registerUserRemovedSignal();
+    bmcweb::registerUserPropertiesChangedSignal();
 
     bmcweb::ServiceWatchdog watchdog;
 
