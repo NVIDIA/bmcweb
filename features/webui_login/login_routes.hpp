@@ -5,6 +5,7 @@
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "cookies.hpp"
+#include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -33,6 +34,13 @@ namespace login_routes
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!persistent_data::SessionStore::getInstance().getServiceEnabled())
+    {
+        redfish::messages::serviceDisabled(asyncResp->res,
+                                           "/redfish/v1/SessionService");
+        return;
+    }
+
     MultipartParser parser;
     std::string_view contentType = req.getHeaderValue("content-type");
     std::string_view username;
@@ -196,6 +204,7 @@ inline void handleLogin(const crow::Request& req,
     {
         BMCWEB_LOG_DEBUG("Couldn't interpret password");
         asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
     }
 }
 

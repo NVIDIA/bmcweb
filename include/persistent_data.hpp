@@ -174,6 +174,19 @@ class ConfigFile
                         SessionStore::getInstance().updateSessionTimeout(
                             sessionTimeoutInseconds);
                     }
+                    else if (item.first == "session_service_enabled")
+                    {
+                        const bool* jEnabled =
+                            item.second.get_ptr<const bool*>();
+                        if (jEnabled == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Problem reading SessionService ServiceEnabled value");
+                            continue;
+                        }
+                        SessionStore::getInstance().setServiceEnabled(
+                            *jEnabled);
+                    }
                     else if (item.first == "eventservice_config")
                     {
                         const nlohmann::json::object_t* esobj =
@@ -349,6 +362,8 @@ class ConfigFile
         data["service_identification"] = serviceIdentification;
         data["revision"] = jsonRevision;
         data["timeout"] = SessionStore::getInstance().getTimeoutInSeconds();
+        data["session_service_enabled"] =
+            SessionStore::getInstance().getServiceEnabled();
 
         // SSE Event IDs for Last-Event-Id support
         data["event_service_event_id"] = eventServiceEventId;
