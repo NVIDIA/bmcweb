@@ -22,6 +22,7 @@
 #include "nvidia_dot.hpp"
 #include "nvidia_dot_backup_data.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
+#include "nvidia_emmc_fullsecureerase.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_fabric.hpp"
 #include "nvidia_fabric_config_update.hpp"
@@ -147,6 +148,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesChassisPowerSmoothing(app);
         requestRoutesManagerEmmcSecureEraseActionInfo(app);
         requestRoutesNvidiaManagerEmmcSecureErase(app);
+        requestRoutesManagerEmmcFullSecureEraseActionInfo(app);
+        requestRoutesNvidiaManagerEmmcFullSecureErase(app);
         requestRoutesNvidiaManagerResetToDefaultsAction(app);
         requestRoutesPCIeClearCounter(app);
         requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(app);

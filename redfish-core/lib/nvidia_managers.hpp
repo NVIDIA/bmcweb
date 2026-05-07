@@ -26,6 +26,7 @@
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
 #include "health.hpp"
+#include "nvidia_emmc_fullsecureerase.hpp"
 #include "nvidia_error_messages.hpp"
 #include "nvidia_event_service_manager.hpp"
 #include "persistentstorage_util.hpp"
@@ -76,9 +77,6 @@ using MapperGetSubTreeResponse =
 const std::string hexPrefix = "0x";
 
 const int invalidDataOutSizeErr = 0x116;
-
-// Forward declaration for functions from managers.hpp
-void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
 inline void checkAndAddDOTBackupDataLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1938,6 +1936,13 @@ inline void requestRoutesNvidiaManager(RedfishService& service)
     REDFISH_SUB_ROUTE<
         "/redfish/v1/Managers/<str>/#/Actions/Oem/#eMMC.SecureErase">(
         service, HttpVerb::Get)(handleGetManagerSecureErase);
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        REDFISH_SUB_ROUTE<
+            "/redfish/v1/Managers/<str>/#/Actions/Oem/#eMMC.FullSecureErase">(
+            service, HttpVerb::Get)(handleGetManagerEmmcFullSecureErase);
+    }
 
     REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
         service, HttpVerb::Patch)(handlePatchManagerNvidia);
