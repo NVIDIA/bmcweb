@@ -2202,6 +2202,19 @@ inline void handleAccountDelete(
         messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
         return;
     }
+
+    if (req.session == nullptr)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (username == req.session->username)
+    {
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
