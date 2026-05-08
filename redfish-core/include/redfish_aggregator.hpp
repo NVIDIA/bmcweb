@@ -527,11 +527,13 @@ class RedfishAggregator
 
                     if (!satelliteInfo.empty())
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Redfish Aggregation only supports one satellite!");
-                        BMCWEB_LOG_DEBUG("Clearing all satellite data");
-                        satelliteInfo.clear();
-                        return;
+                        // Keep the first satellite and skip duplicates so a
+                        // stray EntityManager config doesn't disable
+                        // aggregation entirely.
+                        BMCWEB_LOG_WARNING(
+                            "Redfish Aggregation only supports one satellite; ignoring duplicate at {}",
+                            objectPath.first.str);
+                        continue;
                     }
                     // Nvidia code starts here
                     addSatelliteConfig(
@@ -1561,12 +1563,21 @@ class RedfishAggregator
     // Assumes the given segment starts with <prefix>_
     bool segmentHasPrefix(const std::string& urlSegment) const
     {
-        // TODO: handle this better
-        // For now 5B247A_ won't be in the aggregationSources map so
-        // check explicitly for now
-        if (urlSegment.starts_with("5B247A_"))
+        // D-Bus EntityManager-discovered satellites use the build-time
+        // configured aggregation prefix and are not tracked in
+        // aggregationSources, so check that prefix explicitly. This mirrors
+        // the inline `collectionItem.starts_with(prefix + "_")` check on the
+        // develop branch.
+        constexpr std::string_view buildPrefix =
+            BMCWEB_REDFISH_AGGREGATION_PREFIX;
+        if (!buildPrefix.empty())
         {
-            return true;
+            std::string buildPrefixWithSep(buildPrefix);
+            buildPrefixWithSep += '_';
+            if (urlSegment.starts_with(buildPrefixWithSep))
+            {
+                return true;
+            }
         }
 
         // Find the first underscore
