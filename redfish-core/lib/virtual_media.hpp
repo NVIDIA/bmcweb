@@ -155,7 +155,7 @@ inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
  */
 inline void vmParseInterfaceObject(
     const dbus::utility::DBusInterfacesMap& interfaces,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, VmMode mode)
 {
     for (const auto& [interface, values] : interfaces)
     {
@@ -233,7 +233,12 @@ inline void vmParseInterfaceObject(
                     }
                     asyncResp->res.jsonValue["Inserted"] = *activeValue;
 
-                    if (*activeValue)
+                    // ConnectedVia must reflect the mount mode, not just
+                    // whether a backend process is running. For Legacy
+                    // (URI-based) mounts ConnectedVia is set to URI when
+                    // ImageURL is populated (see MountPoint handling above);
+                    // only Proxy mounts should report Applet.
+                    if (*activeValue && mode == VmMode::Proxy)
                     {
                         asyncResp->res.jsonValue["ConnectedVia"] =
                             virtual_media::ConnectedVia::Applet;
@@ -351,7 +356,7 @@ inline void afterGetVmData(
             name, resName);
     }
 
-    vmParseInterfaceObject(item.second, asyncResp);
+    vmParseInterfaceObject(item.second, asyncResp, mode);
 
     asyncResp->res.jsonValue["Actions"]["#VirtualMedia.EjectMedia"]
                             ["target"] = boost::urls::format(
