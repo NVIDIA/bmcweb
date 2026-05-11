@@ -29,17 +29,60 @@
 namespace redfish
 {
 
-static constexpr std::array<std::string_view, 1> assemblyInterfaces = {
-    "xyz.openbmc_project.Inventory.Item.Panel"};
+static constexpr std::array<std::string_view, 2> assemblyInterfaces = {
+    "xyz.openbmc_project.Inventory.Item.Panel",
+    "xyz.openbmc_project.Inventory.Item.Assembly"};
 
 namespace assembly_utils
 {
 
+using AssemblyCallback =
+    std::function<void(const boost::system::error_code&,
+                       const std::vector<std::string>& sortedAssemblyList)>;
+
+inline void afterGetChassisAssemblyFallback(
+    AssemblyCallback& callback, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths)
+{
+    // Some inventory providers (e.g. NSM) publish Item.Assembly objects
+    // beneath the chassis path without a "containing" association. Treat
+    // mapper errors here as "no assemblies" since the caller already
+    // confirmed the chassis exists.
+    if (ec)
+    {
+        callback(boost::system::error_code{}, std::vector<std::string>());
+        return;
+    }
+
+    std::vector<std::string> sortedAssemblyList = subtreePaths;
+    std::ranges::sort(sortedAssemblyList, AlphanumLess<std::string>());
+    callback(boost::system::error_code{}, sortedAssemblyList);
+}
+
+inline void getChassisAssemblyFallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, AssemblyCallback&& callback)
+{
+    chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        [callback = std::move(callback)](
+            const std::optional<std::string>& chassisPath) mutable {
+            if (!chassisPath)
+            {
+                callback(boost::system::error_code{},
+                         std::vector<std::string>());
+                return;
+            }
+            dbus::utility::getSubTreePaths(
+                *chassisPath, 0, assemblyInterfaces,
+                std::bind_front(afterGetChassisAssemblyFallback,
+                                std::move(callback)));
+        });
+}
+
 inline void afterGetChassisAssembly(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::function<void(const boost::system::error_code&,
-                       const std::vector<std::string>& sortedAssemblyList)>&
-        callback,
+    const std::string& chassisId, AssemblyCallback& callback,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths)
 {
@@ -47,13 +90,20 @@ inline void afterGetChassisAssembly(
     {
         if (ec.value() == boost::system::errc::io_error || ec.value() == EBADR)
         {
-            // Not found
-            callback(ec, std::vector<std::string>());
+            // Association not present; try subtree-walk fallback.
+            getChassisAssemblyFallback(asyncResp, chassisId,
+                                       std::move(callback));
             return;
         }
 
         BMCWEB_LOG_ERROR("DBUS response error {}", ec);
         messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (subtreePaths.empty())
+    {
+        getChassisAssemblyFallback(asyncResp, chassisId, std::move(callback));
         return;
     }
 
@@ -74,17 +124,14 @@ inline void afterGetChassisAssembly(
  */
 inline void getChassisAssembly(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId,
-    std::function<void(const boost::system::error_code& ec,
-                       const std::vector<std::string>& sortedAssemblyList)>&&
-        callback)
+    const std::string& chassisId, AssemblyCallback&& callback)
 {
     BMCWEB_LOG_DEBUG("Get ChassisAssembly");
 
     dbus::utility::getAssociatedSubTreePathsById(
         chassisId, "/xyz/openbmc_project/inventory", chassisInterfaces,
         "containing", assemblyInterfaces,
-        std::bind_front(afterGetChassisAssembly, asyncResp,
+        std::bind_front(afterGetChassisAssembly, asyncResp, chassisId,
                         std::move(callback)));
 }
 
