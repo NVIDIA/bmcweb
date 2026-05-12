@@ -543,6 +543,10 @@ class HttpBody::reader
                     return 0;
                 }
             }
+            else
+            {
+                value.str().append(ptr, b.size());
+            }
         }
         ec = {};
         return extra;
