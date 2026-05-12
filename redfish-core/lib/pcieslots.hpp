@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "nvidia_pcieslots.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 
@@ -174,15 +175,15 @@ inline void fillProperties(
 inline void updatePCIeSlotsProcessorLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::map<std::string, propertyTypes>& dbusProperties,
-    const std::string& objPath)
+    const nlohmann::json& oemNvidiaJson, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("updatePCIeSlotsPrcoessorLinks ");
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/processor_link",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code& ec,
-                         const std::vector<std::string>& data) {
+        [asyncResp, objPath, dbusProperties,
+         oemNvidiaJson](const boost::system::error_code& ec,
+                        const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("processor port not found for  pcieslot ");
@@ -198,9 +199,9 @@ inline void updatePCIeSlotsProcessorLinks(
                 dbus::utility::getProperty<std::vector<std::string>>(
                     "xyz.openbmc_project.ObjectMapper", objPath + "/port_link",
                     "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, processorId,
-                     dbusProperties](const boost::system::error_code& ec1,
-                                     const std::vector<std::string>& dbusResp) {
+                    [asyncResp, processorId, dbusProperties,
+                     oemNvidiaJson](const boost::system::error_code& ec1,
+                                    const std::vector<std::string>& dbusResp) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("port not found for pcieslot ");
@@ -209,6 +210,8 @@ inline void updatePCIeSlotsProcessorLinks(
 
                         nlohmann::json pcieSlotRes;
                         fillProperties(pcieSlotRes, dbusProperties);
+                        redfish::nvidia_pcieslots::attachOem(pcieSlotRes,
+                                                             oemNvidiaJson);
 
                         // declaring processors array
                         nlohmann::json& prcoessorsLinkArray =
@@ -270,16 +273,16 @@ inline void updatePCIeSlotsProcessorLinks(
 inline void updatePCIeSlotsSwitchLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::map<std::string, propertyTypes>& dbusProperties,
-    const std::string& objPath)
+    const nlohmann::json& oemNvidiaJson, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("updatePCIeSlotsSwitchLinks ");
 
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/fabric_link",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code& ec,
-                         const std::vector<std::string>& data) {
+        [asyncResp, objPath, dbusProperties,
+         oemNvidiaJson](const boost::system::error_code& ec,
+                        const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("fabric data not found for pcieslot");
@@ -297,7 +300,7 @@ inline void updatePCIeSlotsSwitchLinks(
                     "xyz.openbmc_project.ObjectMapper",
                     objPath + "/switch_link", "xyz.openbmc_project.Association",
                     "endpoints",
-                    [asyncResp, objPath, dbusProperties,
+                    [asyncResp, objPath, dbusProperties, oemNvidiaJson,
                      fabricId](const boost::system::error_code& ec1,
                                const std::vector<std::string>& dbusResp) {
                         if (ec1)
@@ -319,7 +322,8 @@ inline void updatePCIeSlotsSwitchLinks(
                                 "xyz.openbmc_project.ObjectMapper",
                                 objPath + "/port_link",
                                 "xyz.openbmc_project.Association", "endpoints",
-                                [asyncResp, dbusProperties, fabricId, switchId](
+                                [asyncResp, dbusProperties, oemNvidiaJson,
+                                 fabricId, switchId](
                                     const boost::system::error_code& getError,
                                     const std::vector<std::string>&
                                         endpointsDbusResp) {
@@ -334,11 +338,13 @@ inline void updatePCIeSlotsSwitchLinks(
 
                                     // update dbus properties to json object
                                     fillProperties(pcieSlotRes, dbusProperties);
+                                    redfish::nvidia_pcieslots::attachOem(
+                                        pcieSlotRes, oemNvidiaJson);
 
                                     pcieSlotRes
                                         ["Links"]["Oem"]["Nvidia"]
                                         ["@odata.type"] =
-                                            "#NvidiaPCIeSlots.v1_0_0.NvidiaPCIeSlots";
+                                            "#NvidiaPCIeSlots.v1_1_0.NvidiaPCIeSlots";
 
                                     // declaring connected ports array
                                     nlohmann::json& connectedPortsLinkArray =
@@ -388,14 +394,14 @@ inline void updatePCIeSlotsSwitchLinks(
 inline void updatePCIeSlotsNetworkAdapterLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::map<std::string, propertyTypes>& dbusProperties,
-    const std::string& objPath)
+    const nlohmann::json& oemNvidiaJson, const std::string& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/chassis_link",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code& ec,
-                         const std::vector<std::string>& data) {
+        [asyncResp, objPath, dbusProperties,
+         oemNvidiaJson](const boost::system::error_code& ec,
+                        const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("chassis data not found for pcieslot");
@@ -413,7 +419,7 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
                     "xyz.openbmc_project.ObjectMapper",
                     objPath + "/network_adapter_link",
                     "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, objPath, dbusProperties,
+                    [asyncResp, objPath, dbusProperties, oemNvidiaJson,
                      chassisId](const boost::system::error_code& ec1,
                                 const std::vector<std::string>& dbusResp) {
                         if (ec1)
@@ -436,8 +442,8 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
                                 "xyz.openbmc_project.ObjectMapper",
                                 objPath + "/port_link",
                                 "xyz.openbmc_project.Association", "endpoints",
-                                [asyncResp, dbusProperties, chassisId,
-                                 networkAdapterId](
+                                [asyncResp, dbusProperties, oemNvidiaJson,
+                                 chassisId, networkAdapterId](
                                     const boost::system::error_code& getError,
                                     const std::vector<std::string>&
                                         endpointsDbusResp) {
@@ -452,11 +458,13 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
 
                                     // update dbus properties to json object
                                     fillProperties(pcieSlotRes, dbusProperties);
+                                    redfish::nvidia_pcieslots::attachOem(
+                                        pcieSlotRes, oemNvidiaJson);
 
                                     pcieSlotRes
                                         ["Links"]["Oem"]["Nvidia"]
                                         ["@odata.type"] =
-                                            "#NvidiaPCIeSlots.v1_0_0.NvidiaPCIeSlots";
+                                            "#NvidiaPCIeSlots.v1_1_0.NvidiaPCIeSlots";
 
                                     // declaring connected ports array
                                     nlohmann::json& connectedPortsLinkArray =
@@ -502,12 +510,14 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
  */
 inline void updatePCIeSlotsNoLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::map<std::string, propertyTypes>& dbusProperties)
+    const std::map<std::string, propertyTypes>& dbusProperties,
+    const nlohmann::json& oemNvidiaJson)
 {
     BMCWEB_LOG_DEBUG("updatePCIeSlotsNoLinks ");
 
     nlohmann::json pcieSlotRes;
     fillProperties(pcieSlotRes, dbusProperties);
+    redfish::nvidia_pcieslots::attachOem(pcieSlotRes, oemNvidiaJson);
 
     nlohmann::json& jResp = asyncResp->res.jsonValue["Slots"];
     jResp.push_back(pcieSlotRes);
@@ -653,9 +663,12 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
             }
 
+            nlohmann::json oemNvidiaJson =
+                redfish::nvidia_pcieslots::buildOem(propertiesList);
+
             dbus::utility::getSubTreePaths(
                 objPath, 1, std::array<std::string_view, 0>{},
-                [asyncResp, objPath, dbusProperties](
+                [asyncResp, objPath, dbusProperties, oemNvidiaJson](
                     const boost::system::error_code& ecLambda2,
                     const dbus::utility::MapperGetSubTreePathsResponse& resp) {
                     if (ecLambda2)
@@ -671,27 +684,31 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         {
                             // update processor links
                             updatePCIeSlotsProcessorLinks(
-                                asyncResp, dbusProperties, objPath);
+                                asyncResp, dbusProperties, oemNvidiaJson,
+                                objPath);
                             return;
                         }
                         if (linkPash == (objPath + "/fabric_link"))
                         {
                             // Update switch links
                             updatePCIeSlotsSwitchLinks(asyncResp,
-                                                       dbusProperties, objPath);
+                                                       dbusProperties,
+                                                       oemNvidiaJson, objPath);
                             return;
                         }
                         if (linkPash == (objPath + "/chassis_link"))
                         {
                             // Update chassis links
                             updatePCIeSlotsNetworkAdapterLinks(
-                                asyncResp, dbusProperties, objPath);
+                                asyncResp, dbusProperties, oemNvidiaJson,
+                                objPath);
                             return;
                         }
                     }
 
                     // No link found
-                    updatePCIeSlotsNoLinks(asyncResp, dbusProperties);
+                    updatePCIeSlotsNoLinks(asyncResp, dbusProperties,
+                                           oemNvidiaJson);
                 });
         });
 }
