@@ -57,7 +57,7 @@
         <Annotation Term="OData.Description" String="This action executes the error injection according to the payload of the FaultBitmap property."/>
         <Annotation Term="OData.LongDescription" String="This action shall execute the error injection according to the payload of the FaultBitmap property."/>
         <Parameter Name="NvidiaErrorInjection" Type="NvidiaErrorInjection.v1_0_0.Actions"/>
-        <Parameter Name="ErrorType" Type="NvidiaErrorInjection.v1_2_0.ErrorType" Nullable="false">
+        <Parameter Name="ErrorType" Type="NvidiaErrorInjection.v1_2_0.ErrorType">
           <Annotation Term="OData.Description" String="The error type."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall specify the type of error injection to execute."/>
           <Annotation Term="Redfish.Revisions">

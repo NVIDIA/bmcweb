@@ -30,6 +30,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSoftwareInventory">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSoftwareInventory" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a SoftwareInventory resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a SoftwareInventory resource."/>
+      </ComplexType>
       <Action Name="ComputeDigest" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to compute the digest of this firmware."/>
         <Annotation Term="OData.LongDescription" String="This action shall compute the digest of this firmware using a hashing algorithm."/>
@@ -59,7 +64,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSoftwareInventory.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaSoftwareInventory">
+      <ComplexType Name="NvidiaSoftwareInventory" BaseType="NvidiaSoftwareInventory.NvidiaSoftwareInventory">
         <Property Name="FirmwareDigest" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The digest of this firmware."/>

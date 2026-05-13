@@ -23,10 +23,15 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMetricReport">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaMetricReport" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a MetricReport resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a MetricReport resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMetricReport.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMetricReport">
+      <ComplexType Name="NvidiaMetricReport" BaseType="NvidiaMetricReport.NvidiaMetricReport">
         <Property Name="SensingIntervalMilliseconds" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The time interval between when the reading of MetricValue is updated in milliseconds."/>

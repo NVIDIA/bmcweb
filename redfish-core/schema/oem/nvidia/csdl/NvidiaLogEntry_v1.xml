@@ -20,10 +20,15 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaLogEntry" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a LogEntry resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a LogEntry resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="CPER">
+      <ComplexType Name="CPER" BaseType="NvidiaLogEntry.NvidiaLogEntry">
         <Property Name="SectionType" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The section type of the event."/>
@@ -103,7 +108,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaLogEntry">
+      <ComplexType Name="NvidiaLogEntry" BaseType="NvidiaLogEntry.NvidiaLogEntry">
         <Property Name="Device" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The name of the device that caused this log entry."/>

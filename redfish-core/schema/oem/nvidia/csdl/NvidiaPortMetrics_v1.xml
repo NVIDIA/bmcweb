@@ -29,6 +29,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a PortMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a PortMetrics resource."/>
+      </ComplexType>
       <Action Name="ClearPCIeCounters" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to clear PCIe counters."/>
         <Annotation Term="OData.LongDescription" String="This action shall clear PCIe counters."/>
@@ -41,7 +46,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPortMetrics">
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.NvidiaPortMetrics">
         <Property Name="TXNoProtocolBytes" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The transmitted NVLink data throughput without the protocol overhead."/>
@@ -91,7 +96,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaNVLinkPortMetrics">
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_1_0.NvidiaPortMetrics">
         <Property Name="BitErrorRate" Type="Edm.Double">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The bit error rate on a port since reset."/>
@@ -157,46 +162,6 @@
           <Annotation Term="OData.Description" String="The total number of ticks during which the port selected by PortSelect had data to transmit but no data was sent during the entire tick either because of insufficient credits or because of lack of arbitration."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the total number of ticks during which the port selected by PortSelect had data to transmit but no data was sent during the entire tick either because of insufficient credits or because of lack of arbitration."/>
         </Property>
-        <Property Name="NVLinkRawTxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkRawRxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkDataTxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink without protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkDataRxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink without protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="TXNoProtocolBytes" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The transmitted NVLink data throughput without the protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the transmitted NVLink data throughput without the protocol overhead."/>
-          <Annotation Term="Measures.Unit" String="By"/>
-        </Property>
-        <Property Name="RXNoProtocolBytes" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The received NVLink data throughput without the protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the received NVLink data throughput without the protocol overhead."/>
-          <Annotation Term="Measures.Unit" String="By"/>
-        </Property>
-        <Property Name="NVLinkErrors" Type="NvidiaNVLinkMetrics.NVLinkErrors" Nullable="false">
-          <Annotation Term="OData.Description" String="The NVLink errors associated with this port. "/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the NVLink errors associated with this port."/>
-        </Property>
       </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_3_0">
@@ -235,7 +200,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_4_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPortMetrics">
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_0_0.NvidiaPortMetrics">
         <Property Name="RXErrorsPerLane" Type="Collection(Edm.Int64)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="An array of RX error counts indexed by the lane number."/>

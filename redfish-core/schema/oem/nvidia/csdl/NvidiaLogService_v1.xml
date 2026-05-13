@@ -27,6 +27,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaLogService" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a LogService resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a LogService resource."/>
+      </ComplexType>
       <Action Name="GenerateBirthCert" IsBound="true">
         <Annotation Term="OData.Description" String="Triggers the generation of the birth certificate of the system."/>
         <Annotation Term="OData.LongDescription" String="The action triggers the generation of birth certificate of the system. Birth certificate includes both the device inventory and firmware inventory information captured at the time action is invoked. Clients can download the dump entry supported by the log service which implements this OEM action to extract the birth certificate. The API is intended to be used by factory or RMA purpose as one time action when there is no birth certificate present. If product already has the birth certification, then invocation of this API has no effect."/>
@@ -35,7 +40,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaLogService">
+      <ComplexType Name="NvidiaLogService" BaseType="NvidiaLogService.NvidiaLogService">
         <Property Name="LatestEntryID" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The identifier for the latest entry of this LogService resource."/>

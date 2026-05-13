@@ -24,6 +24,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a NetworkProtocol resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a NetworkProtocol resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -121,7 +126,7 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate an array of facilities from which logs must be sent to the rsyslog server."/>
         </Property>
       </ComplexType>
-      <ComplexType Name="NvidiaNetworkProtocol">
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.NvidiaNetworkProtocol">
         <Property Name="Rsyslog" Type="NvidiaNetworkProtocol.v1_0_0.Rsyslog">
           <Annotation Term="OData.Description" String="Rsyslog client configuration of the BMC."/>
           <Annotation Term="OData.LongDescription" String="The object shall indicate the rsyslog client configuration setting of the BMC."/>
@@ -130,6 +135,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_0_0.NvidiaNetworkProtocol"/>
       <EnumType Name="RFCFormat">
         <Member Name="RFC3164">
           <Annotation Term="OData.Description" String="Syslog protocol as defined in RFC3164."/>
@@ -148,7 +154,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_0_0.NvidiaNetworkProtocol">
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_1_0.NvidiaNetworkProtocol">
         <Property Name="SSH" Type="NvidiaNetworkProtocol.v1_2_0.SSHProtocol" Nullable="false">
           <Annotation Term="OData.Description" String="The settings for this manager's Secure Shell (SSH) protocol support."/>
           <Annotation Term="OData.LongDescription" String="This object shall contain the Secure Shell (SSH) protocol settings for the manager."/>
