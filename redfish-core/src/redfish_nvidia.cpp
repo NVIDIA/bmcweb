@@ -171,6 +171,7 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesNetworkAdapters(app);
         requestRoutesNetworkDeviceFunctions(app);
+        requestRoutesACDPort(app);
     }
 
     if constexpr (BMCWEB_HOST_ETH_IFACE)
