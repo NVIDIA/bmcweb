@@ -21,6 +21,7 @@
 #include "generated/enums/log_entry.hpp"
 #include "registries/base_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
@@ -233,10 +234,7 @@ inline void afterLogEntriesGetManagedObjects(
                                                    entriesArray.emplace_back());
     }
 
-    std::ranges::sort(entriesArray, [](const nlohmann::json& left,
-                                       const nlohmann::json& right) {
-        return (left["Id"] <= right["Id"]);
-    });
+    redfish::json_util::sortJsonArrayByKey(entriesArray, "Id");
     asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
 }

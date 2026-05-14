@@ -3099,11 +3099,8 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
 
                 entriesArray.push_back(thisEntry);
             }
-            std::sort(
-                entriesArray.begin(), entriesArray.end(),
-                [](const nlohmann::json& left, const nlohmann::json& right) {
-                return (left["Id"] <= right["Id"]);
-            });
+            redfish::json_util::sortJsonArrayByKey(
+                entriesArray.get_ref<nlohmann::json::array_t&>(), "Id");
             asyncResp->res.jsonValue["Members@odata.count"] =
                 entriesArray.size();
             asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
@@ -3761,11 +3758,8 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
                     }
                 }
             }
-            std::sort(
-                entriesArray.begin(), entriesArray.end(),
-                [](const nlohmann::json& left, const nlohmann::json& right) {
-                return (left["Id"] <= right["Id"]);
-            });
+            redfish::json_util::sortJsonArrayByKey(
+                entriesArray.get_ref<nlohmann::json::array_t&>(), "Id");
             asyncResp->res.jsonValue["Members@odata.count"] =
                 entriesArray.size();
         },
@@ -7602,11 +7596,10 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                     }
                                 }
                             }
-                            std::sort(entriesArray.begin(), entriesArray.end(),
-                                      [](const nlohmann::json& left,
-                                         const nlohmann::json& right) {
-                                return (left["Id"] <= right["Id"]);
-                            });
+                            redfish::json_util::sortJsonArrayByKey(
+                                entriesArray
+                                    .get_ref<nlohmann::json::array_t&>(),
+                                "Id");
                         },
                             "xyz.openbmc_project.Logging",
                             "/xyz/openbmc_project/logging",
