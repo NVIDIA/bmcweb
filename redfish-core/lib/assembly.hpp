@@ -19,6 +19,8 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
+#include "utils/nvidia_dbus_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
@@ -134,6 +136,112 @@ void getAssemblyHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
+// Downstream: read assembly properties that upstream's per-interface dispatch
+// does not surface (Vendor, Version, ProductionDate, LocationContext,
+// LocationType, PhysicalContext, AssemblyID-as-MemberId), then fire the OEM
+// VendorData fetch. Layered on top of upstream's handler so the structural
+// changes from the sync survive; behavior matches pre-merge develop.
+inline void getAssemblyExtras(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const std::string& assembly,
+    const nlohmann::json::json_pointer& assemblyJsonPtr)
+{
+    dbus::utility::getAllProperties(
+        serviceName, assembly, "",
+        [asyncResp, assembly, assemblyJsonPtr](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("getAllProperties failed for {}", assembly);
+                return;
+            }
+
+            nlohmann::json& entry = asyncResp->res.jsonValue[assemblyJsonPtr];
+            std::optional<std::string> assemblyIdOverride;
+
+            for (const auto& [propertyName, value] : propertiesList)
+            {
+                if (propertyName == "Name" || propertyName == "Version")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry[propertyName] = *str;
+                    }
+                }
+                else if (propertyName == "Manufacturer")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry["Vendor"] = *str;
+                    }
+                }
+                else if (propertyName == "BuildDate")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry["ProductionDate"] = *str;
+                    }
+                }
+                else if (propertyName == "LocationContext")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry["Location"]["PartLocationContext"] = *str;
+                    }
+                }
+                else if (propertyName == "LocationType")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry["Location"]["PartLocation"]["LocationType"] =
+                            redfish::dbus_utils::toLocationType(*str);
+                    }
+                }
+                else if (propertyName == "PhysicalContext")
+                {
+                    const std::string* str = std::get_if<std::string>(&value);
+                    if (str != nullptr && !str->empty())
+                    {
+                        entry["PhysicalContext"] =
+                            redfish::dbus_utils::toPhysicalContext(*str);
+                    }
+                }
+                else if (propertyName == "AssemblyID")
+                {
+                    const uint64_t* num = std::get_if<uint64_t>(&value);
+                    if (num != nullptr)
+                    {
+                        assemblyIdOverride = std::to_string(*num);
+                    }
+                }
+            }
+
+            // PhysicalContext is a hard input to getOemAssemblyAssert's
+            // VendorData filter, so the OEM call must come after the writes.
+            if (assemblyIdOverride.has_value())
+            {
+                entry["MemberId"] = *assemblyIdOverride;
+            }
+
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                const std::string* memberId =
+                    entry["MemberId"].get_ptr<const std::string*>();
+                if (memberId != nullptr)
+                {
+                    redfish::nvidia_chassis_utils::getOemAssemblyAssert(
+                        asyncResp, *memberId, assembly);
+                }
+            }
+        });
+}
+
 inline void afterGetDbusObject(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& assembly,
@@ -149,8 +257,15 @@ inline void afterGetDbusObject(
         return;
     }
 
+    bool extrasFetched = false;
     for (const auto& [serviceName, interfaceList] : object)
     {
+        if (!extrasFetched)
+        {
+            getAssemblyExtras(asyncResp, serviceName, assembly,
+                              assemblyJsonPtr);
+            extrasFetched = true;
+        }
         for (const auto& interface : interfaceList)
         {
             if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")

@@ -61,6 +61,17 @@ constexpr std::array prefixURLTable{
 
 constexpr unsigned int aggregatorReadBodyLimit = 68 * 1024 * 1024; // 68MB
 
+// JSON parser limits applied to satellite responses. parseStringAsJson()
+// defaults (500 values / 1 MiB / depth 10) are sized for inbound PATCH/PUT
+// payloads and reject legitimate satellite collections such as a LogEntry
+// collection with a few hundred members (~12 SAX events per entry trips the
+// 500-value cap). The body is already gated at the HTTP layer by
+// aggregatorReadBodyLimit; the JSON caps here just need to match that
+// envelope so the parser doesn't reject anything the HTTP stack accepted.
+constexpr size_t aggregatorJsonByteLimit = aggregatorReadBodyLimit;
+constexpr int aggregatorJsonValueLimit = 1'000'000;
+constexpr int aggregatorJsonDepthLimit = 64;
+
 enum class Result
 {
     LocalHandle,
@@ -1157,8 +1168,9 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            std::optional<nlohmann::json> jsonVal =
-                parseStringAsJson(*resp.body());
+            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
+                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
+                aggregatorJsonDepthLimit);
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1219,8 +1231,9 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            std::optional<nlohmann::json> jsonVal =
-                parseStringAsJson(*resp.body());
+            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
+                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
+                aggregatorJsonDepthLimit);
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1350,8 +1363,9 @@ class RedfishAggregator
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
             bool addedLinks = false;
-            std::optional<nlohmann::json> jsonVal =
-                parseStringAsJson(*resp.body());
+            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
+                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
+                aggregatorJsonDepthLimit);
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
