@@ -292,6 +292,7 @@ def get_response_code(entry_id: str) -> str | None:
         "PropertyValueExternalConflict": "conflict",
         "PropertyValueModified": "ok",
         "PropertyValueResourceConflict": "conflict",
+        "ResourceAlreadyExists": "conflict",
         "ResourceAtUriUnauthorized": "unauthorized",
         "ResourceCannotBeDeleted": "method_not_allowed",
         "ResourceExhaustion": "service_unavailable",
