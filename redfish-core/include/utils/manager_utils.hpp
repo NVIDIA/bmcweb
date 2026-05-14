@@ -25,7 +25,7 @@ namespace redfish
 {
 
 constexpr std::array<std::string_view, 1> bmcInterfaces = {
-    "xyz.openbmc_project.Inventory.Item.Bmc"};
+    "xyz.openbmc_project.Inventory.Item.BMC"};
 
 namespace manager_utils
 {
