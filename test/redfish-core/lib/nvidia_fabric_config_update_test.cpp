@@ -87,20 +87,20 @@ FormPart makeFormPart(const std::string& cdValue, const std::string& content)
 // handleAddConfigFileError
 // ---------------------------------------------------------------------------
 
-TEST(HandleAddConfigFileError, FileAlreadyExists_Returns400)
+TEST(HandleAddConfigFileError, FileAlreadyExists_Returns409)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     handleAddConfigFileError(asyncResp, "/test/uri",
                              makeDbusError("FileAlreadyExists"));
-    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::conflict);
 }
 
-TEST(HandleAddConfigFileError, AlreadyExists_Returns400)
+TEST(HandleAddConfigFileError, AlreadyExists_Returns409)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     handleAddConfigFileError(asyncResp, "/test/uri",
                              makeDbusError("AlreadyExists condition"));
-    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::conflict);
 }
 
 TEST(HandleAddConfigFileError, FileEmpty_Returns400)
