@@ -847,27 +847,30 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
         return std::nullopt;
     }
 
-    if (multiRet.targets)
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        if (multiRet.targets->size() > 1)
+        if (multiRet.targets)
         {
-            messages::propertyValueFormatError(asyncResp->res,
-                                               *multiRet.targets, "Targets");
-            return std::nullopt;
-        }
-
-        for (auto& target : *multiRet.targets)
-        {
-            boost::system::result<boost::urls::url_view> url =
-                boost::urls::parse_origin_form(target);
-            auto res = processUrl(url);
-            if (!res.has_value())
+            if (multiRet.targets->size() > 1)
             {
-                messages::propertyValueFormatError(asyncResp->res, target,
-                                                   "Targets");
+                messages::propertyValueFormatError(asyncResp->res,
+                                                   *multiRet.targets, "Targets");
                 return std::nullopt;
             }
-            target = res.value();
+
+            for (auto& target : *multiRet.targets)
+            {
+                boost::system::result<boost::urls::url_view> url =
+                    boost::urls::parse_origin_form(target);
+                auto res = processUrl(url);
+                if (!res.has_value())
+                {
+                    messages::propertyValueFormatError(asyncResp->res, target,
+                                                       "Targets");
+                    return std::nullopt;
+                }
+                target = res.value();
+            }
         }
     }
 
