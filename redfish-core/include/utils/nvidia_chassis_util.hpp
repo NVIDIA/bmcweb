@@ -2456,6 +2456,8 @@ inline void handleChassisGetAllProperties(
     const bool* writeProtectedControl = nullptr;
     const uint64_t* pCIeReferenceClockCount = nullptr;
     const std::string* reference = nullptr;
+    const std::string* orientation = nullptr;
+    const uint64_t* locationOrdinalValue = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
@@ -2467,7 +2469,8 @@ inline void handleChassisGetAllProperties(
         maxPowerWatts, "AssetTag", assetTag, "WriteProtected", writeProtected,
         "WriteProtectedControl", writeProtectedControl,
         "PCIeReferenceClockCount", pCIeReferenceClockCount, "LocationContext",
-        locationContext, "LocationReference", reference);
+        locationContext, "LocationReference", reference, "Orientation",
+        orientation, "LocationOrdinalValue", locationOrdinalValue);
 
     if (!success)
     {
@@ -2508,6 +2511,17 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["Location"]["PartLocation"]["Reference"] =
             redfish::dbus_utils::toReference(*reference);
+    }
+    if (orientation != nullptr)
+    {
+        asyncResp->res.jsonValue["Location"]["PartLocation"]["Orientation"] =
+            redfish::dbus_utils::toOrientation(*orientation);
+    }
+    if (locationOrdinalValue != nullptr)
+    {
+        asyncResp->res
+            .jsonValue["Location"]["PartLocation"]["LocationOrdinalValue"] =
+            *locationOrdinalValue;
     }
     if (locationContext != nullptr)
     {
