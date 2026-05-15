@@ -377,7 +377,7 @@ inline void getDumpEntryCollection(
 
                 thisEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
                 thisEntry["@odata.id"] =
-                    boost::urls::format("{}/{}", entriesPath, entryID);
+                    boost::urls::format("{}{}", entriesPath, entryID);
                 thisEntry["Id"] = entryID;
                 thisEntry["EntryType"] = "Event";
                 thisEntry["Name"] = dumpType + " Dump Entry";
@@ -394,7 +394,7 @@ inline void getDumpEntryCollection(
                 {
                     thisEntry["DiagnosticDataType"] = "Manager";
                     thisEntry["AdditionalDataURI"] = boost::urls::format(
-                        "{}/{}/attachment", entriesPath, entryID);
+                        "{}{}/attachment", entriesPath, entryID);
                     thisEntry["AdditionalDataSizeBytes"] = size;
                 }
                 else if (dumpType == "System")
@@ -402,7 +402,7 @@ inline void getDumpEntryCollection(
                     thisEntry["DiagnosticDataType"] = "OEM";
                     thisEntry["OEMDiagnosticDataType"] = "System";
                     thisEntry["AdditionalDataURI"] = boost::urls::format(
-                        "{}/{}/attachment", entriesPath, entryID);
+                        "{}{}/attachment", entriesPath, entryID);
                     thisEntry["AdditionalDataSizeBytes"] = size;
                 }
                 // NVIDIA code starts here
@@ -543,7 +543,7 @@ inline void getDumpEntryById(
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#LogEntry.v1_15_0.LogEntry";
                 asyncResp->res.jsonValue["@odata.id"] =
-                    boost::urls::format("{}/{}", entriesPath, entryID);
+                    boost::urls::format("{}{}", entriesPath, entryID);
                 asyncResp->res.jsonValue["Id"] = entryID;
                 asyncResp->res.jsonValue["EntryType"] = "Event";
                 asyncResp->res.jsonValue["Name"] = dumpType + " Dump Entry";
@@ -569,7 +569,7 @@ inline void getDumpEntryById(
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "Manager";
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        boost::urls::format("{}/{}/attachment", entriesPath,
+                        boost::urls::format("{}{}/attachment", entriesPath,
                                             entryID);
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
@@ -579,7 +579,7 @@ inline void getDumpEntryById(
                     asyncResp->res.jsonValue["OEMDiagnosticDataType"] =
                         "System";
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        boost::urls::format("{}/{}/attachment", entriesPath,
+                        boost::urls::format("{}{}/attachment", entriesPath,
                                             entryID);
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
