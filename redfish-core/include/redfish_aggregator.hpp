@@ -1168,9 +1168,8 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
-                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
-                aggregatorJsonDepthLimit);
+            std::optional<nlohmann::json> jsonVal =
+                parseStringAsJson(*resp.body());
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1231,9 +1230,8 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
-                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
-                aggregatorJsonDepthLimit);
+            std::optional<nlohmann::json> jsonVal =
+                parseStringAsJson(*resp.body());
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1363,9 +1361,8 @@ class RedfishAggregator
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
             bool addedLinks = false;
-            std::optional<nlohmann::json> jsonVal = parseStringAsJson(
-                *resp.body(), aggregatorJsonByteLimit, aggregatorJsonValueLimit,
-                aggregatorJsonDepthLimit);
+            std::optional<nlohmann::json> jsonVal =
+                parseStringAsJson(*resp.body());
             if (!jsonVal)
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");

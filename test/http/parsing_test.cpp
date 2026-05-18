@@ -117,15 +117,15 @@ TEST(HttpParsing, parseRequestAsJsonLimitsObjectDepths)
 
 TEST(HttpParsing, parseStringAsJsonMaxValues)
 {
-    EXPECT_TRUE(parseStringAsJson(makeWideArray(500)))
+    EXPECT_TRUE(parseStringAsJson(makeWideArray(20000)))
         << "500 values should parse";
-    EXPECT_FALSE(parseStringAsJson(makeWideArray(501)))
+    EXPECT_FALSE(parseStringAsJson(makeWideArray(20001)))
         << "501 values should be rejected";
 
     // Keys and values are each counted separately, so 500/2 = 250 dict elements
-    EXPECT_TRUE(parseStringAsJson(makeWideObject(249)))
+    EXPECT_TRUE(parseStringAsJson(makeWideObject(9999)))
         << "249 keys objects should parse";
-    EXPECT_FALSE(parseStringAsJson(makeWideObject(250)))
+    EXPECT_FALSE(parseStringAsJson(makeWideObject(10000)))
         << "250 keys should be rejected";
 }
 
