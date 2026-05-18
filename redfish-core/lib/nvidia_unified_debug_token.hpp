@@ -27,6 +27,7 @@
 #include "registries/privilege_registry.hpp"
 #include "update_service.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
 
@@ -258,12 +259,8 @@ inline void handleUnifiedTokenStatus(
     {
         return;
     }
-    uint32_t tokenId = 0;
-    try
-    {
-        tokenId = static_cast<uint32_t>(std::stoul(id));
-    }
-    catch (const std::invalid_argument&)
+    std::optional<uint64_t> parsedTokenId = stringToUint64(id);
+    if (!parsedTokenId)
     {
         messages::resourceNotFound(
             asyncResp->res,
@@ -272,6 +269,7 @@ inline void handleUnifiedTokenStatus(
             id);
         return;
     }
+    uint32_t tokenId = static_cast<uint32_t>(*parsedTokenId);
     std::string targetChassisId =
         std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
     unified::action::Handler::startOperation(

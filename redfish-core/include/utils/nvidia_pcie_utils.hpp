@@ -8,6 +8,7 @@
 #include "logging.hpp"
 #include "query.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 #include "utils/pcie_util.hpp"
@@ -692,12 +693,20 @@ static inline void getPCIeDeviceFunction(
                     .buffer();
         }
 
+        std::optional<int64_t> functionId = stringToInt64(function);
+        if (!functionId)
+        {
+            messages::resourceNotFound(
+                asyncResp->res, "#PCIeFunction.v1_2_0.PCIeFunction", function);
+            return;
+        }
+
         asyncResp->res.jsonValue = {
             {"@odata.type", "#PCIeFunction.v1_6_0.PCIeFunction"},
             {"@odata.id", pcieFunctionURI},
             {"Name", "PCIe Function"},
             {"Id", function},
-            {"FunctionId", std::stoi(function)},
+            {"FunctionId", *functionId},
             {"Links", {{"PCIeDevice", {{"@odata.id", pcieDeviceURI}}}}}};
 
         for (const auto& property : pcieDevProperties)

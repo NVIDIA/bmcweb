@@ -25,6 +25,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_cable_util.hpp"
 
 #include <boost/beast/http/verb.hpp>
@@ -277,12 +278,17 @@ inline void addNvidiaCableLinks(
         });
 }
 
-inline int assemblySuffixNumber(std::string_view assemblyName)
+inline int64_t assemblySuffixNumber(std::string_view assemblyName)
 {
     size_t pos = assemblyName.find_last_not_of("0123456789");
     if (pos != std::string::npos && pos < assemblyName.length() - 1)
     {
-        return std::stoi(std::string(assemblyName.substr(pos + 1)));
+        std::optional<int64_t> parsed =
+            stringToInt64(assemblyName.substr(pos + 1));
+        if (parsed)
+        {
+            return *parsed;
+        }
     }
     return 0;
 }

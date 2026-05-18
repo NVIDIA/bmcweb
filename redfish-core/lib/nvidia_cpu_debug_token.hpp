@@ -24,6 +24,7 @@
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/mctp_utils.hpp"
 
 #include <map>
@@ -398,23 +399,22 @@ inline void handleCpuDisableToken(
                     messages::internalError(aResp->res);
                     return;
                 }
-                try
-                {
-                    int vdmCode = std::stoi(bytes[mctpVdmUtilErrorCodeOffset]);
-                    if (vdmCode == 0)
-                    {
-                        messages::success(aResp->res);
-                        return;
-                    }
-                    messages::resourceErrorsDetectedFormatError(
-                        aResp->res, resUri, "VDM command error");
-                }
-                catch (std::exception&)
+                std::optional<int64_t> vdmCode =
+                    stringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
+                if (!vdmCode)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
                     messages::internalError(aResp->res);
+                    return;
                 }
+                if (*vdmCode == 0)
+                {
+                    messages::success(aResp->res);
+                    return;
+                }
+                messages::resourceErrorsDetectedFormatError(
+                    aResp->res, resUri, "VDM command error");
             });
     });
 }
@@ -636,24 +636,23 @@ inline void handleCpuInstallToken(
                     messages::internalError(asyncResp1->res);
                     return;
                 }
-                try
-                {
-                    int vdmCode = std::stoi(bytes[mctpVdmUtilErrorCodeOffset]);
-                    if (vdmCode == 0)
-                    {
-                        messages::success(asyncResp1->res);
-                        return;
-                    }
-                    messages::resourceErrorsDetectedFormatError(
-                        asyncResp1->res, resUri,
-                        getVdmDebugTokenInstallErrorDescription(vdmCode));
-                }
-                catch (std::exception&)
+                std::optional<int64_t> vdmCode =
+                    stringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
+                if (!vdmCode)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
                     messages::internalError(asyncResp1->res);
+                    return;
                 }
+                if (*vdmCode == 0)
+                {
+                    messages::success(asyncResp1->res);
+                    return;
+                }
+                messages::resourceErrorsDetectedFormatError(
+                    asyncResp1->res, resUri,
+                    getVdmDebugTokenInstallErrorDescription(*vdmCode));
             });
     });
 }

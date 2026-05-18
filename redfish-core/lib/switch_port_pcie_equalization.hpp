@@ -19,6 +19,7 @@
 #include "dbus_utility.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/pcie_util.hpp"
 
@@ -509,15 +510,12 @@ inline void requestRoutesPCIeEqualization(App& app)
                 {
                     const std::string& s =
                         txAmplitudeJson->get_ref<const std::string&>();
-                    try
+                    std::optional<uint64_t> parsed = stringToUint64(s);
+                    if (parsed && *parsed <= UINT32_MAX)
                     {
-                        unsigned long ul = std::stoul(s);
-                        if (ul <= UINT32_MAX)
-                        {
-                            txAmplitude = static_cast<uint32_t>(ul);
-                        }
+                        txAmplitude = static_cast<uint32_t>(*parsed);
                     }
-                    catch (const std::exception&)
+                    else
                     {
                         BMCWEB_LOG_DEBUG(
                             "Invalid TxAmplitude string value; falling back to type error");
