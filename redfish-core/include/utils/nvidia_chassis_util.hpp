@@ -2132,7 +2132,7 @@ inline void afterGetHostNetworkEnabled(
 
 inline void getChassisHostNetworkEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
+    const std::string& objPath, const boost::system::error_code& ec,
     const dbus::utility::MapperGetObject& object)
 {
     if (ec)
@@ -2142,10 +2142,24 @@ inline void getChassisHostNetworkEnable(
         return;
     }
     dbus::utility::getProperty<bool>(
-        object[0].first,
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-        "xyz.openbmc_project.Object.Enable", "Enabled",
-        std::bind_front(afterGetHostNetworkEnabled, asyncResp));
+        object[0].first, objPath, "xyz.openbmc_project.Object.Enable",
+        "Enabled", std::bind_front(afterGetHostNetworkEnabled, asyncResp));
+}
+
+inline void afterGetHostNetworkAccessEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        // Chassis does not own the host-NIC control; omit the property.
+        return;
+    }
+    dbus::utility::getDbusObject(
+        endpoints[0],
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Object.Enable"},
+        std::bind_front(getChassisHostNetworkEnable, asyncResp, endpoints[0]));
 }
 
 inline void setChassisWriteProtectProtectEnable(
@@ -2210,8 +2224,9 @@ inline void afterSetHostNetworkEnabled(
 
 inline void setChassisHostNetworkEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const bool value,
     const boost::system::error_code& ec,
-    const dbus::utility::MapperGetObject& object, const bool value)
+    const dbus::utility::MapperGetObject& object)
 {
     if (ec == boost::system::errc::io_error)
     {
@@ -2229,10 +2244,9 @@ inline void setChassisHostNetworkEnable(
     }
     std::function<void(const boost::system::error_code&)> handler =
         std::bind_front(afterSetHostNetworkEnabled, asyncResp);
-    dbus::utility::setProperty(
-        object[0].first,
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-        "xyz.openbmc_project.Object.Enable", "Enabled", value, handler);
+    dbus::utility::setProperty(object[0].first, objPath,
+                               "xyz.openbmc_project.Object.Enable", "Enabled",
+                               value, handler);
 }
 
 template <typename Callback>
@@ -2664,14 +2678,9 @@ inline void handleChassisGetAllProperties(
 
         if constexpr (BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS)
         {
-            dbus::utility::getDbusObject(
-                "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-                std::array<std::string_view, 1>{
-                    "xyz.openbmc_project.Object.Enable"},
-                [asyncResp](const boost::system::error_code& ec,
-                            const dbus::utility::MapperGetObject& object) {
-                    getChassisHostNetworkEnable(asyncResp, ec, object);
-                });
+            dbus::utility::getAssociationEndPoints(
+                path + "/host_management_network_access",
+                std::bind_front(afterGetHostNetworkAccessEndpoints, asyncResp));
         } // BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS
 
         if (pCIeReferenceClockCount != nullptr)
@@ -2799,16 +2808,33 @@ inline void oemChassisHardwareWriteProtectEnable(
         });
 }
 
-inline void oemChassisHostNetworkEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
+inline void afterSetHostNetworkAccessEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
 {
+    if (ec || endpoints.empty())
+    {
+        // Chassis does not own the host-NIC control; fail the write instead
+        // of reporting success for a property the BMC never set.
+        messages::propertyUnknown(asyncResp->res,
+                                  "HostManagementNetworkAccess");
+        return;
+    }
     dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+        endpoints[0],
         std::array<std::string_view, 1>{"xyz.openbmc_project.Object.Enable"},
-        [asyncResp, value](const boost::system::error_code& ec,
-                           const dbus::utility::MapperGetObject& object) {
-            setChassisHostNetworkEnable(asyncResp, ec, object, value);
-        });
+        std::bind_front(setChassisHostNetworkEnable, asyncResp, endpoints[0],
+                        value));
+}
+
+inline void oemChassisHostNetworkEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const bool value)
+{
+    dbus::utility::getAssociationEndPoints(
+        chassisPath + "/host_management_network_access",
+        std::bind_front(afterSetHostNetworkAccessEndpoints, asyncResp, value));
 }
 
 inline void getChassisAssetData(
@@ -3681,7 +3707,7 @@ inline void applyOemChassisPatch(
         if (hostNetworkEnable)
         {
             redfish::nvidia_chassis_utils::oemChassisHostNetworkEnable(
-                asyncResp, *hostNetworkEnable);
+                asyncResp, path, *hostNetworkEnable);
         }
         if (partNumber)
         {
