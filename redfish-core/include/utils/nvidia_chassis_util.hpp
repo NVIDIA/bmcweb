@@ -4013,7 +4013,7 @@ inline void checkAssociatedSKU(
                           const std::vector<std::string>& endpoints) {
             if (ec || endpoints.empty())
             {
-                BMCWEB_LOG_ERROR(
+                BMCWEB_LOG_DEBUG(
                     "No associated_SKU for {}, SKU not available: {}", path,
                     ec.message());
                 return;

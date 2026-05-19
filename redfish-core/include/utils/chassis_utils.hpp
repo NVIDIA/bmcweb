@@ -550,7 +550,7 @@ inline void getAssociationEndpoint(const std::string& objPath,
                             const std::vector<std::string>& resp) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR(
+                BMCWEB_LOG_DEBUG(
                     "D-Bus responses error: {} (busctl call {} {} {} Get ss {} endpoints)",
                     ec, dbus_utils::mapperBusName, objPath,
                     dbus_utils::propertyInterface,
@@ -561,7 +561,7 @@ inline void getAssociationEndpoint(const std::string& objPath,
 
             if (resp.empty())
             {
-                BMCWEB_LOG_ERROR(
+                BMCWEB_LOG_DEBUG(
                     "Data is empty (busctl call {} {} {} Get ss {} endpoints)",
                     dbus_utils::mapperBusName, objPath,
                     dbus_utils::propertyInterface,
