@@ -695,7 +695,8 @@ inline bool fillSensorIdentity(
      */
     if (!isExcerpt)
     {
-        std::string subNodeEscaped = getSensorId(sensorName, sensorType);
+        std::string subNodeEscaped =
+            redfish::nvidia_sensor_utils::getSensorId(sensorName, sensorType);
         // For sensors in SensorCollection we set Id instead of MemberId,
         // including power sensors.
         sensorJson["Id"] = std::move(subNodeEscaped);
