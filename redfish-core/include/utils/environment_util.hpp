@@ -674,12 +674,16 @@ inline void getPowerReadings(
 {
     // Add get sensor name  from power control
     dbus::utility::async_method_call(
-        [asyncResp, chassisID,
-         connectionName](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& resp) {
+        [asyncResp, chassisID, connectionName,
+         objPath](const boost::system::error_code& ec,
+                  std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("get power control sensor failed");
+                BMCWEB_LOG_DEBUG(
+                    "get power control sensor failed: service={}, interface={}, path={}, error={}",
+                    "xyz.openbmc_project.ObjectMapper",
+                    "xyz.openbmc_project.Association", objPath + "/sensor",
+                    ec.message());
                 return; // no endpoints = no failures
             }
             std::vector<std::string>* data =
@@ -735,8 +739,11 @@ inline void getDefaultPowerCap(
                 objInfo) {
             if (errorno)
             {
-                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
-                                 errorno);
+                BMCWEB_LOG_DEBUG(
+                    "ObjectMapper::GetObject call failed: service={}, interface={}, path={}, error={}",
+                    "xyz.openbmc_project.ObjectMapper",
+                    "com.nvidia.Common.ClearPowerCap", objPath,
+                    errorno.message());
                 return;
             }
 
@@ -1879,15 +1886,17 @@ inline void getMemoryEnvironmentMetricsDataByService(
             }
             const std::string& chassisId = chassisName;
             dbus::utility::async_method_call(
-                [aResp, service, chassisId, isSupportPowerLimit](
+                [aResp, service, chassisId, objPath, isSupportPowerLimit](
                     const boost::system::error_code& e,
                     std::variant<std::vector<std::string>>& sensorResp) {
                     if (e)
                     {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
-                        return;
+                        BMCWEB_LOG_DEBUG(
+                            "Failed to get all_sensors for memory env metrics: service={}, interface={}, path={}, error={}",
+                            "xyz.openbmc_project.ObjectMapper",
+                            "xyz.openbmc_project.Association",
+                            objPath + "/all_sensors", e.message());
+                        return; // no endpoints = no failures
                     }
                     std::vector<std::string>* sensorData =
                         std::get_if<std::vector<std::string>>(&sensorResp);

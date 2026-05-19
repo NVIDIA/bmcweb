@@ -329,7 +329,7 @@ inline void requestAssemblyRoutes(App& app)
                                                                               {"xyz.openbmc_project.Inventory.Item.Assembly"};
                                                                       if (ec1)
                                                                       {
-                                                                          BMCWEB_LOG_ERROR(
+                                                                          BMCWEB_LOG_DEBUG(
                                                                               "Chassis and assembly are not connected through association. ec : {}",
                                                                               ec1);
 

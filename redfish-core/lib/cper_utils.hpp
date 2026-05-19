@@ -182,7 +182,7 @@ inline std::optional<boost::urls::url> handleOriginCondition(
         return origin;
     }
 
-    BMCWEB_LOG_ERROR("OriginOfCondition not supported");
+    BMCWEB_LOG_DEBUG("OriginOfCondition not supported");
     return std::nullopt;
 }
 
@@ -298,7 +298,7 @@ inline void parseAdditionalDataForCPER(
 
         if (!origin)
         {
-            BMCWEB_LOG_ERROR(
+            BMCWEB_LOG_DEBUG(
                 "OriginOfCondition RF property not found in CPER log");
         }
         else

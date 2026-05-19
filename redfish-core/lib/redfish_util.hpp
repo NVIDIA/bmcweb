@@ -366,16 +366,15 @@ inline void getComponentFirmwareVersion(
     dbus::utility::getProperty<std::vector<std::string>>(
         serviceObjectMapper, objectPath + "/parent_chassis",
         "xyz.openbmc_project.Association", "endpoints",
-        [serviceObjectMapper,
+        [serviceObjectMapper, objectPath,
          asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& innerObjPaths) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR(
-                    "getComponentFirmwareVersion getProperty parent_chassis DBUS error");
-                BMCWEB_LOG_ERROR("error_code = ", ec);
-                BMCWEB_LOG_ERROR("error msg = ", ec.message());
-
+                BMCWEB_LOG_DEBUG(
+                    "getComponentFirmwareVersion getProperty parent_chassis DBUS error: service={}, interface={}, path={}, error={} ({})",
+                    serviceObjectMapper, "xyz.openbmc_project.Association",
+                    objectPath + "/parent_chassis", ec.message(), ec.value());
                 return;
             }
 

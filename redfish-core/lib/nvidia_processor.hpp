@@ -887,9 +887,12 @@ inline void getProcessorChassisLink(
                           std::variant<std::vector<std::string>>& resp1) {
                     if (getEndpointsError)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Chassis {} has no connected PCIe devices",
-                            chassisName);
+                        BMCWEB_LOG_DEBUG(
+                            "Chassis {} has no connected PCIe devices: service={}, interface={}, path={}, error={}",
+                            chassisName, "xyz.openbmc_project.ObjectMapper",
+                            "xyz.openbmc_project.Association",
+                            chassisPath + "/pciedevice",
+                            getEndpointsError.message());
                         return; // no pciedevices = no failures
                     }
                     std::vector<std::string>* data1 =
