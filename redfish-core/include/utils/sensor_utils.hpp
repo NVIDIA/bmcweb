@@ -695,8 +695,7 @@ inline bool fillSensorIdentity(
      */
     if (!isExcerpt)
     {
-        std::string subNodeEscaped =
-            redfish::nvidia_sensor_utils::getSensorId(sensorName, sensorType);
+        std::string subNodeEscaped = getSensorId(sensorName, sensorType);
         // For sensors in SensorCollection we set Id instead of MemberId,
         // including power sensors.
         sensorJson["Id"] = std::move(subNodeEscaped);
@@ -906,6 +905,20 @@ inline void mapPropertiesBySubnode(
         properties.emplace_back(
             "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
             "HardShutdownLow", "/Thresholds/LowerFatal/Reading"_json_pointer);
+        // Downstream sensor properties dropped during upstream sync.
+        // ReadingBasis/PeakReading*/PeakReadingTime also have upstream
+        // code paths (lines 343-368 and 730-738); both writers run, last
+        // wins. ReadingTime/Description have no replacement path.
+        properties.emplace_back("xyz.openbmc_project.Time.EpochTime", "Elapsed",
+                                "/ReadingTime"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.ReadingBasis",
+                                "ReadingBasis", "/ReadingBasis"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.Description",
+                                "Description", "/Description"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
+                                "PeakValue", "/PeakReading"_json_pointer);
+        properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
+                                "Timestamp", "/PeakReadingTime"_json_pointer);
     }
     else if (sensorType != "power")
     {

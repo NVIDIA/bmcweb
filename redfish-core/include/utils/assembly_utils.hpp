@@ -128,9 +128,12 @@ inline void getChassisAssembly(
 {
     BMCWEB_LOG_DEBUG("Get ChassisAssembly");
 
+    // Downstream NVIDIA inventory providers publish the chassis->assemblies
+    // link as the "assembly" forward association; upstream defaults to
+    // "containing" which is empty on this hardware.
     dbus::utility::getAssociatedSubTreePathsById(
         chassisId, "/xyz/openbmc_project/inventory", chassisInterfaces,
-        "containing", assemblyInterfaces,
+        "assembly", assemblyInterfaces,
         std::bind_front(afterGetChassisAssembly, asyncResp, chassisId,
                         std::move(callback)));
 }
