@@ -50,7 +50,7 @@ static void isComponentEnabled(
     const std::function<void()>& callback);
 
 const std::array<std::string_view, 1> trustedComponentInterfaces = {
-    "xyz.openbmc_project.Inventory.Item.Tpm"};
+    "xyz.openbmc_project.Inventory.Item.TrustedComponent"};
 
 /**
  * @brief Structure to hold certificate-related data
