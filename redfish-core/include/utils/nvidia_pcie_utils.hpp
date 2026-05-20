@@ -18,6 +18,8 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cstdint>
+#include <format>
 #include <optional>
 #include <string>
 #include <variant>
@@ -776,11 +778,11 @@ static inline void getPCIeDeviceFunction(
             }
             else if (propertyName == "Function" + function + "BusNumber")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
+                const uint8_t* value = std::get_if<uint8_t>(&property.second);
                 if (value != nullptr)
                 {
-                    asyncResp->res.jsonValue["BusNumber"] = *value;
+                    asyncResp->res.jsonValue["BusNumber"] =
+                        std::format("0x{:02x}", *value);
                 }
             }
         }
