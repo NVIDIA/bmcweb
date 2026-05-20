@@ -1758,6 +1758,13 @@ inline void queryAllSensorsForProcessorMetrics(
             }
             for (const std::string& sensorPath : *data)
             {
+                // Only query sensors relevant to EnvironmentMetrics
+                if (sensorPath.find("/temperature/") == std::string::npos &&
+                    sensorPath.find("/power/") == std::string::npos &&
+                    sensorPath.find("/energy/") == std::string::npos)
+                {
+                    continue;
+                }
                 // Skip temperature sensors if primary was found
                 // to avoid overwriting the correct DataSourceUri
                 if (skipTemperatureSensors &&
@@ -1907,6 +1914,14 @@ inline void getMemoryEnvironmentMetricsDataByService(
                     const std::string resourceType = "Memory";
                     for (const std::string& sensorPath : *sensorData)
                     {
+                        // Only query sensors relevant to EnvironmentMetrics
+                        if (sensorPath.find("/temperature/") ==
+                                std::string::npos &&
+                            sensorPath.find("/power/") == std::string::npos &&
+                            sensorPath.find("/energy/") == std::string::npos)
+                        {
+                            continue;
+                        }
                         getSensorDataByService(aResp, service, chassisId,
                                                sensorPath, resourceType,
                                                isSupportPowerLimit);
