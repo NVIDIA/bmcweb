@@ -1302,39 +1302,22 @@ inline void handleChassisResetActionInfoPost(
     }
     BMCWEB_LOG_DEBUG("Post Chassis Reset.");
 
-    // Handle chassis reset with EROT detection
-    if constexpr (BMCWEB_EROT_RESET)
+    std::string resetType;
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
     {
-        redfish::nvidia_chassis_utils::isEROTChassis(
-            chassisId,
-            [&req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
-                if (isEROT)
-                {
-                    handleEROTChassisResetAction(req, asyncResp, chassisId);
-                }
-            });
+        return;
     }
-    else
+
+    if (resetType != "PowerCycle")
     {
-        std::string resetType;
-
-        if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
-                                       resetType))
-        {
-            return;
-        }
-
-        if (resetType != "PowerCycle")
-        {
-            BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
-                             resetType);
-            messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                                  "ResetType");
-            return;
-        }
-
-        redfish::nvidia_chassis::powerCycle(asyncResp);
+        BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
+        messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                              "ResetType");
+        return;
     }
+
+    redfish::nvidia_chassis::powerCycle(asyncResp);
 }
 
 inline void handleOemChassisResetActionInfoPost(

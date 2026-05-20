@@ -59,13 +59,6 @@ option(
 )
 
 option(
-    'erot-reset',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable/disable ERoT reset option',
-)
-
-option(
     'vm-nbdproxy',
     type: 'feature',
     value: 'disabled',
@@ -410,7 +403,7 @@ option(
     min: 0,
     max: 512,
     value: 30,
-    description: 'Specifies the http request body length limit',
+    description: 'Specifies the http request body length limit in MiB.',
 )
 
 # BMCWEB_FIRMWARE_IMAGE_LIMIT
@@ -1005,6 +998,12 @@ option(
     description: 'Enable OpenOCD service.',
 )
 option(
+    'nvidia-oem-openocd-port-forward',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish-controlled OpenOCD port forward backend.',
+)
+option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
     value: 'disabled',
@@ -1323,6 +1322,17 @@ option(
 )
 
 option(
+    'preboot-diag-support',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Switches the CPU-diagnostic Enable/Disable handlers
+    to the Vera flow (D-Bus to com.nvidia.PreBootDiag); disabled keeps the
+    Grace flow (systemctl + Settings DiagMode). Does not add or remove
+    routes; route registration is gated by cpu-diag-support, which must
+    also be enabled.''',
+)
+
+option(
     'command-smbpbi-oob',
     type: 'feature',
     value: 'enabled',
@@ -1409,6 +1419,14 @@ option(
     type: 'feature',
     value: 'disabled',
     description: 'Enable DOT keyd Redfish endpoints for CAK management',
+)
+
+# BMCWEB_NVIDIA_OEM_L1RESET
+option(
+    'nvidia-oem-l1reset',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish OEM action to issue an L1 SW main reset to a Vera CPU.',
 )
 
 # BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE

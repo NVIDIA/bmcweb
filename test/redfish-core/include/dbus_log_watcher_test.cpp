@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -18,7 +19,8 @@ TEST(DBusLogWatcher, EventLogObjectFromDBusSuccess)
 {
     const DBusPropertiesMap propMapStub = {
         {"AdditionalData",
-         DbusVariantType(std::vector<std::string>{"KEY=VALUE"})},
+         DbusVariantType(std::vector<std::pair<std::string, std::string>>{
+             {"KEY", "VALUE"}})},
         {"EventId", DbusVariantType("")},
         {"Id", DbusVariantType(static_cast<uint32_t>(1838))},
 
@@ -56,7 +58,8 @@ TEST(DBusLogWatcher, EventLogObjectFromDBusFailMissingProperty)
     // missing 'Resolved'
     const DBusPropertiesMap propMapWrong = {
         {"AdditionalData",
-         DbusVariantType(std::vector<std::string>{"KEY=VALUE"})},
+         DbusVariantType(std::vector<std::pair<std::string, std::string>>{
+             {"KEY", "VALUE"}})},
         {"EventId", DbusVariantType("")},
         {"Id", DbusVariantType(static_cast<uint32_t>(1838))},
         {"Message", DbusVariantType("")},

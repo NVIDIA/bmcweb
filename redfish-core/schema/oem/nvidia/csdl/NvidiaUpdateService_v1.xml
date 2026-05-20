@@ -32,6 +32,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a UpdateService resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a UpdateService resource."/>
+      </ComplexType>
       <ComplexType Name="UpdateParameters" Abstract="true"/>
       <Action Name="CommitImage" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to commit all applicable image components into storage."/>
@@ -54,7 +59,7 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <Annotation Term="OData.Description" String="This version was created to add a link to PersistentStorage resource."/>
-      <ComplexType Name="NvidiaUpdateService">
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.NvidiaUpdateService">
         <NavigationProperty Name="PersistentStorage" Type="NvidiaPersistentStorage.NvidiaPersistentStorage" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to the persistent storage resource."/>

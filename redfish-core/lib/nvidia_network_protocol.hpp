@@ -29,6 +29,67 @@ namespace redfish
 using AuthMethod =
     std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
+constexpr const char* openocdPortForwardService =
+    "com.nvidia.openocdportforward";
+constexpr const char* openocdPortForwardPath = "/com/nvidia/openocdportforward";
+constexpr const char* openocdPortForwardInterface =
+    "xyz.openbmc_project.Object.Enable";
+constexpr const char* openocdPortForwardProperty = "Enabled";
+
+inline void afterGetOemNvidiaOpenOCDPortForwardEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const bool& enabled)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to read {}: {}", openocdPortForwardProperty,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCDPortForward"]["Enable"] =
+        enabled;
+}
+
+inline void getOemNvidiaOpenOCDPortForward(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        openocdPortForwardInterface};
+
+    dbus::utility::getDbusObject(
+        openocdPortForwardPath, interfaces,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetObject& mapperResponse) {
+            if (ec || mapperResponse.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "OpenOCDPortForward backend not registered: {}",
+                    ec.message());
+                return;
+            }
+            const std::string& service = mapperResponse[0].first;
+            dbus::utility::getProperty<bool>(
+                service, openocdPortForwardPath, openocdPortForwardInterface,
+                openocdPortForwardProperty,
+                [asyncResp](const boost::system::error_code& ec2,
+                            const bool& enabled) {
+                    afterGetOemNvidiaOpenOCDPortForwardEnabled(asyncResp, ec2,
+                                                               enabled);
+                });
+        });
+}
+
+inline void setOemNvidiaOpenOCDPortForward(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
+{
+    setDbusProperty(asyncResp, "Oem/Nvidia/OpenOCDPortForward/Enable",
+                    openocdPortForwardService,
+                    sdbusplus::message::object_path(openocdPortForwardPath),
+                    openocdPortForwardInterface, openocdPortForwardProperty,
+                    value);
+}
+
 static constexpr std::string_view sshAuthPolicyIface =
     "com.nvidia.User.AccountPolicy";
 static constexpr std::string_view sshAuthPolicyPath =

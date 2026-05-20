@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPowerSmoothing   v1.3.0                                   -->
+<!--# Redfish OEM Schema:  NvidiaPowerSmoothing   v1.4.0                                   -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -19,6 +19,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -283,6 +284,15 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The maximum allowed percentage change in AC power per second."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed percentage change in AC power per second."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_4_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `MaxACPowerRampRateWattsPerSecond` property, which expresses the maximum AC power ramp rate in watts per second."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="PowerSmoothingEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -303,6 +313,18 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Indicates whether the State of Charge (SoC) power brake feature is enabled."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the State of Charge (SoC) power brake feature is enabled."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing"/>
+      <ComplexType Name="StateOfChargeFeatures" BaseType="NvidiaPowerSmoothing.v1_3_0.StateOfChargeFeatures">
+        <Property Name="MaxACPowerRampRateWattsPerSecond" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="OData.Description" String="The maximum allowed rate of change of AC power in watts per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed rate of change of AC power draw, expressed in watts per second."/>
         </Property>
       </ComplexType>
     </Schema>

@@ -23,6 +23,7 @@
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_fabric.hpp"
+#include "nvidia_fabric_config_update.hpp"
 #include "nvidia_leak_detector.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_log_services_debug_token.hpp"
@@ -42,6 +43,7 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_oem_dpu.hpp"
+#include "nvidia_oem_l1reset.hpp"
 #include "nvidia_oem_managed_entity.hpp"
 #include "nvidia_oem_managed_entity_group.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
@@ -277,6 +279,7 @@ void requestRoutesNvidia(crow::App& app)
 
     requestRoutesFabricCollection(app);
     requestRoutesFabric(app);
+    requestRoutesNvidiaConfigFile(app);
     requestRoutesSwitchCollection(app);
     requestRoutesSwitch(app);
     requestRoutesNVSwitchReset(app);
@@ -375,6 +378,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
         requestRoutesSystemsCPUDiag(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
+    {
+        requestRoutesSystemsOemNvidiaL1Reset(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

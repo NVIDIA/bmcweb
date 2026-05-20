@@ -1280,7 +1280,7 @@ inline void updateIrreversibleConfigEnabled(
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
+                        "#NvidiaChassis.v1_12_0.NvidiaRoTChassis";
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                             ["IrreversibleConfigEnabled"] =
                         property;
@@ -1480,15 +1480,46 @@ inline void handleSetIrreversibleConfigAction(
     setIrreversibleConfig(asyncResp, chassisId, state);
 }
 
-inline void handleUpdateMinSecVersionActionInfo(
-    App& app, const crow::Request& req,
+inline void afterGetSubTreeUpdateMinSecVersionActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
+    const std::string& chassisId, const std::string& componentId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    if (ec)
     {
+        BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec, ec.message());
+        messages::internalError(asyncResp->res);
         return;
     }
+
+    if (subtree.empty())
+    {
+        BMCWEB_LOG_WARNING("Chassis {} not found (subtree empty)", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    auto dbusComponentId = componentId == "Self" ? chassisId : componentId;
+    bool found = false;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() == dbusComponentId)
+        {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+    {
+        BMCWEB_LOG_ERROR("Slot entry not found for {}.{}", chassisId,
+                         dbusComponentId);
+        messages::resourceNotFound(asyncResp->res,
+                                   "NvidiaRoTProtectedComponent", componentId);
+        return;
+    }
+
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}"
         "/UpdateMinimumSecurityVersionActionInfo",
@@ -1506,6 +1537,23 @@ inline void handleUpdateMinSecVersionActionInfo(
     parameter2["Required"] = false;
     parameter2["DataType"] = "Number";
     asyncResp->res.jsonValue["Parameters"] = {parameter1, parameter2};
+}
+
+inline void handleUpdateMinSecVersionActionInfo(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    dbus::utility::getSubTree(
+        sdbusplus::message::object_path(chassisDbusPath) / chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
+        std::bind_front(afterGetSubTreeUpdateMinSecVersionActionInfo, asyncResp,
+                        chassisId, componentId));
 }
 
 inline void handleupdateMinSecVersionResponse(
@@ -1718,16 +1766,50 @@ inline void handleUpdateMinSecVersionAction(
                              reqMinSecVersion, nonce);
 }
 
-inline void handleRevokeKeysActionInfo(
-    App& app, const crow::Request& req,
+inline void afterGetSubTreeRevokeKeysActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*unused*/, const std::string& /*unused*/)
+    const std::string& chassisId, const std::string& componentId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    if (ec)
     {
+        BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec, ec.message());
+        messages::internalError(asyncResp->res);
         return;
     }
-    asyncResp->res.jsonValue["@odata.id"] = req.url();
+
+    if (subtree.empty())
+    {
+        BMCWEB_LOG_WARNING("Chassis {} not found (subtree empty)", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    auto dbusComponentId = componentId == "Self" ? chassisId : componentId;
+    bool found = false;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() == dbusComponentId)
+        {
+            found = true;
+            break;
+        }
+    }
+    if (!found)
+    {
+        BMCWEB_LOG_ERROR("Slot entry not found for {}.{}", chassisId,
+                         dbusComponentId);
+        messages::resourceNotFound(asyncResp->res,
+                                   "NvidiaRoTProtectedComponent", componentId);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents"
+        "/{}/RevokeKeysActionInfo",
+        chassisId, componentId);
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
     asyncResp->res.jsonValue["Id"] = "RevokeKeysActionInfo";
     asyncResp->res.jsonValue["Name"] = "Revoke Keys ActionInfo";
@@ -1745,6 +1827,23 @@ inline void handleRevokeKeysActionInfo(
     parameters.emplace_back(std::move(keyIndexes));
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
+inline void handleRevokeKeysActionInfo(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    dbus::utility::getSubTree(
+        sdbusplus::message::object_path(chassisDbusPath) / chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
+        std::bind_front(afterGetSubTreeRevokeKeysActionInfo, asyncResp,
+                        chassisId, componentId));
 }
 
 inline void handleRevokeKeysResponse(

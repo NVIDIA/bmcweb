@@ -23,10 +23,15 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaMemoryMetrics" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a MemoryMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a MemoryMetrics resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMemoryMetrics">
+      <ComplexType Name="NvidiaMemoryMetrics" BaseType="NvidiaMemoryMetrics.NvidiaMemoryMetrics">
         <Property Name="RowRemapping" Type="NvidiaMemoryMetrics.v1_0_0.RowRemapping" Nullable="false">
           <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
@@ -50,26 +55,11 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaGPUMemoryMetrics">
-        <Property Name="RowRemapping" Type="NvidiaMemoryMetrics.v1_1_0.RowRemapping" Nullable="false">
-          <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
-        </Property>
-      </ComplexType>
-      <ComplexType Name="RowRemapping">
+      <ComplexType Name="NvidiaGPUMemoryMetrics" BaseType="NvidiaMemoryMetrics.v1_0_0.NvidiaMemoryMetrics"/>
+      <ComplexType Name="RowRemapping" BaseType="NvidiaMemoryMetrics.v1_0_0.RowRemapping">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
         <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
-        <Property Name="CorrectableRowRemappingCount" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total number of row-remapping due to correctable errors for this device."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of row-remapping due to correctable errors for this device."/>
-        </Property>
-        <Property Name="UncorrectableRowRemappingCount" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total number of row-remapping due to uncorrectable errors for this device."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of row-remapping due to uncorrectable errors for this device."/>
-        </Property>
         <Property Name="MaxAvailablityBankCount" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The number of banks with the maximum remapping availability."/>

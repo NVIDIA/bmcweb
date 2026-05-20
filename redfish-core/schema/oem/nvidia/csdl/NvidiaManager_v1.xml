@@ -40,6 +40,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Manager resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Manager resource."/>
+      </ComplexType>
       <Action Name="ResetToDefaults" IsBound="true">
         <Annotation Term="OData.Description" String="The reset action resets the manager settings to factory defaults as specified by NVIDIA."/>
         <Annotation Term="OData.LongDescription" String="This action shall reset the manager settings to factory defaults as specified by NVIDIA.  This action will delete all log entries and diagnostic data."/>
@@ -260,7 +265,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaManager">
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.NvidiaManager">
         <Property Name="FirmwareBuildType" Type="NvidiaManager.v1_0_0.FirmwareBuildType">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The build type of the firmware associated with the manager."/>
@@ -475,7 +480,7 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether OpenOCD service is enabled.  The default value is `false`."/>
         </Property>
       </ComplexType>
-      <ComplexType Name="NvidiaFabricManager">
+      <ComplexType Name="NvidiaFabricManager" BaseType="NvidiaManager.NvidiaManager">
         <Property Name="FabricManagerState" Type="NvidiaManager.v1_4_0.FabricManagerState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Fabric Manager state."/>

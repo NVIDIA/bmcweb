@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <ranges>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>

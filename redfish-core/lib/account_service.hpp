@@ -1326,6 +1326,8 @@ inline void handleAccountServiceClientCertificatesGet(
     json["Name"] = "MultiFactorAuth Certificates Collection";
     json["Description"] =
         "A Collection of MultiFactorAuth certificate instances";
+    json["Members"] = nlohmann::json::array();
+    json["Members@odata.count"] = 0;
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
@@ -2185,7 +2187,20 @@ inline void handleAccountDelete(
         messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
         return;
     }
-    sdbusplus::object_path tempObjPath(rootUserDbusPath);
+
+    if (req.session == nullptr)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (username == req.session->username)
+    {
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+
+    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 

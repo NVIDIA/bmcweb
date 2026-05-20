@@ -180,7 +180,7 @@ struct Request
             return false;
         }
         urlBase = *result;
-        return true;
+        return !bmcweb::hasOversizedQueryParam(urlBase);
     }
 };
 

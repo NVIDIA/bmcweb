@@ -33,6 +33,9 @@ inline void afterSetRecoveryModeInterfacesFound(
 {
     if (ec)
     {
+        BMCWEB_LOG_ERROR("getSubTree failed for chassisId {}: {}", chassisId,
+                         ec.message());
+        messages::internalError(asyncResp->res);
         return;
     }
 
@@ -48,9 +51,6 @@ inline void afterSetRecoveryModeInterfacesFound(
     std::string service;
     for (const auto& [path, serviceMap] : paths)
     {
-        BMCWEB_LOG_ERROR(
-            "SetRecoveryMode interface found for chassisId: {}, path: {}, service: {}",
-            chassisId, path, serviceMap.front().first);
         if (std::filesystem::path(path).filename() == chassisId)
         {
             objPathCount++;
@@ -59,19 +59,18 @@ inline void afterSetRecoveryModeInterfacesFound(
         }
     }
 
-    if (objPathCount != 1)
+    if (objectPath.empty())
     {
-        BMCWEB_LOG_ERROR(
-            "Multiple SetRecoveryMode interface object paths {} found for chassisId: {}",
-            objPathCount, chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
 
-    if (objectPath.empty() || service.empty())
+    if (objPathCount > 1)
     {
         BMCWEB_LOG_ERROR(
-            "SetRecoveryMode interface object path {} or service {} not found for chassisId: {}",
-            objectPath, service, chassisId);
+            "Multiple SetRecoveryMode interface object paths ({}) found for chassisId: {}",
+            objPathCount, chassisId);
+        messages::internalError(asyncResp->res);
         return;
     }
 

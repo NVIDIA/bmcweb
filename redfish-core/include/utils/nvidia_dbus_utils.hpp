@@ -390,9 +390,49 @@ inline std::string toLocationType(const std::string& location)
         return "Connector";
     }
     if (location ==
+        "xyz.openbmc_project.Inventory.Decorator.Location.LocationTypes.Bay")
+    {
+        return "Bay";
+    }
+    if (location ==
         "xyz.openbmc_project.Inventory.Decorator.Location.LocationTypes.Unknown")
     {
         return "Unknown";
+    }
+    return "";
+}
+
+inline std::string toOrientation(const std::string& orientation)
+{
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.FrontToBack")
+    {
+        return "FrontToBack";
+    }
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.BackToFront")
+    {
+        return "BackToFront";
+    }
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.TopToBottom")
+    {
+        return "TopToBottom";
+    }
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.BottomToTop")
+    {
+        return "BottomToTop";
+    }
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.LeftToRight")
+    {
+        return "LeftToRight";
+    }
+    if (orientation ==
+        "xyz.openbmc_project.Inventory.Decorator.LocationOrdinal.Orientations.RightToLeft")
+    {
+        return "RightToLeft";
     }
     return "";
 }

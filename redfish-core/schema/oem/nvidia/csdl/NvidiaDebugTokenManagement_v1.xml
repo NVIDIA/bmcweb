@@ -230,17 +230,6 @@
             </Collection>
           </Annotation>
         </Member>
-        <Member Name="RAS">
-          <Annotation Term="OData.Description" String="RAS token type dedicated to reliability, availability, and serviceability debug, test, and validation features for supported platform components."/>
-          <Annotation Term="Redfish.Revisions">
-            <Collection>
-              <Record>
-                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
-                <PropertyValue Property="Version" String="v1_1_0"/>
-              </Record>
-            </Collection>
-          </Annotation>
-        </Member>
         <Member Name="SMADebugCapability">
           <Annotation Term="OData.Description" String="SMA debug capability token type for the system management adapter. Unlocks firmware debug and diagnostic features on the SMA that are normally disabled in production."/>
           <Annotation Term="Redfish.Revisions">
@@ -669,7 +658,7 @@
             </Collection>
           </Annotation>
         </Member>
-        <Member Name="BpmpFirmwareDebugfs">
+        <Member Name="BpmpFirmwareDebugFS">
           <Annotation Term="OData.Description" String="BPMP Firmware DebugFS subtype under the firmware debug knobs token type. Exposes BPMP Firmware DebugFS file system interfaces used by authorized tools for deep firmware inspection."/>
           <Annotation Term="Redfish.Revisions">
             <Collection>
@@ -769,7 +758,7 @@
           </Annotation>
         </Member>
         <Member Name="RasTest">
-          <Annotation Term="OData.Description" String="RAS test subtype under the SMA debug capability token type. Enables reliability and serviceability test modes used to validate MCU RAS behaviors in controlled environments."/>
+          <Annotation Term="OData.Description" String="RAS test subtype under the SMA debug capability token type. Enables reliability and serviceability test modes used to validate RAS behaviors on the SMA in controlled environments."/>
           <Annotation Term="Redfish.Revisions">
             <Collection>
               <Record>

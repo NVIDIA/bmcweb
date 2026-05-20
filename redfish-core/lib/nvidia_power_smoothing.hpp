@@ -476,7 +476,7 @@ inline void getProcessorPowerSmoothingControlData(
 }
 
 /**
- * @brief Get StateOfChargeFeatures (MaxACPowerRampPercentPerSecond,
+ * @brief Get StateOfChargeFeatures (MaxACPowerRampRateWattsPerSecond,
  * PowerSmoothingEnabled) from processor object and add to PowerSmoothing JSON.
  */
 inline void getProcessorPowerSmoothingStateOfChargeFeatures(
@@ -498,17 +498,17 @@ inline void getProcessorPowerSmoothingStateOfChargeFeatures(
             nlohmann::json& soc = aResp->res.jsonValue["StateOfChargeFeatures"];
             for (const auto& [name, value] : properties)
             {
-                if (name == "MaxACPowerRampPercentPerSecond")
+                if (name == "MaxACPowerRampRateWattsPerSecond")
                 {
-                    const double* v = std::get_if<double>(&value);
+                    const uint32_t* v = std::get_if<uint32_t>(&value);
                     if (v == nullptr)
                     {
                         BMCWEB_LOG_ERROR(
-                            "MaxACPowerRampPercentPerSecond has invalid type");
+                            "MaxACPowerRampRateWattsPerSecond has invalid type");
                         messages::internalError(aResp->res);
                         return;
                     }
-                    soc["MaxACPowerRampPercentPerSecond"] = *v;
+                    soc["MaxACPowerRampRateWattsPerSecond"] = *v;
                 }
                 else if (name == "PowerSmoothingEnabled")
                 {
@@ -559,7 +559,7 @@ inline void getProcessorPowerSmoothingData(
                 pwrSmoothingURI += processorId;
                 pwrSmoothingURI += "/Oem/Nvidia/PowerSmoothing";
                 aResp->res.jsonValue["@odata.type"] =
-                    "#NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing";
+                    "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing";
                 aResp->res.jsonValue["@odata.id"] = pwrSmoothingURI;
                 aResp->res.jsonValue["Id"] = "PowerSmoothing";
                 aResp->res.jsonValue["Name"] = processorId + " Power Smoothing";
@@ -1251,17 +1251,17 @@ inline void patchPowerSmoothingFeature(
 }
 
 /**
- * @brief PATCH StateOfChargeFeatures (MaxACPowerRampPercentPerSecond,
+ * @brief PATCH StateOfChargeFeatures (MaxACPowerRampRateWattsPerSecond,
  * PowerSmoothingEnabled) on processor PowerSmoothing. Same object path as
  * other processor PowerSmoothing interfaces.
  */
 inline void patchProcessorStateOfChargeFeatures(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& processorId,
-    const std::optional<double>& maxAcPowerRampPercentPerSecond,
+    const std::optional<uint32_t>& maxAcPowerRampRateWattsPerSecond,
     const std::optional<bool>& powerSmoothingEnabled)
 {
-    if (!maxAcPowerRampPercentPerSecond && !powerSmoothingEnabled)
+    if (!maxAcPowerRampRateWattsPerSecond && !powerSmoothingEnabled)
     {
         return;
     }
@@ -1272,7 +1272,7 @@ inline void patchProcessorStateOfChargeFeatures(
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        [aResp, processorId, maxAcPowerRampPercentPerSecond,
+        [aResp, processorId, maxAcPowerRampRateWattsPerSecond,
          powerSmoothingEnabled, stateOfChargeIface](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -1307,12 +1307,12 @@ inline void patchProcessorStateOfChargeFeatures(
                 }
                 const std::string& service = *servicePtr;
                 const std::string iface(stateOfChargeIface);
-                if (maxAcPowerRampPercentPerSecond)
+                if (maxAcPowerRampRateWattsPerSecond)
                 {
                     nvidia_async_operation_utils::patch(
                         aResp, service, path, iface,
-                        "MaxACPowerRampPercentPerSecond",
-                        *maxAcPowerRampPercentPerSecond);
+                        "MaxACPowerRampRateWattsPerSecond",
+                        *maxAcPowerRampRateWattsPerSecond);
                 }
                 if (powerSmoothingEnabled)
                 {
@@ -1741,7 +1741,7 @@ inline void chassisPowerSmoothingOnGetObject(
     if (ecObj || object.empty())
     {
         messages::resourceNotFound(
-            aResp->res, "#NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing",
+            aResp->res, "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing",
             chassisId);
         return;
     }
@@ -1779,7 +1779,7 @@ inline void chassisPowerSmoothingOnSubTreePaths(
         return;
     }
     messages::resourceNotFound(
-        aResp->res, "#NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing",
+        aResp->res, "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing",
         chassisId);
 }
 
@@ -1811,7 +1811,7 @@ inline void getChassisPowerSmoothingService(
 
 /**
  * @brief GET chassis PowerSmoothing (SOC StateOfChargeFeatures) data.
- * Fills JSON with #NvidiaPowerSmoothing.v1_3_0 schema.
+ * Fills JSON with #NvidiaPowerSmoothing.v1_4_0 schema.
  */
 inline void getChassisPowerSmoothingData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -1839,19 +1839,19 @@ inline void getChassisPowerSmoothingData(
                         "/redfish/v1/Chassis/" + chassisId;
                     json["@odata.id"] = baseUri + "/Oem/Nvidia/PowerSmoothing";
                     json["@odata.type"] =
-                        "#NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing";
+                        "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing";
                     json["Id"] = "PowerSmoothing";
                     json["Name"] = chassisId + " Oem Nvidia PowerSmoothing";
 
                     nlohmann::json& soc = json["StateOfChargeFeatures"];
                     for (const auto& [name, value] : properties)
                     {
-                        if (name == "MaxACPowerRampPercentPerSecond")
+                        if (name == "MaxACPowerRampRateWattsPerSecond")
                         {
-                            const double* v = std::get_if<double>(&value);
+                            const uint32_t* v = std::get_if<uint32_t>(&value);
                             if (v != nullptr)
                             {
-                                soc["MaxACPowerRampPercentPerSecond"] = *v;
+                                soc["MaxACPowerRampRateWattsPerSecond"] = *v;
                             }
                         }
                         else if (name == "PowerSmoothingEnabled")
@@ -1901,16 +1901,16 @@ inline void applyChassisPowerSmoothingPatches(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath,
     const std::string& iface,
-    const std::optional<double>& maxAcPowerRampPercentPerSecond,
+    const std::optional<uint32_t>& maxAcPowerRampRateWattsPerSecond,
     const std::optional<bool>& powerSmoothingEnabled,
     const std::optional<std::string>& profileName,
     const std::optional<bool>& powerBrakeEnabled)
 {
-    if (maxAcPowerRampPercentPerSecond)
+    if (maxAcPowerRampRateWattsPerSecond)
     {
         nvidia_async_operation_utils::patch(asyncResp, service, objPath, iface,
-                                            "MaxACPowerRampPercentPerSecond",
-                                            *maxAcPowerRampPercentPerSecond);
+                                            "MaxACPowerRampRateWattsPerSecond",
+                                            *maxAcPowerRampRateWattsPerSecond);
     }
     if (powerSmoothingEnabled)
     {
@@ -1969,14 +1969,14 @@ inline void patchChassisPowerSmoothingData(
             "StateOfChargeFeatures is missing or not an object in chassis PowerSmoothing PATCH");
         return;
     }
-    std::optional<double> maxAcPowerRampPercentPerSecond;
+    std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
     std::optional<bool> powerSmoothingEnabled;
     std::optional<std::string> profileName;
     std::optional<bool> powerBrakeEnabled;
     nlohmann::json& socJson = *stateOfChargeFeatures;
     if (!redfish::json_util::readJson(
-            socJson, asyncResp->res, "MaxACPowerRampPercentPerSecond",
-            maxAcPowerRampPercentPerSecond, "PowerSmoothingEnabled",
+            socJson, asyncResp->res, "MaxACPowerRampRateWattsPerSecond",
+            maxAcPowerRampRateWattsPerSecond, "PowerSmoothingEnabled",
             powerSmoothingEnabled, "ProfileName", profileName,
             "PowerBrakeEnabled", powerBrakeEnabled))
     {
@@ -1984,7 +1984,7 @@ inline void patchChassisPowerSmoothingData(
             "Invalid StateOfChargeFeatures fields in chassis PowerSmoothing PATCH");
         return;
     }
-    if (!maxAcPowerRampPercentPerSecond && !powerSmoothingEnabled &&
+    if (!maxAcPowerRampRateWattsPerSecond && !powerSmoothingEnabled &&
         !profileName && !powerBrakeEnabled)
     {
         BMCWEB_LOG_ERROR(
@@ -1995,12 +1995,12 @@ inline void patchChassisPowerSmoothingData(
     const std::string iface(chassisPowerSmoothingStateOfChargeInterface);
     getChassisPowerSmoothingService(
         asyncResp, chassisId,
-        [asyncResp, iface, maxAcPowerRampPercentPerSecond,
+        [asyncResp, iface, maxAcPowerRampRateWattsPerSecond,
          powerSmoothingEnabled, profileName, powerBrakeEnabled](
             const std::string& service, const std::string& objPath) {
             applyChassisPowerSmoothingPatches(
                 asyncResp, service, objPath, iface,
-                maxAcPowerRampPercentPerSecond, powerSmoothingEnabled,
+                maxAcPowerRampRateWattsPerSecond, powerSmoothingEnabled,
                 profileName, powerBrakeEnabled);
         });
 }
@@ -2086,21 +2086,21 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             }
             if (stateOfChargeFeatures && stateOfChargeFeatures->is_object())
             {
-                std::optional<double> maxAcPowerRampPercentPerSecond;
+                std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
                 std::optional<bool> socPowerSmoothingEnabled;
                 nlohmann::json& socJson = *stateOfChargeFeatures;
                 if (!redfish::json_util::readJson(
                         socJson, asyncResp->res,
-                        "MaxACPowerRampPercentPerSecond",
-                        maxAcPowerRampPercentPerSecond, "PowerSmoothingEnabled",
-                        socPowerSmoothingEnabled))
+                        "MaxACPowerRampRateWattsPerSecond",
+                        maxAcPowerRampRateWattsPerSecond,
+                        "PowerSmoothingEnabled", socPowerSmoothingEnabled))
                 {
                     BMCWEB_LOG_ERROR(
                         "Failed to parse StateOfChargeFeatures in processor PowerSmoothing PATCH");
                     return;
                 }
                 patchProcessorStateOfChargeFeatures(
-                    asyncResp, processorId, maxAcPowerRampPercentPerSecond,
+                    asyncResp, processorId, maxAcPowerRampRateWattsPerSecond,
                     socPowerSmoothingEnabled);
             }
         });

@@ -93,6 +93,22 @@ enum class FailoverPolicy{
     AutomaticFailover,
 };
 
+enum class EmbeddedProcessorOSState{
+    Invalid,
+    ResetBootROM,
+    FWBootStage1,
+    FWBootStage2,
+    PreOS,
+    OSBooting,
+    OSRunning,
+    OSQuiesced,
+    FWUpdateInProgress,
+    OSCrashDumpInProgress,
+    OSCrashDumpCompleted,
+    FWFaultInProgress,
+    FWFaultCompleted,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Invalid, "Invalid"},
     {BackgroundCopyStatus::Pending, "Pending"},
@@ -177,6 +193,22 @@ NLOHMANN_JSON_SERIALIZE_ENUM(FailoverPolicy, {
     {FailoverPolicy::Invalid, "Invalid"},
     {FailoverPolicy::NoFailover, "NoFailover"},
     {FailoverPolicy::AutomaticFailover, "AutomaticFailover"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(EmbeddedProcessorOSState, {
+    {EmbeddedProcessorOSState::Invalid, "Invalid"},
+    {EmbeddedProcessorOSState::ResetBootROM, "ResetBootROM"},
+    {EmbeddedProcessorOSState::FWBootStage1, "FWBootStage1"},
+    {EmbeddedProcessorOSState::FWBootStage2, "FWBootStage2"},
+    {EmbeddedProcessorOSState::PreOS, "PreOS"},
+    {EmbeddedProcessorOSState::OSBooting, "OSBooting"},
+    {EmbeddedProcessorOSState::OSRunning, "OSRunning"},
+    {EmbeddedProcessorOSState::OSQuiesced, "OSQuiesced"},
+    {EmbeddedProcessorOSState::FWUpdateInProgress, "FWUpdateInProgress"},
+    {EmbeddedProcessorOSState::OSCrashDumpInProgress, "OSCrashDumpInProgress"},
+    {EmbeddedProcessorOSState::OSCrashDumpCompleted, "OSCrashDumpCompleted"},
+    {EmbeddedProcessorOSState::FWFaultInProgress, "FWFaultInProgress"},
+    {EmbeddedProcessorOSState::FWFaultCompleted, "FWFaultCompleted"},
 });
 
 // clang-format on

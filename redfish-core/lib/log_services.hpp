@@ -902,6 +902,7 @@ inline void createDumpTaskCallback(
 
                     taskData->payload->httpHeaders.emplace_back(
                         std::move(headerLoc));
+                    setDumpEntryTaskResponse(taskData, url.buffer());
 
                     BMCWEB_LOG_DEBUG("{}: Dump creation task completed",
                                      createdObjPath.str);
@@ -916,9 +917,6 @@ inline void createDumpTaskCallback(
             // The task timer is set to max time limit within which the
             // requested dump will be collected.
             task->startTimer(std::chrono::minutes(45));
-            // NVIDIA code starts here
-            task->populateResp(asyncResp->res);
-            // NVIDIA code ends here
             task->payload.emplace(payload);
             task->populateResp(asyncResp->res);
         },

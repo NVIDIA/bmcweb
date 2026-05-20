@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaMetricReport  v1.0.0                                      -->
+<!--# Redfish OEM Schema:  NvidiaFabric  v1.0.0                                            -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -21,26 +22,21 @@
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
   <edmx:DataServices>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMetricReport">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaFabric">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMetricReport" BaseType="Resource.OemObject" Abstract="true">
+      <ComplexType Name="NvidiaFabric" BaseType="Resource.OemObject" Abstract="true">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
-        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a MetricReport resource."/>
-        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a MetricReport resource."/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Fabric resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Fabric resource."/>
       </ComplexType>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMetricReport.v1_0_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaFabric.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMetricReport" BaseType="NvidiaMetricReport.NvidiaMetricReport">
-        <Property Name="SensingIntervalMilliseconds" Type="Edm.Int64">
+      <ComplexType Name="NvidiaFabric" BaseType="NvidiaFabric.NvidiaFabric">
+        <Property Name="SwitchConfigPushURI" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The time interval between when the reading of MetricValue is updated in milliseconds."/>
-          <Annotation Term="OData.LongDescription" String="This property shall specify the time interval between when the reading of MetricValue is updated in milliseconds."/>
-        </Property>
-        <Property Name="MetricValueStale" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An indication whether the reading of MetricValue is stale."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the reading of MetricValue is stale, where a value `true` shall indicate that the reading of MetricValue is no longer updated within the interval specified in the SensingIntervalMilliseconds property."/>
+          <Annotation Term="OData.Description" String="The URI used to perform a multipart HTTP or HTTPS push of a binary switch configuration file."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a URI to which a client can perform a multipart HTTP or HTTPS `POST` to upload a binary switch configuration file to the manager's persistent storage. Switches within this Fabric shall apply the uploaded configuration across device resets. This operation allows switches to adopt a new configuration without requiring a firmware update. The `name` field shall have the value `ImportFile`, and the `filename` field shall reflect the name of the file as provided by NVIDIA and loaded by the client. No parameters are allowed for this operation. Additionally, an HTTP `DELETE` request to this URI shall delete the uploaded binary switch configuration file."/>
         </Property>
       </ComplexType>
     </Schema>

@@ -42,10 +42,15 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaProcessor" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Processor resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Processor resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaProcessor">
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.NvidiaProcessor">
         <Property Name="MIGModeEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="An indication of whether multiple-Instance GPU (MIG) mode is enabled for this processor."/>
@@ -55,12 +60,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaGPU">
-        <Property Name="MIGModeEnabled" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
-          <Annotation Term="OData.Description" String="An indication of whether multiple-Instance GPU (MIG) mode is enabled for this processor."/>
-          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if multiple-Instance GPU (MIG) mode is enabled for this processor."/>
-        </Property>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_0_0.NvidiaProcessor">
         <Property Name="DefaultBoostClockSpeedMHz" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Default boost clock speed of the processor in MHz."/>
@@ -537,6 +537,20 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Runtime In System Test (RIST)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.InbandReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Runtime In System Test (RIST)."/>
         </Property>
       </ComplexType>
     </Schema>

@@ -461,17 +461,17 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Copy the response into a Response object so that it can be
         // processed by the callback function.
         res.response = parser->release();
+        req.clear();
+        req.body().clear();
         if (callback != nullptr)
         {
-            callback(parser->keep_alive(), connId, res);
+            callback(res.response.keep_alive(), connId, res);
         }
         else
         {
             BMCWEB_LOG_ERROR("recvMessage() callback is nullptr");
         }
         res.clear();
-        req.clear();
-        req.body().clear();
     }
 
     static void onTimeout(const std::weak_ptr<ConnectionInfo>& weakSelf,
@@ -518,6 +518,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             // We want to return a 502 to indicate there was an error with
             // the external server
             res.result(boost::beast::http::status::bad_gateway);
+            // Clear req before callback: callback (via sendNext/setConnProps)
+            // may enqueue a new request into req before we can clear it,
+            // causing that pending request to be silently discarded.
+            req.clear();
+            req.body().clear();
             if (callback != nullptr)
             {
                 callback(false, connId, res);
@@ -527,8 +532,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                 BMCWEB_LOG_ERROR("waitAndRetry() callback is nullptr");
             }
             res.clear();
-            req.clear();
-            req.body().clear();
 
             // Reset the retrycount to zero so that client can try
             // connecting again if needed

@@ -625,7 +625,7 @@ class Connection :
             if (ec == boost::beast::http::error::header_limit)
             {
                 BMCWEB_LOG_ERROR("{} Header field too large, closing",
-                                 logPtr(this), ec.message());
+                                 logPtr(this));
 
                 res.result(boost::beast::http::status::
                                request_header_fields_too_large);
@@ -657,6 +657,13 @@ class Connection :
             }
         }
 
+        if (!handleContentLengthError())
+        {
+            return;
+        }
+
+        parse.body_limit(getContentLengthLimit());
+
         std::string_view expect = value[boost::beast::http::field::expect];
         if (bmcweb::asciiIEquals(expect, "100-continue"))
         {
@@ -664,13 +671,6 @@ class Connection :
             doWrite();
             return;
         }
-
-        if (!handleContentLengthError())
-        {
-            return;
-        }
-
-        parse.body_limit(getContentLengthLimit());
 
         if (parse.is_done())
         {

@@ -304,6 +304,10 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     // Populate SSH preferred authentication methods // Nvidia code
     populateSSHPreferredAuthentications(asyncResp);
+    if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD_PORT_FORWARD)
+    {
+        getOemNvidiaOpenOCDPortForward(asyncResp);
+    }
 }
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -542,6 +546,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> severity;
     std::optional<std::string> rfcformat;
     std::optional<std::vector<AuthMethod>> sshPreferredAuths;
+    std::optional<bool> openocdPortForwardValue;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res,                 //
@@ -558,7 +563,8 @@ inline void handleManagersNetworkProtocolPatch(
             "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
             "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity,
             "Oem/Nvidia/Rsyslog/RFCFormat", rfcformat,
-            "Oem/Nvidia/SSH/PreferredAuthentications", sshPreferredAuths))
+            "Oem/Nvidia/SSH/PreferredAuthentications", sshPreferredAuths,
+            "Oem/Nvidia/OpenOCDPortForward/Enable", openocdPortForwardValue))
     {
         return;
     }
@@ -623,6 +629,13 @@ inline void handleManagersNetworkProtocolPatch(
     if (sshPreferredAuths)
     {
         applySSHPreferredAuthsPatch(asyncResp, *sshPreferredAuths);
+    }
+    if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD_PORT_FORWARD)
+    {
+        if (openocdPortForwardValue)
+        {
+            setOemNvidiaOpenOCDPortForward(asyncResp, *openocdPortForwardValue);
+        }
     }
     // Nvidia code ends here
 }

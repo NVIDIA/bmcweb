@@ -655,6 +655,21 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
     {
         return "UefiBootNext";
     }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteRemovableMedia")
+    {
+        return "SDCard";
+    }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteDisk")
+    {
+        return "RemoteDrive";
+    }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.BiosSetup")
+    {
+        return "BiosSetup";
+    }
     return "";
 }
 
@@ -712,9 +727,7 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
  * @return Returns as a string, the boot progress in Redfish terms. If
  *         translation cannot be done, returns "None".
  */
-inline std::string dbusToRfBootProgress(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& dbusBootProgress)
+inline std::string dbusToRfBootProgress(const std::string& dbusBootProgress)
 {
     // Now convert the D-Bus BootProgress to the appropriate Redfish
     // enum
@@ -783,28 +796,10 @@ inline std::string dbusToRfBootProgress(
              "OEM")
     {
         rfBpLastState = "OEM";
-        dbus::utility::getProperty<std::string>(
-            "xyz.openbmc_project.State.Host",
-            "/xyz/openbmc_project/state/host0",
-            "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
-            [aResp](const boost::system::error_code& ec,
-                    const std::string& bootProgressoem) {
-                if (ec)
-                {
-                    // BootProgressOem is an optional object so just do nothing
-                    // if not found
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    return;
-                }
-
-                aResp->res.jsonValue["BootProgress"]["OemLastState"] =
-                    bootProgressoem;
-            });
     }
     else
     {
         BMCWEB_LOG_DEBUG("Unsupported D-Bus BootProgress {}", dbusBootProgress);
-        // Just return the default
     }
     return rfBpLastState;
 }
@@ -874,6 +869,16 @@ inline int assignBootParameters(
         bootSource =
             "xyz.openbmc_project.Control.Boot.Source.Sources.UefiBootOption";
     }
+    else if (rfSource == "SDCard")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteRemovableMedia";
+    }
+    else if (rfSource == "RemoteDrive")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.RemoteDisk";
+    }
     else
     {
         BMCWEB_LOG_DEBUG(
@@ -887,72 +892,73 @@ inline int assignBootParameters(
 }
 
 /**
- * @brief Retrieves boot progress of the system
+ * @brief Retrieves boot progress, OEM state, and last update time of the
+ *        system in a single D-Bus GetAll call so that the three properties
+ *        are read from a consistent snapshot.
  *
  * @param[in] asyncResp  Shared pointer for generating response message.
  * @param[in] computerSystemIndex Index associated with the requested system
  *
  * @return None.
  */
-inline void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const uint64_t computerSystemIndex)
+inline void getBootProgressState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint64_t computerSystemIndex = 0)
 {
     sdbusplus::object_path path =
         systems_utils::getHostStateObjectPath(computerSystemIndex);
-    dbus::utility::getProperty<std::string>(
+    dbus::utility::getAllProperties(
         systems_utils::getHostStateServiceName(computerSystemIndex), path,
-        "xyz.openbmc_project.State.Boot.Progress", "BootProgress",
-        [asyncResp](const boost::system::error_code ec,
-                    const std::string& bootProgressStr) {
+        "xyz.openbmc_project.State.Boot.Progress",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                // BootProgress is an optional object so just do nothing if
-                // not found
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
                 return;
             }
 
-            BMCWEB_LOG_DEBUG("Boot Progress: {}", bootProgressStr);
+            const std::string* bootProgress = nullptr;
+            const std::string* bootProgressOem = nullptr;
+            const uint64_t* bootProgressLastUpdate = nullptr;
 
-            asyncResp->res.jsonValue["BootProgress"]["LastState"] =
-                dbusToRfBootProgress(asyncResp, bootProgressStr);
-        });
-}
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "BootProgress",
+                bootProgress, "BootProgressOem", bootProgressOem,
+                "BootProgressLastUpdate", bootProgressLastUpdate);
 
-/**
- * @brief Retrieves boot progress Last Update of the system
- *
- * @param[in] asyncResp  Shared pointer for generating response message.
- * @param[in] computerSystemIndex Index associated with the requested system
- *
- * @return None.
- */
-inline void getBootProgressLastStateTime(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const uint64_t computerSystemIndex)
-{
-    sdbusplus::object_path path =
-        systems_utils::getHostStateObjectPath(computerSystemIndex);
-    dbus::utility::getProperty<uint64_t>(
-        systems_utils::getHostStateServiceName(computerSystemIndex), path,
-        "xyz.openbmc_project.State.Boot.Progress", "BootProgressLastUpdate",
-        [asyncResp](const boost::system::error_code& ec,
-                    const uint64_t lastStateTime) {
-            if (ec)
+            if (!success)
             {
-                BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
-            // BootProgressLastUpdate is the last time the BootProgress property
-            // was updated. The time is the Epoch time, number of microseconds
-            // since 1 Jan 1970 00::00::00 UTC."
-            // https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/
-            // yaml/xyz/openbmc_project/State/Boot/Progress.interface.yaml#L11
+            if (bootProgress != nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Boot Progress: {}", *bootProgress);
+                std::string rfState = dbusToRfBootProgress(*bootProgress);
+                asyncResp->res.jsonValue["BootProgress"]["LastState"] = rfState;
 
-            // Convert to ISO 8601 standard
-            asyncResp->res.jsonValue["BootProgress"]["LastStateTime"] =
-                redfish::time_utils::getDateTimeUintUs(lastStateTime);
+                if (rfState == "OEM" && bootProgressOem != nullptr)
+                {
+                    asyncResp->res.jsonValue["BootProgress"]["OemLastState"] =
+                        *bootProgressOem;
+                }
+            }
+
+            if (bootProgressLastUpdate != nullptr)
+            {
+                // BootProgressLastUpdate is the last time the BootProgress
+                // property was updated. The time is the Epoch time, number of
+                // microseconds since 1 Jan 1970 00::00::00 UTC.
+                // https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/
+                // yaml/xyz/openbmc_project/State/Boot/Progress.interface.yaml#L11
+
+                // Convert to ISO 8601 standard
+                asyncResp->res.jsonValue["BootProgress"]["LastStateTime"] =
+                    redfish::time_utils::getDateTimeUintUs(
+                        *bootProgressLastUpdate);
+            }
         });
 }
 
@@ -1287,6 +1293,99 @@ inline void getBootProperties(
     getBootOverrideSource(asyncResp, computerSystemIndex);
     getBootOverrideType(asyncResp, computerSystemIndex, isSettingsUrl);
     getBootOverrideEnable(asyncResp, computerSystemIndex);
+}
+
+/**
+ * @brief Translates restart cause DBUS property value to redfish.
+ *
+ * @param[in] dbusRestartCause    The restart cause in DBUS speak.
+ *
+ * @return Returns the restart cause as a Redfish LastResetCauses enum. If
+ *         translation cannot be done, returns Unknown.
+ */
+inline computer_system::LastResetCauses dbusToRfLastResetCause(
+    const std::string& dbusRestartCause)
+{
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.Unknown")
+    {
+        return computer_system::LastResetCauses::Unknown;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.RemoteCommand")
+    {
+        return computer_system::LastResetCauses::ManagementCommand;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.ResetButton")
+    {
+        return computer_system::LastResetCauses::PowerButtonPress;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerButton")
+    {
+        return computer_system::LastResetCauses::PowerButtonPress;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.WatchdogTimer")
+    {
+        return computer_system::LastResetCauses::WatchdogExpiration;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerPolicyAlwaysOn")
+    {
+        return computer_system::LastResetCauses::PowerRestorePolicy;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.PowerPolicyPreviousState")
+    {
+        return computer_system::LastResetCauses::PowerRestorePolicy;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.SoftReset")
+    {
+        return computer_system::LastResetCauses::OSSoftRestart;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.ScheduledPowerOn")
+    {
+        return computer_system::LastResetCauses::RTCWakeup;
+    }
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.HostCrash")
+    {
+        return computer_system::LastResetCauses::SystemCrash;
+    }
+
+    return computer_system::LastResetCauses::Unknown;
+}
+
+/**
+ * @brief Retrieves the Last Reset Cause
+ *
+ * @param[in] asyncResp  Shared pointer for generating response message.
+ *
+ * @return None.
+ */
+inline void getLastResetCause(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    BMCWEB_LOG_DEBUG("Getting System Last Reset Cause");
+
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "RestartCause",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& restartCause) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
+                return;
+            }
+
+            asyncResp->res.jsonValue["LastResetCause"] =
+                dbusToRfLastResetCause(restartCause);
+        });
 }
 
 /**
@@ -3750,9 +3849,9 @@ inline void processComputerSystemGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_22_0.ComputerSystem";
-    asyncResp->res.jsonValue["Name"] = systemName;
-    asyncResp->res.jsonValue["Id"] = systemName;
+        "#ComputerSystem.v1_23_0.ComputerSystem";
+    asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
+    asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
         computer_system::SystemType::Physical;
     asyncResp->res.jsonValue["Description"] =
@@ -3910,6 +4009,15 @@ inline void processComputerSystemGet(
     if constexpr (BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)
     {
         getDotCakInitialization(asyncResp);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
+    {
+        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                ["#NvidiaComputerSystem.L1Reset"]["target"] =
+            boost::urls::format("/redfish/v1/Systems/{}"
+                                "/Actions/Oem/NvidiaComputerSystem.L1Reset",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
     if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
@@ -4083,11 +4191,10 @@ inline void processComputerSystemGet(
             asyncResp, nlohmann::json::json_pointer("/PCIeDevices"));
     }
     getHostState(asyncResp, computerSystemIndex);
-    getBootProperties(asyncResp, computerSystemIndex);
-    getBootProgress(asyncResp, computerSystemIndex);
-    getBootProgressLastStateTime(asyncResp, computerSystemIndex);
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
+        getBootProperties(asyncResp, computerSystemIndex);
+        getBootProgressState(asyncResp, computerSystemIndex);
         redfish::bios_utils::checkBiosSupport([asyncResp]() {
             redfish::nvidia_systems_utils::getBootOrder(asyncResp);
             redfish::nvidia_systems_utils::getSecureBoot(asyncResp);
@@ -4107,10 +4214,15 @@ inline void processComputerSystemGet(
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         getPowerOnDelaySeconds(asyncResp);
+        getStopBootOnFault(asyncResp);
+        getAutomaticRetryPolicy(asyncResp, computerSystemIndex);
+    }
+    getLastResetCause(asyncResp);
+    if constexpr (BMCWEB_SYSTEMS_LASTRESETTIME)
+    {
+        getLastResetTime(asyncResp, computerSystemIndex);
     }
     getStopBootOnFault(asyncResp);
-    getAutomaticRetryPolicy(asyncResp, computerSystemIndex);
-    getLastResetTime(asyncResp, computerSystemIndex);
 
     if constexpr (BMCWEB_REDFISH_PROVISIONING_FEATURE)
     {
