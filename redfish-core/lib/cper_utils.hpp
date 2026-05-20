@@ -211,13 +211,6 @@ inline void parseAdditionalDataForCPER(
     BMCWEB_LOG_DEBUG("Adding notificationType");
     jOut["CPER"]["NotificationType"] = notifT->second;
 
-    const auto& sevCode = additional.find("cperSeverityCode");
-    if (additional.end() == sevCode)
-    {
-        BMCWEB_LOG_ERROR("severity code property not found in CPER log");
-        return;
-    }
-
     const auto& diagData = additional.find("diagnosticData");
     if (additional.end() == diagData)
     {
@@ -387,9 +380,14 @@ inline bool parseCperData(
     additionalData.emplace_back("jsonDiagnosticData", cperJson.dump());
 
     std::string severityStr;
-    if (auto sevIt = evt.find("Severity"); sevIt != evt.end())
+    if (auto sevIt = evt.find("MessageSeverity"); sevIt != evt.end())
     {
-        severityStr = sevIt->get<std::string>();
+        const std::string* messageSeverityPtr =
+            sevIt->get_ptr<const std::string*>();
+        if (messageSeverityPtr != nullptr)
+        {
+            severityStr = *messageSeverityPtr;
+        }
     }
 
     const std::map<std::string, std::string> severityMap = {
