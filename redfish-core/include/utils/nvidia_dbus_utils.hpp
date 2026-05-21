@@ -257,6 +257,11 @@ inline const char* toPhysicalContext(const std::string& physicalContext)
     {
         return "DCBus";
     }
+    if (physicalContext ==
+        "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.Manager")
+    {
+        return "Manager";
+    }
     return "";
 }
 
