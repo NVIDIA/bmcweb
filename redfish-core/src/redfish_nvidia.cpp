@@ -13,8 +13,7 @@
 #include "log_services_manufacturing_test.hpp"
 #include "manager_usb_ports.hpp"
 #include "memory.hpp"
-#include "network_adapters.hpp"
-#include "network_adapters_generic.hpp"
+#include "network_adapter.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_chassis.hpp"
 #include "nvidia_chassis_env_metrics.hpp"
@@ -37,6 +36,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
+#include "nvidia_network_adapters.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_nic_debug_token.hpp"
 #include "nvidia_oem_chassis_recovery.hpp"
@@ -171,9 +171,9 @@ void requestRoutesNvidia(crow::App& app)
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)
     {
-        requestRoutesNetworkAdapters(app);
-        requestRoutesNetworkDeviceFunctions(app);
-        requestRoutesACDPort(app);
+        requestRoutesNetworkAdaptersLegacy(app);
+        requestRoutesNetworkDeviceFunctionsLegacy(app);
+        requestRoutesACDPortLegacy(app);
     }
 
     if constexpr (BMCWEB_HOST_ETH_IFACE)
@@ -183,7 +183,7 @@ void requestRoutesNvidia(crow::App& app)
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS_GENERIC)
     {
-        requestRoutesNetworkAdaptersGeneric(app);
+        requestRoutesChassisNetworkAdapter(app);
     }
 
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)

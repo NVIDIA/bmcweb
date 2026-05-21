@@ -17,7 +17,6 @@
 #pragma once
 
 #include "app.hpp"
-#include "network_adapters_generic.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
@@ -33,7 +32,7 @@
 namespace redfish
 {
 
-inline void getNetworkAdapterCollectionMembers(
+inline void getNetworkAdapterCollectionMembersLegacy(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& collectionPath,
     const bool& isNDF, const std::vector<std::string_view>& interfaces,
     const char* subtree = "/xyz/openbmc_project/inventory")
@@ -99,7 +98,7 @@ inline void getNetworkAdapterCollectionMembers(
         });
 }
 
-inline void doNetworkAdaptersCollection(
+inline void doNetworkAdaptersCollectionLegacy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId,
     const std::optional<std::string>& validChassisPath)
@@ -165,7 +164,7 @@ inline void doNetworkAdaptersCollection(
         });
 }
 
-inline void doNetworkAdapter(
+inline void doNetworkAdapterLegacy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId,
     const std::optional<std::string>& validChassisPath)
@@ -196,7 +195,7 @@ inline void doNetworkAdapter(
             chassisId, BMCWEB_PLATFORM_NETWORK_ADAPTER);
 }
 
-inline void doPortNDFCollection(
+inline void doPortNDFCollectionLegacy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, bool isPort,
     const std::optional<std::string>& validChassisPath)
@@ -230,7 +229,7 @@ inline void doPortNDFCollection(
             "/redfish/v1/Chassis/{}/NetworkAdapters/{}/NetworkDeviceFunctions",
             chassisId, BMCWEB_PLATFORM_NETWORK_ADAPTER);
     }
-    getNetworkAdapterCollectionMembers(
+    getNetworkAdapterCollectionMembersLegacy(
         asyncResp,
         std::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}{}", chassisId,
                     BMCWEB_PLATFORM_NETWORK_ADAPTER, collectionName),
@@ -238,7 +237,7 @@ inline void doPortNDFCollection(
         "/xyz/openbmc_project/network/");
 }
 
-inline void handleNetworkAdaptersCollectionGet(
+inline void handleNetworkAdaptersCollectionGetLegacy(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param)
@@ -251,10 +250,11 @@ inline void handleNetworkAdaptersCollectionGet(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        std::bind_front(&doNetworkAdaptersCollection, asyncResp, chassisId));
+        std::bind_front(&doNetworkAdaptersCollectionLegacy, asyncResp,
+                        chassisId));
 }
 
-inline void handleNetworkAdapterGet(
+inline void handleNetworkAdapterGetLegacy(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param, const std::string& networkId [[maybe_unused]])
@@ -267,10 +267,10 @@ inline void handleNetworkAdapterGet(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        std::bind_front(&doNetworkAdapter, asyncResp, chassisId));
+        std::bind_front(&doNetworkAdapterLegacy, asyncResp, chassisId));
 }
 
-inline void handleNetworkDeviceFunctionsCollectionGet(
+inline void handleNetworkDeviceFunctionsCollectionGetLegacy(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param, const std::string& networkId [[maybe_unused]])
@@ -283,10 +283,11 @@ inline void handleNetworkDeviceFunctionsCollectionGet(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        std::bind_front(&doPortNDFCollection, asyncResp, chassisId, false));
+        std::bind_front(&doPortNDFCollectionLegacy, asyncResp, chassisId,
+                        false));
 }
 
-inline void handlePortsCollectionGet(
+inline void handlePortsCollectionGetLegacy(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param, const std::string& networkId [[maybe_unused]])
@@ -299,12 +300,14 @@ inline void handlePortsCollectionGet(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        std::bind_front(&doPortNDFCollection, asyncResp, chassisId, true));
+        std::bind_front(&doPortNDFCollectionLegacy, asyncResp, chassisId,
+                        true));
 }
 
-inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& objPath, const std::string& service,
-                   const std::string& chassisId, const std::string& portId)
+inline void doPortLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& objPath, const std::string& service,
+                         const std::string& chassisId,
+                         const std::string& portId)
 {
     asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_6_0.Port";
     asyncResp->res.jsonValue["Id"] = portId;
@@ -377,10 +380,10 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                  const std::string& objPath, const std::string& service,
-                  const std::string& chassisId, const std::string& ndfId,
-                  const std::string& portId)
+inline void doNDFLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& objPath, const std::string& service,
+                        const std::string& chassisId, const std::string& ndfId,
+                        const std::string& portId)
 {
     nlohmann::json& links = asyncResp->res.jsonValue["Links"];
     asyncResp->res.jsonValue["@odata.type"] =
@@ -484,10 +487,10 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void handleGet(App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisId, const std::string& id,
-                      bool isNDF = true)
+inline void handleGetLegacy(App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId, const std::string& id,
+                            bool isNDF = true)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -538,12 +541,13 @@ inline void handleGet(App& app, const crow::Request& req,
                 }
                 if (objPath.filename() + "f0" == id && isNDF)
                 {
-                    doNDF(asyncResp, path, connectionName, chassisId, id,
-                          objPath.filename());
+                    doNDFLegacy(asyncResp, path, connectionName, chassisId, id,
+                                objPath.filename());
                 }
                 else
                 {
-                    doPort(asyncResp, path, connectionName, chassisId, id);
+                    doPortLegacy(asyncResp, path, connectionName, chassisId,
+                                 id);
                 }
                 return;
             }
@@ -555,64 +559,64 @@ inline void handleGet(App& app, const crow::Request& req,
         });
 }
 
-inline void handleNDFGet(App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& chassisId,
-                         [[maybe_unused]] const std::string& networkId,
-                         const std::string& ndfId)
+inline void handleNDFGetLegacy(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, [[maybe_unused]] const std::string& networkId,
+    const std::string& ndfId)
 {
-    handleGet(app, req, asyncResp, chassisId, ndfId, true);
+    handleGetLegacy(app, req, asyncResp, chassisId, ndfId, true);
 }
 
-inline void handlePortGet(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          [[maybe_unused]] const std::string& networkId,
-                          const std::string& portId)
+inline void handlePortGetLegacy(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, [[maybe_unused]] const std::string& networkId,
+    const std::string& portId)
 {
-    handleGet(app, req, asyncResp, chassisId, portId, false);
+    handleGetLegacy(app, req, asyncResp, chassisId, portId, false);
 }
 
-inline void requestRoutesNetworkAdapters(App& app)
+inline void requestRoutesNetworkAdaptersLegacy(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
         .privileges(redfish::privileges::getNetworkAdapterCollection)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleNetworkAdaptersCollectionGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkAdaptersCollectionGetLegacy, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/")
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(&handleNetworkAdapterGet, std::ref(app)));
+            std::bind_front(&handleNetworkAdapterGetLegacy, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/NetworkDeviceFunctions/")
         .privileges(redfish::privileges::getNetworkDeviceFunctionCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleNetworkDeviceFunctionsCollectionGet, std::ref(app)));
+            handleNetworkDeviceFunctionsCollectionGetLegacy, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
         .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortsCollectionGet, std::ref(app)));
+            std::bind_front(handlePortsCollectionGetLegacy, std::ref(app)));
 }
 
-inline void requestRoutesNetworkDeviceFunctions(App& app)
+inline void requestRoutesNetworkDeviceFunctionsLegacy(App& app)
 {
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/NetworkDeviceFunctions/<str>/")
         .privileges(redfish::privileges::getNetworkDeviceFunction)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleNDFGet, std::ref(app)));
+            std::bind_front(handleNDFGetLegacy, std::ref(app)));
 }
 
-inline void requestRoutesACDPort(App& app)
+inline void requestRoutesACDPortLegacy(App& app)
 {
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/")
         .privileges(redfish::privileges::getPort)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortGet, std::ref(app)));
+            std::bind_front(handlePortGetLegacy, std::ref(app)));
 }
 
 } // namespace redfish
