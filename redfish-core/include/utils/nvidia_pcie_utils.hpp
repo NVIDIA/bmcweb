@@ -17,6 +17,7 @@
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <variant>
@@ -144,6 +145,8 @@ static constexpr const char* pcieLtssmIntf =
 
 static constexpr const char* pcieAerErrorStatusIntf =
     "com.nvidia.PCIe.AERErrorStatus";
+static constexpr const char* pcieClearAerErrorStatusIntf =
+    "com.nvidia.PCIe.ClearAERErrorStatus";
 static constexpr const char* pcieDeviceInterfaceNV =
     "xyz.openbmc_project.PCIe.Device";
 
@@ -795,6 +798,8 @@ namespace nvidia_pcie_utils
 static constexpr const char* pciePath = "/xyz/openbmc_project/PCIe";
 static constexpr const char* pcieAerErrorStatusIntf =
     "com.nvidia.PCIe.AERErrorStatus";
+static constexpr const char* pcieClearAerErrorStatusIntf =
+    "com.nvidia.PCIe.ClearAERErrorStatus";
 
 inline void getPCIeDeviceList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -907,7 +912,8 @@ inline void clearAerErrorStatus(
     const std::string& connection, const std::string& path)
 {
     dbus::utility::getDbusObject(
-        path, std::array<std::string_view, 1>{"com.nvidia.PCIe.AERErrorStatus"},
+        path,
+        std::array<std::string_view, 1>{"com.nvidia.PCIe.ClearAERErrorStatus"},
         [asyncResp, path,
          connection](const boost::system::error_code& ec,
                      const dbus::utility::MapperGetObject& object) {
@@ -925,7 +931,7 @@ inline void clearAerErrorStatus(
                     nvidia_async_operation_utils::
                         doGenericCallAsyncAndGatherResult<int>(
                             asyncResp, std::chrono::seconds(60), connection,
-                            path, "com.nvidia.PCIe.AERErrorStatus",
+                            path, "com.nvidia.PCIe.ClearAERErrorStatus",
                             "ClearAERStatus",
                             [asyncResp](const std::string& status,
                                         [[maybe_unused]] const int* retValue) {
@@ -1013,9 +1019,9 @@ inline void postClearAerErrorStatus(
                             for (auto [connection, interfaces] :
                                  connectionNames)
                             {
-                                if (std::find(
-                                        interfaces.begin(), interfaces.end(),
-                                        "com.nvidia.PCIe.AERErrorStatus") !=
+                                if (std::ranges::find(
+                                        interfaces,
+                                        "com.nvidia.PCIe.ClearAERErrorStatus") !=
                                     interfaces.end())
                                 {
                                     clearAerErrorStatus(asyncResp, connection,
@@ -1556,337 +1562,241 @@ inline void requestRoutesChassisPCIeDevice(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/PCIeDevices/<str>/")
         .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisId, const std::string& device) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                dbus::
-                    utility::
-                        getSubTreePaths(
-                            "/xyz/openbmc_project/inventory", 0,
-                            std::array<std::string_view, 1>{
-                                "xyz.openbmc_project.Inventory.Item.Chassis"},
-                            [asyncResp, chassisId, device](
-                                const boost::system::error_code& ecOuter,
-                                const std::vector<std::string>& chassisPaths) {
-                                if (ecOuter)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId,
+                            const std::string& device) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Chassis"},
+                [asyncResp, chassisId,
+                 device](const boost::system::error_code& ecOuter,
+                         const std::vector<std::string>& chassisPaths) {
+                    if (ecOuter)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    for (const std::string& chassisPath : chassisPaths)
+                    {
+                        // Get the chassisId object
+                        sdbusplus::message::object_path objPath(chassisPath);
+                        if (objPath.filename() != chassisId)
+                        {
+                            continue;
+                        }
+                        const std::string chassisPCIePath =
+                            std::string(
+                                "/xyz/openbmc_project/inventory/system/chassis/")
+                                .append(chassisId)
+                                .append("/PCIeDevices");
+                        const std::string chassisPCIeDevicePath =
+                            std::string(chassisPCIePath)
+                                .append("/")
+                                .append(device);
+                        const std::array<std::string_view, 1> interface = {
+                            "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
+                        // Get Inventory Service
+                        dbus::utility::getSubTree(
+                            "/xyz/openbmc_project/inventory", 0, interface,
+                            [asyncResp, device, chassisPCIePath, interface,
+                             chassisId, chassisPCIeDevicePath, chassisPath](
+                                const boost::system::error_code& ecInner,
+                                const dbus::utility::GetSubTreeType& subtree) {
+                                if (ecInner)
                                 {
+                                    BMCWEB_LOG_DEBUG("DBUS response error");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::string& chassisPath :
-                                     chassisPaths)
+                                // Iterate over
+                                // all retrieved
+                                // ObjectPaths.
+                                for (const std::pair<
+                                         std::string,
+                                         std::vector<std::pair<
+                                             std::string,
+                                             std::vector<std::string>>>>&
+                                         object : subtree)
                                 {
-                                    // Get the chassisId object
-                                    sdbusplus::message::object_path objPath(
-                                        chassisPath);
-                                    if (objPath.filename() != chassisId)
+                                    if (object.first != chassisPCIeDevicePath)
                                     {
                                         continue;
                                     }
-                                    const std::string chassisPCIePath =
-                                        std::string(
-                                            "/xyz/openbmc_project/inventory/system/chassis/")
-                                            .append(chassisId)
-                                            .append("/PCIeDevices");
-                                    const std::string chassisPCIeDevicePath =
-                                        std::string(chassisPCIePath)
-                                            .append("/")
-                                            .append(device);
-                                    const std::array<std::string_view, 1> interface =
-                                        {"xyz.openbmc_project.Inventory.Item.PCIeDevice"};
-                                    // Get Inventory Service
-                                    dbus::
-                                        utility::getSubTree("/xyz/openbmc_project/inventory",
-                                                            0, interface,
-                                                            [asyncResp, device,
-                                                             chassisPCIePath,
-                                                             interface,
-                                                             chassisId,
-                                                             chassisPCIeDevicePath,
-                                                             chassisPath](
-                                                                const boost::system::
-                                                                    error_code&
-                                                                        ecInner,
-                                                                const dbus::
-                                                                    utility::
-                                                                        GetSubTreeType&
-                                                                            subtree) {
-                                                                if (ecInner)
-                                                                {
-                                                                    BMCWEB_LOG_DEBUG(
-                                                                        "DBUS response error");
-                                                                    messages::internalError(
-                                                                        asyncResp
-                                                                            ->res);
-                                                                    return;
-                                                                }
-                                                                // Iterate over
-                                                                // all retrieved
-                                                                // ObjectPaths.
-                                                                for (
-                                                                    const std::pair<
-                                                                        std::
-                                                                            string,
-                                                                        std::vector<std::pair<
-                                                                            std::
-                                                                                string,
-                                                                            std::vector<
-                                                                                std::
-                                                                                    string>>>>&
-                                                                        object :
-                                                                    subtree)
-                                                                {
-                                                                    if (object
-                                                                            .first !=
-                                                                        chassisPCIeDevicePath)
-                                                                    {
-                                                                        continue;
-                                                                    }
-                                                                    const std::vector<
-                                                                        std::pair<
-                                                                            std::
-                                                                                string,
-                                                                            std::vector<
-                                                                                std::
-                                                                                    string>>>&
-                                                                        connectionNames =
-                                                                            object
-                                                                                .second;
-                                                                    if (connectionNames
-                                                                            .empty())
-                                                                    {
-                                                                        BMCWEB_LOG_ERROR(
-                                                                            "Got 0 Connection names");
-                                                                        continue;
-                                                                    }
-                                                                    std::string
-                                                                        pcieDeviceURI =
-                                                                            "/redfish/v1/Chassis/";
-                                                                    pcieDeviceURI +=
-                                                                        chassisId;
-                                                                    pcieDeviceURI +=
-                                                                        "/PCIeDevices/";
-                                                                    pcieDeviceURI +=
-                                                                        device;
-                                                                    std::string
-                                                                        pcieFunctionURI =
-                                                                            pcieDeviceURI;
-                                                                    pcieFunctionURI +=
-                                                                        "/PCIeFunctions";
-                                                                    asyncResp
-                                                                        ->res
-                                                                        .jsonValue = {
-                                                                        {"@odata.type",
-                                                                         "#PCIeDevice.v1_14_0.PCIeDevice"},
-                                                                        {"@odata.id",
-                                                                         pcieDeviceURI},
-                                                                        {"Name",
-                                                                         "PCIe Device"},
-                                                                        {"Id",
-                                                                         device},
-                                                                        {"PCIeFunctions",
-                                                                         {{"@odata.id",
-                                                                           pcieFunctionURI}}}};
-                                                                    const std::string&
-                                                                        connectionName =
-                                                                            connectionNames
-                                                                                [0]
-                                                                                    .first;
-                                                                    const std::vector<
-                                                                        std::
-                                                                            string>&
-                                                                        interfaces2 =
-                                                                            connectionNames
-                                                                                [0]
-                                                                                    .second;
-                                                                    getPCIeDevice(
-                                                                        asyncResp,
-                                                                        device,
-                                                                        chassisPCIePath,
-                                                                        connectionName,
-                                                                        interface[0]);
+                                    const std::vector<std::pair<
+                                        std::string, std::vector<std::string>>>&
+                                        connectionNames = object.second;
+                                    if (connectionNames.empty())
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Got 0 Connection names");
+                                        continue;
+                                    }
+                                    std::string pcieDeviceURI =
+                                        "/redfish/v1/Chassis/";
+                                    pcieDeviceURI += chassisId;
+                                    pcieDeviceURI += "/PCIeDevices/";
+                                    pcieDeviceURI += device;
+                                    std::string pcieFunctionURI = pcieDeviceURI;
+                                    pcieFunctionURI += "/PCIeFunctions";
+                                    asyncResp->res.jsonValue = {
+                                        {"@odata.type",
+                                         "#PCIeDevice.v1_14_0.PCIeDevice"},
+                                        {"@odata.id", pcieDeviceURI},
+                                        {"Name", "PCIe Device"},
+                                        {"Id", device},
+                                        {"PCIeFunctions",
+                                         {{"@odata.id", pcieFunctionURI}}}};
+                                    const std::string& connectionName =
+                                        connectionNames[0].first;
+                                    const std::vector<std::string>&
+                                        interfaces2 = connectionNames[0].second;
+                                    getPCIeDevice(asyncResp, device,
+                                                  chassisPCIePath,
+                                                  connectionName, interface[0]);
 
-                                                                    // get
-                                                                    // health by
-                                                                    // association
-                                                                    redfish::nvidia_chassis_utils::getHealthByAssociation(
-                                                                        asyncResp,
-                                                                        std::string(
-                                                                            chassisPCIePath)
-                                                                            .append(
-                                                                                "/")
-                                                                            .append(
-                                                                                device),
-                                                                        "chassis",
-                                                                        device);
+                                    // get
+                                    // health by
+                                    // association
+                                    redfish::nvidia_chassis_utils::
+                                        getHealthByAssociation(
+                                            asyncResp,
+                                            std::string(chassisPCIePath)
+                                                .append("/")
+                                                .append(device),
+                                            "chassis", device);
 
-                                                                    // Get asset
-                                                                    // properties
-                                                                    if (std::find(
-                                                                            interfaces2
-                                                                                .begin(),
-                                                                            interfaces2
-                                                                                .end(),
-                                                                            assetInterface) !=
-                                                                        interfaces2
-                                                                            .end())
-                                                                    {
-                                                                        getPCIeDeviceAssetData(
-                                                                            asyncResp,
-                                                                            device,
-                                                                            chassisPCIePath,
-                                                                            connectionName);
-                                                                    }
-                                                                    // Get UUID
-                                                                    if (std::find(
-                                                                            interfaces2
-                                                                                .begin(),
-                                                                            interfaces2
-                                                                                .end(),
-                                                                            uuidInterface) !=
-                                                                        interfaces2
-                                                                            .end())
-                                                                    {
-                                                                        getPCIeDeviceUUID(
-                                                                            asyncResp,
-                                                                            device,
-                                                                            chassisPCIePath,
-                                                                            connectionName);
-                                                                    }
-                                                                    // Device
-                                                                    // state
-                                                                    if (std::find(
-                                                                            interfaces2
-                                                                                .begin(),
-                                                                            interfaces2
-                                                                                .end(),
-                                                                            stateInterface) !=
-                                                                        interfaces2
-                                                                            .end())
-                                                                    {
-                                                                        redfish::nvidia_pcie_utils::
-                                                                            getPCIeDeviceState(
-                                                                                asyncResp,
-                                                                                device,
-                                                                                chassisPCIePath,
-                                                                                connectionName);
-                                                                    }
-                                                                    redfish::nvidia_pcie_utils::
-                                                                        getFabricSwitchLink(
-                                                                            asyncResp,
-                                                                            chassisPath);
-                                                                    if constexpr (
-                                                                        !BMCWEB_DISABLE_CONDITIONS_ARRAY)
-                                                                    {
-                                                                        redfish::conditions_utils::
-                                                                            populateServiceConditions(
-                                                                                asyncResp,
-                                                                                device);
-                                                                    }
-                                                                    if constexpr (
-                                                                        BMCWEB_NVIDIA_OEM_PROPERTIES)
-                                                                    {
-                                                                        nlohmann::json& oem =
-                                                                            asyncResp
-                                                                                ->res
-                                                                                .jsonValue
-                                                                                    ["Oem"]
-                                                                                    ["Nvidia"];
-                                                                        oem["@odata.type"] =
-                                                                            "#NvidiaPCIeDevice.v1_2_0.NvidiaPCIeDevice";
-                                                                        // Baseboard
-                                                                        // PCIeDevices
-                                                                        // Oem
-                                                                        // properties
-                                                                        if (std::find(
-                                                                                interfaces2
-                                                                                    .begin(),
-                                                                                interfaces2
-                                                                                    .end(),
-                                                                                pcieClockReferenceIntf) !=
-                                                                            interfaces2
-                                                                                .end())
-                                                                        {
-                                                                            getPCIeDeviceClkRefOem(
-                                                                                asyncResp,
-                                                                                device,
-                                                                                chassisPCIePath,
-                                                                                connectionName);
-                                                                        }
+                                    // Get asset
+                                    // properties
+                                    if (std::find(interfaces2.begin(),
+                                                  interfaces2.end(),
+                                                  assetInterface) !=
+                                        interfaces2.end())
+                                    {
+                                        getPCIeDeviceAssetData(
+                                            asyncResp, device, chassisPCIePath,
+                                            connectionName);
+                                    }
+                                    // Get UUID
+                                    if (std::find(interfaces2.begin(),
+                                                  interfaces2.end(),
+                                                  uuidInterface) !=
+                                        interfaces2.end())
+                                    {
+                                        getPCIeDeviceUUID(asyncResp, device,
+                                                          chassisPCIePath,
+                                                          connectionName);
+                                    }
+                                    // Device
+                                    // state
+                                    if (std::find(interfaces2.begin(),
+                                                  interfaces2.end(),
+                                                  stateInterface) !=
+                                        interfaces2.end())
+                                    {
+                                        redfish::nvidia_pcie_utils::
+                                            getPCIeDeviceState(asyncResp,
+                                                               device,
+                                                               chassisPCIePath,
+                                                               connectionName);
+                                    }
+                                    redfish::nvidia_pcie_utils::
+                                        getFabricSwitchLink(asyncResp,
+                                                            chassisPath);
+                                    if constexpr (
+                                        !BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                                    {
+                                        redfish::conditions_utils::
+                                            populateServiceConditions(asyncResp,
+                                                                      device);
+                                    }
+                                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                                    {
+                                        nlohmann::json& oem =
+                                            asyncResp->res
+                                                .jsonValue["Oem"]["Nvidia"];
+                                        oem["@odata.type"] =
+                                            "#NvidiaPCIeDevice.v1_2_0.NvidiaPCIeDevice";
+                                        // Baseboard
+                                        // PCIeDevices
+                                        // Oem
+                                        // properties
+                                        if (std::find(interfaces2.begin(),
+                                                      interfaces2.end(),
+                                                      pcieClockReferenceIntf) !=
+                                            interfaces2.end())
+                                        {
+                                            getPCIeDeviceClkRefOem(
+                                                asyncResp, device,
+                                                chassisPCIePath,
+                                                connectionName);
+                                        }
 
-                                                                        if (std::find(
-                                                                                interfaces2
-                                                                                    .begin(),
-                                                                                interfaces2
-                                                                                    .end(),
-                                                                                pcieAerErrorStatusIntf) !=
-                                                                            interfaces2
-                                                                                .end())
-                                                                        {
-                                                                            redfish::nvidia_pcie_utils::
-                                                                                getAerErrorStatusOem(
-                                                                                    asyncResp,
-                                                                                    device,
-                                                                                    chassisPCIePath,
-                                                                                    connectionName);
-                                                                            asyncResp
-                                                                                ->res
-                                                                                .jsonValue
-                                                                                    ["Actions"]
-                                                                                    ["Oem"]
-                                                                                    ["#NvidiaPCIeDevice.ClearAERErrorStatus"]
-                                                                                    ["target"] =
-                                                                                pcieDeviceURI +
-                                                                                "/Actions/Oem/NvidiaPCIeDevice.ClearAERErrorStatus";
-                                                                        }
+                                        if (std::find(interfaces2.begin(),
+                                                      interfaces2.end(),
+                                                      pcieAerErrorStatusIntf) !=
+                                            interfaces2.end())
+                                        {
+                                            redfish::nvidia_pcie_utils::
+                                                getAerErrorStatusOem(
+                                                    asyncResp, device,
+                                                    chassisPCIePath,
+                                                    connectionName);
+                                        }
+                                        if (std::find(
+                                                interfaces2.begin(),
+                                                interfaces2.end(),
+                                                pcieClearAerErrorStatusIntf) !=
+                                            interfaces2.end())
+                                        {
+                                            asyncResp->res.jsonValue
+                                                ["Actions"]["Oem"]
+                                                ["#NvidiaPCIeDevice.ClearAERErrorStatus"]
+                                                ["target"] =
+                                                pcieDeviceURI +
+                                                "/Actions/Oem/NvidiaPCIeDevice.ClearAERErrorStatus";
+                                        }
 
-                                                                        getPCIeLTssmState(
-                                                                            asyncResp,
-                                                                            device,
-                                                                            chassisPCIePath,
-                                                                            connectionName);
+                                        getPCIeLTssmState(asyncResp, device,
+                                                          chassisPCIePath,
+                                                          connectionName);
 
-                                                                        // Baseboard
-                                                                        // PCIeDevices
-                                                                        // nvlink
-                                                                        // Oem
-                                                                        // properties
-                                                                        if (std::find(
-                                                                                interfaces2
-                                                                                    .begin(),
-                                                                                interfaces2
-                                                                                    .end(),
-                                                                                nvlinkClockReferenceIntf) !=
-                                                                            interfaces2
-                                                                                .end())
-                                                                        {
-                                                                            getPCIeDeviceNvLinkClkRefOem(
-                                                                                asyncResp,
-                                                                                device,
-                                                                                chassisPCIePath,
-                                                                                connectionName);
-                                                                        }
-                                                                    }
-                                                                    return;
-                                                                }
-                                                                messages::resourceNotFound(
-                                                                    asyncResp
-                                                                        ->res,
-                                                                    "#PCIeDevice.v1_14_0.PCIeDevice",
-                                                                    device);
-                                                            });
+                                        // Baseboard
+                                        // PCIeDevices
+                                        // nvlink
+                                        // Oem
+                                        // properties
+                                        if (std::find(
+                                                interfaces2.begin(),
+                                                interfaces2.end(),
+                                                nvlinkClockReferenceIntf) !=
+                                            interfaces2.end())
+                                        {
+                                            getPCIeDeviceNvLinkClkRefOem(
+                                                asyncResp, device,
+                                                chassisPCIePath,
+                                                connectionName);
+                                        }
+                                    }
                                     return;
                                 }
                                 messages::resourceNotFound(
-                                    asyncResp->res, "#Chassis.v1_15_0.Chassis",
-                                    chassisId);
+                                    asyncResp->res,
+                                    "#PCIeDevice.v1_14_0.PCIeDevice", device);
                             });
-            });
+                        return;
+                    }
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
+                });
+        });
 }
 
 } // namespace redfish
