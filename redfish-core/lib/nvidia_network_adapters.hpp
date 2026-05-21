@@ -575,25 +575,12 @@ inline void handlePortGet(App& app, const crow::Request& req,
 
 inline void requestRoutesNetworkAdapters(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
-        .privileges(redfish::privileges::getNetworkAdapterCollection)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleNetworkAdaptersCollectionGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/")
-        .privileges(redfish::privileges::getNetworkAdapter)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(&handleNetworkAdapterGet, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/NetworkDeviceFunctions/")
         .privileges(redfish::privileges::getNetworkDeviceFunctionCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleNetworkDeviceFunctionsCollectionGet, std::ref(app)));
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
-        .privileges(redfish::privileges::getPortCollection)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortsCollectionGet, std::ref(app)));
 }
 
 inline void requestRoutesNetworkDeviceFunctions(App& app)
@@ -604,15 +591,6 @@ inline void requestRoutesNetworkDeviceFunctions(App& app)
         .privileges(redfish::privileges::getNetworkDeviceFunction)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleNDFGet, std::ref(app)));
-}
-
-inline void requestRoutesACDPort(App& app)
-{
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/")
-        .privileges(redfish::privileges::getPort)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortGet, std::ref(app)));
 }
 
 } // namespace redfish
