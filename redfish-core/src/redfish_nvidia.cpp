@@ -13,6 +13,8 @@
 #include "log_services_manufacturing_test.hpp"
 #include "manager_usb_ports.hpp"
 #include "memory.hpp"
+#include "network_adapters.hpp"
+#include "network_adapters_generic.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_chassis.hpp"
 #include "nvidia_chassis_env_metrics.hpp"
@@ -35,8 +37,6 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
-#include "nvidia_network_adapters.hpp"
-#include "nvidia_network_adapters_generic.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_nic_debug_token.hpp"
 #include "nvidia_oem_chassis_recovery.hpp"
@@ -169,10 +169,11 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesWriteProtectDomain(app);
     }
 
-    if constexpr (BMCWEB_NETWORK_ADAPTERS && !BMCWEB_NETWORK_ADAPTERS_GENERIC)
+    if constexpr (BMCWEB_NETWORK_ADAPTERS)
     {
         requestRoutesNetworkAdapters(app);
         requestRoutesNetworkDeviceFunctions(app);
+        requestRoutesACDPort(app);
     }
 
     if constexpr (BMCWEB_HOST_ETH_IFACE)
