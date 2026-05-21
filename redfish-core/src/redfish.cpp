@@ -134,7 +134,12 @@ RedfishService::RedfishService(App& app)
         requestRoutesChassisResetAction(app);
         requestRoutesChassisResetActionInfo(app);
     }
-    requestRoutesChassisNetworkAdapter(app);
+    // requestRoutesChassisNetworkAdapter activation is owned by NVIDIA
+    // redfish_nvidia.cpp under the BMCWEB_NETWORK_ADAPTERS_GENERIC gate
+    // (the DS-rich converged handler at redfish-core/lib/network_adapter.hpp).
+    // Registering it here would double-register the /Chassis/<>/NetworkAdapters/*
+    // routes; intentionally left commented as an audit reference.
+    // requestRoutesChassisNetworkAdapter(app);
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesUpdateService(app);
