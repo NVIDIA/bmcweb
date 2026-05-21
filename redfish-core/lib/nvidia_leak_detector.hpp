@@ -47,7 +47,7 @@ struct LeakDetectorPolicyProperties
 {
     std::optional<std::string> criticalReactionType;
     std::optional<std::string> warningReactionType;
-    std::optional<double> reactionDelaySeconds;
+    std::optional<int64_t> reactionDelaySeconds;
 };
 
 inline std::string getDetectorState(const std::string& detectorState)
@@ -748,9 +748,10 @@ inline void doLeakDetectorPolicyPatch(
 
     if (policyProperties.reactionDelaySeconds)
     {
-        setDbusProperty(asyncResp, "ReactionDelaySeconds", service, path,
-                        configInterface, "ReactionDelaySeconds",
-                        *policyProperties.reactionDelaySeconds);
+        setDbusProperty(
+            asyncResp, "ReactionDelaySeconds", service, path, configInterface,
+            "ReactionDelaySeconds",
+            static_cast<double>(*policyProperties.reactionDelaySeconds));
     }
 }
 
@@ -806,16 +807,13 @@ inline void handleLeakDetectorPatch(
     }
 
     // Validate reactionDelaySeconds if provided
-    if (policyProperties.reactionDelaySeconds)
+    if (policyProperties.reactionDelaySeconds &&
+        *policyProperties.reactionDelaySeconds < 0)
     {
-        if (!std::isfinite(*policyProperties.reactionDelaySeconds) ||
-            *policyProperties.reactionDelaySeconds < 0)
-        {
-            messages::propertyValueOutOfRange(
-                asyncResp->res, *policyProperties.reactionDelaySeconds,
-                "ReactionDelaySeconds");
-            return;
-        }
+        messages::propertyValueOutOfRange(
+            asyncResp->res, *policyProperties.reactionDelaySeconds,
+            "ReactionDelaySeconds");
+        return;
     }
 
     // Only call getValidLeakDetectorPolicyPath if there's something to patch
