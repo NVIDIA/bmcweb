@@ -134,10 +134,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesChassisResetAction(app);
         requestRoutesChassisResetActionInfo(app);
     }
-    if constexpr (!BMCWEB_NETWORK_ADAPTERS_GENERIC && !BMCWEB_NETWORK_ADAPTERS)
-    {
-        requestRoutesChassisNetworkAdapter(app);
-    }
+    requestRoutesChassisNetworkAdapter(app);
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesUpdateService(app);
