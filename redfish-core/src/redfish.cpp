@@ -33,7 +33,6 @@
 #include "metadata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
-#include "network_adapter.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_managers.hpp"
