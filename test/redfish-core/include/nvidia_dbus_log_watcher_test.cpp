@@ -65,11 +65,11 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
         EXPECT_EQ(entry.UpdateTimestamp, 9876543210);
         EXPECT_EQ(entry.ServiceProviderNotify, "Test notify");
         EXPECT_EQ(entry.AdditionalData.size(), 2);
-        EXPECT_THAT(entry.AdditionalData,
-                    ElementsAre(std::make_pair(std::string("KEY1"),
-                                               std::string("VALUE1")),
-                                std::make_pair(std::string("KEY2"),
-                                               std::string("VALUE2"))));
+        EXPECT_THAT(
+            entry.AdditionalData,
+            ElementsAre(
+                std::make_pair(std::string("KEY1"), std::string("VALUE1")),
+                std::make_pair(std::string("KEY2"), std::string("VALUE2"))));
         EXPECT_EQ(*entry.Path, "/test/path");
         EXPECT_EQ(*entry.Resolution, "Test resolution");
     }
