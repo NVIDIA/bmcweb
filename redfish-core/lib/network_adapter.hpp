@@ -18,6 +18,7 @@
 
 #include "app.hpp"
 #include "nvidia_oem_device_reset.hpp"
+#include "ports.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 
@@ -29,6 +30,7 @@
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_network_adapters_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
+#include <utils/nvidia_ports_utils.hpp>
 #include <utils/nvidia_utils.hpp>
 #include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>
@@ -988,11 +990,11 @@ inline void handlePortsCollectionGet(
                         chassisId, networkAdapterId));
 }
 
-inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& objPath,
-                        const std::string& chassisId,
-                        const std::string& networkAdapterId,
-                        const std::string& portId)
+inline void getPortData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& portId, const std::string& networkAdapterPath)
 {
     asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_6_0.Port";
     asyncResp->res.jsonValue["Id"] = portId;
@@ -1184,6 +1186,23 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                              networkAdapterId);
     } // BMCWEB_DISABLE_CONDITIONS_ARRAY
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        // OOB Miswiring Detection: surface LLDP TLVs (Ethernet.LLDPReceive /
+        // LLDPTransmit) and OEM raw frame streams (Oem.Nvidia.LLDP.{RX,TX}
+        // DataStream) for ConnectX-9 CX_NIC ports. nsmd publishes the
+        // backing D-Bus objects at <portInventoryPath>/LLDP/{RX,TX}.
+        // Ethernet.LLDPEnabled is computed from the parent NetworkAdapter's
+        // com.nvidia.Network.LLDP.Modes; LLDPReceive / LLDPTransmit come
+        // from per-direction xyz.openbmc_project.Network.LLDP.TLVs; raw
+        // packet bytes come from com.nvidia.Network.LLDP.RawFrame.Data.
+        const std::string lldpRxPath = objPath + "/LLDP/RX";
+        const std::string lldpTxPath = objPath + "/LLDP/TX";
+        nvidia_ports_utils::getLldpEnabledFromParent(asyncResp,
+                                                     networkAdapterPath);
+        nvidia_ports_utils::getLldpStatus(asyncResp, lldpRxPath, lldpTxPath);
+    }
 }
 
 inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1312,12 +1331,16 @@ inline void getPortDataByAssociation(
     const std::string& objPath, const std::string& chassisId,
     const std::string& networkAdapterId, const std::string& portId)
 {
+    // Capture the parent NetworkAdapter inventory path so getPortData()
+    // can resolve com.nvidia.Network.LLDP.Modes via the lldp_mode_settings
+    // association for the Ethernet.LLDPEnabled computation (OOB Miswiring).
+    const std::string& networkAdapterPath = objPath;
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, chassisId, networkAdapterId,
-         portId](const boost::system::error_code& ec,
-                 const std::vector<std::string>& resp) {
+        [asyncResp, chassisId, networkAdapterId, portId,
+         networkAdapterPath](const boost::system::error_code& ec,
+                             const std::vector<std::string>& resp) {
             if (ec)
             {
                 if (ec.value() == EBADR)
@@ -1345,9 +1368,10 @@ inline void getPortDataByAssociation(
                     "xyz.openbmc_project.ObjectMapper",
                     sensorPath + "/associated_port",
                     "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, chassisId, networkAdapterId, portId,
-                     sensorPath](const boost::system::error_code& ec1,
-                                 const std::vector<std::string>& response) {
+                    [asyncResp, chassisId, networkAdapterId, portId, sensorPath,
+                     networkAdapterPath](
+                        const boost::system::error_code& ec1,
+                        const std::vector<std::string>& response) {
                         std::string objectPathToGetPortData = sensorPath;
                         if (!ec1)
                         {
@@ -1363,7 +1387,7 @@ inline void getPortDataByAssociation(
                             std::array<std::string_view, 1>{
                                 "xyz.openbmc_project.Inventory.Item.Port"},
                             [asyncResp, objectPathToGetPortData, chassisId,
-                             networkAdapterId, portId](
+                             networkAdapterId, portId, networkAdapterPath](
                                 const boost::system::error_code ec2,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
@@ -1388,7 +1412,8 @@ inline void getPortDataByAssociation(
 
                                 getPortData(asyncResp, object.front().first,
                                             objectPathToGetPortData, chassisId,
-                                            networkAdapterId, portId);
+                                            networkAdapterId, portId,
+                                            networkAdapterPath);
                             });
                     });
 
@@ -2645,6 +2670,8 @@ inline void doNetworkAdapterSettingsGet(
         redfish::nvidia_network_adapters_utils::populateDeviceModeSettings(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath,
             false);
+        redfish::nvidia_network_adapters_utils::populateLldpModeSettings(
+            asyncResp, *validNetworkAdapterPath);
     }
 }
 
@@ -2691,6 +2718,9 @@ inline void doNetworkAdapterSettingsPatch(
     const std::optional<int64_t>& numberOfUpstreamSockets,
     const std::optional<bool>& eastWestControlEnabled,
     const std::optional<int64_t>& pcieBifurcationLinkCount,
+    const std::optional<std::string>& lldpTxMode,
+    const std::optional<std::string>& lldpRxMode,
+    const std::optional<bool>& lldpDcbxMode,
     const std::optional<std::string>& validNetworkAdapterPath)
 {
     if (!validNetworkAdapterPath)
@@ -2755,6 +2785,29 @@ inline void doNetworkAdapterSettingsPatch(
         nvidia_network_adapters_utils::patchPCIeDeviceMode(
             asyncResp, *validNetworkAdapterPath, pciePatches);
     }
+
+    if (lldpTxMode &&
+        !nvidia_network_adapters_utils::isValidLldpModeValue(*lldpTxMode))
+    {
+        messages::propertyValueNotInList(
+            asyncResp->res, *lldpTxMode,
+            std::string(nvidia_network_adapters_utils::lldpRedfishTxMode));
+        return;
+    }
+    if (lldpRxMode &&
+        !nvidia_network_adapters_utils::isValidLldpModeValue(*lldpRxMode))
+    {
+        messages::propertyValueNotInList(
+            asyncResp->res, *lldpRxMode,
+            std::string(nvidia_network_adapters_utils::lldpRedfishRxMode));
+        return;
+    }
+    if (lldpTxMode || lldpRxMode || lldpDcbxMode)
+    {
+        nvidia_network_adapters_utils::patchLldpModes(
+            asyncResp, networkAdapterId, *validNetworkAdapterPath, lldpTxMode,
+            lldpRxMode, lldpDcbxMode);
+    }
 }
 
 inline void handleNetworkAdapterSettingsPatchNext(
@@ -2764,6 +2817,9 @@ inline void handleNetworkAdapterSettingsPatchNext(
     const std::optional<int64_t>& numberOfUpstreamSockets,
     const std::optional<bool>& eastWestControlEnabled,
     const std::optional<int64_t>& pcieBifurcationLinkCount,
+    const std::optional<std::string>& lldpTxMode,
+    const std::optional<std::string>& lldpRxMode,
+    const std::optional<bool>& lldpDcbxMode,
     const std::vector<std::string>& chassisIntfList,
     const std::optional<std::string>& validChassisPath)
 {
@@ -2774,10 +2830,10 @@ inline void handleNetworkAdapterSettingsPatchNext(
     }
     getValidNetworkAdapterPath(
         asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
-        std::bind_front(doNetworkAdapterSettingsPatch, asyncResp,
-                        networkAdapterId, dpuOperationMode,
-                        numberOfUpstreamSockets, eastWestControlEnabled,
-                        pcieBifurcationLinkCount));
+        std::bind_front(
+            doNetworkAdapterSettingsPatch, asyncResp, networkAdapterId,
+            dpuOperationMode, numberOfUpstreamSockets, eastWestControlEnabled,
+            pcieBifurcationLinkCount, lldpTxMode, lldpRxMode, lldpDcbxMode));
 }
 
 inline void handleNetworkAdapterSettingsPatch(
@@ -2794,19 +2850,30 @@ inline void handleNetworkAdapterSettingsPatch(
     std::optional<int64_t> numberOfUpstreamSockets;
     std::optional<bool> eastWestControlEnabled;
     std::optional<int64_t> pcieBifurcationLinkCount;
+    // OOB Miswiring Detection — Oem.Nvidia.LLDP mode properties.
+    std::optional<std::string> lldpTxMode;
+    std::optional<std::string> lldpRxMode;
+    std::optional<bool> lldpDcbxMode;
 
     if (!redfish::json_util::readJsonPatch(
             req, asyncResp->res, "Oem/Nvidia/DPUOperationMode",
             dpuOperationMode, "Oem/Nvidia/NumberOfUpstreamSockets",
             numberOfUpstreamSockets, "Oem/Nvidia/EastWestControlEnabled",
             eastWestControlEnabled, "Oem/Nvidia/PCIeBifurcationLinkCount",
-            pcieBifurcationLinkCount))
+            pcieBifurcationLinkCount,
+            std::string(nvidia_network_adapters_utils::lldpRedfishTxModePath),
+            lldpTxMode,
+            std::string(nvidia_network_adapters_utils::lldpRedfishRxModePath),
+            lldpRxMode,
+            std::string(nvidia_network_adapters_utils::lldpRedfishDcbxModePath),
+            lldpDcbxMode))
     {
         return;
     }
 
     if (!dpuOperationMode && !numberOfUpstreamSockets &&
-        !eastWestControlEnabled && !pcieBifurcationLinkCount)
+        !eastWestControlEnabled && !pcieBifurcationLinkCount && !lldpTxMode &&
+        !lldpRxMode && !lldpDcbxMode)
     {
         return;
     }
@@ -2816,7 +2883,8 @@ inline void handleNetworkAdapterSettingsPatch(
         std::bind_front(handleNetworkAdapterSettingsPatchNext, asyncResp,
                         chassisId, networkAdapterId, dpuOperationMode,
                         numberOfUpstreamSockets, eastWestControlEnabled,
-                        pcieBifurcationLinkCount));
+                        pcieBifurcationLinkCount, lldpTxMode, lldpRxMode,
+                        lldpDcbxMode));
 }
 
 inline void requestRoutesChassisNetworkAdapter(App& app)
