@@ -19,7 +19,9 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "logging.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <boost/system/error_code.hpp>
@@ -28,7 +30,9 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -712,6 +716,311 @@ inline void patchPCIeDeviceMode(
     dbus::utility::getAssociationEndPoints(
         networkAdapterPath + "/device_mode_settings",
         std::bind_front(afterGetPcieModeEndpoints, asyncResp, modeEntries));
+}
+
+/*
+ * OOB Miswiring Detection — LLDP mode interfaces.
+ *
+ * D-Bus interface (PDI YAML:
+ * yaml/com/nvidia/Network/LLDP/Modes.interface.yaml):
+ *   com.nvidia.Network.LLDP.Modes
+ *     - TXMode    : enum string (LLDPModeType : Off | Mandatory | All)
+ *     - RXMode    : enum string (LLDPModeType : Off | Mandatory | All)
+ *     - DCBXMode  : enum string (DCBXModeType : Disabled | Enabled)
+ *
+ * Object path (published by nsmd):
+ *   <NetworkAdapter>/Settings/Oem/Nvidia/LLDPModes
+ * Association: ("network_adapter", "lldp_mode_settings", <NetworkAdapter path>)
+ *
+ * Redfish OEM mapping (NvidiaNetworkAdapter.v1_3_0):
+ * Oem.Nvidia.LLDP.{TXMode, RXMode, DCBXModeEnabled (boolean)}
+ */
+constexpr std::string_view lldpRedfishTxMode = "TXMode";
+constexpr std::string_view lldpRedfishRxMode = "RXMode";
+constexpr std::string_view lldpRedfishDcbxMode = "DCBXModeEnabled";
+constexpr std::string_view lldpRedfishTxModePath = "Oem/Nvidia/LLDP/TXMode";
+constexpr std::string_view lldpRedfishRxModePath = "Oem/Nvidia/LLDP/RXMode";
+constexpr std::string_view lldpRedfishDcbxModePath =
+    "Oem/Nvidia/LLDP/DCBXModeEnabled";
+constexpr std::string_view lldpModesDbusIntf = "com.nvidia.Network.LLDP.Modes";
+constexpr std::string_view lldpModeTypeEnumPrefix =
+    "com.nvidia.Network.LLDP.Modes.LLDPModeType.";
+constexpr std::string_view dcbxModeTypeEnumPrefix =
+    "com.nvidia.Network.LLDP.Modes.DCBXModeType.";
+constexpr std::string_view nvidiaNetworkAdapterOdataType =
+    "#NvidiaNetworkAdapter.v1_3_0.NvidiaNetworkAdapter";
+
+inline std::string stripLldpEnumPrefix(const std::string& dbusValue)
+{
+    size_t lastDot = dbusValue.find_last_of('.');
+    if (lastDot == std::string::npos)
+    {
+        return dbusValue;
+    }
+    return dbusValue.substr(lastDot + 1);
+}
+
+inline bool isValidLldpModeValue(const std::string& value)
+{
+    return value == "Off" || value == "Mandatory" || value == "All";
+}
+
+inline bool dcbxModeDbusToRedfish(const std::string& dbusValue)
+{
+    return stripLldpEnumPrefix(dbusValue) == "Enabled";
+}
+
+inline std::string lldpModeRedfishToDbus(const std::string& redfishValue)
+{
+    return std::string(lldpModeTypeEnumPrefix) + redfishValue;
+}
+
+inline std::string dcbxModeRedfishToDbus(bool enabled)
+{
+    return std::string(dcbxModeTypeEnumPrefix) +
+           (enabled ? "Enabled" : "Disabled");
+}
+
+inline void afterGetLldpModeProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("LLDP Modes GetAll error: {}", ec.message());
+        return;
+    }
+
+    const std::string* txMode = nullptr;
+    const std::string* rxMode = nullptr;
+    const std::string* dcbxMode = nullptr;
+
+    if (!sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties, "TXMode", txMode,
+            "RXMode", rxMode, "DCBXMode", dcbxMode))
+    {
+        return;
+    }
+
+    nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidiaJson["@odata.type"] = nvidiaNetworkAdapterOdataType;
+    nlohmann::json& lldpJson = oemNvidiaJson["LLDP"];
+    if (txMode != nullptr)
+    {
+        lldpJson[std::string(lldpRedfishTxMode)] = stripLldpEnumPrefix(*txMode);
+    }
+    if (rxMode != nullptr)
+    {
+        lldpJson[std::string(lldpRedfishRxMode)] = stripLldpEnumPrefix(*rxMode);
+    }
+    if (dcbxMode != nullptr)
+    {
+        lldpJson[std::string(lldpRedfishDcbxMode)] =
+            dcbxModeDbusToRedfish(*dcbxMode);
+    }
+}
+
+inline void afterGetLldpModesObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("LLDP Modes object not found at {}", objectPath);
+        return;
+    }
+    // Service that owns com.nvidia.Network.LLDP.Modes at this path.
+    const std::string& serviceName = serviceMap.front().first;
+    dbus::utility::getAllProperties(
+        serviceName, objectPath, std::string(lldpModesDbusIntf),
+        std::bind_front(afterGetLldpModeProperties, asyncResp));
+}
+
+inline void afterGetLldpModeEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_DEBUG("No lldp_mode_settings endpoints: {}", ec.message());
+        return;
+    }
+
+    for (const std::string& endpoint : endpoints)
+    {
+        dbus::utility::getDbusObject(
+            endpoint, std::array<std::string_view, 1>{lldpModesDbusIntf},
+            std::bind_front(afterGetLldpModesObject, asyncResp, endpoint));
+    }
+}
+
+/**
+ * @brief Populate Oem.Nvidia.LLDP block on a NetworkAdapter Settings resource.
+ *
+ * Resolves com.nvidia.Network.LLDP.Modes via the parent NetworkAdapter's
+ * lldp_mode_settings association. On any D-Bus error the block is silently
+ * omitted (the caller's other fields are preserved).
+ */
+inline void populateLldpModeSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath)
+{
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/lldp_mode_settings",
+        std::bind_front(afterGetLldpModeEndpoints, asyncResp));
+}
+
+struct LldpModePatchState
+{
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    std::string networkAdapterId;
+    std::string service;
+    std::string endpoint;
+    std::optional<std::string> txMode;
+    std::optional<std::string> rxMode;
+    std::optional<bool> dcbxMode;
+};
+
+inline void continueLldpModePatch(
+    const std::shared_ptr<LldpModePatchState>& state);
+
+class PatchLldpModeCallback
+{
+  public:
+    PatchLldpModeCallback(std::shared_ptr<LldpModePatchState> stateIn,
+                          std::string propertyNameIn,
+                          std::string propertyValueIn) :
+        state(std::move(stateIn)), propertyName(std::move(propertyNameIn)),
+        propertyValue(std::move(propertyValueIn))
+    {}
+
+    void operator()(const std::string& status) const
+    {
+        if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+        {
+            continueLldpModePatch(state);
+            return;
+        }
+
+        nvidia_async_operation_utils::PatchGenericCallback{
+            state->asyncResp, propertyName, propertyValue}(status);
+    }
+
+  private:
+    std::shared_ptr<LldpModePatchState> state;
+    std::string propertyName;
+    std::string propertyValue;
+};
+
+inline void doLldpModeAsyncSet(
+    const std::shared_ptr<LldpModePatchState>& state,
+    const std::string& dbusProperty, const std::string& redfishProperty,
+    const std::string& redfishValue, const std::string& dbusValue)
+{
+    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+        state->asyncResp, std::chrono::seconds(60), state->service,
+        state->endpoint, std::string(lldpModesDbusIntf), dbusProperty,
+        std::variant<std::string>(dbusValue),
+        PatchLldpModeCallback{state, redfishProperty, redfishValue});
+}
+
+inline void continueLldpModePatch(
+    const std::shared_ptr<LldpModePatchState>& state)
+{
+    if (state->txMode)
+    {
+        std::string redfishValue = *state->txMode;
+        state->txMode.reset();
+        doLldpModeAsyncSet(state, "TXMode", std::string(lldpRedfishTxMode),
+                           redfishValue, lldpModeRedfishToDbus(redfishValue));
+        return;
+    }
+    if (state->rxMode)
+    {
+        std::string redfishValue = *state->rxMode;
+        state->rxMode.reset();
+        doLldpModeAsyncSet(state, "RXMode", std::string(lldpRedfishRxMode),
+                           redfishValue, lldpModeRedfishToDbus(redfishValue));
+        return;
+    }
+    if (state->dcbxMode)
+    {
+        bool redfishValue = *state->dcbxMode;
+        state->dcbxMode.reset();
+        doLldpModeAsyncSet(state, "DCBXMode", std::string(lldpRedfishDcbxMode),
+                           redfishValue ? "true" : "false",
+                           dcbxModeRedfishToDbus(redfishValue));
+    }
+}
+
+inline void afterGetLldpModeObjectForPatch(
+    const std::shared_ptr<LldpModePatchState>& state,
+    const std::string& endpoint, const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        BMCWEB_LOG_WARNING("LLDP Modes object not present at {}", endpoint);
+        messages::resourceNotFound(state->asyncResp->res, "NetworkAdapter",
+                                   state->networkAdapterId);
+        return;
+    }
+
+    state->service = serviceMap.begin()->first;
+    state->endpoint = endpoint;
+    continueLldpModePatch(state);
+}
+
+inline void afterGetLldpModeEndpointsForPatch(
+    const std::shared_ptr<LldpModePatchState>& state,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_WARNING(
+            "No lldp_mode_settings endpoints for NetworkAdapter patch");
+        messages::resourceNotFound(state->asyncResp->res, "NetworkAdapter",
+                                   state->networkAdapterId);
+        return;
+    }
+
+    if (endpoints.size() > 1)
+    {
+        BMCWEB_LOG_DEBUG(
+            "Multiple lldp_mode_settings endpoints for NetworkAdapter patch; using first");
+    }
+
+    const std::string& endpoint = endpoints.front();
+    dbus::utility::getDbusObject(
+        endpoint, std::array<std::string_view, 1>{lldpModesDbusIntf},
+        std::bind_front(afterGetLldpModeObjectForPatch, state, endpoint));
+}
+
+/**
+ * @brief Dispatch LLDP mode PATCH writes to com.nvidia.Network.LLDP.Modes.
+ *
+ * Resolves the target object via the parent NetworkAdapter's
+ * lldp_mode_settings association, then writes each provided property through
+ * the SetAsync path (same pattern as DPU/PCIe device mode patches). Multiple
+ * properties are applied sequentially because nsmd serializes LLDP writes.
+ */
+inline void patchLldpModes(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterId, const std::string& networkAdapterPath,
+    const std::optional<std::string>& txMode,
+    const std::optional<std::string>& rxMode,
+    const std::optional<bool>& dcbxMode)
+{
+    auto state = std::make_shared<LldpModePatchState>(LldpModePatchState{
+        asyncResp, networkAdapterId, {}, {}, txMode, rxMode, dcbxMode});
+
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/lldp_mode_settings",
+        std::bind_front(afterGetLldpModeEndpointsForPatch, state));
 }
 
 } // namespace nvidia_network_adapters_utils
