@@ -17,6 +17,7 @@
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <string>
 #include <variant>
@@ -144,6 +145,8 @@ static constexpr const char* pcieLtssmIntf =
 
 static constexpr const char* pcieAerErrorStatusIntf =
     "com.nvidia.PCIe.AERErrorStatus";
+static constexpr const char* pcieClearAerErrorStatusIntf =
+    "com.nvidia.PCIe.ClearAERErrorStatus";
 static constexpr const char* pcieDeviceInterfaceNV =
     "xyz.openbmc_project.PCIe.Device";
 
@@ -795,6 +798,8 @@ namespace nvidia_pcie_utils
 static constexpr const char* pciePath = "/xyz/openbmc_project/PCIe";
 static constexpr const char* pcieAerErrorStatusIntf =
     "com.nvidia.PCIe.AERErrorStatus";
+static constexpr const char* pcieClearAerErrorStatusIntf =
+    "com.nvidia.PCIe.ClearAERErrorStatus";
 
 inline void getPCIeDeviceList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -907,7 +912,8 @@ inline void clearAerErrorStatus(
     const std::string& connection, const std::string& path)
 {
     dbus::utility::getDbusObject(
-        path, std::array<std::string_view, 1>{"com.nvidia.PCIe.AERErrorStatus"},
+        path,
+        std::array<std::string_view, 1>{"com.nvidia.PCIe.ClearAERErrorStatus"},
         [asyncResp, path,
          connection](const boost::system::error_code& ec,
                      const dbus::utility::MapperGetObject& object) {
@@ -925,7 +931,7 @@ inline void clearAerErrorStatus(
                     nvidia_async_operation_utils::
                         doGenericCallAsyncAndGatherResult<int>(
                             asyncResp, std::chrono::seconds(60), connection,
-                            path, "com.nvidia.PCIe.AERErrorStatus",
+                            path, "com.nvidia.PCIe.ClearAERErrorStatus",
                             "ClearAERStatus",
                             [asyncResp](const std::string& status,
                                         [[maybe_unused]] const int* retValue) {
@@ -1015,7 +1021,7 @@ inline void postClearAerErrorStatus(
                             {
                                 if (std::ranges::find(
                                         interfaces,
-                                        "com.nvidia.PCIe.AERErrorStatus") !=
+                                        "com.nvidia.PCIe.ClearAERErrorStatus") !=
                                     interfaces.end())
                                 {
                                     clearAerErrorStatus(asyncResp, connection,
@@ -1740,6 +1746,13 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                                     asyncResp, device,
                                                     chassisPCIePath,
                                                     connectionName);
+                                        }
+
+                                        if (std::ranges::find(
+                                                interfaces2,
+                                                pcieClearAerErrorStatusIntf) !=
+                                            interfaces2.end())
+                                        {
                                             asyncResp->res.jsonValue
                                                 ["Actions"]["Oem"]
                                                 ["#NvidiaPCIeDevice.ClearAERErrorStatus"]
