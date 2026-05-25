@@ -907,13 +907,11 @@ inline void mapPropertiesBySubnode(
             "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
             "HardShutdownLow", "/Thresholds/LowerFatal/Reading"_json_pointer);
         // Downstream sensor properties dropped during upstream sync.
-        // ReadingBasis/PeakReading*/PeakReadingTime also have upstream
-        // code paths (lines 343-368 and 730-738); both writers run, last
-        // wins. ReadingTime/Description have no replacement path.
+        // PeakReading*/PeakReadingTime also have upstream code paths;
+        // both writers run, last wins. ReadingTime/Description have no
+        // replacement path.
         properties.emplace_back("xyz.openbmc_project.Time.EpochTime", "Elapsed",
                                 "/ReadingTime"_json_pointer);
-        properties.emplace_back("xyz.openbmc_project.Sensor.ReadingBasis",
-                                "ReadingBasis", "/ReadingBasis"_json_pointer);
         properties.emplace_back("xyz.openbmc_project.Sensor.Description",
                                 "Description", "/Description"_json_pointer);
         properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
@@ -1126,11 +1124,6 @@ inline void objectPropertiesToJson(
                     const std::string& value =
                         nvidia_sensor_utils::toImplementation(implementation);
                     sensorJson[key] = value;
-                }
-                if (valueName == "ReadingBasis")
-                {
-                    sensorJson[key] = nvidia_sensor_utils::toReadingBasis(
-                        static_cast<std::string>(*stringValue));
                 }
                 if (valueName == "Description")
                 {

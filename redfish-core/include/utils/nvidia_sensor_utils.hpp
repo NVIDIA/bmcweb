@@ -232,17 +232,6 @@ inline const char* toImplementation(const std::string& implementation)
     return "";
 }
 
-inline const char* toReadingBasis(const std::string& readingBasis)
-{
-    if (readingBasis ==
-        "xyz.openbmc_project.Sensor.ReadingBasis.ReadingBasisType.Headroom")
-    {
-        return "Headroom";
-    }
-
-    return "";
-}
-
 inline std::string getSensorId(std::string_view sensorName,
                                [[maybe_unused]] std::string_view sensorType)
 {
