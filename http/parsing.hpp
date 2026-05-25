@@ -51,7 +51,8 @@ class BmcwebSaxParse : public nlohmann::json::json_sax_t
     constexpr static int maxDepth = 10;
 
     int totalValues = 0;
-    constexpr static int maxValues = 20000;
+    // Sized for Vera BIOS PUT (~4100 attrs, ~100k SAX events).
+    constexpr static int maxValues = 200000;
 
   public:
     BmcwebSaxParse(nlohmann::json& j) : parser(j, false) {}
@@ -193,8 +194,8 @@ class BmcwebSaxParse : public nlohmann::json::json_sax_t
 inline std::optional<nlohmann::json> parseStringAsJson(const std::string& body)
 {
     nlohmann::json jsonOut;
-    // Arbitrarily limit to 1MB payloads
-    if (body.size() > 1048576U)
+    // Arbitrarily limit to 2MiB payloads
+    if (body.size() > 2097152U)
     {
         BMCWEB_LOG_WARNING("Request body is too large");
         return std::nullopt;

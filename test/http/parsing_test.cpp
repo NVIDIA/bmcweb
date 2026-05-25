@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http/parsing.hpp"
 
+#include <cstddef>
 #include <format>
 #include <string>
 
@@ -117,16 +118,39 @@ TEST(HttpParsing, parseRequestAsJsonLimitsObjectDepths)
 
 TEST(HttpParsing, parseStringAsJsonMaxValues)
 {
-    EXPECT_TRUE(parseStringAsJson(makeWideArray(20000)))
-        << "500 values should parse";
-    EXPECT_FALSE(parseStringAsJson(makeWideArray(20001)))
-        << "501 values should be rejected";
+    EXPECT_TRUE(parseStringAsJson(makeWideArray(200000)))
+        << "200000 values should parse";
+    EXPECT_FALSE(parseStringAsJson(makeWideArray(200001)))
+        << "200001 values should be rejected";
 
-    // Keys and values are each counted separately, so 500/2 = 250 dict elements
-    EXPECT_TRUE(parseStringAsJson(makeWideObject(9999)))
-        << "249 keys objects should parse";
-    EXPECT_FALSE(parseStringAsJson(makeWideObject(10000)))
-        << "250 keys should be rejected";
+    // Keys and values are each counted separately, and the root object also
+    // counts as one value, so 99999 keys is the largest accepted object.
+    EXPECT_TRUE(parseStringAsJson(makeWideObject(99999)))
+        << "99999-key object should parse";
+    EXPECT_FALSE(parseStringAsJson(makeWideObject(100000)))
+        << "100000-key object should be rejected";
+}
+
+TEST(HttpParsing, parseStringAsJsonBodySizeLimit)
+{
+    constexpr size_t cap = 2097152U;
+
+    // A well-formed JSON string of exactly the cap should parse.
+    std::string atCap;
+    atCap.reserve(cap);
+    atCap += '"';
+    atCap.append(cap - 2, 'a');
+    atCap += '"';
+    EXPECT_TRUE(parseStringAsJson(atCap)) << "Body at 2 MiB should parse";
+
+    // One byte over the cap must be rejected before SAX parsing.
+    std::string overCap;
+    overCap.reserve(cap + 1);
+    overCap += '"';
+    overCap.append(cap - 1, 'a');
+    overCap += '"';
+    EXPECT_FALSE(parseStringAsJson(overCap))
+        << "Body over 2 MiB should be rejected";
 }
 
 } // namespace
