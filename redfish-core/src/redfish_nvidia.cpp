@@ -63,7 +63,6 @@
 #include "nvidia_protected_component.hpp"
 #include "nvidia_refresh_inventory.hpp"
 #include "nvidia_sensors.hpp"
-#include "nvidia_smbios_mdr.hpp"
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
@@ -374,7 +373,6 @@ void requestRoutesNvidia(crow::App& app)
         nvidia_manager_util::requestRoutesDebugTokenManagement(app);
     }
 
-    requestRoutesNvidiaSmbios(app);
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
         requestRoutesSystemsCPUDiag(app);

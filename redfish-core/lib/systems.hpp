@@ -4020,15 +4020,6 @@ inline void processComputerSystemGet(
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
-    if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
-    {
-        auto& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
-        oemActions["#NvidiaComputerSystem.PushSmbiosTable"]["target"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable";
-    }
-
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         handleRefreshInventoryGet(asyncResp);

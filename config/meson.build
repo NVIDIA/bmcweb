@@ -126,7 +126,6 @@ feature_options = [
     'preboot-diag-support',
     'profiles-feature',
     'profile-configuration',
-    'push-smbios-table-feature',
     'redfish',
     'redfish-aggregation',
     'redfish-aggregation-prefix-removal',
