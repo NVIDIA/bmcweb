@@ -222,7 +222,12 @@ inline void afterChassisSetRecoveryModeInterfacesFound(
             objPathCount++;
         }
     }
-    if (objPathCount != 1)
+    if (objPathCount == 0)
+    {
+        // Not all chassis support SetRecoveryMode; skip silently.
+        return;
+    }
+    if (objPathCount > 1)
     {
         BMCWEB_LOG_ERROR(
             "Multiple SetRecoveryMode interface object paths {} found for chassisId: {}",
