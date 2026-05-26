@@ -114,7 +114,7 @@ static void checkAssociationEndpointsForInstance(
                         slot = std::get_if<uint8_t>(&property.second);
                         if (slot != nullptr)
                         {
-                            BMCWEB_LOG_ERROR("Slot ID:{}", *slot);
+                            BMCWEB_LOG_DEBUG("Slot ID:{}", *slot);
                         }
                     }
                 }
@@ -466,7 +466,7 @@ static void handleChassisCertificateCollectionIsEROT(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, bool isEROT, [[maybe_unused]] bool isCpuEROT)
 {
-    BMCWEB_LOG_ERROR("Checking certificate collection is ERoT chassis");
+    BMCWEB_LOG_DEBUG("Checking certificate collection is ERoT chassis");
     if (!isEROT)
     {
         BMCWEB_LOG_DEBUG("Not a EROT chassis");
@@ -498,7 +498,7 @@ static void handleChassisCertificateCollectionGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID)
 {
-    BMCWEB_LOG_ERROR("Getting certificate collection get request");
+    BMCWEB_LOG_DEBUG("Getting certificate collection get request");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
