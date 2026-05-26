@@ -30,6 +30,9 @@
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/port_utils.hpp"
+
+#include <cmath>
+
 namespace redfish
 {
 
@@ -176,7 +179,7 @@ inline void getNetworkAdapterMACAddressForNDF(
 }
 
 /**
- * @brief Read LinkStatus from port properties and set it in the response.
+ * @brief Read LinkStatus and SpeedMbps from port properties.
  */
 inline void onPortPropertiesForLinkStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -194,21 +197,43 @@ inline void onPortPropertiesForLinkStatus(
     sdbusplus::unpackPropertiesNoThrow(dbus_utils::UnpackErrorPrinter(),
                                        properties, "LinkStatus", linkStatus);
 
-    if (linkStatus == nullptr)
+    if (linkStatus != nullptr)
     {
-        return;
+        std::string status = port_utils::getLinkStatusType(*linkStatus);
+        if (!status.empty())
+        {
+            asyncResp->res.jsonValue["LinkStatus"] = status;
+        }
     }
 
-    std::string status = port_utils::getLinkStatusType(*linkStatus);
-    if (!status.empty())
+    for (const auto& property : properties)
     {
-        asyncResp->res.jsonValue["LinkStatus"] = status;
+        if (property.first != "CurrentSpeed")
+        {
+            continue;
+        }
+
+        const double* speedGbps = std::get_if<double>(&property.second);
+        if (speedGbps == nullptr)
+        {
+            BMCWEB_LOG_DEBUG("Unexpected CurrentSpeed type");
+            return;
+        }
+        if (*speedGbps < 0.0)
+        {
+            BMCWEB_LOG_DEBUG("Invalid CurrentSpeed value {}", *speedGbps);
+            return;
+        }
+
+        asyncResp->res.jsonValue["SpeedMbps"] =
+            std::llround(*speedGbps * 1000.0);
+        return;
     }
 }
 
 /**
  * @brief Given a port D-Bus object path and its service, fetch all properties
- *        and extract LinkStatus.
+ *        and extract LinkStatus and SpeedMbps.
  */
 inline void getLinkStatusFromPortPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -224,7 +249,7 @@ inline void getLinkStatusFromPortPath(
 
 /**
  * @brief Given a port path, find its service (requires Item.Port interface)
- *        and then fetch LinkStatus.
+ *        and then fetch LinkStatus and SpeedMbps.
  */
 inline void onPortObjectForLinkStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -242,13 +267,12 @@ inline void onPortObjectForLinkStatus(
 
 /**
  * @brief Follow optional associated_port redirect from a state sensor path,
- *        then resolve the Port object and fetch LinkStatus.
+ *        then resolve the Port object and fetch LinkStatus and SpeedMbps.
  * associated_port is optional: if absent, fall back to the state sensor
  * path itself, which may directly expose Item.Port on some hardware.
  * Either way, onPortObjectForLinkStatus will silently no-op if the
- * resolved path lacks Item.Port, leaving LinkStatus absent from the
- * response — this is intentional, as LinkStatus is optional per D-Bus
- * usage guidelines.
+ * resolved path lacks Item.Port, leaving LinkStatus absent and SpeedMbps at
+ * its default.
  */
 inline void onAssociatedPortForLinkStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -276,7 +300,7 @@ inline void onAssociatedPortForLinkStatus(
 /**
  * @brief From the adapter's all_states association, find the state sensor
  *        whose D-Bus path filename matches ndfFilename, then follow
- *        associated_port (if present) to read LinkStatus.
+ *        associated_port (if present) to read LinkStatus and SpeedMbps.
  */
 inline void onAllStatesForLinkStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -317,9 +341,9 @@ inline void onAllStatesForLinkStatus(
 }
 
 /**
- * @brief Start the LinkStatus lookup chain for a specific NDF on a network
- *        adapter.  ndfFilename is the D-Bus path filename of the NDF object
- *        (e.g. "eth0_func0"), which also matches the filename of the
+ * @brief Start the LinkStatus and SpeedMbps lookup chain for a specific NDF on
+ *        a network adapter.  ndfFilename is the D-Bus path filename of the NDF
+ *        object (e.g. "eth0_func0"), which also matches the filename of the
  *        corresponding entry in the adapter's all_states association.
  */
 inline void getNetworkAdapterLinkStatusForNDF(
@@ -387,6 +411,7 @@ inline void processNetworkAdapterEthInterface(
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
     asyncResp->res.jsonValue["InterfaceEnabled"] = true;
+    asyncResp->res.jsonValue["SpeedMbps"] = 0;
 
     getNetworkAdapterMACAddressForNDF(asyncResp, *matchedAdapterPath,
                                       ndfFilename);
