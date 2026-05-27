@@ -159,6 +159,10 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
             // port via ssh and websocket.
             accountTypes.emplace_back("HostConsole");
         }
+        else if (userGroup == "kvm-ip")
+        {
+            accountTypes.emplace_back("KVMIP");
+        }
         else if (userGroup == "web")
         {
             // 'web' is one of the valid groups in the UserGroups property of
@@ -216,6 +220,10 @@ inline bool getUserGroupFromAccountType(
         else if (accountType == "ManagerConsole")
         {
             userGroups.emplace_back("ssh");
+        }
+        else if (accountType == "KVMIP")
+        {
+            userGroups.emplace_back("kvm-ip");
         }
         else
         {
