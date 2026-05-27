@@ -36,6 +36,7 @@
 #include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
 #include <utils/processor_utils.hpp>
+#include <utils/redfish_response_utils.hpp>
 
 #include <cstdint>
 #include <variant>
@@ -857,7 +858,8 @@ inline void updateSwitchData(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res.jsonValue[propertyName] = *value;
+                    redfish::mapStringOrNull(asyncResp->res.jsonValue,
+                                             propertyName, value);
                 }
                 else if (propertyName == "CurrentBandwidth")
                 {
