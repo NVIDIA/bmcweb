@@ -23,6 +23,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/eventlog_utils.hpp"
 #include "utils/log_services_util.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/origin_utils.hpp"
@@ -59,7 +60,9 @@ inline void getXIDLogEntries(
         "xyz.openbmc_project.Logging.Namespace.ResolvedFilterType.Both",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::ManagedObjectType& resp) {
-            afterLogEntriesGetManagedObjects(asyncResp, ec, resp);
+            eventlog_utils::afterLogEntriesGetManagedObjects(
+                asyncResp, "Systems", BMCWEB_REDFISH_SYSTEM_URI_NAME, "System",
+                ec, resp);
         });
 }
 

@@ -43,6 +43,13 @@
 
 namespace redfish
 {
+// NVIDIA code starts here
+// NOLINTNEXTLINE(readability-redundant-declaration)
+void dBusEventLogEntryGetAdditionalInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    DbusEventLogEntry& entry, nlohmann::json& objectToFillOut);
+// NVIDIA code ends here
+
 namespace eventlog_utils
 {
 
@@ -571,7 +578,8 @@ inline std::string translateSeverityDbusToRedfish(const std::string& s)
 }
 
 inline void fillEventLogLogEntryFromDbusLogEntry(
-    const DbusEventLogEntry& entry, nlohmann::json& objectToFillOut,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    DbusEventLogEntry& entry, nlohmann::json& objectToFillOut,
     const std::string& collectionStr, const std::string_view memberId,
     const std::string& logEntryDescriptor)
 {
@@ -607,6 +615,10 @@ inline void fillEventLogLogEntryFromDbusLogEntry(
             "/redfish/v1/{}/{}/LogServices/EventLog/Entries/{}/attachment",
             collectionStr, memberId, std::to_string(entry.Id));
     }
+
+    // NVIDIA code starts here
+    dBusEventLogEntryGetAdditionalInfo(asyncResp, entry, objectToFillOut);
+    // NVIDIA code ends here
 }
 
 inline void afterLogEntriesGetManagedObjects(
@@ -653,8 +665,8 @@ inline void afterLogEntriesGetManagedObjects(
             return;
         }
         fillEventLogLogEntryFromDbusLogEntry(
-            *optEntry, entriesArray.emplace_back(), collectionStr, memberId,
-            logEntryDescriptor);
+            asyncResp, *optEntry, entriesArray.emplace_back(), collectionStr,
+            memberId, logEntryDescriptor);
     }
 
     redfish::json_util::sortJsonArrayByKey(entriesArray, "Id");
@@ -733,7 +745,7 @@ inline void afterDBusEventLogEntryGet(
     }
 
     fillEventLogLogEntryFromDbusLogEntry(
-        *optEntry, asyncResp->res.jsonValue, collectionStr, memberId,
+        asyncResp, *optEntry, asyncResp->res.jsonValue, collectionStr, memberId,
         logEntryDescriptor);
 }
 
