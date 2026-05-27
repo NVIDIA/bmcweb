@@ -1265,7 +1265,7 @@ inline void handleTrustStoreCertificateCollectionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates/",
+        boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] =
         "#CertificateCollection.CertificateCollection";
