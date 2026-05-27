@@ -1043,6 +1043,59 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         });
 }
 
+/**
+ * @brief Build the CounterType parameter object on asyncResp from the
+ *        ClearableCounters D-Bus property and assign it as the sole element
+ *        of the ActionInfo Parameters array.
+ *
+ * Intended to be invoked from the getAllProperties callback in
+ * getClearablePcieCounters.
+ *
+ * @param[in,out] asyncResp      Async HTTP response.
+ * @param[in]     ec             D-Bus error code from getAllProperties.
+ * @param[in]     propertiesList Properties returned for the ClearPCIeCounters
+ *                               interface.
+ */
+inline void buildClearPcieCountersParameters(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Get All call Failed for the interface. ec: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    std::vector<std::string> clearableDataSource;
+    for (const auto& property : propertiesList)
+    {
+        const std::string& propertyName = property.first;
+        if (propertyName == "ClearableCounters")
+        {
+            const std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&property.second);
+
+            if (data != nullptr)
+            {
+                for (const auto& counter : *data)
+                {
+                    clearableDataSource.push_back(
+                        counter.substr(counter.find_last_of('.') + 1));
+                }
+            }
+        }
+    }
+
+    nlohmann::json parameter;
+    parameter["Name"] = "CounterType";
+    parameter["Required"] = true;
+    parameter["DataType"] = "String";
+    parameter["AllowableValues"] = clearableDataSource;
+    asyncResp->res.jsonValue["Parameters"] = nlohmann::json::array({parameter});
+}
+
 inline void getClearablePcieCounters(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath,
@@ -1052,35 +1105,7 @@ inline void getClearablePcieCounters(
         service, objPath, interface,
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Get All call Failed for the interface. ec: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            std::vector<std::string> clearableDataSource;
-            for (const auto& property : propertiesList)
-            {
-                const std::string& propertyName = property.first;
-                if (propertyName == "ClearableCounters")
-                {
-                    const std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&property.second);
-
-                    if (data)
-                    {
-                        for (const auto& counter : *data)
-                        {
-                            clearableDataSource.push_back(
-                                counter.substr(counter.find_last_of('.') + 1));
-                        }
-                    }
-                }
-            }
-            asyncResp->res.jsonValue["Parameters"]["AllowableValues"] =
-                clearableDataSource;
+            buildClearPcieCountersParameters(asyncResp, ec, propertiesList);
         });
 }
 
@@ -1193,18 +1218,6 @@ inline void getClearPCIeCountersActionInfo(
                                             if (interface ==
                                                 "xyz.openbmc_project.PCIe.ClearPCIeCounters")
                                             {
-                                                asyncResp->res
-                                                    .jsonValue["Parameters"]
-                                                              ["Name"] =
-                                                    "CounterType";
-                                                asyncResp->res
-                                                    .jsonValue["Parameters"]
-                                                              ["Required"] =
-                                                    true;
-                                                asyncResp->res
-                                                    .jsonValue["Parameters"]
-                                                              ["DataType"] =
-                                                    "String";
                                                 getClearablePcieCounters(
                                                     asyncResp, service,
                                                     sensorpath, interface);
