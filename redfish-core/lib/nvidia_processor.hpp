@@ -1483,8 +1483,9 @@ inline void getMemorySpareChannelPresenceData(
     const std::string& objPath, const std::string& deviceType)
 {
     dbus::utility::async_method_call(
-        [aResp, objPath, deviceType](const boost::system::error_code& ec,
-                                     const std::variant<bool>& property) {
+        [aResp, objPath,
+         deviceType](const boost::system::error_code& ec,
+                     const std::variant<std::string>& property) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1493,8 +1494,8 @@ inline void getMemorySpareChannelPresenceData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
 
-            const bool* memorySpareChannelPresence =
-                std::get_if<bool>(&property);
+            const std::string* memorySpareChannelPresence =
+                std::get_if<std::string>(&property);
             if (memorySpareChannelPresence == nullptr)
             {
                 BMCWEB_LOG_ERROR(
@@ -1513,7 +1514,8 @@ inline void getMemorySpareChannelPresenceData(
                     "#NvidiaProcessorMetrics.v1_5_0.NvidiaProcessorMetrics";
             }
             json["Oem"]["Nvidia"]["MemorySpareChannelPresence"] =
-                *memorySpareChannelPresence;
+                redfish::dbus_utils::toChannelPresence(
+                    *memorySpareChannelPresence);
         },
         service, objPath, "org.freedesktop.DBus.Properties", "Get",
         "com.nvidia.MemorySpareChannel", "MemorySpareChannelPresence");
