@@ -5,7 +5,6 @@
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "cookies.hpp"
-#include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -81,12 +80,6 @@ inline void handleLogin(const crow::Request& req,
         return;
     }
 
-    if (!persistent_data::SessionStore::getInstance().getServiceEnabled())
-    {
-        redfish::messages::serviceDisabled(asyncResp->res,
-                                           "/redfish/v1/SessionService");
-        return;
-    }
     int pamrc = pamAuthenticateUser(*userStr, *passStr, std::nullopt);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
