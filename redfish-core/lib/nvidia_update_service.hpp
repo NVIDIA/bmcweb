@@ -2315,14 +2315,15 @@ inline void forwardImage(
             else if (param.second == "UpdateParameters")
             {
                 data += "Content-Type: application/json\r\n\r\n";
-                nlohmann::json content =
-                    nlohmann::json::parse(formpart.content, nullptr, false);
-                if (content.is_discarded())
+                std::optional<nlohmann::json> parsed =
+                    parseStringAsJson(formpart.content);
+                if (!parsed)
                 {
                     BMCWEB_LOG_INFO("UpdateParameters parse error:{}",
                                     formpart.content);
                     continue;
                 }
+                nlohmann::json& content = *parsed;
                 std::optional<std::vector<std::string>> targets;
                 std::optional<bool> forceUpdate;
                 std::optional<nlohmann::json> oemObject;

@@ -8,6 +8,7 @@
 #include "http_response.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
+#include "parsing.hpp"
 
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
@@ -73,14 +74,15 @@ inline bool requireEmptyOrEmptyJsonObject(
     {
         return true;
     }
-    nlohmann::json bodyJson = nlohmann::json::parse(body, nullptr, false);
-    if (bodyJson.is_discarded())
+    std::optional<nlohmann::json> bodyJson =
+        parseStringAsJson(std::string(body));
+    if (!bodyJson)
     {
         messages::malformedJSON(res);
         return false;
     }
     const nlohmann::json::object_t* obj =
-        bodyJson.get_ptr<const nlohmann::json::object_t*>();
+        bodyJson->get_ptr<const nlohmann::json::object_t*>();
     if (obj == nullptr)
     {
         messages::unrecognizedRequestBody(res);
