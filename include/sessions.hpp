@@ -435,21 +435,6 @@ class SessionStore
         needWrite = true;
     }
 
-    bool getServiceEnabled() const
-    {
-        return serviceEnabled;
-    }
-
-    void setServiceEnabled(bool enabled)
-    {
-        if (serviceEnabled == enabled)
-        {
-            return;
-        }
-        serviceEnabled = enabled;
-        needWrite = true;
-    }
-
     static SessionStore& getInstance()
     {
         static SessionStore sessionStore;
@@ -494,7 +479,6 @@ class SessionStore
     bool needWrite{false};
     std::chrono::seconds timeoutInSeconds;
     AuthConfigMethods authMethodsConfig;
-    bool serviceEnabled{true};
 
   private:
     SessionStore() : timeoutInSeconds(1800) {}

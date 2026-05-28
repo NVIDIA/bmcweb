@@ -108,13 +108,6 @@ inline void handleSessionDelete(
     {
         return;
     }
-    // Per DMTF SessionService schema: when ServiceEnabled is false,
-    // existing sessions cannot be deleted.
-    if (!persistent_data::SessionStore::getInstance().getServiceEnabled())
-    {
-        messages::serviceDisabled(asyncResp->res, "/redfish/v1/SessionService");
-        return;
-    }
     auto session =
         persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
 
@@ -256,11 +249,6 @@ inline void handleSessionCollectionPost(
     {
         return;
     }
-    if (!persistent_data::SessionStore::getInstance().getServiceEnabled())
-    {
-        messages::serviceDisabled(asyncResp->res, "/redfish/v1/SessionService");
-        return;
-    }
     std::string username;
     std::string password;
     std::optional<std::string> clientId;
@@ -347,8 +335,7 @@ inline void handleSessionServiceGet(
     asyncResp->res.jsonValue["Description"] = "Session Service";
     asyncResp->res.jsonValue["SessionTimeout"] =
         persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
-    asyncResp->res.jsonValue["ServiceEnabled"] =
-        persistent_data::SessionStore::getInstance().getServiceEnabled();
+    asyncResp->res.jsonValue["ServiceEnabled"] = true;
 
     asyncResp->res.jsonValue["Sessions"]["@odata.id"] =
         "/redfish/v1/SessionService/Sessions";
@@ -363,11 +350,9 @@ inline void handleSessionServicePatch(
         return;
     }
     std::optional<int64_t> sessionTimeout;
-    std::optional<bool> serviceEnabled;
-    if (!json_util::readJsonPatch(            //
-            req, asyncResp->res,              //
-            "ServiceEnabled", serviceEnabled, //
-            "SessionTimeout", sessionTimeout  //
+    if (!json_util::readJsonPatch(           //
+            req, asyncResp->res,             //
+            "SessionTimeout", sessionTimeout //
             ))
     {
         return;
@@ -400,17 +385,6 @@ inline void handleSessionServicePatch(
             messages::propertyValueNotInList(asyncResp->res, *sessionTimeout,
                                              "SessionTimeout");
         }
-    }
-
-    if (serviceEnabled)
-    {
-        persistent_data::SessionStore::getInstance().setServiceEnabled(
-            *serviceEnabled);
-        messages::propertyValueModified(asyncResp->res, "ServiceEnabled",
-                                        *serviceEnabled);
-        sendPropertyModifiedEvent(req.target(), "SessionService",
-                                  "ServiceEnabled",
-                                  *serviceEnabled ? "true" : "false");
     }
 }
 
