@@ -34,6 +34,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a NetworkAdapter resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a NetworkAdapter resource."/>
+      </ComplexType>
       <Action Name="SetRecoveryMode" IsBound="true">
         <Annotation Term="OData.Description" String="This action sets the device into recovery mode."/>
         <Annotation Term="OData.LongDescription" String="This action shall set the device into recovery mode."/>
@@ -50,7 +55,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaNetworkAdapter">
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="NvidiaNetworkAdapter.NvidiaNetworkAdapter">
         <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to the error injection resource for this network adapter."/>

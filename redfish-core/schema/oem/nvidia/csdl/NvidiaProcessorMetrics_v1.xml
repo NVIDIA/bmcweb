@@ -28,6 +28,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaProcessorMetrics" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a ProcessorMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a ProcessorMetrics resource."/>
+      </ComplexType>
       <Action Name="ClearAccumulatedUtilizationCounters" IsBound="true">
         <Annotation Term="OData.Description" String="The action sets the values of AccumulatedGPUContextUtilizationDuration and AccumulatedSMUtilizationDuration properties to zero."/>
         <Annotation Term="OData.LongDescription" String="This action sets the values of AccumulatedGPUContextUtilizationDuration and AccumulatedSMUtilizationDuration properties to zero."/>
@@ -36,7 +41,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaProcessorMetrics">
+      <ComplexType Name="NvidiaProcessorMetrics" BaseType="NvidiaProcessorMetrics.NvidiaProcessorMetrics">
         <Property Name="ThrottleReasons" Type="Collection(Edm.String)">
           <Annotation Term="OData.Description" String="The throttle reasons for this processor."/>
           <Annotation Term="OData.LongDescription" String="The property shall contain a list of throttle reasons for this processor."/>
@@ -279,7 +284,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaGPUProcessorMetrics">
+      <ComplexType Name="NvidiaGPUProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_1_0.NvidiaProcessorMetrics">
         <Property Name="SMUtilizationPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The SM utilization utilization as a percentage."/>
@@ -287,189 +292,12 @@
           <Annotation Term="Validation.Minimum" Int="0"/>
           <Annotation Term="Measures.Unit" String="%"/>
         </Property>
-        <Property Name="HardwareViolationThrottleDuration" Type="Edm.Duration">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total duration of throttling caused by hardware violation of the processor since reset."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total duration of throttling caused by hardware violation of the processor since reset."/>
-        </Property>
-        <Property Name="GlobalSoftwareViolationThrottleDuration" Type="Edm.Duration">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total duration of throttling caused by global software violation of the processor since reset."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total duration of throttling caused by global software violation of the processor since reset."/>
-        </Property>
-        <Property Name="AccumulatedGPUContextUtilizationDuration" Type="Edm.Duration">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The duration of the accumulated GPU context utilization."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the duration of the accumulated GPU context utilization.  This value can accumulate only with the driver loaded, and is reset when an SBR reset, a fundamental reset, or after a ClearAccumulatedUtilizationCounters action.  This property reports utilization duration up to approximately 49 days of activity and will roll over to zero."/>
-        </Property>
-        <Property Name="AccumulatedSMUtilizationDuration" Type="Edm.Duration">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The duration of the accumulated SM utilization."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the duration of the accumulated SM utilization.  This value can accumulate only with the driver loaded, and is reset when an SBR reset, a fundamental reset, or after a ClearAccumulatedUtilizationCounters action.  This property reports utilization duration up to approximately 49 days of activity and will roll over to zero."/>
-        </Property>
-        <Property Name="GraphicsEngineActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Graphics engine activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain graphics engine activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="SMActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="SM activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain SM activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="SMOccupancyPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="SM occupancy as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain SM occupancy as a percentage, which is calculated by dividing the warps by the maximum warps."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="TensorCoreActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Tensor core activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain tensor core activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="FP64ActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="FP64 activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain FP64 activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="FP32ActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="FP32 activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain FP32 activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="FP16ActivityPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="FP16 activity as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain FP16 activity as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="NVDecUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="NvDec utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain NvDec utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="NVJpgUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="NvJPG utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain NvJPG utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="NVDecInstanceUtilizationPercent" Type="Collection(Edm.Decimal)">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An array of NvDEC instance utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain an array of NvDEC instance utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="NVJpgInstanceUtilizationPercent" Type="Collection(Edm.Decimal)">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An array of NvJPG instance utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain an array of NvJPG instance utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="NVOfaUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="NvOFA utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain NvOFA utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="PCIeRawTxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth transferred on PCIe with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on PCIe with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="PCIeRawRxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth received on PCIe with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on PCIe with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkRawTxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkRawRxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink with protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkDataTxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink without protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
-        <Property Name="NVLinkDataRxBandwidthGbps" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink without protocol overhead."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
-          <Annotation Term="Measures.Unit" String="Gbit/s"/>
-        </Property>
         <Property Name="IntegerActivityUtilizationPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Integer activity utilization as a percentage."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain Integer activity utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
           <Annotation Term="Validation.Minimum" Int="0"/>
           <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="DMMAUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="DMMA utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain DMMA utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="HMMAUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="HMMA utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain HMMA utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="IMMAUtilizationPercent" Type="Edm.Decimal">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="IMMA utilization as a percentage."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain IMMA utilization as a percentage, which is calculated by dividing the active cycles by the total cycles."/>
-          <Annotation Term="Validation.Minimum" Int="0"/>
-          <Annotation Term="Measures.Unit" String="%"/>
-        </Property>
-        <Property Name="PCIeTXBytes" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total number of bytes sent by the PCIe transmitter."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of bytes sent by the PCIe transmitter."/>
-          <Annotation Term="Measures.Unit" String="By"/>
-        </Property>
-        <Property Name="PCIeRXBytes" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The total number of bytes received by the PCIe receiver."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of bytes received by the PCIe receiver."/>
-          <Annotation Term="Measures.Unit" String="By"/>
-        </Property>
-        <Property Name="ThrottleReasons" Type="Collection(Edm.String)">
-          <Annotation Term="OData.Description" String="The throttle reasons for this processor."/>
-          <Annotation Term="OData.LongDescription" String="The property shall contain a list of throttle reasons for this processor."/>
         </Property>
       </ComplexType>
     </Schema>
@@ -584,6 +412,106 @@
           <Annotation Term="Measures.Unit" String="Gbit/s"/>
         </Property>
       </ComplexType>
+      <ComplexType Name="ECCErrorCount">
+        <Property Name="CorrectableECCErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of correctable ECC errors in the current period."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of correctable (single-bit) ECC errors accumulated since the last counter reset."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+        <Property Name="UncorrectableECCErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of uncorrectable ECC errors in the current period."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of uncorrectable (multi-bit) ECC errors accumulated since the last counter reset."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="SecdedFamilyMetrics">
+        <Property Name="FpC2c" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpC2c register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpC2c register family."/>
+        </Property>
+        <Property Name="FpIcuTileMisc0" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpIcuTileMisc0 register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpIcuTileMisc0 register family."/>
+        </Property>
+        <Property Name="FpIcuTileVxm" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpIcuTileVxm register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpIcuTileVxm register family."/>
+        </Property>
+        <Property Name="FpNimTile" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpNimTile register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpNimTile register family."/>
+        </Property>
+        <Property Name="FpSxmTile" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpSxmTile register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpSxmTile register family."/>
+        </Property>
+        <Property Name="FpVxmTile" Type="NvidiaProcessorMetrics.v1_5_0.ECCErrorCount">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC metrics for fpVxmTile register family."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC metrics for fpVxmTile register family."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaLPUProcessorMetrics">
+        <Property Name="SecdedMetrics" Type="NvidiaProcessorMetrics.v1_5_0.SecdedFamilyMetrics">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The per-family single-error correction, double-error detection (SECDED) ECC metrics."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain per-family single-error correction, double-error detection (SECDED) ECC metrics.for this LPU."/>
+        </Property>
+        <Property Name="SpiCrcErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The SPI CRC error count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SPI CRC error count."/>
+        </Property>
+        <Property Name="SpiCorrectedCrcErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The SPI corrected CRC error count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SPI corrected CRC error count."/>
+        </Property>
+        <Property Name="RiscVClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The RISC-V clock speed in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the RISC-V clock speed in MHz. The RISC-V clock speed of the processor may change more frequently than the manager is able to monitor."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="CoreClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The core clock speed in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the core clock speed in MHz. The core clock speed of the processor may change more frequently than the manager is able to monitor."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="C2CClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The C2C clock speed in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed in MHz. The C2C clock speed of the processor may change more frequently than the manager is able to monitor."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="ActivityMonitorState" Type="NvidiaProcessorMetrics.v1_5_0.LPUActivityMonitorState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The activity monitor state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the LPU."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="LPUActivityMonitorState">
+        <Member Name="Idle">
+          <Annotation Term="OData.Description" String="LPU is idle."/>
+        </Member>
+        <Member Name="Isolated">
+          <Annotation Term="OData.Description" String="Active but not connected to peers (during self test and boot)."/>
+        </Member>
+        <Member Name="Active">
+          <Annotation Term="OData.Description" String="LPU is running."/>
+        </Member>
+        <Member Name="Halted">
+          <Annotation Term="OData.Description" String="LPU is haulted."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

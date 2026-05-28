@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.8.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.9.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -32,6 +32,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a ComputerSystem resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a ComputerSystem resource."/>
+      </ComplexType>
       <Action Name="VariableSpiErase" IsBound="true">
         <Annotation Term="OData.Description" String="This action initiates an erase operation on the active CPU variable SPI device."/>
         <Annotation Term="OData.LongDescription" String="This action initiates an erase operation on the active CPU variable SPI device."/>
@@ -129,6 +134,19 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="ResetLPUs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all LPUs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all LPUs."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_8_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
       <Action Name="L1Reset" IsBound="true">
         <Annotation Term="OData.Description" String="This action initiates an L1 reset of this node."/>
         <Annotation Term="OData.LongDescription" String="This action shall initiate an L1 (software main) reset of all sockets in this node."/>
@@ -145,7 +163,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaComputerSystem">
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.NvidiaComputerSystem">
         <Property Name="ISTModeEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="An indication of whether In-Silicon Test (IST) mode is enabled for the GPUs associated with this system."/>
@@ -225,7 +243,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem">
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem">
         <NavigationProperty Name="SystemConfigProfile" Type="NvidiaSystemConfigProfile.NvidiaSystemConfigProfile">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="A link to the resource which implements the system profile."/>
@@ -284,6 +302,42 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="OperatingSystemState">
+        <Member Name="Inactive">
+          <Annotation Term="OData.Description" String="The host operating system is inactive."/>
+        </Member>
+        <Member Name="Standby">
+          <Annotation Term="OData.Description" String="The host operating system is in standby."/>
+        </Member>
+        <Member Name="BootComplete">
+          <Annotation Term="OData.Description" String="The host operating system boot is complete."/>
+        </Member>
+        <Member Name="PXEBoot">
+          <Annotation Term="OData.Description" String="The host is booting from Preboot Execution Environment (PXE)."/>
+        </Member>
+        <Member Name="CBoot">
+          <Annotation Term="OData.Description" String="The host is booting from a CBoot path."/>
+        </Member>
+        <Member Name="CDROMBoot">
+          <Annotation Term="OData.Description" String="The host is booting from CD-ROM media."/>
+        </Member>
+        <Member Name="DiagBoot">
+          <Annotation Term="OData.Description" String="The host is booting into diagnostics."/>
+        </Member>
+        <Member Name="ROMBoot">
+          <Annotation Term="OData.Description" String="The host is booting from ROM."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem">
+        <Property Name="OperatingSystemState" Type="NvidiaComputerSystem.v1_9_0.OperatingSystemState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The host operating system or UEFI firmware initialization state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the host operating system or UEFI firmware. This property may be set by means other than boot progress codes, for instance by a GPIO controlled by UEFI firmware, to provide host operating system or UEFI firmware initialization state without depending on ODM-specific boot progress codes."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

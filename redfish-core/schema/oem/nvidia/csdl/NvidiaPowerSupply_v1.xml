@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaMemory  v1.0.0                                            -->
+<!--# Redfish OEM Schema:  NvidiaPowerSupply  v1.0.0                                       -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -21,29 +21,21 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PowerSupply_v1.xml">
+    <edmx:Include Namespace="PowerSupply.v1_0_0"/>
+  </edmx:Reference>
   <edmx:DataServices>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemory">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSupply">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMemory" BaseType="Resource.OemObject" Abstract="true">
-        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
-        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Memory resource."/>
-        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Memory resource."/>
-      </ComplexType>
+      <Action Name="ClearFaults" IsBound="true">
+        <Annotation Term="OData.Description" String="This action clears all faults for the power supply."/>
+        <Annotation Term="OData.LongDescription" String="This action shall clear all faults associated with the power supply."/>
+        <Parameter Name="NvidiaPowerSupply" Type="PowerSupply.v1_0_0.OemActions"/>
+      </Action>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemory.v1_0_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSupply.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaMemory" BaseType="NvidiaMemory.NvidiaMemory">
-        <Property Name="RowRemappingFailed" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An indication whether row-remapping has failed."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether row-remapping has failed."/>
-        </Property>
-        <Property Name="RowRemappingPending" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An indication whether row-remapping is pending."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether row-remapping is pending."/>
-        </Property>
-      </ComplexType>
+      <Annotation Term="OData.Description" String="This version was created to add `ClearFaults` action."/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

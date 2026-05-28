@@ -30,10 +30,15 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPort" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Port resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Port resource."/>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPort">
+      <ComplexType Name="NvidiaPort" BaseType="NvidiaPort.NvidiaPort">
         <Property Name="TXWidth" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The totoal number of lanes for the transmitting packets."/>
@@ -48,17 +53,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaNVLinkPort">
-        <Property Name="TXWidth" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The totoal number of lanes for the transmitting packets."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of lanes for the transmitting packets."/>
-        </Property>
-        <Property Name="RXWidth" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The totoal number of lanes for the receving packets."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of lanes for the receiving packets."/>
-        </Property>
+      <ComplexType Name="NvidiaNVLinkPort" BaseType="NvidiaPort.v1_0_0.NvidiaPort">
         <Property Name="LinkDisableSticky" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="An indication of whether the link is disabled upon next reset."/>
@@ -104,7 +99,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPCIePort">
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.NvidiaPort">
         <NavigationProperty Name="PCIeEqualization" Type="NvidiaPCIeEqualization.NvidiaPCIeEqualization" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to the PCIe equalization resource associated with this PCIe port."/>

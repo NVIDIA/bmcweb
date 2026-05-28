@@ -35,6 +35,18 @@ enum class EnableDisableOption{
     Default,
 };
 
+enum class OperatingSystemState{
+    Invalid,
+    Inactive,
+    Standby,
+    BootComplete,
+    PXEBoot,
+    CBoot,
+    CDROMBoot,
+    DiagBoot,
+    ROMBoot,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
@@ -61,6 +73,18 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EnableDisableOption, {
     {EnableDisableOption::Enable, "Enable"},
     {EnableDisableOption::Disable, "Disable"},
     {EnableDisableOption::Default, "Default"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(OperatingSystemState, {
+    {OperatingSystemState::Invalid, "Invalid"},
+    {OperatingSystemState::Inactive, "Inactive"},
+    {OperatingSystemState::Standby, "Standby"},
+    {OperatingSystemState::BootComplete, "BootComplete"},
+    {OperatingSystemState::PXEBoot, "PXEBoot"},
+    {OperatingSystemState::CBoot, "CBoot"},
+    {OperatingSystemState::CDROMBoot, "CDROMBoot"},
+    {OperatingSystemState::DiagBoot, "DiagBoot"},
+    {OperatingSystemState::ROMBoot, "ROMBoot"},
 });
 
 }

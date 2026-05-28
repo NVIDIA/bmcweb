@@ -20,6 +20,14 @@ enum class EDPViolationStateType{
     OutOfRange,
 };
 
+enum class LPUActivityMonitorState{
+    Invalid,
+    Idle,
+    Isolated,
+    Active,
+    Halted,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(PerformanceStateType, {
     {PerformanceStateType::Invalid, "Invalid"},
     {PerformanceStateType::Normal, "Normal"},
@@ -31,6 +39,14 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EDPViolationStateType, {
     {EDPViolationStateType::Invalid, "Invalid"},
     {EDPViolationStateType::Normal, "Normal"},
     {EDPViolationStateType::OutOfRange, "OutOfRange"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(LPUActivityMonitorState, {
+    {LPUActivityMonitorState::Invalid, "Invalid"},
+    {LPUActivityMonitorState::Idle, "Idle"},
+    {LPUActivityMonitorState::Isolated, "Isolated"},
+    {LPUActivityMonitorState::Active, "Active"},
+    {LPUActivityMonitorState::Halted, "Halted"},
 });
 
 }

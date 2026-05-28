@@ -27,6 +27,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a PCIeDevice resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a PCIeDevice resource."/>
+      </ComplexType>
       <Action Name="ClearAERErrorStatus" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to clear PCI Express Advanced Error Reporting (AER) Error Status."/>
         <Annotation Term="OData.LongDescription" String="This action shall clear PCI Express Advanced Error Reporting (AER) Error Status."/>
@@ -35,7 +40,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPCIeDevice">
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.NvidiaPCIeDevice">
         <Property Name="NVLinkReferenceClockEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="An indication whether the NVLink reference clock is enabled for this device."/>

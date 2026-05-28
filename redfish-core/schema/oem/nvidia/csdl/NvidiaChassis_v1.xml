@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.13.0                                          -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.14.0                                          -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -49,6 +49,11 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Chassis resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Chassis resource."/>
+      </ComplexType>
       <Action Name="AuxPowerReset" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
         <Annotation Term="OData.LongDescription" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
@@ -131,10 +136,23 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="ResetFPGAs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all FPGAs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all FPGAs in this chassis."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_13_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaChassis">
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.NvidiaChassis">
         <Property Name="HardwareWriteProtected" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="An indication whether the hardware write protection jumper is present."/>
@@ -289,7 +307,7 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaRoTChassis">
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.NvidiaChassis">
         <Property Name="AutomaticBackgroundCopyEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="An indication whether automatic copy policy is enabled for this ERoT."/>
@@ -411,7 +429,7 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_7_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_5_0.NvidiaRoTChassis"/>
-      <ComplexType Name="NvidiaSMAChassis">
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.NvidiaChassis">
         <NavigationProperty Name="ProtocolBridgeForDevices" Type="Collection(Resource.Item)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="An array of links to resources that are associated with this protocol bridge chassis."/>
@@ -924,6 +942,54 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the index of the memory module whose temperature is the highest among all memory modules on this processor module."/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_14_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_13_0.NvidiaChassis">
+        <Property Name="EmbeddedProcessorOSState" Type="NvidiaChassis.v1_14_0.EmbeddedProcessorOSState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The operating system state of the embedded processor on DPU."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the boot state of the embedded processor on the DPU module."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="EmbeddedProcessorOSState">
+        <Member Name="ResetBootROM">
+          <Annotation Term="OData.Description" String="The device has just been powered on or reset, and it's initializing basic hardware and loading the first firmware mutable firmware components."/>
+        </Member>
+        <Member Name="FWBootStage1">
+          <Annotation Term="OData.Description" String="The First Mutable Code is currently running."/>
+        </Member>
+        <Member Name="FWBootStage2">
+          <Annotation Term="OData.Description" String="The device has progressed further in the boot process and is executing additional instructions to load pre-OS software."/>
+        </Member>
+        <Member Name="PreOS">
+          <Annotation Term="OData.Description" String="The device is transitioning into a Pre-OS stage, such as a Unified Extensible Firmware Interface (UEFI) environment."/>
+        </Member>
+        <Member Name="OSBooting">
+          <Annotation Term="OData.Description" String="The operating system is being loaded and initialized on the device."/>
+        </Member>
+        <Member Name="OSRunning">
+          <Annotation Term="OData.Description" String="The operating system has successfully started and is now running normal operations."/>
+        </Member>
+        <Member Name="OSQuiesced">
+          <Annotation Term="OData.Description" String="The processor operating system has entered a low-power standby mode or is placed into quiesce state to conserve energy while remaining operational."/>
+        </Member>
+        <Member Name="FWUpdateInProgress">
+          <Annotation Term="OData.Description" String="The device's firmware is currently being updated with a new image."/>
+        </Member>
+        <Member Name="OSCrashDumpInProgress">
+          <Annotation Term="OData.Description" String="The operating system is in the process of capturing diagnostic information about an operating system crash or error that has occurred."/>
+        </Member>
+        <Member Name="OSCrashDumpCompleted">
+          <Annotation Term="OData.Description" String="The operating system has finished recording a crash dump. Device can be safely powered off in this state."/>
+        </Member>
+        <Member Name="FWFaultInProgress">
+          <Annotation Term="OData.Description" String="The firmware is collecting diagnostic data related to an internal fault or operational error."/>
+        </Member>
+        <Member Name="FWFaultCompleted">
+          <Annotation Term="OData.Description" String="The firmware has finished collecting diagnostic data related to internal fault or operation error. Device can be safely powered off in this state."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

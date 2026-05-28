@@ -19,15 +19,16 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/v1/NvidiaPowerSmoothingPresetProfile_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfile_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfile"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/v1/NvidiaPowerSmoothingPresetProfileCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfileCollection_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfileCollection"/>
   </edmx:Reference>
   <edmx:DataServices>
