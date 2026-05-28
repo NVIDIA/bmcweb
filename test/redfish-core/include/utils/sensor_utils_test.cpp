@@ -316,7 +316,7 @@ TEST(FillSensorIdentity, Success)
                                 isExcerpt, unit);
     EXPECT_TRUE(result);
     EXPECT_THAT(sensorJson["@odata.type"], StartsWith("#Sensor.v1_"));
-    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "fantach_fan0_0");
+    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "fan0_0");
     EXPECT_EQ(sensorJson["Name"].get<std::string>(), "fan0 0");
     if constexpr (BMCWEB_REDFISH_ALLOW_ROTATIONAL_FANS)
     {
@@ -372,7 +372,7 @@ TEST(FillSensorIdentity, Success)
                                 isExcerpt, unit);
     EXPECT_TRUE(result);
     EXPECT_THAT(sensorJson["@odata.type"], StartsWith("#Sensor.v1_"));
-    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "power_power1_0");
+    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "power1_0");
     EXPECT_EQ(sensorJson["Name"].get<std::string>(), "power1 0");
     EXPECT_EQ(sensorJson["ReadingType"], sensor::ReadingType::Power);
     EXPECT_EQ(sensorJson["ReadingUnits"].get<std::string>(), "W");
@@ -393,7 +393,7 @@ TEST(FillSensorIdentity, Success)
                                 isExcerpt, unit);
     EXPECT_TRUE(result);
     EXPECT_THAT(sensorJson["@odata.type"], StartsWith("#Sensor.v1_"));
-    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "temperature_temp2");
+    EXPECT_EQ(sensorJson["Id"].get<std::string>(), "temp2");
     EXPECT_EQ(sensorJson["Name"].get<std::string>(), "temp2");
     EXPECT_EQ(sensorJson["ReadingType"], sensor::ReadingType::Temperature);
     EXPECT_EQ(sensorJson["ReadingUnits"].get<std::string>(), "Cel");
