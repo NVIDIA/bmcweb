@@ -1580,10 +1580,11 @@ inline void getChassisPowerLimits(
 inline void setStaticPowerHintByObjPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, double cpuClockFrequency, double workloadFactor,
-    double temperature)
+    double temperature, uint32_t numberOfCores)
 {
     dbus::utility::async_method_call(
-        [asyncResp, objPath, cpuClockFrequency, workloadFactor, temperature](
+        [asyncResp, objPath, cpuClockFrequency, workloadFactor, temperature,
+         numberOfCores](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
@@ -1596,11 +1597,11 @@ inline void setStaticPowerHintByObjPath(
             {
                 dbus::utility::async_method_call(
                     [asyncResp, objPath, service{service}, cpuClockFrequency,
-                     workloadFactor, temperature](
+                     workloadFactor, temperature, numberOfCores](
                         const boost::system::error_code& errorno2,
-                        const std::vector<
-                            std::pair<std::string,
-                                      std::variant<double, std::string, bool>>>&
+                        const std::vector<std::pair<
+                            std::string,
+                            std::variant<double, uint32_t, std::string, bool>>>&
                             propertiesList) {
                         if (errorno2)
                         {
@@ -1617,6 +1618,8 @@ inline void setStaticPowerHintByObjPath(
                         double workloadFactorMin = 0;
                         double temperatureMax = 0;
                         double temperatureMin = 0;
+                        uint32_t numberOfCoresMax = 0;
+                        uint32_t numberOfCoresMin = 0;
 
                         for (const auto& [propertyName, value] : propertiesList)
                         {
@@ -1650,6 +1653,16 @@ inline void setStaticPowerHintByObjPath(
                             {
                                 workloadFactorMin = std::get<double>(value);
                             }
+                            else if (propertyName == "MaxNumberOfCores" &&
+                                     std::holds_alternative<uint32_t>(value))
+                            {
+                                numberOfCoresMax = std::get<uint32_t>(value);
+                            }
+                            else if (propertyName == "MinNumberOfCores" &&
+                                     std::holds_alternative<uint32_t>(value))
+                            {
+                                numberOfCoresMin = std::get<uint32_t>(value);
+                            }
                         }
 
                         if ((cpuClockFrequencyMax < cpuClockFrequency) ||
@@ -1680,6 +1693,21 @@ inline void setStaticPowerHintByObjPath(
                             return;
                         }
 
+                        // Only range-check NumberOfCores when the device
+                        // actually exposes the effecter. When the effecter is
+                        // absent the PLDM side reports max=min=0; ignore the
+                        // argument entirely so legacy devices keep working
+                        // with any value the client sends.
+                        if ((numberOfCoresMax != 0 || numberOfCoresMin != 0) &&
+                            ((numberOfCoresMax < numberOfCores) ||
+                             (numberOfCoresMin > numberOfCores)))
+                        {
+                            messages::propertyValueOutOfRange(
+                                asyncResp->res, std::to_string(numberOfCores),
+                                "NumberOfCores");
+                            return;
+                        }
+
                         dbus::utility::async_method_call(
                             [asyncResp, objPath](
                                 const boost::system::error_code& errorno3) {
@@ -1694,7 +1722,7 @@ inline void setStaticPowerHintByObjPath(
                             },
                             service, objPath, "com.nvidia.StaticPowerHint",
                             "EstimatePower", cpuClockFrequency, workloadFactor,
-                            temperature);
+                            temperature, numberOfCores);
                     },
                     service, objPath, "org.freedesktop.DBus.Properties",
                     "GetAll", "com.nvidia.StaticPowerHint");
@@ -1709,20 +1737,20 @@ inline void setStaticPowerHintByObjPath(
 inline void setStaticPowerHintByChassis(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisObjPath, double cpuClockFrequency,
-    double workloadFactor, double temperature)
+    double workloadFactor, double temperature, uint32_t numberOfCores)
 {
     // get endpoints of chassisId/all_controls
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", chassisObjPath + "/all_controls",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisObjPath, cpuClockFrequency, workloadFactor,
-         temperature](const boost::system::error_code&,
-                      const std::vector<std::string>& resp) {
+         temperature, numberOfCores](const boost::system::error_code&,
+                                     const std::vector<std::string>& resp) {
             for (const auto& objPath : resp)
             {
                 setStaticPowerHintByObjPath(asyncResp, objPath,
                                             cpuClockFrequency, workloadFactor,
-                                            temperature);
+                                            temperature, numberOfCores);
             }
         });
 }
@@ -1746,9 +1774,9 @@ inline void getStaticPowerHintByObjPath(
                 dbus::utility::async_method_call(
                     [asyncResp, objPath](
                         const boost::system::error_code& errorno4,
-                        const std::vector<
-                            std::pair<std::string,
-                                      std::variant<double, std::string, bool>>>&
+                        const std::vector<std::pair<
+                            std::string,
+                            std::variant<double, uint32_t, std::string, bool>>>&
                             propertiesList) {
                         if (errorno4)
                         {
@@ -1824,6 +1852,26 @@ inline void getStaticPowerHintByObjPath(
                             {
                                 staticPowerHint["WorkloadFactor"]["SetPoint"] =
                                     std::get<double>(value);
+                            }
+                            else if (propertyName == "MaxNumberOfCores" &&
+                                     std::holds_alternative<uint32_t>(value))
+                            {
+                                staticPowerHint["NumberOfCores"]
+                                               ["AllowableMax"] =
+                                                   std::get<uint32_t>(value);
+                            }
+                            else if (propertyName == "MinNumberOfCores" &&
+                                     std::holds_alternative<uint32_t>(value))
+                            {
+                                staticPowerHint["NumberOfCores"]
+                                               ["AllowableMin"] =
+                                                   std::get<uint32_t>(value);
+                            }
+                            else if (propertyName == "NumberOfCores" &&
+                                     std::holds_alternative<uint32_t>(value))
+                            {
+                                staticPowerHint["NumberOfCores"]["SetPoint"] =
+                                    std::get<uint32_t>(value);
                             }
                             else if (propertyName == "PowerEstimate" &&
                                      std::holds_alternative<double>(value))
@@ -3506,7 +3554,7 @@ inline void parseOemNvidiaPatchPayload(
     std::optional<bool>& hostNetworkEnable,
     std::optional<double>& cpuClockFrequency,
     std::optional<double>& workloadFactor, std::optional<double>& temperature,
-    std::optional<std::string>& oemSKU)
+    std::optional<uint32_t>& numberOfCores, std::optional<std::string>& oemSKU)
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
@@ -3530,11 +3578,13 @@ inline void parseOemNvidiaPatchPayload(
                     std::optional<nlohmann::json> cpuClockFrequencyHzJsonObj;
                     std::optional<nlohmann::json> temperatureCelsiusJsonObj;
                     std::optional<nlohmann::json> workloadFactorJsonObj;
+                    std::optional<nlohmann::json> numberOfCoresJsonObj;
                     json_util::readJson(
                         *staticPowerHintJsonObj, asyncResp->res,
                         "CpuClockFrequencyHz", cpuClockFrequencyHzJsonObj,
                         "TemperatureCelsius", temperatureCelsiusJsonObj,
-                        "WorkloadFactor", workloadFactorJsonObj);
+                        "WorkloadFactor", workloadFactorJsonObj,
+                        "NumberOfCores", numberOfCoresJsonObj);
                     if (cpuClockFrequencyHzJsonObj)
                     {
                         json_util::readJson(*cpuClockFrequencyHzJsonObj,
@@ -3553,6 +3603,12 @@ inline void parseOemNvidiaPatchPayload(
                                             asyncResp->res, "SetPoint",
                                             workloadFactor);
                     }
+                    if (numberOfCoresJsonObj)
+                    {
+                        json_util::readJson(*numberOfCoresJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            numberOfCores);
+                    }
                 }
             }
         }
@@ -3568,7 +3624,8 @@ inline void applyOemChassisPatch(
     const std::optional<std::string>& serialNumber,
     const std::optional<double>& cpuClockFrequency,
     const std::optional<double>& workloadFactor,
-    const std::optional<double>& temperature)
+    const std::optional<double>& temperature,
+    const std::optional<uint32_t>& numberOfCores)
 {
     if (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
@@ -3592,13 +3649,17 @@ inline void applyOemChassisPatch(
             redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
                 asyncResp, path, "SerialNumber", *serialNumber);
         }
-        if (cpuClockFrequency || workloadFactor || temperature)
+        if (cpuClockFrequency || workloadFactor || temperature || numberOfCores)
         {
+            // NumberOfCores is optional for legacy devices that don't expose
+            // the underlying effecter; the PLDM side silently ignores the
+            // value when no NumberOfCores effecter is present. Default to 0
+            // when the client omits it so the call still goes through.
             if (cpuClockFrequency && workloadFactor && temperature)
             {
                 redfish::nvidia_chassis_utils::setStaticPowerHintByChassis(
                     asyncResp, path, *cpuClockFrequency, *workloadFactor,
-                    *temperature);
+                    *temperature, numberOfCores.value_or(0));
             }
             else
             {
@@ -3615,6 +3676,10 @@ inline void applyOemChassisPatch(
                 {
                     messages::propertyMissing(asyncResp->res,
                                               "TemperatureCelsius");
+                }
+                if (!numberOfCores)
+                {
+                    messages::propertyMissing(asyncResp->res, "NumberOfCores");
                 }
             }
         }
