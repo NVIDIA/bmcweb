@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.7.0                                       -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.8.0                                       -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -505,6 +505,18 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaLPUPortMetrics">
+        <Property Name="FecError" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether an uncorrected packet has been detected by the Forward Error Correction (FEC) system."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether an uncorrected packet has been detected by the Forward Error Correction (FEC) system."/>
+        </Property>
+        <Property Name="LinkLocked" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether the link is detected as locked by the physical media subsystem."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the link is detected as locked by the physical media subsystem. A value of `true` indicates that the link is synchronized and operational."/>
         </Property>
       </ComplexType>
     </Schema>

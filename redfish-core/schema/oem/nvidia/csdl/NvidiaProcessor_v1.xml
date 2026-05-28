@@ -539,6 +539,19 @@
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
         </Property>
       </ComplexType>
+      <ComplexType Name="NvidiaLPU">
+        <Property Name="VoltageBinNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The voltage bin number."/>
+          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
+        </Property>
+        <Property Name="BootStatusCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The boot status code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a boot status code."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+      </ComplexType>
       <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
         <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

@@ -136,6 +136,19 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="ResetFPGAs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all FPGAs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all FPGAs in this chassis."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_13_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>

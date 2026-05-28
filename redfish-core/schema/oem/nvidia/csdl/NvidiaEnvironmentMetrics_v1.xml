@@ -28,8 +28,8 @@
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaEnvironmentMetrics" BaseType="Resource.OemObject" Abstract="true">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
-        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for an EnvironmentMetrics resource."/>
-        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for an EnvironmentMetrics resource."/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a EnvironmentMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a EnvironmentMetrics resource."/>
       </ComplexType>
       <Action Name="ResetEDPp" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to reset EDPp scaling percentage to a device default."/>
