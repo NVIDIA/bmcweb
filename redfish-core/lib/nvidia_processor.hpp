@@ -3828,7 +3828,14 @@ inline void patchOperatingSpeedRangeIfRequested(
                                          "SettingMax", settingMax, "SettingMin",
                                          settingMin))
         {
-            if (settingMax)
+            if (settingMin && settingMax)
+            {
+                redfish::nvidia_processor_utils::patchOperatingSpeedRangeMHz(
+                    asyncResp, processorId,
+                    std::make_tuple(*settingMin, *settingMax), "SettingRange",
+                    objectPath);
+            }
+            else if (settingMax)
             {
                 redfish::nvidia_processor_utils::patchOperatingSpeedRangeMHz(
                     asyncResp, processorId, *settingMax, "SettingMax",
