@@ -23,7 +23,7 @@ inc = include_directories('include')
 
 listener_incs = [incdir, inc]
 
-default_deps = [nlohmann_json, sdbusplus, phosphor_logging_dep, boost]
+default_deps = [nlohmann_json, sdbusplus, phosphor_logging_dep]
 
 subdir('src')
 subdir('service_file')
