@@ -38,6 +38,13 @@ struct FakeHandler
         EXPECT_FALSE(true);
     }
 
+    void handleHeaders(const std::shared_ptr<Request>& /*req*/,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    {
+        handleHeadersCalled = true;
+        asyncResp->res.end();
+    }
+
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
     {
@@ -66,6 +73,7 @@ struct FakeHandler
 
     bool called = false;
     bool authFailedCalled = false;
+    bool handleHeadersCalled = false;
 };
 
 struct ClockFake
@@ -119,6 +127,7 @@ TEST(http_connection, RequestPropogates)
         outStr = out.str();
     }
     EXPECT_TRUE(handler.called);
+    EXPECT_TRUE(handler.handleHeadersCalled);
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }

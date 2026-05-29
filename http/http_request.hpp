@@ -16,6 +16,7 @@
 #include <boost/url/url_view.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -148,6 +149,11 @@ struct Request
         req.body().clear();
     }
 
+    std::span<FormPart> multipart()
+    {
+        return req.body().multipart();
+    }
+
     bool target(std::string_view target)
     {
         req.target(target);
@@ -168,6 +174,18 @@ struct Request
     bool keepAlive() const
     {
         return req.keep_alive();
+    }
+
+    void streamMultipartInput(
+        std::function<void(std::string_view)>&& onDataAvailable)
+    {
+        req.body().streamMultipartInput(std::move(onDataAvailable));
+    }
+
+    void setMultipartParserCallbacks(
+        MultipartParserStreamingCallbacks&& callbacks)
+    {
+        req.body().setMultipartParserCallbacks(std::move(callbacks));
     }
 
   private:

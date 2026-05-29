@@ -454,12 +454,16 @@ class Connection :
             }
         }
 
-        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        std::shared_ptr<bmcweb::AsyncResp> asyncResp = requestAsyncResp;
+        if (!asyncResp)
+        {
+            asyncResp = std::make_shared<bmcweb::AsyncResp>();
+            asyncResp->res.setCompleteRequestHandler(
+                [self(shared_from_this())](crow::Response& thisRes) {
+                    self->completeRequest(thisRes);
+                });
+        }
         BMCWEB_LOG_DEBUG("Setting completion handler");
-        asyncResp->res.setCompleteRequestHandler(
-            [self(shared_from_this())](Response& thisRes) {
-                self->completeRequest(thisRes);
-            });
         if (doUpgrade(asyncResp))
         {
             return;
@@ -471,7 +475,12 @@ class Connection :
             asyncResp->res.setExpectedEtag(expectedEtag);
         }
 
+        requestAsyncResp.reset();
         handler->handle(req, asyncResp);
+        if (req)
+        {
+            req->req.body().multipartParserCallbacks.reset();
+        }
     }
 
     void hardClose()
@@ -644,12 +653,9 @@ class Connection :
 
         if (authenticationEnabled)
         {
-            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                boost::beast::http::verb method = value.method();
-                userSession = crow::authentication::authenticate(
-                    ip, res, method, value.base(), mtlsSession);
-            }
+            boost::beast::http::verb method = value.method();
+            userSession = crow::authentication::authenticate(
+                ip, res, method, value.base(), mtlsSession);
         }
 
         if (!handleContentLengthError())
@@ -666,11 +672,61 @@ class Connection :
             doWrite();
             return;
         }
+        if (!handleContentLengthError())
+        {
+            return;
+        }
 
-        if (parse.is_done())
+        parse.body_limit(getContentLengthLimit());
+
+        std::error_code reqEc;
+        boost::beast::http::request<bmcweb::HttpBody> request = parser->get();
+        req = std::make_shared<crow::Request>(std::move(request), reqEc);
+        if (reqEc)
+        {
+            return;
+        }
+        // The streamInput headers handler runs through the routing layer's
+        // privilege check, which short-circuits when session is null. Populate
+        // session and ipAddress now so the handler actually runs before body
+        // data is read.
+        req->session = userSession;
+        req->ipAddress = ip;
+        requestAsyncResp = std::make_shared<bmcweb::AsyncResp>();
+        requestAsyncResp->res.setCompleteRequestHandler(
+            [self(shared_from_this())](crow::Response& /*thisRes*/) {
+                self->afterHeadersComplete();
+            });
+        handler->handleHeaders(req, requestAsyncResp);
+    }
+
+    void afterHeadersComplete()
+    {
+        BMCWEB_LOG_DEBUG("afterHeadersComplete");
+
+        if (requestAsyncResp)
+        {
+            requestAsyncResp->res.setCompleteRequestHandler(
+                [self(shared_from_this())](crow::Response& thisRes) {
+                    self->completeRequest(thisRes);
+                });
+        }
+
+        if (parser->is_done())
         {
             handle();
             return;
+        }
+
+        // The streamInput Request created in afterReadHeaders holds a copy of
+        // the body; streamed data flows through the parser-owned body. Move
+        // callbacks set by the headers handler onto the parser's body so the
+        // body reader picks them up when it initializes.
+        if (req && req->req.body().multipartParserCallbacks)
+        {
+            parser->get().body().setMultipartParserCallbacks(
+                std::move(*req->req.body().multipartParserCallbacks));
+            req->req.body().multipartParserCallbacks.reset();
         }
 
         doRead();
@@ -756,6 +812,15 @@ class Connection :
         }
         if (!parser->is_done())
         {
+            if (parser->get().body().isReadPaused())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "{} body backpressured, deferring further reads",
+                    logPtr(this));
+                parser->get().body().setResumeReadCallback(
+                    [self(shared_from_this())] { self->doRead(); });
+                return;
+            }
             doRead();
             return;
         }
@@ -848,6 +913,7 @@ class Connection :
         initParser();
 
         userSession = nullptr;
+        requestAsyncResp.reset();
 
         req->clear();
         doReadHeaders();
@@ -985,6 +1051,7 @@ class Connection :
     boost::beast::flat_static_buffer<8192> buffer;
 
     std::shared_ptr<Request> req;
+    std::shared_ptr<bmcweb::AsyncResp> requestAsyncResp;
     std::string accept;
     std::string http2settings;
     std::string acceptEncoding;

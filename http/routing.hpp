@@ -267,43 +267,82 @@ class Router
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        Adaptor&& adaptor)
     {
-        PerMethod& perMethod = upgradeRoutes;
-        Trie<crow::Node>& trie = perMethod.trie;
-        std::vector<BaseRule*>& rules = perMethod.rules;
-
-        Trie<crow::Node>::FindResult found =
-            trie.find(req->url().encoded_path());
-        unsigned ruleIndex = found.ruleIndex;
-        if (ruleIndex == 0U)
+        using Decayed = std::decay_t<Adaptor>;
+        constexpr bool upgradable =
+            std::is_same_v<Decayed, boost::asio::ip::tcp::socket> ||
+            std::is_same_v<Decayed, boost::asio::ssl::stream<
+                                        boost::asio::ip::tcp::socket>>;
+        if constexpr (!upgradable)
         {
-            BMCWEB_LOG_DEBUG("Cannot match rules {}",
-                             req->url().encoded_path());
             asyncResp->res.result(boost::beast::http::status::not_found);
             return;
         }
-
-        if (ruleIndex >= rules.size())
+        else
         {
-            throw std::runtime_error("Trie internal structure corrupted!");
+            PerMethod& perMethod = upgradeRoutes;
+            Trie<crow::Node>& trie = perMethod.trie;
+            std::vector<BaseRule*>& rules = perMethod.rules;
+
+            Trie<crow::Node>::FindResult found =
+                trie.find(req->url().encoded_path());
+            unsigned ruleIndex = found.ruleIndex;
+            if (ruleIndex == 0U)
+            {
+                BMCWEB_LOG_DEBUG("Cannot match rules {}",
+                                 req->url().encoded_path());
+                asyncResp->res.result(boost::beast::http::status::not_found);
+                return;
+            }
+
+            if (ruleIndex >= rules.size())
+            {
+                throw std::runtime_error("Trie internal structure corrupted!");
+            }
+
+            BaseRule& rule = *rules[ruleIndex];
+
+            BMCWEB_LOG_DEBUG("Matched rule (upgrade) '{}'", rule.rule);
+
+            if (req->session == nullptr)
+            {
+                rule.handleUpgrade(*req, asyncResp,
+                                   std::forward<Adaptor>(adaptor));
+                return;
+            }
+            // TODO(ed) This should be able to use std::bind_front, but it
+            // doesn't appear to work with the std::move on adaptor.
+            validatePrivilege(
+                req, asyncResp, rule,
+                [req, &rule, asyncResp,
+                 adaptor = std::forward<Adaptor>(adaptor)]() mutable {
+                    rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+                });
         }
+    }
 
-        BaseRule& rule = *rules[ruleIndex];
-
-        BMCWEB_LOG_DEBUG("Matched rule (upgrade) '{}'", rule.rule);
+    void handleHeaders(const std::shared_ptr<Request>& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    {
+        FindRouteResponse foundRoute = findRoute(*req);
+        if (foundRoute.route.rule == nullptr ||
+            !foundRoute.route.rule->isStreamInput)
+        {
+            asyncResp->res.end();
+            return;
+        }
+        BaseRule& rule = *foundRoute.route.rule;
 
         if (req->session == nullptr)
         {
-            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
+            rule.handle(*req, asyncResp, {});
+            asyncResp->res.end();
             return;
         }
-        // TODO(ed) This should be able to use std::bind_front, but it doesn't
-        // appear to work with the std::move on adaptor.
-        validatePrivilege(
-            req, asyncResp, rule,
-            [req, &rule, asyncResp,
-             adaptor = std::forward<Adaptor>(adaptor)]() mutable {
-                rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
-            });
+        validatePrivilege(req, asyncResp, rule,
+                          [req, &rule, asyncResp]() mutable {
+                              rule.handle(*req, asyncResp, {});
+                              asyncResp->res.end();
+                          });
     }
 
     void handle(const std::shared_ptr<Request>& req,

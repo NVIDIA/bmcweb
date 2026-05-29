@@ -110,5 +110,12 @@ struct RuleParameterTraits
         }
         return *self;
     }
+
+    self_t& streamInput()
+    {
+        self_t* self = static_cast<self_t*>(this);
+        self->isStreamInput = true;
+        return *self;
+    }
 };
 } // namespace crow
