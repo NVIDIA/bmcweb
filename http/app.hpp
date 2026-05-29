@@ -53,6 +53,12 @@ class App
         router.handleUpgrade(req, asyncResp, std::forward<Adaptor>(adaptor));
     }
 
+    void handleHeaders(const std::shared_ptr<Request>& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    {
+        router.handleHeaders(req, asyncResp);
+    }
+
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {

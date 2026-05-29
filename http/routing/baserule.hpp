@@ -95,6 +95,7 @@ class BaseRule
     bool isMethodNotAllowed = false;
     bool isAuthFailed = false;
     bool isUpgrade = false;
+    bool isStreamInput = false;
 
     std::vector<redfish::Privileges> privilegesSet;
 
