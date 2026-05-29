@@ -780,7 +780,7 @@ inline void onFabricFoundForDelete(
  * Returns HTTP 204 on success.
  */
 inline void handleConfigFilePost(
-    App& app, const crow::Request& req,
+    App& app, crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId)
 {
