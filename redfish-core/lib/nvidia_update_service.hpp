@@ -1118,15 +1118,18 @@ inline void extendUpdateServiceGet(
          "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
         {"@Redfish.ActionInfo",
          "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
-    asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
-                            ["#NvidiaUpdateService.PublicKeyExchange"] = {
-        {"target",
-         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
-    asyncResp->res
-        .jsonValue["Actions"]["Oem"]["Nvidia"]
-                  ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
-        {"target",
-         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
+    if constexpr (BMCWEB_SCP_UPDATE)
+    {
+        asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
+                                ["#NvidiaUpdateService.PublicKeyExchange"] = {
+            {"target",
+             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
+        asyncResp->res.jsonValue
+            ["Actions"]["Oem"]["Nvidia"]
+            ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
+            {"target",
+             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
+    }
 
     if constexpr (BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
     {
