@@ -55,6 +55,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -878,22 +879,19 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
 }
 
 inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const MultipartParser& parser)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Request& req)
 {
     MultiPartUpdate multiRet;
-    bool hasUpdateFile = false;
-
-    // Parse metadata only (UpdateFile content was skipped)
-    for (const FormPart& formpart : parser.mime_fields)
+    for (FormPart& formpart : req.multipart())
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
         if (it == formpart.fields.end())
         {
             BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
-            continue;
+            return std::nullopt;
         }
+        BMCWEB_LOG_INFO("Parsing value {}", it->value());
 
         auto formFieldNameOpt = parseFormPartName(it);
         if (!formFieldNameOpt.has_value())
@@ -911,65 +909,17 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             {
                 return std::nullopt;
             }
-            if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
-            {
-                multiRet.params = std::move(*params);
-            }
-            // Nvidia code starts here
-            if (params->applyTime && !multiRet.params.applyTime)
-            {
-                multiRet.params.applyTime = std::move(params->applyTime);
-            }
-            if (params->targets && !multiRet.params.targets)
-            {
-                multiRet.params.targets = std::move(params->targets);
-            }
-            if (params->forceUpdate && !multiRet.params.forceUpdate)
-            {
-                multiRet.params.forceUpdate = params->forceUpdate;
-            }
-            // Nvidia code ends here
+            multiRet.params = std::move(*params);
         }
         else if (formFieldName == "UpdateFile")
         {
-            // Nvidia code start
-            hasUpdateFile = true;
-            // Capture per-part Content-Type for UpdateFile if provided
-            boost::beast::http::fields::const_iterator ctIt =
-                formpart.fields.find("Content-Type");
-            if (ctIt != formpart.fields.end())
-            {
-                multiRet.updateFileContentType =
-                    std::string(ctIt->value().data(), ctIt->value().size());
-                BMCWEB_LOG_DEBUG("UpdateFile Content-Type: {}",
-                                 multiRet.updateFileContentType.value());
-                if (multiRet.updateFileContentType.value() !=
-                    "application/octet-stream")
-                {
-                    BMCWEB_LOG_ERROR(
-                        "UpdateFile Content-Type is not application/octet-stream");
-                    asyncResp->res.result(
-                        boost::beast::http::status::bad_request);
-                    messages::addMessageToErrorJson(
-                        asyncResp->res.jsonValue,
-                        messages::headerValueInvalid(
-                            multiRet.updateFileContentType.value(),
-                            "Content-Type", "application/octet-stream"));
-                    return std::nullopt;
-                }
-            }
-            // Nvidia code end
-            if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
-            {
-                multiRet.uploadData = formpart.content;
-            }
+            multiRet.uploadData = std::move(formpart.content);
         }
     }
 
-    // Nvidia added code start
-    if (!hasUpdateFile)
+    if (multiRet.uploadData.empty())
     {
-        BMCWEB_LOG_ERROR("UpdateFile form part is missing");
+        BMCWEB_LOG_ERROR("Upload data is NULL");
         messages::propertyMissing(asyncResp->res, "UpdateFile");
         return std::nullopt;
     }
@@ -1096,7 +1046,7 @@ inline void handleBMCUpdate(
 // un used upstream code starts here
 inline void processUpdateRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    task::Payload&& payload, const crow::Request& req,
+    task::Payload&& payload, crow::Request& req,
     const std::string& dbusApplyTime, bool forceUpdate,
     const std::vector<std::string>& uriTargets)
 {
@@ -1110,36 +1060,47 @@ inline void processUpdateRequest(
     }
 
     // Nvidia code starts here
-    MultipartParser parser(memfd->fd);
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    ParserError parseResult = parser.parse(contentType, req.body());
-    if (parseResult != ParserError::PARSER_SUCCESS)
+    bool foundUpdateFile = false;
+    for (FormPart& formpart : req.multipart())
     {
-        BMCWEB_LOG_ERROR(
-            "Failed to parse multipart with direct memfd write: {}",
-            static_cast<int>(parseResult));
-        if (parseResult == ParserError::ERROR_OUT_OF_MEMORY)
+        boost::beast::http::fields::const_iterator it =
+            formpart.fields.find("Content-Disposition");
+        if (it == formpart.fields.end())
         {
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-
-            size_t bodySizeKB = (req.body().size() + 1023) / 1024;
-            std::string errorMsg =
-                "Insufficient memory availability to complete the request. Need more '" +
-                std::to_string(bodySizeKB) + "' KB of free memory.";
-
-            auto message = redfish::messages::resourceErrorsDetected(
-                "BMC Memory", errorMsg);
-            message["MessageSeverity"] = "Critical";
-            message["Resolution"] =
-                "Retry firmware update operation; if it persists, reboot BMC.";
-            redfish::messages::addMessageToErrorJson(asyncResp->res.jsonValue,
-                                                     message);
+            continue;
         }
-        else
+        auto formFieldNameOpt = parseFormPartName(it);
+        if (!formFieldNameOpt || *formFieldNameOpt != "UpdateFile")
         {
-            messages::internalError(asyncResp->res);
+            continue;
         }
+
+        const char* data = formpart.content.data();
+        size_t remaining = formpart.content.size();
+        while (remaining > 0)
+        {
+            ssize_t written = write(memfd->fd, data, remaining);
+            if (written < 0)
+            {
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                BMCWEB_LOG_ERROR("Failed to write UpdateFile to memfd");
+                messages::internalError(asyncResp->res);
+                fwUpdateInProgress = false;
+                return;
+            }
+            data += written;
+            remaining -= static_cast<size_t>(written);
+        }
+        foundUpdateFile = true;
+        break;
+    }
+
+    if (!foundUpdateFile)
+    {
+        messages::propertyMissing(asyncResp->res, "UpdateFile");
         fwUpdateInProgress = false;
         return;
     }
@@ -1252,161 +1213,45 @@ inline void processUpdateRequest(
     // Nvidia code ends here
 }
 
-inline void updateMultipartContext(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const MultipartParser& parser)
+inline bool parseContentDisposition(const boost::beast::http::fields& fields,
+                                    std::string_view formFieldName)
 {
-    std::optional<MultiPartUpdate> multipart =
-        extractMultipartUpdateParameters(asyncResp, parser);
-    if (!multipart)
+    auto dispositionIt = fields.find("Content-Disposition");
+    if (dispositionIt == fields.end())
     {
-        return;
+        return false;
     }
 
-    if (!multipart->params.applyTime)
+    auto formFieldNameOpt = parseFormPartName(dispositionIt);
+    if (!formFieldNameOpt.has_value())
     {
-        multipart->params.applyTime = "OnReset";
+        return false;
     }
-
-    std::string dbusApplyTime;
-    if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
-                          dbusApplyTime))
+    if (formFieldNameOpt.value() != formFieldName)
     {
-        return;
+        return false;
     }
-
-    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
-    {
-        if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
-        {
-            std::string applyTimeNewVal;
-            if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
-                                  applyTimeNewVal))
-            {
-                return;
-            }
-            task::Payload payload(req);
-
-            // Nvidia modified code to prevent compilation issues in unused code
-            processUpdateRequest(asyncResp, std::move(payload), {},
-                                 applyTimeNewVal, {}, {});
-            // Nvidia modified code end
-        }
-        else
-        {
-            setApplyTime(asyncResp, *multipart->params.applyTime);
-
-            // Nvidia modified code to prevent compilation issues in unused code
-            // Setup callback for when new software detected
-            monitorForSoftwareAvailable(asyncResp, req, {},
-                                        "/redfish/v1/UpdateService");
-            // Nvidia modified code end
-
-            uploadImageFile(asyncResp->res, multipart->uploadData);
-        }
-    }
-
-    // Nvidia code starts here
-    std::vector<std::string> uriTargets;
-    if (multipart->params.targets.has_value())
-    {
-        uriTargets = *multipart->params.targets;
-    }
-
-    if constexpr (BMCWEB_REDFISH_AGGREGATION)
-    {
-        bool updateAll = false;
-        uint8_t count = 0;
-        std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (!uriTargets.empty())
-        {
-            for (const auto& uri : uriTargets)
-            {
-                std::string file = std::filesystem::path(uri).filename();
-                std::string prefix = rfaPrefix + "_";
-                if (file.starts_with(prefix))
-                {
-                    count++;
-                }
-
-                auto parsed = boost::urls::parse_relative_ref(uri);
-                if (!parsed)
-                {
-                    BMCWEB_LOG_ERROR("Couldn't parse URI from resource {}",
-                                     uri);
-                    return;
-                }
-
-                const boost::urls::url_view& thisUrl = *parsed;
-
-                // this is the Chassis resource from satellite BMC for all
-                // component firmware update.
-                if (crow::utility::readUrlSegments(
-                        thisUrl, "redfish", "v1", "Chassis",
-                        std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
-                {
-                    updateAll = true;
-                }
-            }
-            // There is one URI at least for satellite BMC.
-            if (count > 0)
-            {
-                // further check if there is mixed targets and some are not
-                // for satellite BMC.
-                if (count != uriTargets.size())
-                {
-                    boost::urls::url_view targetURL("Target");
-                    messages::invalidObject(asyncResp->res, targetURL);
-                }
-                else
-                {
-                    // All URIs in Target has the prepended prefix
-                    BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                    auto sharedReq =
-                        std::make_shared<crow::Request>(req.copy());
-                    RedfishAggregator::getInstance().getSatelliteConfigs(
-                        std::bind_front(forwardImage, sharedReq, updateAll,
-                                        asyncResp));
-                }
-                return;
-            }
-        }
-        // the update request is for BMC so only allow one FW update at a time
-        if (fwUpdateInProgress)
-        {
-            if (asyncResp)
-            {
-                // don't copy the image, update already in progress.
-                std::string resolution =
-                    "Another update is in progress. Retry"
-                    " the update operation once it is complete.";
-                redfish::messages::updateInProgressMsg(asyncResp->res,
-                                                       resolution);
-                BMCWEB_LOG_ERROR("Update already in progress.");
-            }
-            return;
-        }
-    }
-
-    if (fwUpdateInProgress)
-    {
-        BMCWEB_LOG_ERROR("Update already in progress");
-        messages::serviceTemporarilyUnavailable(asyncResp->res, "30");
-        return;
-    }
-
-    fwUpdateInProgress = true;
-
-    task::Payload payload(req);
-    processUpdateRequest(asyncResp, std::move(payload), req, dbusApplyTime,
-                         multipart->params.forceUpdate.value_or(false),
-                         uriTargets);
-    // Nvidia code ends here
+    return true;
 }
+
+inline bool parseContentType(const boost::beast::http::fields& fields)
+{
+    auto dispositionIt = fields.find("Content-Type");
+    if (dispositionIt == fields.end())
+    {
+        return false;
+    }
+
+    if (!isJsonContentType(dispositionIt->value()))
+    {
+        return false;
+    }
+    return true;
+}
+
 // Upstream unused code
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const crow::Request& req)
+                         crow::Request& req)
 {
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {
@@ -1419,7 +1264,7 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         // Nvidia modified code to prevent compilation issues in unused code
         processUpdateRequest(
-            asyncResp, std::move(payload), {},
+            asyncResp, std::move(payload), req,
             "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate",
             {}, {});
         // Nvidia modified code end
@@ -1461,60 +1306,6 @@ inline void handleUpdateServicePost(
             asyncResp->res.jsonValue,
             messages::headerValueInvalid(contentType, "Content-Type",
                                          "application/octet-stream"));
-    }
-}
-
-inline void handleUpdateServiceMultipartUpdatePost(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    // Nvidia code starts here
-    bool enableFWInProgCheck = true;
-    if constexpr (BMCWEB_REDFISH_AGGREGATION)
-    {
-        // This is the flag to check BMC firmware update.
-        // Parse the multipart payload and then learn satBMC or BMC firmware
-        // update So UpdateInProgress will be checking at the later stage.
-        enableFWInProgCheck = false;
-    }
-
-    if (!preCheckMultipartUpdateServiceReq(req, asyncResp, enableFWInProgCheck))
-    {
-        return;
-    }
-    // Nvidia code ends here
-
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    // Make sure that content type is multipart/form-data
-    if (contentType.starts_with("multipart/form-data"))
-    {
-        // Nvidia code starts here
-        MultipartParser parser(true);
-        // Nvidia code ends here
-
-        ParserError ec = parser.parse(contentType, req.body());
-        if (ec != ParserError::PARSER_SUCCESS)
-        {
-            // handle error
-            BMCWEB_LOG_ERROR("MIME parse failed, ec: {}", static_cast<int>(ec));
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        updateMultipartContext(req, asyncResp, parser);
-    }
-    else
-    {
-        BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        messages::addMessageToErrorJson(
-            asyncResp->res.jsonValue,
-            messages::headerValueInvalid(contentType, "Content-Type",
-                                         "multipart/form-data"));
     }
 }
 
@@ -2075,11 +1866,13 @@ inline void requestRoutesUpdateService(App& app)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(handleUpdateServicePost, std::ref(app)));
     }
-
+    /* Nvidia removed
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update-multipart/")
         .privileges(redfish::privileges::postUpdateService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleUpdateServiceMultipartUpdatePost, std::ref(app)));
+        .streamInput()
+        .methods(boost::beast::http::verb::post)(
+            handleUpdateServiceMultipartUpdatePostHeaders);
+    */
 
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/")
         .privileges(redfish::privileges::getSoftwareInventoryCollection)

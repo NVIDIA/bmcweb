@@ -811,11 +811,11 @@ struct InstallTokenAggregator
  *
  * @return True if TokenFile exists, false otherwise (and responds with error).
  */
-inline bool validateAggregatedTokenFile(
+inline std::optional<std::string> extractTokenFile(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const MultipartParser& parser)
+    const std::span<FormPart> multipart)
 {
-    for (const FormPart& formpart : parser.mime_fields)
+    for (const FormPart& formpart : multipart)
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -828,13 +828,13 @@ inline bool validateAggregatedTokenFile(
         std::string contentDisposition(it->value());
         if (contentDisposition.find("name=\"TokenFile\"") != std::string::npos)
         {
-            return true;
+            return formpart.content;
         }
     }
 
     BMCWEB_LOG_ERROR("TokenFile form part is missing");
     messages::propertyMissing(asyncResp->res, "TokenFile");
-    return false;
+    return std::nullopt;
 }
 
 /**
@@ -924,9 +924,12 @@ inline void handleInstallTokenSubtreeResponse(
  * @param[in] memFd Shared pointer to MemoryFD holding the token file.
  */
 inline void startAggregatedInstallToken(
-    const std::shared_ptr<task::TaskData>& task,
-    const std::shared_ptr<MemoryFD>& memFd)
+    const std::shared_ptr<task::TaskData>& task, std::string&& tokenFile)
 {
+    std::vector<uint8_t> fileData(tokenFile.begin(), tokenFile.end());
+    auto memFd = std::make_shared<MemoryFD>();
+    memFd->write(fileData);
+    memFd->rewind();
     auto aggregator = std::make_shared<InstallTokenAggregator>(task);
     constexpr std::array<std::string_view, 1> interfaces = {
         debugTokenAggregationInterface};
@@ -945,7 +948,7 @@ inline void startAggregatedInstallToken(
  * @param[in] managerId The route manager identifier.
  */
 inline void debugTokenManagementInstallTokenHandler(
-    App& app, const crow::Request& req,
+    App& app, crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
@@ -959,46 +962,18 @@ inline void debugTokenManagementInstallTokenHandler(
                                    managerId);
         return;
     }
-
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    if (!contentType.starts_with("multipart/form-data"))
-    {
-        BMCWEB_LOG_DEBUG("Bad content type specified: {}", contentType);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        messages::addMessageToErrorJson(
-            asyncResp->res.jsonValue,
-            messages::headerValueInvalid(contentType, "Content-Type",
-                                         "multipart/form-data"));
-        return;
-    }
-
-    auto memFd = std::make_shared<MemoryFD>();
-    MultipartParser parser(memFd->fd);
-    ParserError ec = parser.parse(contentType, req.body());
-    if (ec != ParserError::PARSER_SUCCESS)
-    {
-        BMCWEB_LOG_ERROR("MIME parse failed, ec: {}", static_cast<int>(ec));
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    if (!validateAggregatedTokenFile(asyncResp, parser))
+    std::optional<std::string> tokenFile =
+        extractTokenFile(asyncResp, req.multipart());
+    if (!tokenFile)
     {
         return;
     }
 
     // Check if the token file is empty
-    off_t fileSize = lseek(memFd->fd, 0, SEEK_END);
-    if (fileSize <= 0)
+    if (tokenFile->empty())
     {
-        BMCWEB_LOG_ERROR("Token file is empty or invalid");
-        messages::propertyValueFormatError(asyncResp->res, "empty",
-                                           "TokenFile");
         return;
     }
-
-    // Reset file position to beginning for later use
-    lseek(memFd->fd, 0, SEEK_SET);
 
     constexpr uint32_t debugTokenTaskTimeoutSec = 300;
     std::shared_ptr<task::TaskData> task =
@@ -1011,7 +986,7 @@ inline void debugTokenManagementInstallTokenHandler(
         return;
     }
 
-    startAggregatedInstallToken(task, memFd);
+    startAggregatedInstallToken(task, std::move(*tokenFile));
 }
 
 /**

@@ -37,6 +37,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
+#include "nvidia_multipart_update.hpp"
 #include "nvidia_network_adapters.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_nic_debug_token.hpp"
@@ -420,6 +421,8 @@ void requestRoutesNvidia(crow::App& app)
     {
         manager_usb_ports::requestRoutesManagerUSBPorts(app);
     }
+
+    requestRoutesNvUpdateServiceMultipartUpdate(app);
 }
 
 } // namespace redfish
