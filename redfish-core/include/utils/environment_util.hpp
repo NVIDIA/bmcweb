@@ -1229,9 +1229,9 @@ inline void getPowerAndControlData(
                         const boost::system::error_code& primaryEc,
                         std::variant<std::vector<std::string>>& primaryResp) {
                         auto populateControl =
-                            [&asyncResp, &connectionName, &interfaceList,
-                             &resourceId](const std::string& ctrlPath,
-                                          bool setDataSourceUri) {
+                            [asyncResp, connectionName, interfaceList,
+                             resourceId](const std::string& ctrlPath,
+                                         bool setDataSourceUri) {
                                 if (setDataSourceUri)
                                 {
                                     getPowerLimitDataSourceUri(
