@@ -174,7 +174,8 @@ constexpr const std::string_view retimer = "PCIeRetimer_";
 constexpr const std::string_view ioBoard = "IO_Board_";
 constexpr const std::string_view pdb = "PDB_";
 constexpr const std::string_view blueField = "Riser_Slot";
-constexpr const std::string_view blueFieldSensor = "BF3_Slot_";
+constexpr const std::string_view bf3Sensor = "BF3_Slot_";
+constexpr const std::string_view blueFieldSensor = "BlueField_";
 constexpr const std::string_view storageBP = "StorageBackplane_";
 constexpr const std::string_view storageDevice = "SSD_";
 constexpr const std::string_view networkAdapterConnectX = "ConnectX_";
@@ -220,6 +221,8 @@ inline const MetricsReplacement pdbPlatformEnvironmentMetrics(pdb, "{PDBWild}",
                                                               "PDBWild");
 inline const MetricsReplacement blueFieldPlatformEnvironmentMetrics(
     blueField, "{BFWild}", "BFWild");
+inline const MetricsReplacement bf3SensorsPlatformEnvironmentMetrics(
+    bf3Sensor, "{BF3SWild}", "BF3SWild");
 inline const MetricsReplacement blueFieldSensorsPlatformEnvironmentMetrics(
     blueFieldSensor, "{BFSWild}", "BFSWild");
 inline const MetricsReplacement storageBPSensorsPlatformEnvironmentMetrics(
@@ -269,19 +272,24 @@ inline void replaceNumber(const std::string& input, const std::string& key,
             if (lastSlashPos != std::string::npos)
             {
                 std::string name = input.substr(lastSlashPos + 1);
-                if (value == "{BFSWild}")
+                replacedName.insert(name);
+            }
+        }
+    }
+    else if (value == "{BF3SWild}")
+    {
+        if (std::regex_search(res, match, pattern))
+        {
+            size_t lastSlashPos = input.find_last_of('/');
+            if (lastSlashPos != std::string::npos)
+            {
+                std::string name = input.substr(lastSlashPos + 1);
+                if (std::regex_search(name, match, pattern))
                 {
-                    if (std::regex_search(name, match, pattern))
-                    {
-                        std::string wildName = key;
-                        wildName += "{BFWild}";
-                        wildName += match.suffix();
-                        replacedName.insert(wildName);
-                    }
-                }
-                else
-                {
-                    replacedName.insert(name);
+                    std::string wildName = key;
+                    wildName += "{BFWild}";
+                    wildName += match.suffix();
+                    replacedName.insert(wildName);
                 }
             }
         }
@@ -1028,6 +1036,8 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(blueFieldPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(bf3SensorsPlatformEnvironmentMetrics,
+                                  allowedWildcards);
             updateReplacementFlag(blueFieldSensorsPlatformEnvironmentMetrics,
                                   allowedWildcards);
             updateReplacementFlag(storageBPSensorsPlatformEnvironmentMetrics,
@@ -1089,6 +1099,8 @@ inline void getShmemMetricsDefinitionWildCard(
             metricsReplacements(pdbPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(blueFieldPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(bf3SensorsPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(blueFieldSensorsPlatformEnvironmentMetrics,
                                 wildCards, inputMetricProperties);
