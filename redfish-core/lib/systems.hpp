@@ -3874,8 +3874,11 @@ inline void processComputerSystemGet(
     // Currently not supported on multi-host. TBD
     if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
     {
-        asyncResp->res.jsonValue["Bios"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Systems/{}/Bios", systemName);
+        if constexpr (BMCWEB_BIOS)
+        {
+            asyncResp->res.jsonValue["Bios"]["@odata.id"] =
+                boost::urls::format("/redfish/v1/Systems/{}/Bios", systemName);
+        }
         asyncResp->res.jsonValue["Processors"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Systems/{}/Processors",
                                 systemName);
@@ -3948,12 +3951,6 @@ inline void processComputerSystemGet(
     asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/LogServices";
-    if constexpr (BMCWEB_BIOS)
-    {
-        asyncResp->res.jsonValue["Bios"]["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Bios";
-    }
     nlohmann::json::array_t managedBy;
     nlohmann::json& manager = managedBy.emplace_back();
     manager["@odata.id"] =
