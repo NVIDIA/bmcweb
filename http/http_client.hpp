@@ -26,6 +26,7 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
 #include <boost/beast/http/field.hpp>
@@ -148,14 +149,23 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     ensuressl::VerifyCertificate verifyCert;
     uint32_t connId;
     // Data buffers
+  public:
     http::request<bmcweb::HttpBody> req;
+
+  private:
+    std::optional<http::serializer<true, bmcweb::HttpBody>> serializer;
+
     using parser_type = http::response_parser<bmcweb::HttpBody>;
     std::optional<parser_type> parser;
     boost::beast::flat_static_buffer<httpReadBufferSize> buffer;
     Response res;
 
     // Async callables
+  public:
     std::function<void(bool, uint32_t, Response&)> callback;
+
+  private:
+    std::move_only_function<void()> afterHeadersCallback;
 
     boost::asio::io_context& ioc;
 
@@ -172,6 +182,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     friend class ConnectionPool;
 
+  public:
     void doResolve()
     {
         state = ConnState::resolveInProgress;
@@ -204,6 +215,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         afterResolve(shared_from_this(), boost::system::error_code(), ip);
     }
 
+  private:
     void afterResolve(const std::shared_ptr<ConnectionInfo>& /*self*/,
                       const boost::system::error_code& ec,
                       const Resolver::results_type& endpointList)
@@ -303,7 +315,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         sendMessage();
     }
 
-    void sendMessage()
+    void sendMessage(const std::shared_ptr<ConnectionInfo>& /*self*/ = nullptr)
     {
         state = ConnState::sendInProgress;
 
@@ -311,32 +323,59 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         timer.expires_after(std::chrono::seconds(60));
         timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
         // Send the HTTP request to the remote host
+        if (!serializer)
+        {
+            serializer.emplace(req);
+        }
         if (sslConn)
         {
             boost::beast::http::async_write(
-                *sslConn, req,
+                *sslConn, *serializer,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
         else
         {
             boost::beast::http::async_write(
-                conn, req,
+                conn, *serializer,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
     }
 
+  private:
+    void afterWriteHeaders(const std::shared_ptr<ConnectionInfo>& /*self*/,
+                           const boost::beast::error_code& ec,
+                           size_t /*bytesTransferred*/)
+    {
+        BMCWEB_LOG_DEBUG("afterWriteHeaders() called: {}", ec.message());
+        if (ec && ec == boost::asio::error::operation_aborted)
+        {
+            BMCWEB_LOG_ERROR("sendHeaders() failed: {} {}", ec.message(), host);
+        }
+        afterHeadersCallback();
+    }
+
     void afterWrite(const std::shared_ptr<ConnectionInfo>& /*self*/,
                     const boost::beast::error_code& ec, size_t bytesTransferred)
     {
+        BMCWEB_LOG_DEBUG("afterWrite() called: {}", ec.message());
         // The operation already timed out.  We don't want do continue down
         // this branch
-        if (ec && ec == boost::asio::error::operation_aborted)
+        if (ec == boost::asio::error::operation_aborted)
         {
             return;
         }
 
+        // We would've blocked.  Requeue so that other handlers can run
+        if (ec == boost::system::errc::operation_would_block ||
+            ec == boost::system::errc::resource_unavailable_try_again)
+        {
+            boost::asio::post(ioc, std::bind_front(&ConnectionInfo::sendMessage,
+                                                   this, shared_from_this()));
+            return;
+        }
+        serializer.reset();
         timer.cancel();
         if (ec)
         {

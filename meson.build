@@ -205,7 +205,6 @@ add_project_arguments(
             '-Wno-error=template-body',
             '-DBOOST_ALL_NO_LIB',
             '-DBOOST_ALLOW_DEPRECATED_HEADERS',
-            '-DBOOST_ASIO_DISABLE_THREADS',
             '-DBOOST_ASIO_NO_DEPRECATED',
             '-DBOOST_ASIO_SEPARATE_COMPILATION',
             '-DBOOST_BEAST_SEPARATE_COMPILATION',
@@ -226,6 +225,13 @@ add_project_arguments(
 # automatically during the configure step
 bmcweb_dependencies = []
 bmcweb_cli_dependencies = []
+
+if get_option('dns-resolver') != 'asio'
+    add_project_arguments('-DBOOST_ASIO_DISABLE_THREADS', language: 'cpp')
+else
+    add_project_arguments('-DBOOST_ASIO_ENABLE_THREADS', language: 'cpp')
+    bmcweb_dependencies += dependency('threads')
+endif
 
 pam = cxx.find_library('pam', required: true)
 atomic = cxx.find_library('atomic', required: true)
@@ -360,6 +366,8 @@ else
             'CMAKE_C_FLAGS': ' '.join(boost_flags),
             'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_libs),
             'BUILD_SHARED_LIBS': 'OFF',
+            'BOOST_PROCESS_USE_STD_FS': 'ON',
+            'BOOST_ASIO_DISABLE_THREADS': 'ON',
         },
     )
 
@@ -473,6 +481,6 @@ subdir('test')
 
 # Generate event-listener binary
 if (get_option('redfish-aggregation').enabled())
-    subdir('event-listener')
+    #subdir('event-listener')
 endif
 
