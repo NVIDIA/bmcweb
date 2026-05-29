@@ -2,45 +2,46 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "http_request.hpp"
-
-#include <errno.h>
-#include <unistd.h>
+#include "logging.hpp"
 
 #include <boost/beast/http/fields.hpp>
 
-#include <filesystem>
-#include <fstream>
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <optional>
 #include <ranges>
-#include <regex>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 enum class ParserError
 {
     PARSER_SUCCESS,
     ERROR_BOUNDARY_FORMAT,
-    ERROR_BOUNDARY_CR,
-    ERROR_BOUNDARY_LF,
-    ERROR_BOUNDARY_DATA,
     ERROR_EMPTY_HEADER,
     ERROR_HEADER_NAME,
+    ERROR_HEADER_NAME_TOO_LONG,
     ERROR_HEADER_VALUE,
+    ERROR_HEADER_VALUE_TOO_LONG,
     ERROR_HEADER_ENDING,
     ERROR_UNEXPECTED_END_OF_HEADER,
+    ERROR_UNEXPECTED_CHARACTER,
     ERROR_UNEXPECTED_END_OF_INPUT,
-    ERROR_DATA_AFTER_FINAL_BOUNDARY,
     ERROR_OUT_OF_RANGE,
-    ERROR_FILE_OPEN,
-    ERROR_FILE_WRITE,
-    ERROR_OUT_OF_MEMORY
+    ERROR_DATA_AFTER_FINAL_BOUNDARY,
+    ERROR_DATA_AFTER_ERROR
 };
 
 enum class State
 {
     START,
     START_BOUNDARY,
+    BOUNDARY,
+    FIRST_BOUNDARY_CHAR,       // 3
+    SECOND_BOUNDARY_CHAR_LF,
+    SECOND_BOUNDARY_CHAR_DASH, // 5
     HEADER_FIELD_START,
     HEADER_FIELD,
     HEADER_VALUE_START,
@@ -49,58 +50,57 @@ enum class State
     HEADERS_ALMOST_DONE,
     PART_DATA_START,
     PART_DATA,
-    END
-};
-
-enum class Boundary
-{
-    NON_BOUNDARY,
-    PART_BOUNDARY,
-    END_BOUNDARY,
+    END, // 14
+    ERROR
 };
 
 struct FormPart
 {
     boost::beast::http::fields fields;
     std::string content;
-    bool isTokenFile = false;
-    bool isUpdateFile = false;
-    std::ofstream fileOut;
+};
+
+struct MultipartParserStreamingCallbacks
+{
+    std::function<void(std::function<void()> pauseRead,
+                       std::function<void()> resumeRead)>
+        onStart;
+
+    std::function<void(boost::beast::http::fields, size_t remainingBodyLength)>
+        onHeadersComplete;
+    std::function<void(std::string_view)> onDataAvailable;
+    std::function<void()> onSectionComplete;
+    std::function<void()> onParseComplete;
 };
 
 class MultipartParser
 {
   public:
-    /**
-     * @brief Constructor to skip file content if skipFileContentIn==true.
-     *        This is used in handleMultipartUpdateServicePost to parse
-     *        just metadata.
-     */
-    explicit MultipartParser(bool skipFileContentIn = false) :
-        skipFileContent(skipFileContentIn)
-    {}
+    std::optional<MultipartParserStreamingCallbacks> callbacks;
 
-    /**
-     * @brief Constructor that allows direct writing if needed.
-     *        If you pass a valid file path, you can do fileOut writes.
-     */
-    explicit MultipartParser(const std::filesystem::path& filePathIn) :
-        filePath(filePathIn)
-    {}
+    MultipartParser(size_t contentLengthIn) : contentLength(contentLengthIn) {}
 
-    /**
-     * @brief Constructor for direct writing to a file descriptor (e.g., memfd).
-     *        The parser will write UpdateFile or TokenFile content directly to
-     *        this fd.
-     *
-     * @param fdIn File descriptor to write UpdateFile or TokenFile content
-     * to
-     */
-    explicit MultipartParser(int fdIn) : targetFd(fdIn) {}
+    [[nodiscard]] ParserError start(std::string_view contentType)
+    {
+        const std::string_view boundaryFormat =
+            "multipart/form-data; boundary=";
+        if (!contentType.starts_with(boundaryFormat))
+        {
+            state = State::ERROR;
+            return ParserError::ERROR_BOUNDARY_FORMAT;
+        }
+        std::string_view boundaryStr =
+            contentType.substr(boundaryFormat.size());
+        boundary = std::format("\r\n--{}", boundaryStr);
+        boundary_first = std::format("--{}\r\n", boundaryStr);
+        state = State::START;
+        return ParserError::PARSER_SUCCESS;
+    }
 
     [[nodiscard]] ParserError parse(std::string_view contentType,
                                     std::string_view body)
     {
+        contentLength = body.size();
         ParserError ret = start(contentType);
         if (ret != ParserError::PARSER_SUCCESS)
         {
@@ -115,32 +115,13 @@ class MultipartParser
         return finish();
     }
 
-    [[nodiscard]] ParserError start(std::string_view contentType)
-    {
-        const std::string boundaryFormat = "multipart/form-data; boundary=";
-        if (!contentType.starts_with(boundaryFormat))
-        {
-            return ParserError::ERROR_BOUNDARY_FORMAT;
-        }
-        std::string_view ctBoundary = contentType.substr(boundaryFormat.size());
-
-        boundary = "\r\n--";
-        boundary += ctBoundary;
-        indexBoundary();
-        lookbehind.resize(boundary.size() + 8);
-        state = State::START;
-
-        return ParserError::PARSER_SUCCESS;
-    }
-
     ParserError parsePart(std::string_view buffer)
     {
-        size_t len = buffer.size();
-        char cl = 0;
-
-        for (size_t i = 0; i < len; i++)
+        // BMCWEB_LOG_DEBUG("Parsing {} bytes", buffer.size());
+        for (const char c : buffer)
         {
-            char c = buffer[i];
+            parsedCount++;
+            // BMCWEB_LOG_DEBUG("State: {}", static_cast<int>(state));
             switch (state)
             {
                 case State::START:
@@ -148,188 +129,273 @@ class MultipartParser
                     state = State::START_BOUNDARY;
                     [[fallthrough]];
                 case State::START_BOUNDARY:
-                    if (index == boundary.size() - 2)
+                {
+                    if (index < boundary_first.size())
                     {
-                        if (c != cr)
+                        if (c != boundary_first[index])
                         {
-                            return ParserError::ERROR_BOUNDARY_CR;
+                            state = State::ERROR;
+                            return ParserError::ERROR_BOUNDARY_FORMAT;
                         }
-                        index++;
-                        break;
-                    }
-                    else if (index - 1 == boundary.size() - 2)
-                    {
-                        if (c != lf)
-                        {
-                            return ParserError::ERROR_BOUNDARY_LF;
-                        }
-                        index = 0;
-                        mime_fields.emplace_back();
-                        state = State::HEADER_FIELD_START;
-                        break;
-                    }
-                    if (c != boundary[index + 2])
-                    {
-                        return ParserError::ERROR_BOUNDARY_DATA;
                     }
                     index++;
+                    if (index == boundary_first.size())
+                    {
+                        mime_fields.emplace_back();
+                        state = State::HEADER_FIELD_START;
+                        index = 0;
+                    }
+
                     break;
+                }
                 case State::HEADER_FIELD_START:
-                    currentHeaderName.resize(0);
                     state = State::HEADER_FIELD;
-                    headerFieldMark = i;
                     index = 0;
                     [[fallthrough]];
                 case State::HEADER_FIELD:
-                    if (c == cr)
+                {
+                    if (currentHeaderName.size() > 400)
                     {
-                        headerFieldMark = 0;
+                        state = State::ERROR;
+                        return ParserError::ERROR_HEADER_NAME_TOO_LONG;
+                    }
+                    if (c == '\r')
+                    {
                         state = State::HEADERS_ALMOST_DONE;
                         break;
                     }
 
                     index++;
-                    if (c == hyphen)
-                    {
-                        break;
-                    }
 
-                    if (c == colon)
+                    if (c == ':')
                     {
-                        if (index == 1)
+                        if (currentHeaderName.empty())
                         {
+                            state = State::ERROR;
                             return ParserError::ERROR_EMPTY_HEADER;
                         }
 
-                        currentHeaderName.append(&buffer[headerFieldMark],
-                                                 i - headerFieldMark);
                         state = State::HEADER_VALUE_START;
                         break;
                     }
-                    cl = lower(c);
-                    if (cl < 'a' || cl > 'z')
+                    char cl = lower(c);
+                    if ((cl < 'a' || cl > 'z') && cl != '-')
                     {
+                        state = State::ERROR;
                         return ParserError::ERROR_HEADER_NAME;
                     }
+                    currentHeaderName.push_back(cl);
                     break;
+                }
                 case State::HEADER_VALUE_START:
-                    if (c == space)
+                    if (c == ' ')
                     {
                         break;
                     }
-                    headerValueMark = i;
                     state = State::HEADER_VALUE;
                     [[fallthrough]];
+
                 case State::HEADER_VALUE:
-                    if (c == cr)
+                {
+                    if (currentHeaderValue.size() > 400)
                     {
-                        std::string_view value(&buffer[headerValueMark],
-                                               i - headerValueMark);
-                        mime_fields.back().fields.set(currentHeaderName, value);
-                        using boost::beast::http::field;
-                        using boost::beast::http::string_to_field;
-                        field currentHeader =
-                            string_to_field(currentHeaderName);
-
-                        // If it's Content-Disposition with name="UpdateFile"
-                        if (currentHeader == field::content_disposition &&
-                            value.find("name=\"UpdateFile\"") !=
-                                std::string::npos)
-                        {
-                            FormPart& fp = mime_fields.back();
-                            fp.isUpdateFile = true;
-
-                            // Reserve using the full body length as an
-                            // upper bound to avoid repeated capacity
-                            // doubling during large file appends.
-                            if (!skipFileContent && targetFd < 0 &&
-                                filePath.empty())
-                            {
-                                fp.content.reserve(len);
-                            }
-
-                            // If we wanted to write directly to file in this
-                            // parse:
-                            if (!filePath.empty() && !skipFileContent)
-                            {
-                                // open an ofstream
-                                fp.fileOut.open(filePath,
-                                                std::ofstream::out |
-                                                    std::ofstream::binary |
-                                                    std::ofstream::trunc);
-                                if (!fp.fileOut.is_open())
-                                {
-                                    return ParserError::ERROR_FILE_OPEN;
-                                }
-                            }
-                        }
-                        else if (currentHeader == field::content_disposition &&
-                                 value.find("name=\"TokenFile\"") !=
-                                     std::string::npos)
-                        {
-                            FormPart& fp = mime_fields.back();
-                            fp.isTokenFile = true;
-
-                            // If we wanted to write directly to file in this
-                            // parse:
-                            if (!filePath.empty() && !skipFileContent)
-                            {
-                                // open an ofstream
-                                fp.fileOut.open(filePath,
-                                                std::ofstream::out |
-                                                    std::ofstream::binary |
-                                                    std::ofstream::trunc);
-                                if (!fp.fileOut.is_open())
-                                {
-                                    return ParserError::ERROR_FILE_OPEN;
-                                }
-                            }
-                        }
-
-                        state = State::HEADER_VALUE_ALMOST_DONE;
+                        state = State::ERROR;
+                        return ParserError::ERROR_HEADER_VALUE_TOO_LONG;
                     }
-                    break;
-                case State::HEADER_VALUE_ALMOST_DONE:
-                    if (c != lf)
+                    if (c == '\r')
                     {
+                        boost::beast::error_code ec;
+                        using boost::beast::http::field;
+                        mime_fields.back().fields.insert(
+                            boost::beast::http::string_to_field(
+                                currentHeaderName),
+                            currentHeaderName, currentHeaderValue, ec);
+                        if (ec)
+                        {
+                            return ParserError::ERROR_HEADER_VALUE;
+                        }
+                        currentHeaderName.clear();
+                        currentHeaderValue.clear();
+                        state = State::HEADER_VALUE_ALMOST_DONE;
+                        break;
+                    }
+                    currentHeaderValue.push_back(c);
+                    break;
+                }
+                case State::HEADER_VALUE_ALMOST_DONE:
+                {
+                    if (c != '\n')
+                    {
+                        state = State::ERROR;
                         return ParserError::ERROR_HEADER_VALUE;
                     }
                     state = State::HEADER_FIELD_START;
                     break;
+                }
                 case State::HEADERS_ALMOST_DONE:
-                    if (c != lf)
+                {
+                    if (c != '\n')
                     {
+                        state = State::ERROR;
                         return ParserError::ERROR_HEADER_ENDING;
                     }
                     if (index > 0)
                     {
+                        state = State::ERROR;
                         return ParserError::ERROR_UNEXPECTED_END_OF_HEADER;
                     }
+
+                    if (callbacks)
+                    {
+                        if (callbacks->onHeadersComplete)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Calling On Headers Complete callback");
+                            std::optional<size_t> remaining =
+                                remainingBodyLength();
+                            if (!remaining)
+                            {
+                                return ParserError::ERROR_OUT_OF_RANGE;
+                            }
+                            callbacks->onHeadersComplete(
+                                mime_fields.back().fields, *remaining);
+                        }
+                    }
+
                     state = State::PART_DATA_START;
                     break;
+                }
                 case State::PART_DATA_START:
                     state = State::PART_DATA;
-                    partDataMark = i;
+                    index = 0;
                     [[fallthrough]];
+
                 case State::PART_DATA:
                 {
-                    if (index == 0)
+                    std::string& content = mime_fields.back().content;
+                    content += c;
+                    if (content.ends_with(boundary))
                     {
-                        skipNonBoundary(buffer, boundary.size() - 1, i);
-                        c = buffer[i];
+                        state = State::FIRST_BOUNDARY_CHAR;
                     }
-                    if (auto ec = processPartData(buffer, i, c);
-                        ec != ParserError::PARSER_SUCCESS)
+                    if (content.size() > 4096 && callbacks)
                     {
-                        return ec;
+                        if (callbacks->onDataAvailable)
+                        {
+                            size_t validChars =
+                                content.size() - boundary.size();
+                            std::string_view contentView(content);
+                            contentView.remove_suffix(boundary.size());
+                            if (callbacks)
+                            {
+                                if (callbacks->onDataAvailable)
+                                {
+                                    callbacks->onDataAvailable(contentView);
+                                    content.erase(0, validChars);
+                                }
+                            }
+                        }
                     }
                     break;
                 }
+                case State::FIRST_BOUNDARY_CHAR:
+                {
+                    std::string& content = mime_fields.back().content;
+                    content += c;
+                    if (c == '\r')
+                    {
+                        state = State::SECOND_BOUNDARY_CHAR_LF;
+                        break;
+                    }
+                    if (c == '-')
+                    {
+                        state = State::SECOND_BOUNDARY_CHAR_DASH;
+                        break;
+                    }
+                    state = State::PART_DATA;
+                    break;
+                }
+                case State::SECOND_BOUNDARY_CHAR_LF:
+                {
+                    std::string& content = mime_fields.back().content;
+                    if (c != '\n')
+                    {
+                        content += c;
+                        state = State::PART_DATA;
+                        break;
+                    }
+                    content.resize(content.size() - boundary.size() - 1);
+                    if (callbacks)
+                    {
+                        if (callbacks->onDataAvailable)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Calling On Data Available callback");
+                            if (callbacks->onDataAvailable)
+                            {
+                                callbacks->onDataAvailable(content);
+                            }
+                            content.clear();
+                        }
+                        if (callbacks->onSectionComplete)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Calling On Section Complete callback");
+                            if (callbacks->onSectionComplete)
+                            {
+                                callbacks->onSectionComplete();
+                            }
+                        }
+                    }
+                    state = State::HEADER_FIELD_START;
+                    index = 0;
+                    mime_fields.emplace_back();
+                    break;
+                }
+                case State::SECOND_BOUNDARY_CHAR_DASH:
+                {
+                    std::string& content = mime_fields.back().content;
+                    if (c != '-')
+                    {
+                        content += c;
+                        state = State::PART_DATA;
+                        break;
+                    }
+                    content.resize(content.size() - boundary.size() - 1);
+
+                    if (callbacks)
+                    {
+                        if (callbacks->onDataAvailable)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Calling On Data Available callback");
+                            if (callbacks->onDataAvailable)
+                            {
+                                callbacks->onDataAvailable(content);
+                            }
+                            content.clear();
+                        }
+                        if (callbacks->onSectionComplete)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Calling On Section Complete callback");
+                            if (callbacks->onSectionComplete)
+                            {
+                                callbacks->onSectionComplete();
+                            }
+                        }
+                    }
+
+                    state = State::END;
+                    index = 0;
+                    break;
+                }
                 case State::END:
+                {
                     switch (index)
                     {
                         case 0:
-                            if (c != cr)
+                            if (c != '\r')
                             {
                                 return ParserError::
                                     ERROR_DATA_AFTER_FINAL_BOUNDARY;
@@ -337,7 +403,7 @@ class MultipartParser
                             index++;
                             break;
                         case 1:
-                            if (c != lf)
+                            if (c != '\n')
                             {
                                 return ParserError::
                                     ERROR_DATA_AFTER_FINAL_BOUNDARY;
@@ -348,8 +414,17 @@ class MultipartParser
                             return ParserError::ERROR_DATA_AFTER_FINAL_BOUNDARY;
                     }
                     break;
+                }
+                case State::ERROR:
+                {
+                    return ParserError::ERROR_DATA_AFTER_ERROR;
+                }
+
                 default:
+                {
+                    state = State::ERROR;
                     return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
+                }
             }
         }
 
@@ -360,267 +435,90 @@ class MultipartParser
     {
         if (state != State::END)
         {
+            state = State::ERROR;
+            BMCWEB_LOG_WARNING("Bad multipart data");
             return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
         }
 
-        // close any open file streams
-        for (FormPart& part : mime_fields)
+        BMCWEB_LOG_DEBUG("Calling On Parse Complete callback");
+        if (callbacks)
         {
-            if (part.isUpdateFile && part.fileOut.is_open())
+            BMCWEB_LOG_DEBUG("callbacks was valid");
+            if (callbacks->onParseComplete)
             {
-                part.fileOut.close();
+                BMCWEB_LOG_DEBUG("onParseComplete was valid");
+                callbacks->onParseComplete();
             }
+            else
+            {
+                BMCWEB_LOG_DEBUG("onParseComplete was not valid");
+            }
+            callbacks.reset();
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("callbacks was not valid");
         }
 
+        BMCWEB_LOG_DEBUG("Multipart parser finished");
         return ParserError::PARSER_SUCCESS;
+    }
+
+    // Assuming this multipart field is the last one, returns the expected
+    // remaining length.  Returns nullopt if parser has received more bytes than
+    // expected.
+    std::optional<size_t> remainingBodyLength() const
+    {
+        size_t remaining = contentLength;
+        if (remaining < parsedCount)
+        {
+            return std::nullopt;
+        }
+        // Subtract the parsed bytes
+        remaining -= parsedCount;
+        if (remaining < 4)
+        {
+            return std::nullopt;
+        }
+        // subtract the initial \r\n--
+        remaining -= 4;
+
+        if (remaining < boundary.size())
+        {
+            return std::nullopt;
+        }
+        // Subtract the boundary
+        remaining -= boundary.size();
+
+        // Subtract the final \r\n--
+        if (remaining < 4)
+        {
+            return std::nullopt;
+        }
+        remaining -= 4;
+
+        BMCWEB_LOG_DEBUG("Remaining body length: {}", remaining);
+        BMCWEB_LOG_DEBUG("parsedCount was: {}", parsedCount);
+        BMCWEB_LOG_DEBUG("Content length was: {}", contentLength);
+        BMCWEB_LOG_DEBUG("Boundary was: {}", boundary);
+        return remaining;
     }
 
     std::vector<FormPart> mime_fields;
     std::string boundary;
+    std::string boundary_first;
 
   private:
-    void indexBoundary()
-    {
-        std::ranges::fill(boundaryIndex, 0);
-        for (const char current : boundary)
-        {
-            boundaryIndex[static_cast<unsigned char>(current)] = true;
-        }
-    }
-
     static char lower(char c)
     {
         return static_cast<char>(c | 0x20);
     }
 
-    bool isBoundaryChar(char c) const
-    {
-        return boundaryIndex[static_cast<unsigned char>(c)];
-    }
-
-    void skipNonBoundary(std::string_view buffer, size_t boundaryEnd, size_t& i)
-    {
-        // boyer-moore derived algorithm to safely skip non-boundary data
-        while (i + boundary.size() <= buffer.length())
-        {
-            if (isBoundaryChar(buffer[i + boundaryEnd]))
-            {
-                break;
-            }
-            i += boundary.size();
-        }
-    }
-
-    ParserError processPartData(std::string_view buffer, size_t& i, char c)
-    {
-        FormPart& current = mime_fields.back();
-        bool isFile = current.isUpdateFile || current.isTokenFile;
-        size_t prevIndex = index;
-
-        if (index < boundary.size())
-        {
-            if (boundary[index] == c)
-            {
-                if (index == 0)
-                {
-                    size_t chunkSize = i - partDataMark;
-                    if (chunkSize > 0)
-                    {
-                        // **If this part is UpdateFile or TokenFile**
-                        // and **we're skipping* big data, do nothing
-                        if (isFile && skipFileContent)
-                        {
-                            // skip storing big data
-                        }
-                        else if (isFile && targetFd >= 0)
-                        {
-                            // Write directly to file descriptor (e.g., memfd)
-                            ssize_t written = write(
-                                targetFd, &buffer[partDataMark], chunkSize);
-                            int error = errno;
-                            if (written != static_cast<ssize_t>(chunkSize))
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Error writing to file descriptor: {}",
-                                    error);
-                                if (error == ENOSPC)
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Out of memory: Failed to write {} bytes to file descriptor {} (ENOSPC)",
-                                        chunkSize, targetFd);
-                                    return ParserError::ERROR_OUT_OF_MEMORY;
-                                }
-                                return ParserError::ERROR_FILE_WRITE;
-                            }
-                        }
-                        else if (isFile && current.fileOut.is_open())
-                        {
-                            // If we have an open file, write chunk to disk
-                            current.fileOut.write(
-                                &buffer[partDataMark],
-                                static_cast<std::streamsize>(chunkSize));
-                            if (!current.fileOut.good())
-                            {
-                                return ParserError::ERROR_FILE_WRITE;
-                            }
-                        }
-                        else
-                        {
-                            // normal small field
-                            current.content.append(&buffer[partDataMark],
-                                                   chunkSize);
-                        }
-                    }
-                }
-                index++;
-            }
-            else
-            {
-                index = 0;
-            }
-        }
-        else if (index == boundary.size())
-        {
-            index++;
-            if (c == cr)
-            {
-                // cr = part boundary
-                flags = Boundary::PART_BOUNDARY;
-            }
-            else if (c == hyphen)
-            {
-                // hyphen = end boundary
-                flags = Boundary::END_BOUNDARY;
-            }
-            else
-            {
-                index = 0;
-            }
-        }
-        else
-        {
-            if (flags == Boundary::PART_BOUNDARY)
-            {
-                index = 0;
-                if (c == lf)
-                {
-                    // unset the PART_BOUNDARY flag
-                    flags = Boundary::NON_BOUNDARY;
-                    mime_fields.emplace_back();
-                    state = State::HEADER_FIELD_START;
-                    return ParserError::PARSER_SUCCESS;
-                }
-            }
-            if (flags == Boundary::END_BOUNDARY)
-            {
-                if (c == hyphen)
-                {
-                    state = State::END;
-                }
-                else
-                {
-                    flags = Boundary::NON_BOUNDARY;
-                    index = 0;
-                }
-            }
-        }
-
-        if (index > 0)
-        {
-            if ((index - 1) >= lookbehind.size())
-            {
-                // Should never happen, but when it does it won't cause crash
-                return ParserError::ERROR_OUT_OF_RANGE;
-            }
-            lookbehind[index - 1] = c;
-        }
-        else if (prevIndex > 0)
-        {
-            // partial boundary was not complete -> belongs to content
-            if (isFile && skipFileContent)
-            {
-                // skip
-            }
-            else if (isFile && targetFd >= 0)
-            {
-                ssize_t written = write(targetFd, lookbehind.data(), prevIndex);
-                if (written != static_cast<ssize_t>(prevIndex))
-                {
-                    return ParserError::ERROR_FILE_WRITE;
-                }
-            }
-            else if (isFile && current.fileOut.is_open())
-            {
-                current.fileOut.write(lookbehind.data(),
-                                      static_cast<std::streamsize>(prevIndex));
-                if (!current.fileOut.good())
-                {
-                    return ParserError::ERROR_FILE_WRITE;
-                }
-            }
-            else
-            {
-                current.content.append(lookbehind.data(), prevIndex);
-            }
-            partDataMark = i;
-
-            // reconsider the current character even so it interrupted
-            // the sequence it could be the beginning of a new sequence
-            i--;
-        }
-        if (state == State::END)
-        {
-            index = 0;
-        }
-        return ParserError::PARSER_SUCCESS;
-    }
-
-    /**
-     * @brief Validates if a given content type conforms to the expected pattern
-     * for a multipart/form-data content type. If the content type matches the
-     * pattern, the size of the matched substring is stored in the provided
-     * contentTypeSize reference. The function returns true if the content type
-     * is valid and false otherwise.
-     *
-     * @param[in] contentType The input content type as a std::string_view.
-     * @param[out] contentTypeSize Reference to a size_t variable to store the
-     * size of the matched substring.
-     *
-     * @return true if the content type is valid, false otherwise
-     */
-    static bool isValidContentType(const std::string_view contentType,
-                                   size_t& contentTypeSize)
-    {
-        std::regex pattern("multipart/form-data;\\s*boundary=");
-        std::string strContentType(contentType);
-        std::smatch match;
-
-        if (std::regex_search(strContentType, match, pattern))
-        {
-            contentTypeSize = match.str().size();
-            return true;
-        }
-
-        return false;
-    }
-
-    bool skipFileContent = false;
-    std::filesystem::path filePath;
-    int targetFd = -1;
     std::string currentHeaderName;
+    std::string currentHeaderValue;
 
-    static constexpr char cr = '\r';
-    static constexpr char lf = '\n';
-    static constexpr char space = ' ';
-    static constexpr char hyphen = '-';
-    static constexpr char colon = ':';
-
-    std::array<bool, 256> boundaryIndex{};
-    std::string lookbehind;
-    State state{State::START};
-    Boundary flags{Boundary::NON_BOUNDARY};
+    State state = State::START;
     size_t index = 0;
-    size_t partDataMark = 0;
-    size_t headerFieldMark = 0;
-    size_t headerValueMark = 0;
+    size_t parsedCount = 0;
+    size_t contentLength;
 };
