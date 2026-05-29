@@ -323,7 +323,7 @@ inline void handleAddConfigFileError(
  * and std::nullopt is returned.  On success the raw file bytes are returned.
  */
 inline std::optional<std::string> scanMimePartsForImportFile(
-    const std::vector<FormPart>& mimeParts,
+    const std::span<const FormPart> mimeParts,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId, const std::string& uploadUri)
 {
@@ -461,52 +461,6 @@ inline std::optional<std::string> scanMimePartsForImportFile(
     }
 
     return importFileContent;
-}
-
-/**
- * @brief Validate Content-Type, parse the multipart body, and return the
- *        content of the single "ImportFile" part.
- *
- * Delegates form-part scanning to scanMimePartsForImportFile().
- *
- * @param req       Incoming crow request.
- * @param asyncResp Shared async response (written on error).
- * @param fabricId  Fabric identifier for log context.
- * @param uploadUri Upload URI string used in Redfish error bodies.
- * @return File content on success, std::nullopt on any validation failure.
- */
-inline std::optional<std::string> parseImportFilePart(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& fabricId, const std::string& uploadUri)
-{
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    if (!contentType.starts_with("multipart/form-data"))
-    {
-        BMCWEB_LOG_ERROR(
-            "switch-config POST [parseImportFilePart]: bad Content-Type "
-            "'{}' for fabric {}",
-            contentType, fabricId);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        messages::addMessageToErrorJson(
-            asyncResp->res.jsonValue, messages::headerInvalid("Content-Type"));
-        return std::nullopt;
-    }
-
-    MultipartParser parser;
-    ParserError parseEc = parser.parse(contentType, req.body());
-    if (parseEc != ParserError::PARSER_SUCCESS)
-    {
-        BMCWEB_LOG_ERROR(
-            "switch-config POST [parseImportFilePart]: multipart parse "
-            "error {} for fabric {}",
-            static_cast<int>(parseEc), fabricId);
-        messages::internalError(asyncResp->res);
-        return std::nullopt;
-    }
-
-    return scanMimePartsForImportFile(parser.mime_fields, asyncResp, fabricId,
-                                      uploadUri);
 }
 
 // ---------------------------------------------------------------------------
@@ -852,8 +806,8 @@ inline void handleConfigFilePost(
     const std::string uploadUri =
         "/redfish/v1/Fabrics/" + fabricId + "/upload-switch-config";
 
-    auto importFileContent =
-        parseImportFilePart(req, asyncResp, fabricId, uploadUri);
+    auto importFileContent = scanMimePartsForImportFile(
+        req.multipart(), asyncResp, fabricId, uploadUri);
     if (!importFileContent)
     {
         return;

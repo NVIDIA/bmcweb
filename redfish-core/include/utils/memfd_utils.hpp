@@ -68,7 +68,7 @@ struct MemoryFD
         return true;
     }
 
-    void write(const std::vector<uint8_t>& data) const
+    void write(const std::span<const uint8_t>& data) const
     {
         if (!rewind())
         {
@@ -85,6 +85,25 @@ struct MemoryFD
                 "MemoryFD - Fewer bytes written than expected");
         }
     }
+
+    void writeString(std::string_view data) const
+    {
+        if (!rewind())
+        {
+            throw std::runtime_error("MemoryFD - lseek failed");
+        }
+        ssize_t bytesWritten = ::write(fd, data.data(), data.size());
+        if (bytesWritten < 0)
+        {
+            throw std::runtime_error("MemoryFD - write failed");
+        }
+        if (static_cast<size_t>(bytesWritten) != data.size())
+        {
+            throw std::runtime_error(
+                "MemoryFD - Fewer bytes written than expected");
+        }
+    }
+
     void read(std::vector<uint8_t>& data) const
     {
         if (!rewind())

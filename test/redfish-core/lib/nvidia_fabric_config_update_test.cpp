@@ -269,7 +269,7 @@ TEST(ScanMimeParts, EmptyImportFileContent_ReturnsNullopt)
 // parseImportFilePart
 // ---------------------------------------------------------------------------
 
-TEST(ParseImportFilePart, WrongContentType_ReturnsNullopt)
+TEST(ScanMimePartsForImportFile, WrongContentType_ReturnsNullopt)
 {
     std::error_code ec;
     std::string body = "body content";
@@ -277,12 +277,13 @@ TEST(ParseImportFilePart, WrongContentType_ReturnsNullopt)
     req.addHeader("Content-Type", "application/octet-stream");
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    auto result = parseImportFilePart(req, asyncResp, "fabric1", "/test/uri");
+    auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
+                                             "fabric1", "/test/uri");
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 
-TEST(ParseImportFilePart, MissingContentType_ReturnsNullopt)
+TEST(ScanMimePartsForImportFile, MissingContentType_ReturnsNullopt)
 {
     std::error_code ec;
     std::string body = "body content";
@@ -290,12 +291,13 @@ TEST(ParseImportFilePart, MissingContentType_ReturnsNullopt)
     // No Content-Type header → empty string → not multipart/form-data
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    auto result = parseImportFilePart(req, asyncResp, "fabric1", "/test/uri");
+    auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
+                                             "fabric1", "/test/uri");
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 
-TEST(ParseImportFilePart, ValidMultipartRequest_ReturnsContent)
+TEST(ScanMimePartsForImportFile, ValidMultipartRequest_ReturnsContent)
 {
     // boundary= "testboundary123"; body uses "--testboundary123" as delimiter
     std::string body =
@@ -306,13 +308,21 @@ TEST(ParseImportFilePart, ValidMultipartRequest_ReturnsContent)
         "binarydata\r\n"
         "--testboundary123--\r\n";
 
-    std::error_code ec;
+    boost::system::error_code ec;
+    boost::beast::http::header<false, boost::beast::http::fields> headers;
+    headers.set("Content-Type",
+                "multipart/form-data; boundary=testboundary123");
     crow::Request req(body, ec);
-    req.addHeader("Content-Type",
-                  "multipart/form-data; boundary=testboundary123");
-
+    ASSERT_FALSE(ec);
+    bmcweb::HttpBody::reader reader(headers, req.req.body());
+    reader.init(body.size(), ec);
+    ASSERT_FALSE(ec);
+    reader.put(boost::asio::const_buffer(body.data(), body.size()), ec);
+    ASSERT_FALSE(ec);
+    reader.finish(ec);
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    auto result = parseImportFilePart(req, asyncResp, "fabric1", "/test/uri");
+    auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
+                                             "fabric1", "/test/uri");
     EXPECT_EQ(result, std::make_optional<std::string>("binarydata"));
 }
 

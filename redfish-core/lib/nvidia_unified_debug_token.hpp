@@ -383,11 +383,11 @@ inline void handleUnifiedGenerateTokenRequest(
  * @param parser Multipart parser containing the parsed form data
  * @return true if TokenFile was found, false otherwise
  */
-inline bool extractTokenFile(
+inline std::string extractTokenFile(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const MultipartParser& parser)
+    const std::span<const FormPart> multipart)
 {
-    for (const FormPart& formpart : parser.mime_fields)
+    for (const FormPart& formpart : multipart)
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -402,19 +402,19 @@ inline bool extractTokenFile(
             continue;
         }
 
-        if (formFieldNameOpt.value() == "TokenFile")
+        if (formFieldNameOpt.value() != "TokenFile")
         {
-            return true;
+            continue;
         }
+        return formpart.content;
     }
     BMCWEB_LOG_ERROR("TokenFile form part is missing");
     messages::propertyMissing(asyncResp->res, "TokenFile");
-    return false;
+    return "";
 }
 
-static void installTokenRedfishURLCallback(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void installTokenRedfishURLCallback(
+    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
     [[maybe_unused]] const std::string& redfishURL)
@@ -433,27 +433,26 @@ static void installTokenRedfishURLCallback(
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
-    auto memFd = std::make_shared<MemoryFD>();
-    MultipartParser parser(memFd->fd);
-    ParserError ec = parser.parse(req);
-    if (ec != ParserError::PARSER_SUCCESS)
+    std::string tokenFile = extractTokenFile(asyncResp, req.multipart());
+    if (tokenFile.size() < sizeof(TokenFileHeader))
     {
-        BMCWEB_LOG_ERROR("MIME parse failed, ec: {}", static_cast<int>(ec));
+        BMCWEB_LOG_ERROR("Token file too small: {} bytes", tokenFile.size());
+        messages::propertyMissing(asyncResp->res, "TokenFile");
+        return;
+    }
+
+    TokenFileHeader header{};
+    std::memcpy(&header, tokenFile.data(), sizeof(TokenFileHeader));
+    if (header.version != 0x02)
+    {
+        BMCWEB_LOG_ERROR("Invalid token file version: {}", header.version);
         messages::internalError(asyncResp->res);
         return;
     }
-    if (!extractTokenFile(asyncResp, parser))
+    tokenFile.erase(0, sizeof(TokenFileHeader));
+    if (header.type != static_cast<uint8_t>(TokenFileType::DebugToken))
     {
-        return;
-    }
-    std::vector<uint8_t> fileData;
-    try
-    {
-        memFd->read(fileData);
-    }
-    catch (const std::exception& e)
-    {
-        BMCWEB_LOG_ERROR("Failed to read token file: {}", e.what());
+        BMCWEB_LOG_ERROR("Invalid token file type: {}", header.type);
         messages::internalError(asyncResp->res);
         return;
     }
@@ -461,7 +460,7 @@ static void installTokenRedfishURLCallback(
     auto tlvMemFd = std::make_shared<MemoryFD>();
     try
     {
-        tlvMemFd->write(fileData);
+        tlvMemFd->writeString(tokenFile);
     }
     catch (const std::exception& e)
     {
@@ -476,9 +475,8 @@ static void installTokenRedfishURLCallback(
                         componentId));
 }
 
-static void installAssociationEndpointCallback(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void installAssociationEndpointCallback(
+    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
     const std::string& associationEndpoint)
@@ -493,7 +491,7 @@ static void installAssociationEndpointCallback(
     chassis_utils::getRedfishURL(
         associationEndpoint,
         [&req, asyncResp, chassisId, componentId,
-         targetChassisId](const bool& valid2, const std::string& redfishURL) {
+         targetChassisId](bool valid2, const std::string& redfishURL) {
             installTokenRedfishURLCallback(req, asyncResp, chassisId,
                                            componentId, targetChassisId, valid2,
                                            redfishURL);
@@ -501,7 +499,7 @@ static void installAssociationEndpointCallback(
 }
 
 inline void handleUnifiedInstallToken(
-    App& app, const crow::Request& req,
+    App& app, crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
 {
@@ -516,7 +514,7 @@ inline void handleUnifiedInstallToken(
         targetChassisId);
     chassis_utils::getAssociationEndpoint(
         inventoryPath,
-        std::bind_front(&installAssociationEndpointCallback, std::cref(req),
+        std::bind_front(&installAssociationEndpointCallback, std::ref(req),
                         asyncResp, chassisId, componentId, targetChassisId));
 }
 
