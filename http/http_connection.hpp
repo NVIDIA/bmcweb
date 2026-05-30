@@ -560,6 +560,14 @@ class Connection :
             }
         }
 
+        if (parser && parser->get()[boost::beast::http::field::content_type]
+                .starts_with("multipart/form-data"))
+        {
+            // TOOD(ed) this really should come from the header request somewhere.
+            // HTTP multipart can stream, so set an extremely large limit
+            return 4ULL * 1024ULL * 1024ULL * 1024ULL;
+        }
+
         return httpReqBodyLimit;
     }
 

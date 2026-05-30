@@ -422,7 +422,7 @@ void requestRoutesNvidia(crow::App& app)
         manager_usb_ports::requestRoutesManagerUSBPorts(app);
     }
 
-    requestRoutesNvUpdateServiceMultipartUpdate(app);
+    nvidia::requestRoutesNvUpdateServiceMultipartUpdate(app);
 }
 
 } // namespace redfish

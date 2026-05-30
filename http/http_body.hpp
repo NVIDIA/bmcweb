@@ -401,13 +401,17 @@ class HttpBody::writer
                     ec = readEc;
                     return boost::none;
                 }
+                if (read == 0)
+                {
+                    ec = readEc;
+                    return boost::none;
+                }
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
             BMCWEB_LOG_INFO("Read {} bytes from file", read);
-            // If the number of bytes read equals the amount requested, we
-            // haven't reached EOF yet
-            ret.second = read == readReq;
+
+            ret.second = read != 0;
             if (body.encodingType == EncodingType::Base64)
             {
                 buf.clear();
@@ -529,6 +533,7 @@ class HttpBody::reader
             }
 
             ec = {};
+            return;
         }
 
         if (contentLength)
@@ -558,7 +563,7 @@ class HttpBody::reader
                     boost::system::error_code& ec)
     {
         size_t extra = boost::beast::buffer_bytes(buffers);
-        BMCWEB_LOG_DEBUG("http body put called with {} bytes", extra);
+        // BMCWEB_LOG_DEBUG("http body put called with {} bytes", extra);
         for (const auto b : boost::beast::buffers_range_ref(buffers))
         {
             const char* ptr = static_cast<const char*>(b.data());
