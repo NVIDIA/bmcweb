@@ -31,94 +31,10 @@
 #include "gtest/gtest.h"
 #include <gtest/gtest.h>
 
-namespace redfish
+namespace redfish::nvidia
 {
 namespace
 {
-
-TEST(ParseRfaUri, LocalTargetWithoutPrefixGoesToLocal)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    EXPECT_TRUE(
-        parseRfaUri("/redfish/v1/Chassis/HGX_Chassis_0", local, satellite));
-    ASSERT_EQ(local.size(), 1U);
-    EXPECT_EQ(local[0], "/redfish/v1/Chassis/HGX_Chassis_0");
-    EXPECT_TRUE(satellite.empty());
-}
-
-TEST(ParseRfaUri, SatelliteTargetWithPrefixGoesToSatellite)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    std::string uri = std::format("/redfish/v1/Chassis/{}_HGX_Chassis_0",
-                                  BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_TRUE(parseRfaUri(uri, local, satellite));
-    EXPECT_TRUE(local.empty());
-    ASSERT_EQ(satellite.size(), 1U);
-    EXPECT_EQ(satellite[0], uri);
-}
-
-TEST(ParseRfaUri, PrefixWithoutUnderscoreSeparatorGoesToLocal)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    // The function requires "<prefix>_" exactly; without the underscore the
-    // segment is treated as a local target.
-    std::string uri = std::format("/redfish/v1/Chassis/{}HGX",
-                                  BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_TRUE(parseRfaUri(uri, local, satellite));
-    ASSERT_EQ(local.size(), 1U);
-    EXPECT_EQ(local[0], uri);
-    EXPECT_TRUE(satellite.empty());
-}
-
-TEST(ParseRfaUri, PrefixInNonTrailingSegmentGoesToLocal)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    // Only the trailing segment is inspected for the prefix.
-    std::string uri = std::format("/redfish/v1/{}_Chassis/HGX_Chassis_0",
-                                  BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_TRUE(parseRfaUri(uri, local, satellite));
-    ASSERT_EQ(local.size(), 1U);
-    EXPECT_EQ(local[0], uri);
-    EXPECT_TRUE(satellite.empty());
-}
-
-TEST(ParseRfaUri, EmptyPathReturnsFalse)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    EXPECT_FALSE(parseRfaUri("", local, satellite));
-    EXPECT_TRUE(local.empty());
-    EXPECT_TRUE(satellite.empty());
-}
-
-TEST(ParseRfaUri, AppendsToExistingOutputs)
-{
-    std::vector<std::string> local;
-    std::vector<std::string> satellite;
-
-    std::string satUri = std::format("/redfish/v1/Chassis/{}_HGX_Chassis_0",
-                                     BMCWEB_REDFISH_AGGREGATION_PREFIX);
-
-    EXPECT_TRUE(
-        parseRfaUri("/redfish/v1/Chassis/HGX_Chassis_0", local, satellite));
-    EXPECT_TRUE(parseRfaUri(satUri, local, satellite));
-    EXPECT_TRUE(parseRfaUri("/redfish/v1/Managers/bmc", local, satellite));
-
-    ASSERT_EQ(local.size(), 2U);
-    EXPECT_EQ(local[0], "/redfish/v1/Chassis/HGX_Chassis_0");
-    EXPECT_EQ(local[1], "/redfish/v1/Managers/bmc");
-    ASSERT_EQ(satellite.size(), 1U);
-    EXPECT_EQ(satellite[0], satUri);
-}
 
 struct ClockFake
 {
@@ -196,5 +112,120 @@ TEST(NvidiaMultipartUpdate, FullUpdateGoldenPath)
     EXPECT_EQ(outStr, expected);
 }
 
+// Regression test: clients (e.g. libcurl for uploads over ~1KB) send
+// "Expect: 100-continue".  The connection must still dispatch the headers to
+// the streamInput route so the multipart body callbacks are registered before
+// the body is read.  Previously the 100-continue path skipped header dispatch
+// entirely, so large uploads parsed with no callbacks.
+TEST(NvidiaMultipartUpdate, FullUpdateExpectContinue)
+{
+    using crow::TestStream;
+    App app;
+    requestRoutesNvUpdateServiceMultipartUpdate(app);
+    app.validate();
+
+    boost::asio::io_context io;
+    ClockFake clock;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+
+    constexpr std::string_view boundary = "BMCWEBTESTBOUNDARY";
+    std::string body = std::format(
+        "--{0}\r\n"
+        "Content-Disposition: form-data; name=\"UpdateParameters\"\r\n"
+        "Content-Type: application/json\r\n"
+        "\r\n"
+        "{{\"@Redfish.OperationApplyTime\":\"OnReset\"}}"
+        "\r\n--{0}\r\n"
+        "Content-Disposition: form-data; name=\"UpdateFile\"; "
+        "filename=\"image.bin\"\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "\r\n"
+        "DUMMYIMAGEDATA"
+        "\r\n--{0}--\r\n",
+        boundary);
+
+    std::string request = std::format(
+        "POST /redfish/v1/UpdateService/update-multipart/ HTTP/1.1\r\n"
+        "Host: openbmc_project.xyz\r\n"
+        "Content-Type: multipart/form-data; boundary={}\r\n"
+        "Content-Length: {}\r\n"
+        "Expect: 100-continue\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "{}",
+        boundary, body.size(), body);
+    out.write_some(boost::asio::buffer(request));
+    boost::asio::steady_timer timer(io);
+    std::function<std::string()> date(
+        std::bind_front(&ClockFake::getDateStr, &clock));
+
+    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
+    std::shared_ptr<crow::Connection<TestStream, App>> conn =
+        std::make_shared<crow::Connection<TestStream, App>>(
+            &app, crow::HttpType::HTTP, std::move(timer), date,
+            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
+    conn->disableAuth();
+    conn->start();
+    io.run_for(std::chrono::seconds(5));
+    std::string outStr = out.str();
+
+    // The server first emits a "100 Continue" interim response, then the final
+    // "200 OK" once the streamed body has been parsed via the route callbacks.
+    EXPECT_NE(outStr.find("HTTP/1.1 100 Continue\r\n"), std::string::npos);
+    EXPECT_NE(outStr.find("HTTP/1.1 200 OK\r\n"), std::string::npos);
+}
+
+TEST(ParseRfaUri, EmptyUriReturnsError)
+{
+    EXPECT_EQ(parseRfaUri(""), TargetType::Error);
+}
+
+TEST(ParseRfaUri, UnparseableUriReturnsError)
+{
+    // Invalid percent-encoding can't be parsed as a relative ref.
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Chassis/%zz"), TargetType::Error);
+}
+
+TEST(ParseRfaUri, HmcChassisTargetOmitsTargets)
+{
+    std::string uri =
+        std::format("/redfish/v1/Chassis/{}", BMCWEB_RFA_HMC_UPDATE_TARGET);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::SatelliteOmitTargets);
+}
+
+TEST(ParseRfaUri, AggregationPrefixedChassisIsSatellite)
+{
+    // A chassis whose id carries the aggregation prefix (but isn't the HMC
+    // update target) routes to a satellite BMC.
+    std::string uri = std::format("/redfish/v1/Chassis/{}_Baseboard_0",
+                                  BMCWEB_REDFISH_AGGREGATION_PREFIX);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
+}
+
+TEST(ParseRfaUri, UnprefixedChassisIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Chassis/Baseboard_0"),
+              TargetType::Local);
+}
+
+TEST(ParseRfaUri, HmcManagerTargetOmitsTargets)
+{
+    std::string uri =
+        std::format("/redfish/v1/Managers/{}", BMCWEB_RFA_HMC_UPDATE_TARGET);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::SatelliteOmitTargets);
+}
+
+TEST(ParseRfaUri, NonHmcManagerIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Managers/bmc"), TargetType::Local);
+}
+
+TEST(ParseRfaUri, UnrelatedUriIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Local);
+}
+
 } // namespace
-} // namespace redfish
+} // namespace redfish::nvidia

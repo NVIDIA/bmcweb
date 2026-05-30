@@ -218,7 +218,7 @@ inline JsonParseResult parseRequestAsJson(const crow::Request& req,
         req.getHeaderValue(boost::beast::http::field::content_type);
     if (!isJsonContentType(contentType))
     {
-        BMCWEB_LOG_WARNING("Failed to parse content type on request");
+        BMCWEB_LOG_WARNING("Content was not JSON");
         if constexpr (!BMCWEB_INSECURE_IGNORE_CONTENT_TYPE)
         {
             return JsonParseResult::BadContentType;

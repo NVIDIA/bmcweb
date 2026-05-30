@@ -19,9 +19,12 @@ class MultipartSerializer
   public:
     explicit MultipartSerializer(
         std::move_only_function<void(std::string_view)>&& putBytesIn) :
-        boundary(bmcweb::getRandomIdOfLength(32)),
         putBytes(std::move(putBytesIn))
-    {}
+    {
+        // Curl picks a boundary 22 characters long.  Be like curl.
+        boundary = std::format("------------------------{}",
+                               bmcweb::getRandomIdOfLength(22));
+    }
 
     std::string_view getBoundary() const
     {
@@ -30,17 +33,22 @@ class MultipartSerializer
 
     std::string getContentType() const
     {
-        return "multipart/form-data; boundary=" + boundary;
+        return std::format("multipart/form-data; boundary={}", boundary);
     }
 
     void start()
     {
-        putBytes("\r\n");
+        // putBytes("\r\n");
     }
 
     void beginPart(const boost::beast::http::fields& fields)
     {
-        putBytes("\r\n--");
+        if (!firstField)
+        {
+            putBytes("\r\n");
+        }
+        firstField = false;
+        putBytes("--");
         putBytes(boundary);
         putBytes("\r\n");
         for (const auto& field : fields)
@@ -74,6 +82,7 @@ class MultipartSerializer
     }
 
   private:
+    bool firstField = true;
     std::string boundary;
     std::move_only_function<void(std::string_view)> putBytes;
 };

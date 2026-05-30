@@ -476,26 +476,13 @@ class MultipartParser
         }
         // Subtract the parsed bytes
         remaining -= parsedCount;
-        if (remaining < 4)
-        {
-            return std::nullopt;
-        }
-        // subtract the initial \r\n--
-        remaining -= 4;
 
-        if (remaining < boundary.size())
+        size_t closingDelimiter = boundary.size() + 4;
+        if (remaining < closingDelimiter)
         {
             return std::nullopt;
         }
-        // Subtract the boundary
-        remaining -= boundary.size();
-
-        // Subtract the final \r\n--
-        if (remaining < 4)
-        {
-            return std::nullopt;
-        }
-        remaining -= 4;
+        remaining -= closingDelimiter;
 
         BMCWEB_LOG_DEBUG("Remaining body length: {}", remaining);
         BMCWEB_LOG_DEBUG("parsedCount was: {}", parsedCount);
