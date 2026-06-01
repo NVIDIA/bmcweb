@@ -43,6 +43,7 @@
 #include "nvidia_oem_chassis_recovery.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_oem_chassis_spi.hpp"
+#include "nvidia_oem_device_reset.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_oem_l1reset.hpp"
 #include "nvidia_oem_managed_entity.hpp"
@@ -392,6 +393,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
         requestRoutesChassisOemNvidiaRecoveryActions(app);
         requestRoutesRefreshInventory(app);
+        requestRoutesDeviceReset(app);
+        requestRoutesPortResetTransceiver(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "nvidia_oem_device_reset.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 
@@ -1003,6 +1004,9 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Metrics"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Metrics", chassisId,
         networkAdapterId, portId);
+
+    addPortResetTransceiverOemAction(asyncResp, objPath, chassisId,
+                                     networkAdapterId, portId);
 
     // Get interface properties
     dbus::utility::getAllProperties(
