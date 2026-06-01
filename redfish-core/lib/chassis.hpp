@@ -20,6 +20,7 @@
 #include "logging.hpp"
 #include "nvidia_chassis.hpp"
 #include "nvidia_nic_debug_token.hpp"
+#include "nvidia_oem_device_reset.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -757,6 +758,8 @@ inline void handleChassisGetSubTree(
 
         // Add CPU recovery mode OEM action if supported
         nvidia_chassis::addCpuRecoveryModeAction(asyncResp, chassisId);
+
+        addChassisResetOemAction(asyncResp, chassisId);
 
         // Nvidia Added code end
 
