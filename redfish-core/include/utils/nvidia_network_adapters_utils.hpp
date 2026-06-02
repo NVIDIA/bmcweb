@@ -592,15 +592,26 @@ inline void populateDeviceModeSettings(
 
 inline void afterGetDpuModeObject(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& endpoint, const std::string& dbusEnumValue,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperServiceMap& serviceMap)
+    const std::string& serviceName, const std::string& endpoint,
+    const std::string& dbusEnumValue, const boost::system::error_code& ec,
+    bool isModeConfigurable)
 {
-    if (ec || serviceMap.empty())
+    if (ec)
     {
+        BMCWEB_LOG_ERROR("Failed to read IsModeConfigurable on {}: {}",
+                         endpoint, ec.message());
+        messages::internalError(asyncResp->res);
         return;
     }
-    const auto& serviceName = serviceMap.begin()->first;
+
+    if (!isModeConfigurable)
+    {
+        BMCWEB_LOG_DEBUG("DPUOperationMode is not configurable on {}",
+                         endpoint);
+        messages::propertyUnknown(asyncResp->res, "DPUOperationMode");
+        return;
+    }
+
     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
         asyncResp, std::chrono::seconds(60), serviceName, endpoint,
         std::string(dpuOperationModeIntf), "PendingMode",
@@ -610,34 +621,44 @@ inline void afterGetDpuModeObject(
 
 inline void afterGetDpuModeEndpoints(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& dbusEnumValue, const boost::system::error_code& ec,
-    const dbus::utility::MapperEndPoints& endpoints)
+    const std::string& networkAdapterId, const std::string& dbusEnumValue,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    if (ec || endpoints.empty())
+    if (ec || subtree.empty() || subtree.front().second.empty())
     {
-        messages::propertyUnknown(asyncResp->res, "DPUOperationMode");
+        BMCWEB_LOG_DEBUG(
+            "No DPUOperationMode DeviceMode object for NetworkAdapter {}: {}",
+            networkAdapterId, ec.message());
+        messages::resourceNotFound(asyncResp->res, "DPUOperationMode",
+                                   networkAdapterId);
         return;
     }
 
-    for (const std::string& endpoint : endpoints)
-    {
-        dbus::utility::getDbusObject(
-            endpoint, std::array<std::string_view, 1>{dpuOperationModeIntf},
-            std::bind_front(afterGetDpuModeObject, asyncResp, endpoint,
-                            dbusEnumValue));
-    }
+    const auto& [endpoint, serviceMap] = subtree.front();
+    const std::string& serviceName = serviceMap.front().first;
+    dbus::utility::getProperty<bool>(
+        serviceName, endpoint, std::string(dpuOperationModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterGetDpuModeObject, asyncResp, serviceName, endpoint,
+                        dbusEnumValue));
 }
 
 inline void patchDpuOperationMode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& networkAdapterPath, const std::string& redfishValue)
+    const std::string& networkAdapterId, const std::string& networkAdapterPath,
+    const std::string& redfishValue)
 {
     std::string dbusEnumValue =
         std::string(dpuOperationModeEnumPrefix) + redfishValue;
 
-    dbus::utility::getAssociationEndPoints(
-        networkAdapterPath + "/device_mode_settings",
-        std::bind_front(afterGetDpuModeEndpoints, asyncResp, dbusEnumValue));
+    dbus::utility::getAssociatedSubTree(
+        sdbusplus::message::object_path(
+            networkAdapterPath + "/device_mode_settings"),
+        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        std::array<std::string_view, 1>{dpuOperationModeIntf},
+        std::bind_front(afterGetDpuModeEndpoints, asyncResp, networkAdapterId,
+                        dbusEnumValue));
 }
 
 inline void afterGetPcieModeObject(
