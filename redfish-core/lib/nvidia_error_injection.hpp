@@ -36,6 +36,7 @@
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
@@ -512,7 +513,8 @@ inline void getProcessor(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             for (const auto& path : paths)
             {
-                if (!path.ends_with(processorId))
+                if (sdbusplus::message::object_path(path).filename() !=
+                    processorId)
                 {
                     continue;
                 }
@@ -559,7 +561,8 @@ inline void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             for (const auto& path : paths)
             {
-                if (!path.ends_with(chassisId))
+                if (sdbusplus::message::object_path(path).filename() !=
+                    chassisId)
                 {
                     continue;
                 }
