@@ -2927,51 +2927,23 @@ inline void getChassisAssetData(
 
 inline void handleFruAssetInformation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, std::string chassisPath)
+    const std::string& chassisId, const std::string& chassisPath)
 {
-    chassisPath.erase(chassisPath.size() - chassisId.size());
     asyncResp->res.jsonValue["Id"] = chassisId;
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Decorator.Asset"};
-    dbus::utility::getSubTree(
-        chassisPath, 0, interfaces,
-        [asyncResp,
-         chassisId](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+    dbus::utility::getDbusObject(
+        chassisPath, interfaces,
+        [asyncResp, chassisPath](const boost::system::error_code& ec,
+                                 const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
+                // No Asset data for this chassis path - not an error
                 return;
             }
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     object : subtree)
+            for (const auto& [serviceName, interfaceList] : object)
             {
-                const std::string& path = object.first;
-                const std::vector<
-                    std::pair<std::string, std::vector<std::string>>>&
-                    serviceMap = object.second;
-
-                sdbusplus::object_path objPath(path);
-                // The path should end with chassisId (representing resource)
-                // and that path should implement Asset Interface
-                if (objPath.filename() != chassisId)
-                {
-                    continue;
-                }
-                for (const auto& [serviceName, interfaceList] : serviceMap)
-                {
-                    for (const auto& interface : interfaceList)
-                    {
-                        if (interface ==
-                            "xyz.openbmc_project.Inventory.Decorator.Asset")
-                        {
-                            getChassisAssetData(asyncResp, serviceName, path);
-                        }
-                    }
-                }
+                getChassisAssetData(asyncResp, serviceName, chassisPath);
             }
         });
 }
