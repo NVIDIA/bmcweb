@@ -190,6 +190,10 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NETWORK_ADAPTERS_GENERIC)
     {
         requestRoutesNetworkAdaptersGeneric(app);
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            requestRoutesNetworkAdapterPortHistogramLegacy(app);
+        }
     }
 
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)

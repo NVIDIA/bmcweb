@@ -23,6 +23,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_histogram_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -578,6 +579,163 @@ inline void handlePortGet(App& app, const crow::Request& req,
     handleGet(app, req, asyncResp, chassisId, portId, false);
 }
 
+inline void doNetworkAdapterPortHistogramCollectionLegacy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid chassis ID{}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    const std::string portPath = *validChassisPath + "/NetworkAdapters/" +
+                                 networkId + "/Ports/" + portId;
+    const std::string collectionUri =
+        "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" + networkId +
+        "/Ports/" + portId + "/Oem/Nvidia/Histograms";
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaHistogramCollection.NvidiaHistogramCollection";
+    asyncResp->res.jsonValue["@odata.id"] = collectionUri;
+    asyncResp->res.jsonValue["Name"] =
+        networkId + "_" + portId + "_Histogram_Collection";
+    collection_util::getCollectionMembersByAssociation(
+        asyncResp, collectionUri, portPath + "/histograms", {});
+}
+
+inline void handleNetworkAdapterPortHistogramCollectionGetLegacy(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(&doNetworkAdapterPortHistogramCollectionLegacy,
+                        asyncResp, chassisId, networkId, portId));
+}
+
+inline void doNetworkAdapterPortHistogramLegacy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId, const std::string& histogramId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid chassis ID{}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    const std::string portPath = *validChassisPath + "/NetworkAdapters/" +
+                                 networkId + "/Ports/" + portId;
+    const std::string histoURI =
+        "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" + networkId +
+        "/Ports/" + portId + "/Oem/Nvidia/Histograms/" + histogramId;
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaHistogram.v1_1_0.NvidiaHistogram";
+    asyncResp->res.jsonValue["@odata.id"] = histoURI;
+    asyncResp->res.jsonValue["Id"] = histogramId;
+    asyncResp->res.jsonValue["Name"] =
+        networkId + "_" + portId + "_Histogram_" + histogramId;
+    asyncResp->res.jsonValue["HistogramBuckets"]["@odata.id"] =
+        histoURI + "/Buckets";
+    redfish::nvidia_histogram_utils::getHistogramDataByAssociation(
+        asyncResp, histogramId, portPath);
+}
+
+inline void handleNetworkAdapterPortHistogramGetLegacy(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId, const std::string& histogramId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(&doNetworkAdapterPortHistogramLegacy, asyncResp,
+                        chassisId, networkId, portId, histogramId));
+}
+
+inline void doNetworkAdapterPortHistogramBucketsLegacy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId, const std::string& histogramId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid chassis ID{}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    const std::string portPath = *validChassisPath + "/NetworkAdapters/" +
+                                 networkId + "/Ports/" + portId;
+    dbus::utility::getAssociationEndPoints(
+        portPath + "/histograms",
+        [asyncResp, chassisId, networkId, portId,
+         histogramId](const boost::system::error_code& ec,
+                      const dbus::utility::MapperEndPoints& histoPaths) {
+            if (ec)
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "#NvidiaHistogram.v1_1_0.NvidiaHistogram",
+                    histogramId);
+                return;
+            }
+            for (const std::string& histoPath : histoPaths)
+            {
+                sdbusplus::message::object_path histoObjPath(histoPath);
+                if (histoObjPath.filename() != histogramId)
+                {
+                    continue;
+                }
+                const std::string histoURI = std::format(
+                    "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Oem/Nvidia/Histograms/{}/Buckets",
+                    chassisId, networkId, portId, histogramId);
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#NvidiaHistogramBuckets.v1_0_0.NvidiaHistogramBuckets";
+                asyncResp->res.jsonValue["@odata.id"] = histoURI;
+                asyncResp->res.jsonValue["Name"] =
+                    std::format("{}_{}_Histogram_{}_Buckets", networkId, portId,
+                                histogramId);
+                asyncResp->res.jsonValue["Id"] = "Buckets";
+                asyncResp->res.jsonValue["Buckets"] = nlohmann::json::array();
+                redfish::nvidia_histogram_utils::updateHistogramBucketData(
+                    asyncResp, histoPath);
+                return;
+            }
+            messages::resourceNotFound(
+                asyncResp->res, "#NvidiaHistogram.v1_1_0.NvidiaHistogram",
+                histogramId);
+        });
+}
+
+inline void handleNetworkAdapterPortHistogramBucketsGetLegacy(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkId,
+    const std::string& portId, const std::string& histogramId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(&doNetworkAdapterPortHistogramBucketsLegacy, asyncResp,
+                        chassisId, networkId, portId, histogramId));
+}
+
 inline void requestRoutesNetworkAdapters(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
@@ -618,6 +776,31 @@ inline void requestRoutesACDPort(App& app)
         .privileges(redfish::privileges::getPort)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePortGet, std::ref(app)));
+}
+
+inline void requestRoutesNetworkAdapterPortHistogramLegacy(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/Oem/Nvidia/Histograms/")
+        .privileges(redfish::privileges::getPort)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkAdapterPortHistogramCollectionGetLegacy,
+            std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>/")
+        .privileges(redfish::privileges::getPort)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkAdapterPortHistogramGetLegacy, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>/Buckets/")
+        .privileges(redfish::privileges::getPort)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkAdapterPortHistogramBucketsGetLegacy, std::ref(app)));
 }
 
 } // namespace redfish
