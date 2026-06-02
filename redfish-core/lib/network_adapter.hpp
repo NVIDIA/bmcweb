@@ -29,6 +29,7 @@
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_histogram_utils.hpp>
 #include <utils/nvidia_network_adapters_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_ports_utils.hpp>
@@ -1406,6 +1407,16 @@ inline void getPortDataByAssociation(
             updatePortLink(asyncResp, sensorPath, chassisId, networkAdapterId,
                            portId);
             populatePortLldpData(asyncResp, sensorPath, networkAdapterPath);
+
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                const std::string portUri = std::format(
+                    "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}",
+                    chassisId, networkAdapterId, portId);
+                redfish::nvidia_histogram_utils::getHistogramLink(
+                    asyncResp, portUri, sensorPath,
+                    "#NvidiaPort.v1_6_0.NvidiaPort");
+            }
             return;
         });
 }
