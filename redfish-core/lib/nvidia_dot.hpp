@@ -19,6 +19,8 @@
 
 #include "bmcweb_config.h"
 
+#include "trusted_components.hpp"
+
 #include <app.hpp>
 #include <boost/url/format.hpp>
 #include <dot/base.hpp>
@@ -252,45 +254,14 @@ inline void afterDOTComponentValidation(
 }
 
 /**
- * @brief Validates chassis and initiates DOT component discovery
- *
- * Callback invoked after chassis validation. If chassis is valid, initiates
- * D-Bus discovery to find DOT-capable components.
- *
- * @param asyncResp Async response object for error reporting
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param onSuccess Callback to invoke if DOT component is found and validated
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidation(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId,
-    std::function<void()> onSuccess,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_DEBUG("DOT validation: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTComponentValidation, asyncResp, chassisId,
-                        componentId, std::move(onSuccess)));
-}
-
-/**
  * @brief Validates chassis and DOT component existence
  *
- * Initiates validation chain to ensure the specified chassis exists and
- * the component supports DOT operations. Invokes success callback if both
- * validations pass.
+ * Ensures the specified component is actually a TrustedComponent of the
+ * specified chassis (via the SPDM `associated_chassis` link the parent
+ * TrustedComponent resource uses) and that it supports DOT operations on
+ * D-Bus. Invokes onSuccess only if both checks pass. Without the chassis-
+ * to-component pairing check, DOT sub-resources would be reachable under
+ * any valid chassis as long as the component leaf name resolved on D-Bus.
  *
  * @param asyncResp Async response object for error reporting
  * @param chassisId The chassis identifier to validate
@@ -310,10 +281,33 @@ inline void validateChassisAndDOTComponent(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    getChassisAssociatedEndpoint(
         asyncResp, chassisId,
-        std::bind_front(afterChassisValidation, asyncResp, chassisId,
-                        componentId, std::move(onSuccess)));
+        [asyncResp, chassisId, componentId, onSuccess = std::move(onSuccess)](
+            const std::string& endpoint, bool exists) mutable {
+            if (!exists)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "DOT validation: chassis '{}' has no associated TrustedComponent",
+                    chassisId);
+                messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                           componentId);
+                return;
+            }
+
+            if (!validateComponentID(componentId, endpoint, asyncResp))
+            {
+                // validateComponentID already wrote a 404
+                return;
+            }
+
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(afterDOTComponentValidation, asyncResp,
+                                chassisId, componentId, std::move(onSuccess)));
+        });
 }
 
 /**
@@ -685,20 +679,17 @@ inline void handleNvidiaOemTrustedComponentsDOT(
     BMCWEB_LOG_DEBUG("DOT GET resource called - Chassis: '{}', Component: '{}'",
                      chassisId, componentId);
 
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT GET: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationWithDOTDiscovery, asyncResp,
-                        chassisId, componentId,
-                        std::bind_front(afterDOTResourceDiscovery, asyncResp,
-                                        chassisId, componentId)));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            redfish::chassis_utils::getValidChassisPath(
+                asyncResp, chassisId,
+                std::bind_front(
+                    afterChassisValidationWithDOTDiscovery, asyncResp,
+                    chassisId, componentId,
+                    std::bind_front(afterDOTResourceDiscovery, asyncResp,
+                                    chassisId, componentId)));
+        });
 }
 
 /**
@@ -1474,32 +1465,61 @@ inline bool parseSignatureStructure(
 }
 
 /**
- * @brief Process chassis validation and parse CAKRotate action parameters
+ * @brief Process chassis validation for GetInfo action
  *
- * Callback invoked after chassis validation for DOT CAKRotate action. Parses
- * and validates the request JSON body including NewCAKKey (KeyStructure) and
- * LAKSignature (SignatureStructure), extracts individual fields, then initiates
- * DOT service discovery.
+ * Callback invoked after chassis validation for DOT GetInfo action.
+ * Initiates DOT service discovery.
  *
  * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
  * @param chassisId The chassis identifier
  * @param componentId The trusted component identifier
  * @param validChassisPath Optional path to validated chassis (nullopt if
  * invalid)
  */
-inline void afterChassisValidationForDOTCAKRotate(
+inline void afterChassisValidationForDOTGetInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
+    const std::string& chassisId, const std::string& componentId,
     const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
-        BMCWEB_LOG_ERROR("DOT CAKRotate: Invalid chassis: {}", chassisId);
+        BMCWEB_LOG_ERROR("DOT GetInfo: Invalid chassis: {}", chassisId);
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree("/xyz/openbmc_project", 0, interfaces,
+                              std::bind_front(afterDOTGetInfoServiceDiscovery,
+                                              asyncResp, componentId));
+}
+
+/**
+ * @brief Handle DOT CAKRotate action request
+ *
+ * Entry point for DOT CAKRotate action endpoint. Validates the request,
+ * chassis, and component before processing the CAKRotate operation that
+ * rotates the locked CAK without causing a DOT FUSE State change.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTCAKRotateAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKRotate action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
 
     nlohmann::json newCAKKey;
     nlohmann::json lakSignature;
@@ -1551,71 +1571,88 @@ inline void afterChassisValidationForDOTCAKRotate(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTCAKRotateServiceDiscovery, asyncResp,
-                        componentId, cakKeyAuthEnum, cakEcdsaKey, cakLmsKey,
-                        signatureAuthEnum, ecdsaSignature, lmsSignature));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, cakKeyAuthEnum = std::move(cakKeyAuthEnum),
+         cakEcdsaKey = std::move(cakEcdsaKey), cakLmsKey = std::move(cakLmsKey),
+         signatureAuthEnum = std::move(signatureAuthEnum),
+         ecdsaSignature = std::move(ecdsaSignature),
+         lmsSignature = std::move(lmsSignature)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(
+                    afterDOTCAKRotateServiceDiscovery, asyncResp, componentId,
+                    std::move(cakKeyAuthEnum), std::move(cakEcdsaKey),
+                    std::move(cakLmsKey), std::move(signatureAuthEnum),
+                    std::move(ecdsaSignature), std::move(lmsSignature)));
+        });
 }
 
 /**
- * @brief Process chassis validation for GetInfo action
+ * @brief Handle DOT GetInfo action request
  *
- * Callback invoked after chassis validation for DOT GetInfo action.
- * Initiates DOT service discovery.
+ * Entry point for DOT GetInfo action endpoint. Validates the request,
+ * chassis, and component before processing the GetInfo operation.
  *
- * @param asyncResp Async response object for error reporting
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
+ * @param app Crow application reference
+ * @param req HTTP request object
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
  */
-inline void afterChassisValidationForDOTGetInfo(
+inline void handleDOTGetInfoAction(
+    crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
+    const std::string& chassisId, const std::string& componentId)
 {
-    if (!validChassisPath)
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
-        BMCWEB_LOG_ERROR("DOT GetInfo: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree("/xyz/openbmc_project", 0, interfaces,
-                              std::bind_front(afterDOTGetInfoServiceDiscovery,
-                                              asyncResp, componentId));
+    BMCWEB_LOG_DEBUG(
+        "DOT GetInfo action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
+
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            redfish::chassis_utils::getValidChassisPath(
+                asyncResp, chassisId,
+                std::bind_front(afterChassisValidationForDOTGetInfo, asyncResp,
+                                chassisId, componentId));
+        });
 }
 
 /**
- * @brief Process chassis validation and parse Install action parameters
+ * @brief Handle DOT Install action request
  *
- * Callback invoked after chassis validation for DOT Install action. Parses
- * and validates the request JSON body including CAK key, optional LAK key,
- * lock disable flag, and minimum security version, then initiates DOT
- * service discovery.
+ * Entry point for DOT Install action endpoint. Validates the request,
+ * chassis, and component before processing the Install operation that
+ * provisions Component Authentication Key (CAK) and optionally Lock
+ * Authentication Key (LAK).
  *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
  */
-inline void afterChassisValidationForDOTInstall(
+inline void handleDOTInstallAction(
+    crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
+    const std::string& chassisId, const std::string& componentId)
 {
-    if (!validChassisPath)
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
-        BMCWEB_LOG_ERROR("DOT Install: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Install action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
 
     std::optional<nlohmann::json> cakKeyOpt;
     std::optional<bool> lockDisableOpt;
@@ -1696,22 +1733,34 @@ inline void afterChassisValidationForDOTInstall(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTCAKInstallServiceDiscovery, asyncResp,
-                        componentId, cakAuthEnum, cakEcdsaKey, cakLmsKey,
-                        lakAuthEnum, lakEcdsaKey, lakLmsKey,
-                        lockDisableOpt.value_or(false), ownerMinSvn,
-                        vendorMinSvn));
+    bool lockDisable = lockDisableOpt.value_or(false);
+
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, cakAuthEnum = std::move(cakAuthEnum),
+         cakEcdsaKey = std::move(cakEcdsaKey), cakLmsKey = std::move(cakLmsKey),
+         lakAuthEnum = std::move(lakAuthEnum),
+         lakEcdsaKey = std::move(lakEcdsaKey), lakLmsKey = std::move(lakLmsKey),
+         lockDisable, ownerMinSvn, vendorMinSvn]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(afterDOTCAKInstallServiceDiscovery, asyncResp,
+                                componentId, std::move(cakAuthEnum),
+                                std::move(cakEcdsaKey), std::move(cakLmsKey),
+                                std::move(lakAuthEnum), std::move(lakEcdsaKey),
+                                std::move(lakLmsKey), lockDisable, ownerMinSvn,
+                                vendorMinSvn));
+        });
 }
 
 /**
- * @brief Handle DOT CAKRotate action request
+ * @brief Handle DOT Lock action request
  *
- * Entry point for DOT CAKRotate action endpoint. Validates the request,
- * chassis, and component before processing the CAKRotate operation that
- * rotates the locked CAK without causing a DOT FUSE State change.
+ * Entry point for DOT Lock action endpoint. Validates the request,
+ * chassis, and component before processing the Lock operation that
+ * transitions DOT from volatile state to locked state.
  *
  * @param app Crow application reference
  * @param req HTTP request object containing action parameters
@@ -1719,7 +1768,7 @@ inline void afterChassisValidationForDOTInstall(
  * @param chassisId The chassis identifier from the URI
  * @param componentId The trusted component identifier from the URI
  */
-inline void handleDOTCAKRotateAction(
+inline void handleDOTLockAction(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
@@ -1729,132 +1778,8 @@ inline void handleDOTCAKRotateAction(
         return;
     }
 
-    BMCWEB_LOG_DEBUG(
-        "DOT CAKRotate action called - Chassis: '{}', Component: '{}'",
-        chassisId, componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT CAKRotate: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTCAKRotate, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Handle DOT GetInfo action request
- *
- * Entry point for DOT GetInfo action endpoint. Validates the request,
- * chassis, and component before processing the GetInfo operation.
- *
- * @param app Crow application reference
- * @param req HTTP request object
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTGetInfoAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT GetInfo action called - Chassis: '{}', Component: '{}'", chassisId,
-        componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT GetInfo: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTGetInfo, asyncResp,
-                        chassisId, componentId));
-}
-
-/**
- * @brief Handle DOT Install action request
- *
- * Entry point for DOT Install action endpoint. Validates the request,
- * chassis, and component before processing the Install operation that
- * provisions Component Authentication Key (CAK) and optionally Lock
- * Authentication Key (LAK).
- *
- * @param app Crow application reference
- * @param req HTTP request object containing action parameters
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTInstallAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT Install action called - Chassis: '{}', Component: '{}'", chassisId,
-        componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Install: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTInstall, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Process chassis validation and parse Lock action parameters
- *
- * Callback invoked after chassis validation for DOT Lock action. Parses
- * and validates the request JSON body including CAK key, LAK key, nonce type,
- * static challenge, and signature, then initiates DOT service discovery.
- *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidationForDOTLock(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_ERROR("DOT Lock: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
+    BMCWEB_LOG_DEBUG("DOT Lock action called - Chassis: '{}', Component: '{}'",
+                     chassisId, componentId);
 
     nlohmann::json cakKey;
     nlohmann::json lakKey;
@@ -1954,119 +1879,38 @@ inline void afterChassisValidationForDOTLock(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTLockServiceDiscovery, asyncResp, componentId,
-                        cakAuthEnum, cakEcdsaKey, cakLmsKey, lakAuthEnum,
-                        lakEcdsaKey, lakLmsKey, nonceTypeEnum, staticChallenge,
-                        lockSigAuthEnum, ecdsaSignature, lmsSignature));
-}
-
-/**
- * @brief Handle DOT Lock action request
- *
- * Entry point for DOT Lock action endpoint. Validates the request,
- * chassis, and component before processing the Lock operation that
- * transitions DOT from volatile state to locked state.
- *
- * @param app Crow application reference
- * @param req HTTP request object containing action parameters
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTLockAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG("DOT Lock action called - Chassis: '{}', Component: '{}'",
-                     chassisId, componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Lock: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTLock, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Process chassis validation and parse UnlockChallenge action parameters
- *
- * Callback invoked after chassis validation for DOT UnlockChallenge action.
- * Parses and validates the request JSON body including unlock type, then
- * initiates DOT service discovery.
- *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidationForDOTUnlockChallenge(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_ERROR("DOT UnlockChallenge: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    std::string unlockType;
-
-    if (!json_util::readJsonAction(req, asyncResp->res, "UnlockType",
-                                   unlockType))
-    {
-        return;
-    }
-    if (unlockType != "OwnerUnlock" && unlockType != "VendorUnlock")
-    {
-        messages::actionParameterValueNotInList(
-            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
-        return;
-    }
-
-    std::string unlockTypeEnum =
-        dot_utils::convertUnlockTypeToDbusEnum(unlockType);
-
-    if (unlockTypeEnum.empty())
-    {
-        messages::actionParameterValueNotInList(
-            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
-        return;
-    }
-
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTUnlockChallengeServiceDiscovery, asyncResp,
-                        componentId, unlockTypeEnum));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, cakAuthEnum = std::move(cakAuthEnum),
+         cakEcdsaKey = std::move(cakEcdsaKey), cakLmsKey = std::move(cakLmsKey),
+         lakAuthEnum = std::move(lakAuthEnum),
+         lakEcdsaKey = std::move(lakEcdsaKey), lakLmsKey = std::move(lakLmsKey),
+         nonceTypeEnum = std::move(nonceTypeEnum),
+         staticChallenge = std::move(staticChallenge),
+         lockSigAuthEnum = std::move(lockSigAuthEnum),
+         ecdsaSignature = std::move(ecdsaSignature),
+         lmsSignature = std::move(lmsSignature)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(
+                    afterDOTLockServiceDiscovery, asyncResp, componentId,
+                    std::move(cakAuthEnum), std::move(cakEcdsaKey),
+                    std::move(cakLmsKey), std::move(lakAuthEnum),
+                    std::move(lakEcdsaKey), std::move(lakLmsKey),
+                    std::move(nonceTypeEnum), std::move(staticChallenge),
+                    std::move(lockSigAuthEnum), std::move(ecdsaSignature),
+                    std::move(lmsSignature)));
+        });
 }
 
 /**
  * @brief Handle DOT UnlockChallenge action request
  *
- * Entry point for DOT UnlockChallenge action endpoint. Validates the request,
- * chassis, and component before processing the UnlockChallenge operation that
- * generates a challenge for subsequent Unlock or Override operations.
+ * Entry point for DOT UnlockChallenge action endpoint. Parses the request body
+ * synchronously (while the crow::Request is still alive), then runs the
+ * chassis/component pairing check and dispatches the operation.
  *
  * @param app Crow application reference
  * @param req HTTP request object containing action parameters
@@ -2088,80 +1932,40 @@ inline void handleDOTUnlockChallengeAction(
         "DOT UnlockChallenge action called - Chassis: '{}', Component: '{}'",
         chassisId, componentId);
 
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT UnlockChallenge: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTUnlockChallenge, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Process chassis validation and parse Unlock action parameters
- *
- * Callback invoked after chassis validation for DOT Unlock action. Parses
- * and validates the request JSON body including LAK signature, then initiates
- * DOT service discovery.
- *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidationForDOTUnlock(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_ERROR("DOT Unlock: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    nlohmann::json lakSigJson;
-    if (!redfish::json_util::readJsonAction(req, asyncResp->res, "LAKSignature",
-                                            lakSigJson))
+    std::string unlockType;
+    if (!json_util::readJsonAction(req, asyncResp->res, "UnlockType",
+                                   unlockType))
     {
         return;
     }
-
-    std::string lakSigAuthScheme;
-    std::string ecdsaSignature;
-    std::string lmsSignature;
-    if (!parseSignatureStructure(lakSigJson, "LAKSignature", asyncResp->res,
-                                 lakSigAuthScheme, ecdsaSignature, lmsSignature,
-                                 "NvidiaDOT.Unlock"))
-    {
-        return;
-    }
-
-    std::string lakSigAuthEnum =
-        dot_utils::convertAuthSchemeToDbusEnum(lakSigAuthScheme);
-
-    if (lakSigAuthEnum.empty())
+    if (unlockType != "OwnerUnlock" && unlockType != "VendorUnlock")
     {
         messages::actionParameterValueNotInList(
-            asyncResp->res, "NvidiaDOT.Unlock",
-            "LAKSignature/AuthenticationScheme", lakSigAuthScheme);
+            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces,
-        std::bind_front(afterDOTUnlockServiceDiscovery, asyncResp, componentId,
-                        lakSigAuthEnum, ecdsaSignature, lmsSignature));
+    std::string unlockTypeEnum =
+        dot_utils::convertUnlockTypeToDbusEnum(unlockType);
+    if (unlockTypeEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "UnlockChallenge", "UnlockType", unlockType);
+        return;
+    }
+
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId,
+         unlockTypeEnum = std::move(unlockTypeEnum)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(afterDOTUnlockChallengeServiceDiscovery,
+                                asyncResp, componentId,
+                                std::move(unlockTypeEnum)));
+        });
 }
 
 /**
@@ -2191,18 +1995,47 @@ inline void handleDOTUnlockAction(
         "DOT Unlock action called - Chassis: '{}', Component: '{}'", chassisId,
         componentId);
 
-    if (componentId.empty())
+    nlohmann::json lakSigJson;
+    if (!redfish::json_util::readJsonAction(req, asyncResp->res, "LAKSignature",
+                                            lakSigJson))
     {
-        BMCWEB_LOG_ERROR("DOT Unlock: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTUnlock, asyncResp,
-                        std::ref(req), chassisId, componentId));
+    std::string lakSigAuthScheme;
+    std::string ecdsaSignature;
+    std::string lmsSignature;
+    if (!parseSignatureStructure(lakSigJson, "LAKSignature", asyncResp->res,
+                                 lakSigAuthScheme, ecdsaSignature, lmsSignature,
+                                 "NvidiaDOT.Unlock"))
+    {
+        return;
+    }
+
+    std::string lakSigAuthEnum =
+        dot_utils::convertAuthSchemeToDbusEnum(lakSigAuthScheme);
+    if (lakSigAuthEnum.empty())
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "NvidiaDOT.Unlock",
+            "LAKSignature/AuthenticationScheme", lakSigAuthScheme);
+        return;
+    }
+
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, lakSigAuthEnum = std::move(lakSigAuthEnum),
+         ecdsaSignature = std::move(ecdsaSignature),
+         lmsSignature = std::move(lmsSignature)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(afterDOTUnlockServiceDiscovery, asyncResp,
+                                componentId, std::move(lakSigAuthEnum),
+                                std::move(ecdsaSignature),
+                                std::move(lmsSignature)));
+        });
 }
 
 /**
@@ -2266,32 +2099,133 @@ inline void afterDOTDisableServiceDiscovery(
 }
 
 /**
- * @brief Process chassis validation and parse Disable action parameters
+ * @brief Process DOT service discovery for Override operation
  *
- * Callback invoked after chassis validation for DOT Disable action. Parses
- * and validates the request JSON body including LAK key, nonce type,
- * optional static challenge, and signature, then initiates DOT service
- * discovery.
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the Override operation via D-Bus.
  *
  * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
  * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
+ * @param vendorSigAuthEnum Vendor signature authentication scheme enum
+ * @param ecdsaSignature ECDSA signature data
+ * @param lmsSignature LMS signature data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
  */
-inline void afterChassisValidationForDOTDisable(
+inline void afterDOTOverrideServiceDiscovery(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
+    const std::string& componentId, const std::string& vendorSigAuthEnum,
+    const std::string& ecdsaSignature, const std::string& lmsSignature,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
 {
-    if (!validChassisPath)
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "Override", ec, resp);
+    if (!servicePath.has_value())
     {
-        BMCWEB_LOG_ERROR("DOT Disable: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Override: Calling Override on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(10), dotService, path,
+        std::string(dot::dotActionIntf), "Override",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Override succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.Override");
+        },
+        vendorSigAuthEnum, ecdsaSignature, lmsSignature);
+}
+
+/**
+ * @brief Process DOT service discovery for Recovery operation
+ *
+ * Callback invoked after DBus discovery for DOT services. Validates that the
+ * service exists and contains the required DOT action interface before
+ * initiating the Recovery operation via D-Bus.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param componentId The trusted component identifier
+ * @param dotData Base64-encoded backup DOT data
+ * @param ec Error code from DBus discovery operation
+ * @param resp DBus subtree response containing discovered DOT objects
+ */
+inline void afterDOTRecoveryServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId,
+    const std::shared_ptr<MemoryFD>& dotDataMemfd,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "RecoverDOT", ec, resp);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Recovery: Calling Recovery on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(10), dotService, path,
+        std::string(dot::dotActionIntf), "RecoverDOT",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT Recovery succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.RecoverDOT");
+        },
+        sdbusplus::message::unix_fd(dotDataMemfd->fd));
+}
+
+/**
+ * @brief Handle DOT Disable action request
+ *
+ * Entry point for DOT Disable action endpoint. Validates the request,
+ * chassis, and component before processing the Disable operation that
+ * disables Device Ownership Transfer (DOT) functionality completely.
+ *
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
+ */
+inline void handleDOTDisableAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT Disable action called - Chassis: '{}', Component: '{}'", chassisId,
+        componentId);
 
     nlohmann::json lakKey;
     std::string nonceType;
@@ -2372,93 +2306,54 @@ inline void afterChassisValidationForDOTDisable(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/DOT", 0, interfaces,
-        std::bind_front(afterDOTDisableServiceDiscovery, asyncResp, componentId,
-                        lakAuthEnum, lakEcdsaKey, lakLmsKey, nonceTypeEnum,
-                        staticChallenge, lakSigAuthEnum, ecdsaSignature,
-                        lmsSignature));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, lakAuthEnum = std::move(lakAuthEnum),
+         lakEcdsaKey = std::move(lakEcdsaKey), lakLmsKey = std::move(lakLmsKey),
+         nonceTypeEnum = std::move(nonceTypeEnum),
+         staticChallenge = std::move(staticChallenge),
+         lakSigAuthEnum = std::move(lakSigAuthEnum),
+         ecdsaSignature = std::move(ecdsaSignature),
+         lmsSignature = std::move(lmsSignature)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/DOT", 0, interfaces,
+                std::bind_front(
+                    afterDOTDisableServiceDiscovery, asyncResp, componentId,
+                    std::move(lakAuthEnum), std::move(lakEcdsaKey),
+                    std::move(lakLmsKey), std::move(nonceTypeEnum),
+                    std::move(staticChallenge), std::move(lakSigAuthEnum),
+                    std::move(ecdsaSignature), std::move(lmsSignature)));
+        });
 }
 
 /**
- * @brief Process DOT service discovery for Override operation
+ * @brief Handle DOT Override action request
  *
- * Callback invoked after DBus discovery for DOT services. Validates that the
- * service exists and contains the required DOT action interface before
- * initiating the Override operation via D-Bus.
+ * Entry point for DOT Override action endpoint. Validates the request,
+ * chassis, and component before processing the Override operation that
+ * resets ownership state when valid DOT data can no longer be recovered.
  *
- * @param asyncResp Async response object for error reporting
- * @param componentId The trusted component identifier
- * @param vendorSigAuthEnum Vendor signature authentication scheme enum
- * @param ecdsaSignature ECDSA signature data
- * @param lmsSignature LMS signature data
- * @param ec Error code from DBus discovery operation
- * @param resp DBus subtree response containing discovered DOT objects
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
  */
-inline void afterDOTOverrideServiceDiscovery(
+inline void handleDOTOverrideAction(
+    crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& componentId, const std::string& vendorSigAuthEnum,
-    const std::string& ecdsaSignature, const std::string& lmsSignature,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& resp)
+    const std::string& chassisId, const std::string& componentId)
 {
-    auto servicePath =
-        findDOTServiceAndPath(asyncResp, componentId, "Override", ec, resp);
-    if (!servicePath.has_value())
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
-    const auto& [dotService, path] = *servicePath;
 
     BMCWEB_LOG_DEBUG(
-        "DOT Override: Calling Override on service '{}' at path '{}'",
-        dotService, path);
-
-    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
-        DOTResultType>(
-        asyncResp, std::chrono::seconds(10), dotService, path,
-        std::string(dot::dotActionIntf), "Override",
-        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
-            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
-            {
-                BMCWEB_LOG_DEBUG("DOT Override succeeded");
-                messages::success(asyncResp->res);
-                return;
-            }
-            handleDOTErrorResult(asyncResp, status, resultPtr,
-                                 "NvidiaDOT.Override");
-        },
-        vendorSigAuthEnum, ecdsaSignature, lmsSignature);
-}
-
-/**
- * @brief Process chassis validation and parse Override action parameters
- *
- * Callback invoked after chassis validation for DOT Override action. Parses
- * and validates the request JSON body including vendor signature, then
- * initiates DOT service discovery.
- *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidationForDOTOverride(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_ERROR("DOT Override: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
+        "DOT Override action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
 
     nlohmann::json vendorSigJson;
     if (!redfish::json_util::readJsonAction(req, asyncResp->res,
@@ -2480,7 +2375,6 @@ inline void afterChassisValidationForDOTOverride(
 
     std::string vendorSigAuthEnum =
         dot_utils::convertAuthSchemeToDbusEnum(vendorSigAuthScheme);
-
     if (vendorSigAuthEnum.empty())
     {
         messages::actionParameterValueNotInList(
@@ -2489,90 +2383,49 @@ inline void afterChassisValidationForDOTOverride(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/DOT", 0, interfaces,
-        std::bind_front(afterDOTOverrideServiceDiscovery, asyncResp,
-                        componentId, vendorSigAuthEnum, ecdsaSignature,
-                        lmsSignature));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId,
+         vendorSigAuthEnum = std::move(vendorSigAuthEnum),
+         ecdsaSignature = std::move(ecdsaSignature),
+         lmsSignature = std::move(lmsSignature)]() mutable {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/DOT", 0, interfaces,
+                std::bind_front(afterDOTOverrideServiceDiscovery, asyncResp,
+                                componentId, std::move(vendorSigAuthEnum),
+                                std::move(ecdsaSignature),
+                                std::move(lmsSignature)));
+        });
 }
 
 /**
- * @brief Process DOT service discovery for Recovery operation
+ * @brief Handle DOT Recovery action request
  *
- * Callback invoked after DBus discovery for DOT services. Validates that the
- * service exists and contains the required DOT action interface before
- * initiating the Recovery operation via D-Bus.
+ * Entry point for DOT Recovery action endpoint. Validates the request,
+ * chassis, and component before processing the Recovery operation that
+ * recovers corrupted DOT data using backup data.
  *
- * @param asyncResp Async response object for error reporting
- * @param componentId The trusted component identifier
- * @param dotData Base64-encoded backup DOT data
- * @param ec Error code from DBus discovery operation
- * @param resp DBus subtree response containing discovered DOT objects
+ * @param app Crow application reference
+ * @param req HTTP request object containing action parameters
+ * @param asyncResp Async response object for the operation result
+ * @param chassisId The chassis identifier from the URI
+ * @param componentId The trusted component identifier from the URI
  */
-inline void afterDOTRecoveryServiceDiscovery(
+inline void handleDOTRecoverDOTAction(
+    crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& componentId,
-    const std::shared_ptr<MemoryFD>& dotDataMemfd,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& resp)
+    const std::string& chassisId, const std::string& componentId)
 {
-    auto servicePath =
-        findDOTServiceAndPath(asyncResp, componentId, "RecoverDOT", ec, resp);
-    if (!servicePath.has_value())
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
-    const auto& [dotService, path] = *servicePath;
 
     BMCWEB_LOG_DEBUG(
-        "DOT Recovery: Calling Recovery on service '{}' at path '{}'",
-        dotService, path);
-
-    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
-        DOTResultType>(
-        asyncResp, std::chrono::seconds(10), dotService, path,
-        std::string(dot::dotActionIntf), "RecoverDOT",
-        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
-            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
-            {
-                BMCWEB_LOG_DEBUG("DOT Recovery succeeded");
-                messages::success(asyncResp->res);
-                return;
-            }
-            handleDOTErrorResult(asyncResp, status, resultPtr,
-                                 "NvidiaDOT.RecoverDOT");
-        },
-        sdbusplus::message::unix_fd(dotDataMemfd->fd));
-}
-
-/**
- * @brief Process chassis validation and parse Recovery action parameters
- *
- * Callback invoked after chassis validation for DOT Recovery action. Parses
- * and validates the request JSON body including DOT data, then initiates
- * DOT service discovery.
- *
- * @param asyncResp Async response object for error reporting
- * @param req HTTP request containing action parameters
- * @param chassisId The chassis identifier
- * @param componentId The trusted component identifier
- * @param validChassisPath Optional path to validated chassis (nullopt if
- * invalid)
- */
-inline void afterChassisValidationForDOTRecovery(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& chassisId,
-    const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        BMCWEB_LOG_ERROR("DOT Recovery: Invalid chassis: {}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
+        "DOT Recovery action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
 
     std::string dotDataBase64;
     if (!redfish::json_util::readJsonAction(req, asyncResp->res, "DOTData",
@@ -2626,134 +2479,16 @@ inline void afterChassisValidationForDOTRecovery(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/DOT", 0, interfaces,
-        std::bind_front(afterDOTRecoveryServiceDiscovery, asyncResp,
-                        componentId, dotDataMemfd));
-}
-
-/**
- * @brief Handle DOT Disable action request
- *
- * Entry point for DOT Disable action endpoint. Validates the request,
- * chassis, and component before processing the Disable operation that
- * disables Device Ownership Transfer (DOT) functionality completely.
- *
- * @param app Crow application reference
- * @param req HTTP request object containing action parameters
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTDisableAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT Disable action called - Chassis: '{}', Component: '{}'", chassisId,
-        componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Disable: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTDisable, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Handle DOT Override action request
- *
- * Entry point for DOT Override action endpoint. Validates the request,
- * chassis, and component before processing the Override operation that
- * resets ownership state when valid DOT data can no longer be recovered.
- *
- * @param app Crow application reference
- * @param req HTTP request object containing action parameters
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTOverrideAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT Override action called - Chassis: '{}', Component: '{}'",
-        chassisId, componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Override: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTOverride, asyncResp,
-                        std::ref(req), chassisId, componentId));
-}
-
-/**
- * @brief Handle DOT Recovery action request
- *
- * Entry point for DOT Recovery action endpoint. Validates the request,
- * chassis, and component before processing the Recovery operation that
- * recovers corrupted DOT data using backup data.
- *
- * @param app Crow application reference
- * @param req HTTP request object containing action parameters
- * @param asyncResp Async response object for the operation result
- * @param chassisId The chassis identifier from the URI
- * @param componentId The trusted component identifier from the URI
- */
-inline void handleDOTRecoverDOTAction(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    BMCWEB_LOG_DEBUG(
-        "DOT Recovery action called - Chassis: '{}', Component: '{}'",
-        chassisId, componentId);
-
-    if (componentId.empty())
-    {
-        BMCWEB_LOG_ERROR("DOT Recovery: componentId is empty");
-        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                   componentId);
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(afterChassisValidationForDOTRecovery, asyncResp,
-                        std::ref(req), chassisId, componentId));
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, componentId, dotDataMemfd]() {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                dot::dotActionIntf};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/DOT", 0, interfaces,
+                std::bind_front(afterDOTRecoveryServiceDiscovery, asyncResp,
+                                componentId, dotDataMemfd));
+        });
 }
 
 /**
