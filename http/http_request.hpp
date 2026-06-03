@@ -176,12 +176,6 @@ struct Request
         return req.keep_alive();
     }
 
-    void streamMultipartInput(
-        std::function<void(std::string_view)>&& onDataAvailable)
-    {
-        req.body().streamMultipartInput(std::move(onDataAvailable));
-    }
-
     void setMultipartParserCallbacks(
         MultipartParserStreamingCallbacks&& callbacks)
     {
