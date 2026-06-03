@@ -103,7 +103,6 @@ class HttpBody::value_type
     friend HttpBody::writer;
 
     std::variant<std::string, FileBody, MultiPartBody> bodyData;
-    std::function<void(std::string_view)> multipartInputCallback;
 
     std::span<const FormPart> getMimeFields() const
     {
@@ -254,11 +253,6 @@ class HttpBody::value_type
             }
         }
         ec = {};
-    }
-
-    void streamMultipartInput(std::function<void(std::string_view)>&& callback)
-    {
-        multipartInputCallback = std::move(callback);
     }
 
     void setMultipartParserCallbacks(
