@@ -49,8 +49,12 @@ namespace redfish
 
 static constexpr const std::array<const char*, 2> supportedEvtFormatTypes = {
     eventFormatType, metricReportFormatType};
-static constexpr const std::array<const char*, 5> supportedRegPrefixes = {
-    "Base", "OpenBMC", "TaskEvent", "HeartbeatEvent", "ResourceEvent"};
+static const std::vector<std::string> supportedRegPrefixes = {
+    "Base", "OpenBMC", "TaskEvent", "HeartbeatEvent", "ResourceEvent",
+    // Nvidia code starts here
+    "Platform", "Telemetry", "Update"
+    // Nvidia code ends here
+};
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
@@ -103,7 +107,14 @@ inline void requestRoutesEventService(App& app)
                 eventServiceConfig.retryTimeoutInterval;
             asyncResp->res.jsonValue["EventFormatTypes"] =
                 supportedEvtFormatTypes;
-            asyncResp->res.jsonValue["RegistryPrefixes"] = supportedRegPrefixes;
+            // Nvidia code starts here
+            std::vector<std::string> allowedRegPrefixes = supportedRegPrefixes;
+            if constexpr (BMCWEB_BIOS)
+            {
+                allowedRegPrefixes.emplace_back("BiosAttributeRegistry");
+            }
+            // Nvidia code ends here
+            asyncResp->res.jsonValue["RegistryPrefixes"] = allowedRegPrefixes;
             asyncResp->res.jsonValue["ResourceTypes"] = supportedResourceTypes;
 
             nlohmann::json::object_t supportedSSEFilters;
@@ -597,10 +608,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
             if (regPrefixes)
             {
+                // Nvidia code starts here
+                std::vector<std::string> allowedRegPrefixes =
+                    supportedRegPrefixes;
+                if constexpr (BMCWEB_BIOS)
+                {
+                    allowedRegPrefixes.emplace_back("BiosAttributeRegistry");
+                }
+                // Nvidia code ends here
                 for (const std::string& it : *regPrefixes)
                 {
-                    if (std::ranges::find(supportedRegPrefixes, it) ==
-                        supportedRegPrefixes.end())
+                    if (std::ranges::find(allowedRegPrefixes, it) ==
+                        allowedRegPrefixes.end())
                     {
                         messages::propertyValueNotInList(asyncResp->res, it,
                                                          "RegistryPrefixes");
@@ -638,8 +657,16 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 // supported prefixes
                 if (subValue->userSub->registryPrefixes.empty())
                 {
-                    registryPrefix.assign(supportedRegPrefixes.begin(),
-                                          supportedRegPrefixes.end());
+                    // Nvidia code starts here
+                    std::vector<std::string> allowedRegPrefixes =
+                        supportedRegPrefixes;
+                    if constexpr (BMCWEB_BIOS)
+                    {
+                        allowedRegPrefixes.emplace_back(
+                            "BiosAttributeRegistry");
+                    }
+                    // Nvidia code ends here
+                    registryPrefix = std::move(allowedRegPrefixes);
                 }
                 else
                 {

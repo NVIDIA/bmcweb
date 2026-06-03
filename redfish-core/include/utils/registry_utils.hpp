@@ -39,23 +39,6 @@ namespace redfish
 namespace message_registries
 {
 
-inline std::vector<std::string> getRegistryPrefixes()
-{
-    std::vector<std::string> supportedPrefixes = {
-        "Base",      "OpenBMC",   "Platform", "ResourceEvent",
-        "TaskEvent", "Telemetry", "Update",   "HeartbeatEvent"};
-
-    if constexpr (BMCWEB_BIOS)
-    {
-        // The supportedPrefixes list must stay sorted, so insert in the correct
-        // position
-        std::string bios = "BiosAttributeRegistry";
-        auto insert = std::ranges::upper_bound(supportedPrefixes, bios);
-        supportedPrefixes.insert(insert, bios);
-    }
-    return supportedPrefixes;
-}
-
 inline std::string getPrefix(const std::string& messageID)
 {
     size_t pos = messageID.find('.');
