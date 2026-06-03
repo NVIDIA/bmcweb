@@ -481,6 +481,6 @@ subdir('test')
 
 # Generate event-listener binary
 if (get_option('redfish-aggregation').enabled())
-    #subdir('event-listener')
+    subdir('event-listener')
 endif
 
