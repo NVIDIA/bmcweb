@@ -47,6 +47,7 @@
 #include <functional> // For std::bind_front
 #include <memory>     // For std::shared_ptr
 #include <optional>   // For std::optional
+#include <span>       // For std::span (mapping-table dispatch)
 #include <string>
 #include <string_view>
 #include <utility> // For std::pair, std::move
@@ -360,37 +361,46 @@ inline void getProcessorPortLinks(
 }
 
 // Mapping table that decouples D-Bus metric naming from the Redfish OEM
-// property names exposed on the CPU Port resource. `oemTypeName` is the
-// Oem.Nvidia Json Complex Schema `@odata.type` value.
+// property names exposed on a CPU Port (or its subordinate PortMetrics)
+// resource. The Oem.Nvidia complex-type `@odata.type` is uniform per array
+// and is supplied by the caller of `getCpuPortOemMetrics`.
 struct CpuPortOemMetricMapping
 {
     std::string_view metricLeafToken;
     std::string_view oemPropertyName;
-    std::string_view oemTypeName;
 };
 
-inline constexpr std::array<CpuPortOemMetricMapping, 6>
-    cpuPortOemMetricMappings = {{
-        {"CLinkPacketCrcCount", "PacketCRCErrors",
-         "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
-        {"CLinkPacketReplayCount", "PacketReplayErrors",
-         "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
-        {"CLinkBandwidth", "BandwidthBytes",
-         "#NvidiaPort.v1_6_0.NvidiaCLinkPort"},
-        {"NVLinkPacketCrcCount", "PacketCRCErrors",
-         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
-        {"NVLinkPacketReplayCount", "PacketReplayErrors",
-         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
-        {"NVLinkBandwidth", "BandwidthBytes",
-         "#NvidiaPort.v1_6_0.NvidiaNVLinkPort"},
+// Mappings emitted on the CPU Port resource itself. After the schema
+// consolidation, CLink Ports use the same OEM type as NVLink Ports
+// (NvidiaNVLinkPort) and only the bandwidth telemetry property remains here;
+// the CRC and replay error counters live on the subordinate PortMetrics
+// resource (see `cpuPortOemPortMetricsMappings`).
+inline constexpr std::array<CpuPortOemMetricMapping, 2>
+    cpuPortOemPortMappings = {{
+        {"CLinkBandwidth", "BandwidthBytes"},
+        {"NVLinkBandwidth", "BandwidthBytes"},
+    }};
+
+// Mappings emitted on the CPU Port's subordinate PortMetrics resource. The
+// CRC and replay error counters are exposed under
+// NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics for both CLink and NVLink
+// ports.
+inline constexpr std::array<CpuPortOemMetricMapping, 4>
+    cpuPortOemPortMetricsMappings = {{
+        {"CLinkPacketCrcCount", "PacketCRCErrors"},
+        {"CLinkPacketReplayCount", "PacketReplayErrors"},
+        {"NVLinkPacketCrcCount", "PacketCRCErrors"},
+        {"NVLinkPacketReplayCount", "PacketReplayErrors"},
     }};
 
 // Continuation for getProperty<double> on Metric.Value. Emits the value as
-// Oem.Nvidia.<oemProperty> on the Port resource and stamps the
-// Oem.Nvidia.@odata.type so clients can identify the OEM schema version.
+// Oem.Nvidia.<oemProperty> on the target resource. The Oem.Nvidia
+// complex-type `@odata.type` is stamped at the resource handler level
+// (matching bmcweb's idiomatic inline @odata.type assignment), so this
+// helper is concerned only with the property value.
 inline void afterReadCpuPortOemMetricValue(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::string oemProperty, std::string oemType, std::string metricPath,
+    std::string oemProperty, std::string metricPath,
     const boost::system::error_code& ec, double value)
 {
     if (ec)
@@ -399,17 +409,16 @@ inline void afterReadCpuPortOemMetricValue(
                          ec.message());
         return;
     }
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        std::move(oemType);
     asyncResp->res.jsonValue["Oem"]["Nvidia"][std::move(oemProperty)] =
         static_cast<int64_t>(value);
 }
 
 // Continuation for getAssociatedSubTree on the CPU's measured_by association.
-// Filters returned paths by Port stem + index suffix and the static OEM mapping
-// table, then issues one getProperty<double> per matched metric.
+// Filters returned paths by Port stem + index suffix and the caller-supplied
+// OEM mapping table, then issues one getProperty<double> per matched metric.
 inline void afterGetCpuPortOemSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::span<const CpuPortOemMetricMapping> mappings,
     const std::string& portStem, const std::string& portIdxSuffix,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& subtree)
@@ -433,7 +442,7 @@ inline void afterGetCpuPortOemSubtree(
         }
 
         const CpuPortOemMetricMapping* matched = nullptr;
-        for (const auto& mapping : cpuPortOemMetricMappings)
+        for (const auto& mapping : mappings)
         {
             if (metricLeaf.find(mapping.metricLeafToken) != std::string::npos)
             {
@@ -452,16 +461,22 @@ inline void afterGetCpuPortOemSubtree(
             "Value",
             std::bind_front(afterReadCpuPortOemMetricValue, asyncResp,
                             std::string(matched->oemPropertyName),
-                            std::string(matched->oemTypeName), metricPath));
+                            metricPath));
     }
 }
 
-// Emit OEM properties on a CPU Port for SatMC CLink/NVLink telemetry. Walks
-// the CPU's measured_by association in a single getAssociatedSubTree mapper
-// call (preferred over getAssociationEndPoints + per-endpoint getDbusObject
-// per bmcweb/docs/COMMON_ERRORS.md item #15).
+// Emit OEM properties on a CPU Port (or its subordinate PortMetrics resource)
+// for SatMC CLink/NVLink telemetry. Walks the CPU's measured_by association
+// in a single getAssociatedSubTree mapper call (preferred over
+// getAssociationEndPoints + per-endpoint getDbusObject per
+// bmcweb/docs/COMMON_ERRORS.md item #15). The caller selects the OEM
+// properties to emit by passing one of `cpuPortOemPortMappings` (Port
+// resource) or `cpuPortOemPortMetricsMappings` (PortMetrics resource), and
+// is expected to have already stamped the corresponding Oem.Nvidia
+// `@odata.type` on the target resource.
 inline void getCpuPortOemMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::span<const CpuPortOemMetricMapping> mappings,
     const std::string& cpuInventoryPath, const std::string& portId)
 {
     const std::size_t portIdxPos = portId.rfind('_');
@@ -479,7 +494,7 @@ inline void getCpuPortOemMetrics(
         sdbusplus::message::object_path(cpuInventoryPath + "/measured_by"),
         sdbusplus::message::object_path("/xyz/openbmc_project/metric"), 0,
         metricInterfaces,
-        std::bind_front(afterGetCpuPortOemSubtree, asyncResp,
+        std::bind_front(afterGetCpuPortOemSubtree, asyncResp, mappings,
                         std::move(portStem), std::move(portIdxSuffix)));
 }
 
@@ -544,6 +559,8 @@ inline void getProcessorPortData(
                         portName += portId + " Port";
                         aResp->res.jsonValue["Name"] = portName;
                         aResp->res.jsonValue["Id"] = portId;
+                        aResp->res.jsonValue["Metrics"]["@odata.id"] =
+                            portUri + "/Metrics";
 
                         redfish::port_utils::getCpuPortData(
                             aResp, object.front().first, sensorpath);
@@ -551,8 +568,11 @@ inline void getProcessorPortData(
                                               portId);
                         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                         {
-                            getCpuPortOemMetrics(aResp, cpuInventoryPath,
-                                                 portId);
+                            aResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["@odata.type"] =
+                                "#NvidiaPort.v1_6_0.NvidiaNVLinkPort";
+                            getCpuPortOemMetrics(aResp, cpuPortOemPortMappings,
+                                                 cpuInventoryPath, portId);
                         }
                     });
             }
@@ -1443,13 +1463,16 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                        {
                                            continue;
                                        }
+                                       std::string inventoryPath = path;
+
                                        dbus::utility::getProperty<
                                            std::vector<std::string>>(
                                            "xyz.openbmc_project.ObjectMapper",
-                                           path + "/all_states",
+                                           inventoryPath + "/all_states",
                                            "xyz.openbmc_project.Association",
                                            "endpoints",
-                                           [asyncResp, processorId, portId](
+                                           [asyncResp, processorId, portId,
+                                            inventoryPath](
                                                const boost::system::error_code&
                                                    e,
                                                const std::vector<std::string>&
@@ -1481,16 +1504,17 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                                          [asyncResp,
                                                                           sensorpath,
                                                                           processorId,
-                                                                          portId](const boost::
-                                                                                      system::error_code&
-                                                                                          innerEc,
-                                                                                  const std::vector<std::pair<
-                                                                                      std::
-                                                                                          string,
-                                                                                      std::vector<
-                                                                                          std::
-                                                                                              string>>>&
-                                                                                      objectData) {
+                                                                          portId,
+                                                                          inventoryPath](const boost::
+                                                                                             system::error_code&
+                                                                                                 innerEc,
+                                                                                         const std::vector<std::pair<
+                                                                                             std::
+                                                                                                 string,
+                                                                                             std::vector<
+                                                                                                 std::
+                                                                                                     string>>>&
+                                                                                             objectData) {
                                                                              if (innerEc)
                                                                              {
                                                                                  // the path does not implement
@@ -1545,6 +1569,23 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                                                  .jsonValue
                                                                                      ["Id"] =
                                                                                  "Metrics";
+
+                                                                             if constexpr (
+                                                                                 BMCWEB_NVIDIA_OEM_PROPERTIES)
+                                                                             {
+                                                                                 asyncResp
+                                                                                     ->res
+                                                                                     .jsonValue
+                                                                                         ["Oem"]
+                                                                                         ["Nvidia"]
+                                                                                         ["@odata.type"] =
+                                                                                     "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
+                                                                                 getCpuPortOemMetrics(
+                                                                                     asyncResp,
+                                                                                     cpuPortOemPortMetricsMappings,
+                                                                                     inventoryPath,
+                                                                                     portId);
+                                                                             }
 
                                                                              for (
                                                                                  const auto& [service,
