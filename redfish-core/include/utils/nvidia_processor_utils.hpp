@@ -1074,7 +1074,7 @@ inline void getClearablePcieCounters(
                 }
             }
         }
-        asyncResp->res.jsonValue["Parameters"]["AllowableValues"] =
+        asyncResp->res.jsonValue["Parameters"][0]["AllowableValues"] =
             clearableDataSource;
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -1189,12 +1189,12 @@ inline void getClearPCIeCountersActionInfo(
                                     "xyz.openbmc_project.PCIe.ClearPCIeCounters")
                                 {
                                     asyncResp->res
-                                        .jsonValue["Parameters"]["Name"] =
+                                        .jsonValue["Parameters"][0]["Name"] =
                                         "CounterType";
-                                    asyncResp->res.jsonValue["Parameters"]
+                                    asyncResp->res.jsonValue["Parameters"][0]
                                                             ["Required"] = true;
-                                    asyncResp->res
-                                        .jsonValue["Parameters"]["DataType"] =
+                                    asyncResp->res.jsonValue["Parameters"][0]
+                                                            ["DataType"] =
                                         "String";
                                     getClearablePcieCounters(asyncResp, service,
                                                              sensorpath,

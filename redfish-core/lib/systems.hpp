@@ -4899,7 +4899,7 @@ inline void handleSystemProcessorDiagCapabilitiesActionGet(
 
     parameter["Name"] = "DiagMode";
     parameter["Required"] = true;
-    parameter["DataType"] = "boolean";
+    parameter["DataType"] = "String";
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("Enable");
     allowableValues.emplace_back("Disable");
@@ -4928,7 +4928,7 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + systemName +
         "/Oem/Nvidia/ProcessorDiagSysConfigActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_3_0.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagSysConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagSysConfigActionInfo";
 
@@ -4938,17 +4938,16 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
     parameter["Name"] = "ConfigType";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
-    nlohmann::json::array_t allowableValues;
-    allowableValues.emplace_back(0);
-    allowableValues.emplace_back(1);
-    parameter["AllowableValues"] = std::move(allowableValues);
+    nlohmann::json::array_t allowableNumbers;
+    allowableNumbers.emplace_back("0:1:1");
+    parameter["AllowableNumbers"] = std::move(allowableNumbers);
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "TestDuration";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "DynamicData";
@@ -4956,7 +4955,7 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
     parameter["DataType"] = "NumberArray";
     parameter["ArraySizeMaximum"] = 199;
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
@@ -4980,7 +4979,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + systemName +
         "/Oem/Nvidia/ProcessorDiagTidConfigActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_3_0.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagTidConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagTidConfigActionInfo";
 
@@ -4991,34 +4990,34 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "TestDuration";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "Loops";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 65535;
+    parameter["MaximumValue"] = 65535;
     parameters.emplace_back(std::move(parameter));
     parameter["Name"] = "LogLevel";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "DynamicDataSize";
     parameter["Required"] = true;
     parameter["DataType"] = "Number";
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
 
     parameter["Name"] = "DynamicData";
@@ -5026,7 +5025,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
     parameter["DataType"] = "NumberArray";
     parameter["ArraySizeMaximum"] = 194;
     parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
+    parameter["MaximumValue"] = 255;
     parameters.emplace_back(std::move(parameter));
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
