@@ -630,11 +630,12 @@ inline void populateSlotInfo(
                                                                 [asyncResp,
                                                                  slotService,
                                                                  slotObjPath,
-                                                                 slotType](const boost::
-                                                                               system::error_code&
-                                                                                   ec1,
-                                                                           const dbus::
-                                                                               utility::DBusPropertiesMap& properties) {
+                                                                 slotType](
+                                                                    const boost::
+                                                                        system::
+                                                                            error_code&
+                                                                                ec1,
+                                                                    const dbus::utility::DBusPropertiesMap& properties) {
                                                                     if (ec1)
                                                                     {
                                                                         BMCWEB_LOG_ERROR(
@@ -734,12 +735,12 @@ inline void populateSlotInfo(
                                                                                 }
                                                                                 else
                                                                                 {
-                                                                                    BMCWEB_LOG_ERROR(
-                                                                                        "BuildType '{}' not found in map",
+                                                                                    BMCWEB_LOG_DEBUG(
+                                                                                        "BuildType '{}' not in schema enum, reporting null",
                                                                                         *value);
                                                                                     oemSlot
                                                                                         ["BuildType"] =
-                                                                                            "";
+                                                                                            nullptr;
                                                                                 }
                                                                             }
                                                                             else
