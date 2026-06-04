@@ -3957,7 +3957,7 @@ inline void handleAssociatedSKURead(
     }
     else
     {
-        BMCWEB_LOG_ERROR("SKU from associated object {} is empty",
+        BMCWEB_LOG_DEBUG("SKU from associated object {} is empty",
                          associatedPath);
     }
 }
