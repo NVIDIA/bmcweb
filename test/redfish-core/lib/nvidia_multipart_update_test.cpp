@@ -222,6 +222,20 @@ TEST(ParseRfaUri, NonHmcManagerIsLocal)
     EXPECT_EQ(parseRfaUri("/redfish/v1/Managers/bmc"), TargetType::Local);
 }
 
+TEST(ParseRfaUri, AggregationPrefixedSoftwareInventoryIsSatellite)
+{
+    std::string uri =
+        std::format("/redfish/v1/UpdateService/SoftwareInventory/{}_FW_0",
+                    BMCWEB_REDFISH_AGGREGATION_PREFIX);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
+}
+
+TEST(ParseRfaUri, UnprefixedSoftwareInventoryIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/UpdateService/SoftwareInventory/FW_0"),
+              TargetType::Local);
+}
+
 TEST(ParseRfaUri, UnrelatedUriIsLocal)
 {
     EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Local);
