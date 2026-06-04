@@ -391,6 +391,12 @@ class Router
             return;
         }
 
+        if (foundRoute.route.rule->isStreamInput)
+        {
+            asyncResp->res.end();
+            return;
+        }
+
         BaseRule& rule = *foundRoute.route.rule;
         std::vector<std::string> params = std::move(foundRoute.route.params);
 

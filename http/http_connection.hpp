@@ -287,6 +287,9 @@ class Connection :
         // Initially set no body limit. We don't yet know if the user is
         // authenticated.
         instance.body_limit(boost::none);
+
+        pendingContinue = false;
+        headersComplete = false;
     }
 
     void upgradeToHttp2()
@@ -557,11 +560,13 @@ class Connection :
             }
         }
 
-        if (parser && parser->get()[boost::beast::http::field::content_type]
-                .starts_with("multipart/form-data"))
+        if (parser &&
+            parser->get()[boost::beast::http::field::content_type].starts_with(
+                "multipart/form-data"))
         {
-            // TOOD(ed) this really should come from the header request somewhere.
-            // HTTP multipart can stream, so set an extremely large limit
+            // TOOD(ed) this really should come from the header request
+            // somewhere. HTTP multipart can stream, so set an extremely large
+            // limit
             return 4ULL * 1024ULL * 1024ULL * 1024ULL;
         }
 
@@ -671,18 +676,7 @@ class Connection :
         parse.body_limit(getContentLengthLimit());
 
         std::string_view expect = value[boost::beast::http::field::expect];
-        if (bmcweb::asciiIEquals(expect, "100-continue"))
-        {
-            res.result(boost::beast::http::status::continue_);
-            doWrite();
-            return;
-        }
-        if (!handleContentLengthError())
-        {
-            return;
-        }
-
-        parse.body_limit(getContentLengthLimit());
+        bool expectsContinue = bmcweb::asciiIEquals(expect, "100-continue");
 
         std::error_code reqEc;
         boost::beast::http::request<bmcweb::HttpBody> request = parser->get();
@@ -702,7 +696,27 @@ class Connection :
             [self(shared_from_this())](crow::Response& /*thisRes*/) {
                 self->afterHeadersComplete();
             });
+
+        if (expectsContinue)
+        {
+            // Defer body reading until after the 100 Continue response is
+            // sent. afterHeadersComplete() will return early when this flag
+            // is set; afterDoWrite() clears it and calls doRead().
+            pendingContinue = true;
+        }
+
         handler->handleHeaders(req, requestAsyncResp);
+        // For streamInput routes handleHeaders() calls asyncResp->res.end()
+        // synchronously, which fires afterHeadersComplete(). If pendingContinue
+        // is set, afterHeadersComplete() deferred doRead(). We now send the
+        // 100 Continue so the client starts uploading the body.
+
+        if (expectsContinue)
+        {
+            res.result(boost::beast::http::status::continue_);
+            doWrite();
+            return;
+        }
     }
 
     void afterHeadersComplete()
@@ -734,7 +748,8 @@ class Connection :
             req->req.body().multipartParserCallbacks.reset();
         }
 
-        doRead();
+        headersComplete = true;
+        tryStartBodyRead();
     }
 
     void doReadHeaders()
@@ -900,7 +915,8 @@ class Connection :
         {
             // Reset the result to ok
             res.result(boost::beast::http::status::ok);
-            doRead();
+            pendingContinue = false;
+            tryStartBodyRead();
             return;
         }
 
@@ -1071,6 +1087,25 @@ class Connection :
     bool keepAlive = true;
 
     bool timerStarted = false;
+
+    // Set while a 100 Continue response is in flight (not yet written).
+    // afterHeadersComplete() and afterDoWrite() coordinate via these flags
+    // so that doRead() is called exactly once, after BOTH the 100 Continue
+    // has been flushed AND the streaming handler has registered its callbacks.
+    bool pendingContinue = false;
+    bool headersComplete = false;
+
+    // Called by both afterHeadersComplete() and afterDoWrite() so that body
+    // reading starts only when both sides are ready.
+    void tryStartBodyRead()
+    {
+        if (pendingContinue || !headersComplete)
+        {
+            return;
+        }
+        headersComplete = false;
+        doRead();
+    }
 
     std::function<std::string()>& getCachedDateStr;
 

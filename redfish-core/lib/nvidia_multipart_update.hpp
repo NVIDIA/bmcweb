@@ -57,20 +57,22 @@ inline void handleStartUpdate(
 inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
-    const std::string serviceName,
+    const std::string& applyTime, const std::string& serviceName,
     const sdbusplus::message::object_path& target)
 {
+    BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
+
+    sdbusplus::message::unix_fd fd(fileGetSocket.native_handle());
+
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, payload = std::move(payload),
-         fileGetSocket{std::move(fileGetSocket)},
          target](const boost::system::error_code& ec1,
                  const sdbusplus::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
                                       ec1, retPath);
         },
-        serviceName, target, updateInterface, "StartUpdate",
-        sdbusplus::message::unix_fd(fileGetSocket.release()));
+        serviceName, target, updateInterface, "StartUpdate", fd, applyTime);
 }
 
 inline void startPLDMUpdate(
@@ -79,9 +81,12 @@ inline void startPLDMUpdate(
     const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets)
 {
+    BMCWEB_LOG_DEBUG("Starting PLDM update for {}", targets.size());
     // PLDM UA is the only service implementing StartUpdate
     const std::string serviceName = "xyz.openbmc_project.PLDM";
     const std::string objectPath = "/xyz/openbmc_project/software/pldm";
+
+    sdbusplus::message::unix_fd fd(fileGetSocket.native_handle());
 
     // Nvidia modified function call to support force update
     dbus::utility::async_method_call(
@@ -94,8 +99,7 @@ inline void startPLDMUpdate(
                                       ec1, retPath);
         },
         // Nvidia modified: added forceUpdate and targets parameters
-        serviceName, objectPath, updateInterface, "StartUpdate",
-        sdbusplus::message::unix_fd(fileGetSocket.release()), applyTime,
+        serviceName, objectPath, updateInterface, "StartUpdate", fd, applyTime,
         forceUpdate, targets);
 }
 
@@ -103,7 +107,8 @@ inline void afterGetSubtreePathsSoftware(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     const std::shared_ptr<boost::asio::local::stream_protocol::socket>&
         fileGetSocket,
-    const std::string& updateUriTarget, const boost::system::error_code& ec,
+    const std::string& updateUriTarget, const std::string& dbusApplyTime,
+    const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& swInvPaths)
 {
     if (ec)
@@ -112,27 +117,31 @@ inline void afterGetSubtreePathsSoftware(
         messages::internalError(asyncResp->res);
         return;
     }
+    BMCWEB_LOG_DEBUG("Found {} software inventory paths", swInvPaths.size());
 
     for (const auto& path : swInvPaths)
     {
         sdbusplus::message::object_path softwarePath(path.first);
         std::string filename = softwarePath.filename();
+        BMCWEB_LOG_DEBUG("Comparing filename {} to updateUriTarget {}",
+                         filename, updateUriTarget);
         if (filename != updateUriTarget)
         {
             continue;
         }
         if (path.second.size() != 1)
         {
-            continue;
-        }
-        if (path.second[0].second.size() != 1)
-        {
+            BMCWEB_LOG_WARNING(
+                "Found {} service versions for path {}  Canceling",
+                path.second.size(), softwarePath.str);
             continue;
         }
 
+        BMCWEB_LOG_DEBUG("Starting software update for {} on path {}",
+                         path.second[0].first, softwarePath.str);
         startSoftwareUpdate(asyncResp, std::move(payload),
-                            std::move(*fileGetSocket), path.second[0].first,
-                            softwarePath);
+                            std::move(*fileGetSocket), dbusApplyTime,
+                            path.second[0].first, softwarePath);
         return;
     }
 
@@ -230,6 +239,22 @@ inline TargetType parseRfaUri(std::string_view uri)
         }
     }
 
+    std::string softwareId;
+    if (crow::utility::readUrlSegments(*parsed, "redfish", "v1", "UpdateService",
+                                       "SoftwareInventory", std::ref(softwareId)))
+    {
+        std::string prefix =
+            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        if (!softwareId.starts_with(prefix))
+        {
+            return TargetType::Local;
+        }
+
+        BMCWEB_LOG_DEBUG(
+            "Update target was satellite SoftwareInventory.  Returning Satellite.");
+        return TargetType::Satellite;
+    }
+
     return TargetType::Local;
 }
 
@@ -301,9 +326,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     bool fileSectionComplete = false;
     bool parseComplete = false;
 
-    Payload payload;
+    // True for a local (PLDM/Software.Update) target.  Local updates forward
+    // the raw fwpkg bytes straight to the socket fd handed to the update
+    // service; satellite updates re-serialize the body as multipart form-data.
+    bool isLocal = false;
 
-    std::shared_ptr<UpdateCtx> self;
+    Payload payload;
 
     void closeSendSocketIfReady()
     {
@@ -470,6 +498,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 {
                     satelliteTargetsOut.clear();
                 }
+                state = State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
                 BMCWEB_LOG_DEBUG("Getting satellite configs");
                 RedfishAggregator::getInstance().getSatelliteConfigs(
                     std::bind_front(&UpdateCtx::satControllerGetComplete, this,
@@ -520,9 +549,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
+            // startRequest() is responsible for the next state transition:
+            // the satellite path moves to WAITING_FOR_SAT_CONTROLLER_INFO_
+            // COMPLETE, the local path moves straight to
+            // WAITING_FOR_UPDATE_FILE_DATA via beginLocalFileStreaming().
             startRequest(remaingingBodyLength);
-
-            state = State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
             return;
         }
         else
@@ -536,7 +567,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     {
         if (state == State::WAITING_FOR_UPDATE_PARAMETERS_DATA)
         {
-            if (updateParametersString.size() + data.size() > 4096U)
+            if (updateParametersString.size() + data.size() > 8192U)
             {
                 BMCWEB_LOG_ERROR(
                     "Update parameters data exceeds content length, stopping parse");
@@ -550,7 +581,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             // BMCWEB_LOG_DEBUG("Update file data available: {}", data);
-            multipartSerializer.put(data);
+            if (isLocal)
+            {
+                putBytesToHttpClient(data);
+            }
+            else
+            {
+                multipartSerializer.put(data);
+            }
             return;
         }
         if (state == State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE)
@@ -586,9 +624,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             BMCWEB_LOG_DEBUG("Update file complete");
-            multipartSerializer.finish();
+            if (!isLocal)
+            {
+                // Only the satellite path needs the trailing multipart
+                // boundary; the local path forwards the raw fwpkg, so EOF is
+                // signalled by closing the socket in closeSendSocketIfReady().
+                multipartSerializer.finish();
+            }
             // Complete the update file data
             state = State::UPDATE_COMPLETE;
+            closeSendSocketIfReady();
             return;
         }
         if (state == State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE)
@@ -609,22 +654,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         BMCWEB_LOG_DEBUG("Parse complete");
         parseComplete = true;
         closeSendSocketIfReady();
-
-        // The incoming callbacks are complete, so save ourself as a shared_ptr
-        // until http client is complete.
-        self = shared_from_this();
     }
 
-    void onHttpClientDataSendComplete(const std::weak_ptr<UpdateCtx>& weakSelf,
-                                      bool /*keepAlive*/, int32_t /*connId*/,
-                                      crow::Response& res)
+    void onHttpClientDataSendComplete(
+        const std::shared_ptr<UpdateCtx>& /*self*/, bool /*keepAlive*/,
+        int32_t /*connId*/, crow::Response& res)
     {
-        std::shared_ptr<UpdateCtx> selfPtr = weakSelf.lock();
-        if (!selfPtr)
-        {
-            BMCWEB_LOG_ERROR("UpdateCtx has expired");
-            return;
-        }
+        // Close the connection to the http server
+        httpClient.reset();
         BMCWEB_LOG_DEBUG("Response code: {}", res.resultInt());
         BMCWEB_LOG_DEBUG("Response body: {}", *res.body());
         for (const auto& header : res.fields())
@@ -633,8 +670,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                              header.value());
         }
 
-        // No longer need to keep ourselves alive, request is complete.
-        self.reset();
         if (res.body())
         {
             BMCWEB_LOG_DEBUG("Response body: {}", *res.body());
@@ -644,25 +679,23 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             BMCWEB_LOG_ERROR("Response body is empty");
         }
 
-        std::string_view location =
-            res.response[boost::beast::http::field::location];
-        if (!location.empty())
+        using enum boost::beast::http::field;
+        std::string locationValue = res.response[location];
+        if (!locationValue.empty())
         {
-            asyncResp->res.addHeader(boost::beast::http::field::location,
-                                     location);
+            // addPrefixToStringItem(locationValue, prefix);
+            asyncResp->res.addHeader(location, locationValue);
         }
-        std::string_view retryAfter =
-            res.response[boost::beast::http::field::retry_after];
+        std::string_view retryAfter = res.response[retry_after];
         if (!retryAfter.empty())
         {
-            asyncResp->res.addHeader(boost::beast::http::field::retry_after,
-                                     retryAfter);
+            asyncResp->res.addHeader(retry_after, retryAfter);
         }
 
+        // Copy the response code to the user.
         asyncResp->res.result(res.result());
 
-        if (isJsonContentType(
-                res.response[boost::beast::http::field::content_type]))
+        if (isJsonContentType(res.response[content_type]))
         {
             const std::string* body = res.body();
             if (body != nullptr)
@@ -734,7 +767,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         crow::ConnectionInfo& conn = *httpClient;
 
         conn.callback = std::bind_front(
-            &UpdateCtx::onHttpClientDataSendComplete, this, weak_from_this());
+            &UpdateCtx::onHttpClientDataSendComplete, this, shared_from_this());
 
         conn.req.target("/redfish/v1/UpdateService/update-multipart");
         BMCWEB_LOG_DEBUG(
@@ -831,10 +864,13 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     }
 
     bool handleSoftwareUpdate(
+        const std::string& dbusApplyTime,
         const std::vector<std::string>& uriTargets,
         const std::shared_ptr<boost::asio::local::stream_protocol::socket>&
             fileGetSocketPtr)
     {
+        BMCWEB_LOG_DEBUG("Handling software inventory update for {} targets",
+                         uriTargets.size());
         // For now can only update one software at a time.
         if (uriTargets.size() != 1)
         {
@@ -853,29 +889,59 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             return false;
         }
+        BMCWEB_LOG_DEBUG("Getting software inventory for {}", softwareId);
         dbus::utility::getSubTree(
             "/xyz/openbmc_project/inventory_software", 0,
             std::array<std::string_view, 1>{
                 "xyz.openbmc_project.Software.Update"},
             [asyncResp{asyncResp}, payload = std::move(payload),
-             fileGetSocketPtr, uriTargets,
+             fileGetSocketPtr, uriTargets, dbusApplyTime,
              softwareId](const boost::system::error_code& ec,
                          const dbus::utility::MapperGetSubTreeResponse&
                              swInvPaths) mutable {
                 afterGetSubtreePathsSoftware(asyncResp, std::move(payload),
-                                             fileGetSocketPtr, softwareId, ec,
-                                             swInvPaths);
+                                             fileGetSocketPtr, softwareId,
+                                             dbusApplyTime, ec, swInvPaths);
             });
         return true;
     }
 
+    void beginLocalFileStreaming()
+    {
+        state = State::WAITING_FOR_UPDATE_FILE_DATA;
+
+        // Flush anything the parser delivered while the update was being set
+        // up.
+        if (!pendingFileDataBuffer.empty())
+        {
+            putBytesToHttpClient(pendingFileDataBuffer);
+            pendingFileDataBuffer.clear();
+        }
+
+        // The parser may have already consumed the whole (small) file.
+        if (fileSectionComplete)
+        {
+            state = State::UPDATE_COMPLETE;
+        }
+
+        if (resumeReadCb)
+        {
+            resumeReadCb();
+        }
+        closeSendSocketIfReady();
+    }
+
     void localUpdate(const std::vector<std::string>& uriTargets)
     {
+        BMCWEB_LOG_DEBUG("Starting local update for {} targets",
+                         uriTargets.size());
+        isLocal = true;
         std::string dbusApplyTime;
         if (!convertApplyTime(asyncResp->res,
                               multiRet.params.applyTime.value_or("OnReset"),
                               dbusApplyTime))
         {
+            BMCWEB_LOG_WARNING("Failed to convert apply time");
             return;
         }
         bool forceUpdate = multiRet.params.forceUpdate.value_or(false);
@@ -886,6 +952,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             nvidia::startPLDMUpdate(asyncResp, std::move(payload),
                                     std::move(fileGetSocket), dbusApplyTime,
                                     forceUpdate, emptyTargets);
+            beginLocalFileStreaming();
             return;
         }
         std::shared_ptr<boost::asio::local::stream_protocol::socket>
@@ -895,11 +962,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         // TODO Need to clean up the IST dbus paths so we can use the normal
         // call
-        if (handleSoftwareUpdate(uriTargets, fileGetSocketPtr))
+        if (handleSoftwareUpdate(dbusApplyTime, uriTargets, fileGetSocketPtr))
         {
+            beginLocalFileStreaming();
             return;
         }
 
+        BMCWEB_LOG_DEBUG("Getting firmware inventory for {} targets",
+                         uriTargets.size());
         dbus::utility::getSubTreePaths(
             "/xyz/openbmc_project/software", 0,
             std::array<std::string_view, 2>{
@@ -912,6 +982,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                                      fileGetSocketPtr, dbusApplyTime,
                                      forceUpdate, uriTargets, ec, swInvPaths);
             });
+        beginLocalFileStreaming();
     }
 };
 
