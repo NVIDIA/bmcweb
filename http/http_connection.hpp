@@ -1049,6 +1049,13 @@ class Connection :
             // allow up to 15 minutes of delay
             timeoutDurationSeconds = 15 * 60;
         }
+        else if (req && req->req.body().multipartParserCallbacks)
+        {
+            // If we're streaming multipart data, and the system has already
+            // accepted the request, there's a very low chance this is a dos
+            // attack.  Allow up to an hour for upload.
+            timeoutDurationSeconds = 60 * 60;
+        }
 
         std::chrono::seconds timeout(timeoutDurationSeconds);
 
