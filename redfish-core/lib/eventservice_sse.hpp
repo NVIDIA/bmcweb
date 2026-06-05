@@ -3,6 +3,7 @@
 #include "filter_expr_executor.hpp"
 #include "privileges.hpp"
 #include "registries/privilege_registry.hpp"
+#include "subscriber.hpp"
 
 #include <app.hpp>
 #include <event_service_manager.hpp>
@@ -56,13 +57,27 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
     if (id.empty())
     {
         conn.close("Internal Error");
+        return;
     }
+#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+    if (EventServiceManager::getInstance().getNumberOfSubscriptions() >= 1)
+    {
+        startRedfishEventListener(conn.getIoContext());
+    }
+#endif
 }
 
 inline void deleteSubscription(crow::sse_socket::Connection& conn)
 {
-    redfish::EventServiceManager::getInstance(&conn.getIoContext())
-        .deleteSseSubscription(conn);
+    redfish::EventServiceManager& manager =
+        redfish::EventServiceManager::getInstance(&conn.getIoContext());
+    manager.deleteSseSubscription(conn);
+#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+    if (manager.getNumberOfSubscriptions() == 0)
+    {
+        stopRedfishEventListener(conn.getIoContext());
+    }
+#endif
 }
 
 inline void requestRoutesEventServiceSse(App& app)
