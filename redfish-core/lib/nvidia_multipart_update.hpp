@@ -11,9 +11,12 @@
 #include "update_service.hpp"
 #include "utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/memfd_utils.hpp"
 
 #include <boost/asio/local/connect_pair.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
+
+#include <format>
 
 namespace redfish::nvidia
 {
@@ -75,32 +78,118 @@ inline void startSoftwareUpdate(
         serviceName, target, updateInterface, "StartUpdate", fd, applyTime);
 }
 
+inline std::string getRandomId()
+{
+    return std::format("bmcweb-update-{}", bmcweb::getRandomIdOfLength(8));
+}
+
+// This class Exists because PLDM mmaps the FD instead of streaming or reading
+// the FD.  This will be fixed in the future, but for now, do the reading for
+// PLDM
+struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
+{
+    MemoryFileDescriptor memfd;
+    size_t bytesWritten = 0;
+    std::array<uint8_t, 4096> buffer;
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+
+    boost::asio::local::stream_protocol::socket fileGetSocket;
+
+    std::string applyTime;
+    bool forceUpdate;
+    std::vector<sdbusplus::message::object_path> targets;
+
+    redfish::task::Payload payload;
+
+    PLDMUpdateCtx(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        Payload&& payloadIn,
+        boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
+        const std::string& applyTimeIn, bool forceUpdateIn,
+        const std::vector<sdbusplus::message::object_path>& targetsIn) :
+        memfd(getRandomId()), asyncResp(asyncRespIn),
+        fileGetSocket(std::move(fileGetSocketIn)), applyTime(applyTimeIn),
+        forceUpdate(forceUpdateIn), targets(targetsIn),
+        payload(std::move(payloadIn))
+    {}
+
+    void doRead()
+    {
+        fileGetSocket.async_read_some(
+            boost::asio::buffer(buffer),
+            [this, self{shared_from_this()}](
+                const boost::system::error_code& ec, size_t bytesTransferred) {
+                gotBytes(ec, bytesTransferred);
+            });
+    }
+
+    void gotBytes(const boost::system::error_code& ec, size_t bytesTransferred)
+    {
+        if (ec == boost::asio::error::eof)
+        {
+            doUpdate();
+            return;
+        }
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to read from file get socket: {}",
+                             ec.message());
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Putting {} bytes to buffer", bytesTransferred);
+        bytesWritten += bytesTransferred;
+
+        // TODO(Ed) the third argument on this really shouldn't be required.
+        // It's not clear why every write rewinds
+        if (::write(memfd.fd, buffer.data(), bytesTransferred) !=
+            static_cast<ssize_t>(bytesTransferred))
+        {
+            BMCWEB_LOG_ERROR("Failed to write to memfd");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        doRead();
+    }
+
+    void doUpdate()
+    {
+        BMCWEB_LOG_DEBUG("sending {} bytes to PLDM", bytesWritten);
+
+        const std::string serviceName = "xyz.openbmc_project.PLDM";
+        const std::string objectPath = "/xyz/openbmc_project/software/pldm";
+
+        memfd.rewind();
+        sdbusplus::message::unix_fd fd(memfd.fd);
+
+        dbus::utility::async_method_call(
+            [asyncResp{asyncResp}, payload = std::move(payload),
+             fileGetSocket{std::move(fileGetSocket)},
+             objectPath](const boost::system::error_code& ec1,
+                         const sdbusplus::object_path& retPath) mutable {
+                nvidia::handleStartUpdate(asyncResp, std::move(payload),
+                                          objectPath, ec1, retPath);
+            },
+            serviceName, objectPath, updateInterface, "StartUpdate", fd,
+            applyTime, forceUpdate, targets);
+    }
+};
+
 inline void startPLDMUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets)
 {
-    BMCWEB_LOG_DEBUG("Starting PLDM update for {}", targets.size());
-    // PLDM UA is the only service implementing StartUpdate
+    BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
+
     const std::string serviceName = "xyz.openbmc_project.PLDM";
     const std::string objectPath = "/xyz/openbmc_project/software/pldm";
 
-    sdbusplus::message::unix_fd fd(fileGetSocket.native_handle());
-
-    // Nvidia modified function call to support force update
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp, payload = std::move(payload),
-         fileGetSocket{std::move(fileGetSocket)},
-         objectPath](const boost::system::error_code& ec1,
-                     const sdbusplus::object_path& retPath) mutable {
-            nvidia::handleStartUpdate(asyncResp, std::move(payload), objectPath,
-                                      ec1, retPath);
-        },
-        // Nvidia modified: added forceUpdate and targets parameters
-        serviceName, objectPath, updateInterface, "StartUpdate", fd, applyTime,
-        forceUpdate, targets);
+    std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
+        std::make_shared<PLDMUpdateCtx>(asyncResp, std::move(payload),
+                                        std::move(fileGetSocket), applyTime,
+                                        forceUpdate, targets);
+    pldmUpdateCtx->doRead();
 }
 
 inline void afterGetSubtreePathsSoftware(
@@ -240,8 +329,9 @@ inline TargetType parseRfaUri(std::string_view uri)
     }
 
     std::string softwareId;
-    if (crow::utility::readUrlSegments(*parsed, "redfish", "v1", "UpdateService",
-                                       "SoftwareInventory", std::ref(softwareId)))
+    if (crow::utility::readUrlSegments(*parsed, "redfish", "v1",
+                                       "UpdateService", "SoftwareInventory",
+                                       std::ref(softwareId)))
     {
         std::string prefix =
             std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
@@ -275,6 +365,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             return;
         }
         fileGetSocket.native_non_blocking(true, ec2);
+        if (ec2)
+        {
+            BMCWEB_LOG_ERROR("Failed to set non-blocking: {}", ec2.message());
+            return;
+        }
+        fileSendSocket.native_non_blocking(true, ec2);
         if (ec2)
         {
             BMCWEB_LOG_ERROR("Failed to set non-blocking: {}", ec2.message());
@@ -404,6 +500,19 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                                size_t bytesTransferred)
     {
         socketInUse = false;
+        // If we're backpressued, just attempt to write again
+        if (ec == boost::system::errc::operation_would_block)
+        {
+            if (bytesTransferred > 0)
+            {
+                BMCWEB_LOG_CRITICAL("Unexpected bytes transferred: {}",
+                                    bytesTransferred);
+            }
+            boost::asio::async_write(
+                fileSendSocket, boost::asio::buffer(currentWriteBuffer),
+                std::bind_front(&UpdateCtx::afterWritePartialData, this,
+                                shared_from_this()));
+        }
         if (ec)
         {
             BMCWEB_LOG_ERROR("afterWritePartialData() failed: {}",
@@ -531,10 +640,18 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
             if (!parseContentDisposition(fields, "UpdateParameters"))
             {
+                BMCWEB_LOG_ERROR(
+                    "UpdateParameters part has invalid Content-Disposition");
+                messages::unrecognizedRequestBody(asyncResp->res);
+                state = State::UPDATE_COMPLETE_ERROR;
                 return;
             }
             if (!parseContentType(fields))
             {
+                BMCWEB_LOG_ERROR(
+                    "UpdateParameters part missing or invalid Content-Type");
+                messages::headerMissing(asyncResp->res, "Content-Type");
+                state = State::UPDATE_COMPLETE_ERROR;
                 return;
             }
             state = State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
@@ -546,6 +663,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             if (!parseContentDisposition(fields, "UpdateFile"))
             {
                 BMCWEB_LOG_ERROR("Failed to parse Content-Disposition");
+                messages::unrecognizedRequestBody(asyncResp->res);
+                state = State::UPDATE_COMPLETE_ERROR;
                 return;
             }
 
@@ -600,7 +719,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             return;
         }
 
-        BMCWEB_LOG_ERROR("Unexpected state: {}", static_cast<int>(state));
+        BMCWEB_LOG_ERROR("Unexpected state on data available: {}",
+                         static_cast<int>(state));
     }
 
     void onSectionComplete(const SelfPtr& /*self*/)
@@ -734,6 +854,49 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
     }
 
+    void setHeaders(const std::vector<std::string>& localTargetsOut)
+    {
+        nlohmann::json::object_t updateParametersJson;
+        BMCWEB_LOG_DEBUG("Got {} targets", localTargetsOut.size());
+        if (!localTargetsOut.empty())
+        {
+            updateParametersJson["Targets"] = localTargetsOut;
+        }
+        if (multiRet.params.applyTime)
+        {
+            updateParametersJson["ApplyTime"] = *multiRet.params.applyTime;
+        }
+        if (multiRet.params.forceUpdate)
+        {
+            updateParametersJson["ForceUpdate"] = *multiRet.params.forceUpdate;
+        }
+        using field = boost::beast::http::field;
+        {
+            boost::beast::http::fields headers;
+            headers.set(field::content_disposition,
+                        "form-data; name=\"UpdateParameters\"");
+            headers.set(field::content_type, "application/json");
+            multipartSerializer.beginPart(headers);
+            std::string updateParametersJsonStr =
+                nlohmann::json(updateParametersJson)
+                    .dump(-1, ' ', true,
+                          nlohmann::json::error_handler_t::replace);
+            BMCWEB_LOG_DEBUG("Update parameters JSON: {}",
+                             updateParametersJsonStr);
+            multipartSerializer.put(updateParametersJsonStr);
+            BMCWEB_LOG_DEBUG("Putting update parameters JSON: {}",
+                             updateParametersJsonStr);
+        }
+        {
+            boost::beast::http::fields headers;
+            headers.set(field::content_disposition,
+                        "form-data; name=\"UpdateFile\"");
+            headers.set(field::content_type, "application/octet-stream");
+            multipartSerializer.beginPart(headers);
+            BMCWEB_LOG_DEBUG("Putting update file headers");
+        }
+    }
+
     void satControllerGetComplete(
         const SelfPtr& /*self*/,
         const std::vector<std::string>& localTargetsOut,
@@ -789,43 +952,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         state = State::WAITING_FOR_UPDATE_FILE_DATA;
         nlohmann::json::object_t updateParametersJson;
         BMCWEB_LOG_DEBUG("Got {} targets", localTargetsOut.size());
-        if (!localTargetsOut.empty())
-        {
-            updateParametersJson["Targets"] = localTargetsOut;
-        }
-        if (multiRet.params.applyTime)
-        {
-            updateParametersJson["ApplyTime"] = *multiRet.params.applyTime;
-        }
-        if (multiRet.params.forceUpdate)
-        {
-            updateParametersJson["ForceUpdate"] = *multiRet.params.forceUpdate;
-        }
-        using field = boost::beast::http::field;
-        {
-            boost::beast::http::fields headers;
-            headers.set(field::content_disposition,
-                        "form-data; name=\"UpdateParameters\"");
-            headers.set(field::content_type, "application/json");
-            multipartSerializer.beginPart(headers);
-            std::string updateParametersJsonStr =
-                nlohmann::json(updateParametersJson)
-                    .dump(-1, ' ', true,
-                          nlohmann::json::error_handler_t::replace);
-            BMCWEB_LOG_DEBUG("Update parameters JSON: {}",
-                             updateParametersJsonStr);
-            multipartSerializer.put(updateParametersJsonStr);
-            BMCWEB_LOG_DEBUG("Putting update parameters JSON: {}",
-                             updateParametersJsonStr);
-        }
-        {
-            boost::beast::http::fields headers;
-            headers.set(field::content_disposition,
-                        "form-data; name=\"UpdateFile\"");
-            headers.set(field::content_type, "application/octet-stream");
-            multipartSerializer.beginPart(headers);
-            BMCWEB_LOG_DEBUG("Putting update file headers");
-        }
+        setHeaders(localTargetsOut);
 
         BMCWEB_LOG_DEBUG("Remaining body length: {}", remainingBodyLength);
         BMCWEB_LOG_DEBUG("Pending file data buffer size: {}",
