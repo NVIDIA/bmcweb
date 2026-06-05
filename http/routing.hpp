@@ -392,7 +392,6 @@ class Router
 
         if (foundRoute.route.rule->isStreamInput)
         {
-            asyncResp->res.end();
             return;
         }
 
