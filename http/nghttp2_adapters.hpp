@@ -179,6 +179,15 @@ struct nghttp2_session
                                                      windowSize);
     }
 
+    // NVIDIA code starts for streaming
+    // Resume sending data for a stream that previously returned
+    // NGHTTP2_ERR_DEFERRED from its data provider callback.
+    int resumeData(int32_t streamId)
+    {
+        return nghttp2_session_resume_data(ptr, streamId);
+    }
+    // NVIDIA code ends for streaming
+
   private:
     nghttp2_session* ptr = nullptr;
 };

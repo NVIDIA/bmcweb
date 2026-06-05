@@ -289,6 +289,8 @@ struct Response
 
     void write(std::string&& bodyPart)
     {
+        response.body()
+            .clear(); // NVIDIA-streaming: reset fd/variant before reuse
         response.body().str() = std::move(bodyPart);
     }
 
@@ -385,7 +387,10 @@ struct Response
         return OpenCode::Success;
     }
 
-    bool openFd(int fd, bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
+    bool openFd(
+        int fd, bmcweb::EncodingType enc = bmcweb::EncodingType::Raw,
+        // NVIDIA-streaming: added knownSize for streaming Content-Length
+        std::optional<size_t> knownSize = std::nullopt)
     {
         boost::beast::error_code ec;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -395,7 +400,7 @@ struct Response
             BMCWEB_LOG_ERROR("Setting O_NONBLOCK failed");
         }
         response.body().encodingType = enc;
-        response.body().setFd(fd, ec);
+        response.body().setFd(fd, ec, knownSize); // NVIDIA-streaming: knownSize
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to set fd");
