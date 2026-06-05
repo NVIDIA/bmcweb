@@ -442,39 +442,23 @@ inline void handleBootOptionPatch(
     {
         return;
     }
-    if (req.session == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Session is null");
-        messages::insufficientPrivilege(aResp->res);
-        return;
-    }
-    privilege_utils::isBiosPrivilege(
-        req.session->username,
-        [newBootOptionEnabled, aResp, bootOptionName](
-            const boost::system::error_code ec, const bool isBios) {
-            if (ec || !isBios)
+    dbus::utility::DBusPropertiesMap properties;
+    properties.emplace_back("Enabled", newBootOptionEnabled);
+    setBootOption(
+        bootOptionName, properties,
+        [aResp, bootOptionName](const boost::system::error_code& ec1) {
+            if (ec1 == boost::system::errc::no_such_device_or_address)
             {
-                messages::insufficientPrivilege(aResp->res);
+                messages::resourceNotFound(aResp->res, "BootOption",
+                                           bootOptionName);
                 return;
             }
-            dbus::utility::DBusPropertiesMap properties;
-            properties.emplace_back("Enabled", newBootOptionEnabled);
-            setBootOption(
-                bootOptionName, properties,
-                [aResp, bootOptionName](const boost::system::error_code& ec1) {
-                    if (ec1 == boost::system::errc::no_such_device_or_address)
-                    {
-                        messages::resourceNotFound(aResp->res, "BootOption",
-                                                   bootOptionName);
-                        return;
-                    }
-                    if (ec1)
-                    {
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.result(boost::beast::http::status::no_content);
-                });
+            if (ec1)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            aResp->res.result(boost::beast::http::status::no_content);
         });
 }
 
