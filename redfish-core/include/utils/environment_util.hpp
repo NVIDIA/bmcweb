@@ -1891,13 +1891,12 @@ inline void getMemoryEnvironmentMetricsDataByService(
             const std::string& chassisId = chassisName;
             dbus::utility::async_method_call(
                 [aResp, service, chassisId, isSupportPowerLimit](
-                    const boost::system::error_code& e,
+                    const boost::system::error_code& ec2,
                     std::variant<std::vector<std::string>>& sensorResp) {
-                    if (e)
+                    if (ec2)
                     {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
+                        BMCWEB_LOG_DEBUG("Failed to get all sensors: {}",
+                                         ec2.message());
                         return;
                     }
                     std::vector<std::string>* sensorData =
