@@ -51,8 +51,7 @@ static std::string expectedSetHeadersOutput(const std::string& boundary,
            "\r\nContent-Disposition: form-data; name=\"UpdateParameters\"\r\n"
            "Content-Type: application/json\r\n"
            "\r\n" +
-           paramsJson +
-           "\r\n--" + boundary +
+           paramsJson + "\r\n--" + boundary +
            "\r\nContent-Disposition: form-data; name=\"UpdateFile\"\r\n"
            "Content-Type: application/octet-stream\r\n"
            "\r\n";
@@ -89,9 +88,9 @@ TEST(SetHeaders, WithApplyTime)
 
     ctx->setHeaders({});
 
-    EXPECT_EQ(ctx->pendingWriteBuffer,
-              expectedSetHeadersOutput(boundary,
-                                       R"({"ApplyTime":"Immediate"})"));
+    EXPECT_EQ(
+        ctx->pendingWriteBuffer,
+        expectedSetHeadersOutput(boundary, R"({"ApplyTime":"Immediate"})"));
 }
 
 TEST(SetHeaders, WithForceUpdateTrue)
@@ -233,10 +232,10 @@ TEST(SetHeaders, WithTargetsAndApplyTime)
 
     ctx->setHeaders({"target1"});
 
-    EXPECT_EQ(
-        ctx->pendingWriteBuffer,
-        expectedSetHeadersOutput(
-            boundary, R"({"ApplyTime":"OnReset","Targets":["target1"]})"));
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary,
+                  R"({"ApplyTime":"OnReset","Targets":["target1"]})"));
 }
 
 TEST(ErrorHandler, AlwaysReturnsSuccess)
