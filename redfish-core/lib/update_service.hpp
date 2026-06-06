@@ -66,6 +66,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -1075,11 +1076,12 @@ inline void processUpdateRequest(
             continue;
         }
 
-        const char* data = formpart.content.data();
-        size_t remaining = formpart.content.size();
-        while (remaining > 0)
+        std::span<const char> remaining(formpart.content.data(),
+                                        formpart.content.size());
+        while (!remaining.empty())
         {
-            ssize_t written = write(memfd->fd, data, remaining);
+            ssize_t written =
+                write(memfd->fd, remaining.data(), remaining.size());
             if (written < 0)
             {
                 if (errno == EINTR)
@@ -1091,8 +1093,7 @@ inline void processUpdateRequest(
                 fwUpdateInProgress = false;
                 return;
             }
-            data += written;
-            remaining -= static_cast<size_t>(written);
+            remaining = remaining.subspan(static_cast<size_t>(written));
         }
         foundUpdateFile = true;
         break;

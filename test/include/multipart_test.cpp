@@ -453,19 +453,20 @@ TEST_F(MultipartTest, callbacksAreCalledCorrectly)
     bool parseCompleteCalled = false;
 
     MultipartParserStreamingCallbacks callbacks;
-    callbacks.onHeadersComplete = [this, &headersCompleteCalled](
-                                      const boost::beast::http::fields& fields,
-                                      size_t /*remainingBodyLength*/) {
-        EXPECT_EQ(fields["Content-Disposition"], "form-data; name=\"Test1\"");
-        headersCompleteCalled = true;
-    };
-    callbacks.onDataAvailable = [this, &dataStringOut](std::string_view data) {
+    callbacks.onHeadersComplete =
+        [&headersCompleteCalled](const boost::beast::http::fields& fields,
+                                 size_t /*remainingBodyLength*/) {
+            EXPECT_EQ(fields["Content-Disposition"],
+                      "form-data; name=\"Test1\"");
+            headersCompleteCalled = true;
+        };
+    callbacks.onDataAvailable = [&dataStringOut](std::string_view data) {
         dataStringOut += data;
     };
-    callbacks.onSectionComplete = [this, &sectionCompleteCalled]() {
+    callbacks.onSectionComplete = [&sectionCompleteCalled]() {
         sectionCompleteCalled = true;
     };
-    callbacks.onParseComplete = [this, &parseCompleteCalled]() {
+    callbacks.onParseComplete = [&parseCompleteCalled]() {
         parseCompleteCalled = true;
     };
     parser.callbacks = std::move(callbacks);
