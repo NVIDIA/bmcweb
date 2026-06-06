@@ -1127,8 +1127,8 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
     }
     size_t contentLength = 0;
     std::from_chars_result result =
-        std::from_chars(ct.data(), ct.data() + ct.size(), contentLength);
-    if (result.ec != std::errc() || result.ptr != ct.data() + ct.size())
+        std::from_chars(ct.begin(), ct.end(), contentLength);
+    if (result.ec != std::errc() || result.ptr != ct.end())
     {
         BMCWEB_LOG_ERROR("Failed to parse Content-Length: {}", ct);
         messages::headerInvalid(asyncResp->res, "Content-Length");
