@@ -320,8 +320,9 @@ class Router
         }
     }
 
-    void handleHeaders(const std::shared_ptr<Request>& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    void handleHeaders(
+        const std::shared_ptr<Request>& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
     {
         FindRouteResponse foundRoute = findRoute(*req);
         if (foundRoute.route.rule == nullptr ||

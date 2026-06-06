@@ -214,7 +214,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         afterResolve(shared_from_this(), boost::system::error_code(), ip);
     }
 
-  private:
     void afterResolve(const std::shared_ptr<ConnectionInfo>& /*self*/,
                       const boost::system::error_code& ec,
                       const Resolver::results_type& endpointList)

@@ -924,7 +924,7 @@ inline void handleInstallTokenSubtreeResponse(
  * @param[in] memFd Shared pointer to MemoryFD holding the token file.
  */
 inline void startAggregatedInstallToken(
-    const std::shared_ptr<task::TaskData>& task, std::string&& tokenFile)
+    const std::shared_ptr<task::TaskData>& task, std::string_view tokenFile)
 {
     std::vector<uint8_t> fileData(tokenFile.begin(), tokenFile.end());
     auto memFd = std::make_shared<MemoryFD>();
