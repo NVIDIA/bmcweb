@@ -59,7 +59,7 @@ inline void handleStartUpdate(
 
 inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
-    boost::asio::local::stream_protocol::socket&& fileGetSocket,
+    boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
     const sdbusplus::message::object_path& target)
 {
@@ -90,7 +90,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 {
     MemoryFileDescriptor memfd;
     size_t bytesWritten = 0;
-    std::array<uint8_t, 4096> buffer;
+    std::array<uint8_t, 4096> buffer{};
     std::shared_ptr<bmcweb::AsyncResp> asyncResp;
 
     boost::asio::local::stream_protocol::socket fileGetSocket;
@@ -182,9 +182,6 @@ inline void startPLDMUpdate(
 {
     BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
 
-    const std::string serviceName = "xyz.openbmc_project.PLDM";
-    const std::string objectPath = "/xyz/openbmc_project/software/pldm";
-
     std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
         std::make_shared<PLDMUpdateCtx>(asyncResp, std::move(payload),
                                         std::move(fileGetSocket), applyTime,
@@ -228,9 +225,8 @@ inline void afterGetSubtreePathsSoftware(
 
         BMCWEB_LOG_DEBUG("Starting software update for {} on path {}",
                          path.second[0].first, softwarePath.str);
-        startSoftwareUpdate(asyncResp, std::move(payload),
-                            std::move(*fileGetSocket), dbusApplyTime,
-                            path.second[0].first, softwarePath);
+        startSoftwareUpdate(asyncResp, std::move(payload), *fileGetSocket,
+                            dbusApplyTime, path.second[0].first, softwarePath);
         return;
     }
 
@@ -599,9 +595,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             }
         }
 
+        // Workaround for dead store false positive in clang.
+        (void)omitSatelliteTargets;
+
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            if (!satelliteTargetsOut.empty() || omitSatelliteTargets)
+            if (!satelliteTargetsOut.empty())
             {
                 if (omitSatelliteTargets)
                 {
@@ -675,11 +674,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             startRequest(remaingingBodyLength);
             return;
         }
-        else
-        {
-            BMCWEB_LOG_CRITICAL("Unexpected state: {}",
-                                static_cast<int>(state));
-        }
+
+        BMCWEB_LOG_CRITICAL("Unexpected state: {}", static_cast<int>(state));
     }
 
     void onDataAvailable(const SelfPtr& /*self*/, std::string_view data)
@@ -790,7 +786,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                              header.value());
         }
 
-        if (res.body())
+        if (res.body() != nullptr)
         {
             BMCWEB_LOG_DEBUG("Response body: {}", *res.body());
         }

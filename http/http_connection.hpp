@@ -679,7 +679,7 @@ class Connection :
         bool expectsContinue = bmcweb::asciiIEquals(expect, "100-continue");
 
         std::error_code reqEc;
-        boost::beast::http::request<bmcweb::HttpBody> request = parser->get();
+        boost::beast::http::request<bmcweb::HttpBody> request = parse.get();
         req = std::make_shared<crow::Request>(std::move(request), reqEc);
         if (reqEc)
         {
@@ -731,21 +731,27 @@ class Connection :
                 });
         }
 
+        if (!parser)
+        {
+            return;
+        }
+
         if (parser->is_done())
         {
             handle();
             return;
         }
 
-        // The streamInput Request created in afterReadHeaders holds a copy of
-        // the body; streamed data flows through the parser-owned body. Move
-        // callbacks set by the headers handler onto the parser's body so the
-        // body reader picks them up when it initializes.
-        if (req && req->req.body().multipartParserCallbacks)
+        if (!req)
+        {
+            return;
+        }
+        auto& body = req->req.body();
+        if (body.multipartParserCallbacks)
         {
             parser->get().body().setMultipartParserCallbacks(
-                std::move(*req->req.body().multipartParserCallbacks));
-            req->req.body().multipartParserCallbacks.reset();
+                std::move(*body.multipartParserCallbacks));
+            body.multipartParserCallbacks.reset();
         }
 
         headersComplete = true;

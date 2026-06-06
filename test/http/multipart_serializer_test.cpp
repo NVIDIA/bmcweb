@@ -3,10 +3,8 @@
 #include "multipart_serializer.hpp"
 
 #include <boost/beast/http/field.hpp>
-#include <boost/beast/http/fields.hpp>
 #include <nlohmann/json.hpp>
 
-#include <cctype>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -66,7 +64,7 @@ TEST_F(MultipartSerializerTest, SinglePartWithFieldsAndBody)
 
     s.start();
     s.beginPart(fields);
-    s.put("{\"foo\":\"bar\"}");
+    s.put(R"({"foo":"bar"})");
     s.finish();
 
     EXPECT_EQ(output, "--" + b +

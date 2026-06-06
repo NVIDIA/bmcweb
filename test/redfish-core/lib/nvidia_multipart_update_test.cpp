@@ -4,39 +4,25 @@
 
 #include "bmcweb_config.h"
 
-#include "async_resp.hpp"
-#include "http/http_connection.hpp"
 #include "http/http_request.hpp"
-#include "http/http_response.hpp"
-#include "http_connect_types.hpp"
 #include "nvidia_multipart_update.hpp"
-#include "test_stream.hpp"
+#include "task.hpp"
 
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/beast/_experimental/test/stream.hpp>
-#include <boost/beast/http/field.hpp>
-#include <boost/beast/http/verb.hpp>
-
-#include <chrono>
 #include <format>
-#include <functional>
 #include <memory>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
-#include <gtest/gtest.h>
 
 namespace redfish::nvidia
 {
 namespace
 {
 
-static std::shared_ptr<UpdateCtx> makeCtx()
+std::shared_ptr<UpdateCtx> makeCtx()
 {
     std::error_code ec;
     crow::Request req("", ec);
@@ -44,8 +30,8 @@ static std::shared_ptr<UpdateCtx> makeCtx()
     return std::make_shared<UpdateCtx>(0, std::move(payload));
 }
 
-static std::string expectedSetHeadersOutput(const std::string& boundary,
-                                            const std::string& paramsJson)
+std::string expectedSetHeadersOutput(const std::string& boundary,
+                                     const std::string& paramsJson)
 {
     return "--" + boundary +
            "\r\nContent-Disposition: form-data; name=\"UpdateParameters\"\r\n"

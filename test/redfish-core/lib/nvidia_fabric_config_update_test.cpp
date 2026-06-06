@@ -15,13 +15,14 @@
 
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "http_body.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_fabric_config_update.hpp"
 
 #include <boost/asio/error.hpp>
-#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/message.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
