@@ -11,8 +11,8 @@
 #include <string_view>
 #include <utility>
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -36,7 +36,8 @@ TEST_F(MultipartSerializerTest, BoundaryIsGeneratedAndAlphanumeric)
 {
     MultipartSerializer s = make();
     std::string_view boundary = s.getBoundary();
-    EXPECT_THAT(boundary, MatchesRegex("^------------------------[a-zA-Z0-9]{22}$"));
+    EXPECT_THAT(boundary,
+                MatchesRegex("^------------------------[a-zA-Z0-9]{22}$"));
 }
 
 TEST_F(MultipartSerializerTest, EachInstanceGeneratesAUniqueBoundary)
@@ -68,15 +69,14 @@ TEST_F(MultipartSerializerTest, SinglePartWithFieldsAndBody)
     s.put("{\"foo\":\"bar\"}");
     s.finish();
 
-    EXPECT_EQ(output,
-              "--" + b +
-                  "\r\n"
-                  "Content-Type: application/json\r\n"
-                  "Content-Id: 1\r\n"
-                  "\r\n"
-                  "{\"foo\":\"bar\"}"
-                  "\r\n--" +
-                  b + "--\r\n");
+    EXPECT_EQ(output, "--" + b +
+                          "\r\n"
+                          "Content-Type: application/json\r\n"
+                          "Content-Id: 1\r\n"
+                          "\r\n"
+                          "{\"foo\":\"bar\"}"
+                          "\r\n--" +
+                          b + "--\r\n");
 }
 
 TEST_F(MultipartSerializerTest, MultiplePartsAreSeparatedByBoundary)
