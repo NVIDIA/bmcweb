@@ -177,6 +177,95 @@ TEST(NvidiaMultipartUpdate, FullUpdateExpectContinue)
     EXPECT_NE(outStr.find("HTTP/1.1 200 OK\r\n"), std::string::npos);
 }
 
+static std::shared_ptr<UpdateCtx> makeCtx()
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    return std::make_shared<UpdateCtx>(0, std::move(payload));
+}
+
+static std::string expectedSetHeadersOutput(const std::string& boundary,
+                                            const std::string& paramsJson)
+{
+    return "--" + boundary +
+           "\r\nContent-Disposition: form-data; name=\"UpdateParameters\"\r\n"
+           "Content-Type: application/json\r\n"
+           "\r\n" +
+           paramsJson +
+           "\r\n--" + boundary +
+           "\r\nContent-Disposition: form-data; name=\"UpdateFile\"\r\n"
+           "Content-Type: application/octet-stream\r\n"
+           "\r\n";
+}
+
+TEST(SetHeaders, EmptyTargetsNoParams)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(boundary, "{}"));
+}
+
+TEST(SetHeaders, WithTargets)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+
+    ctx->setHeaders({"target1", "target2"});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(boundary,
+                                       R"({"Targets":["target1","target2"]})"));
+}
+
+TEST(SetHeaders, WithApplyTime)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.applyTime = "Immediate";
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(boundary,
+                                       R"({"ApplyTime":"Immediate"})"));
+}
+
+TEST(SetHeaders, WithForceUpdateTrue)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.forceUpdate = true;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(boundary, R"({"ForceUpdate":true})"));
+}
+
+TEST(SetHeaders, AllParams)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.applyTime = "OnReset";
+    ctx->multiRet.params.forceUpdate = false;
+
+    ctx->setHeaders(
+        {"http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"});
+
+    // nlohmann object_t (std::map) sorts keys alphabetically:
+    // ApplyTime < ForceUpdate < Targets
+    EXPECT_EQ(
+        ctx->pendingWriteBuffer,
+        expectedSetHeadersOutput(
+            boundary,
+            R"({"ApplyTime":"OnReset","ForceUpdate":false,"Targets":["http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"]})"));
+}
+
 TEST(ParseRfaUri, EmptyUriReturnsError)
 {
     EXPECT_EQ(parseRfaUri(""), TargetType::Error);
