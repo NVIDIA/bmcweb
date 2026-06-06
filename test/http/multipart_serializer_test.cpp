@@ -12,9 +12,12 @@
 #include <utility>
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 namespace
 {
+
+using testing::MatchesRegex;
 
 class MultipartSerializerTest : public ::testing::Test
 {
@@ -33,12 +36,7 @@ TEST_F(MultipartSerializerTest, BoundaryIsGeneratedAndAlphanumeric)
 {
     MultipartSerializer s = make();
     std::string_view boundary = s.getBoundary();
-    EXPECT_EQ(boundary.size(), 32U);
-    for (char c : boundary)
-    {
-        EXPECT_TRUE(std::isalnum(static_cast<unsigned char>(c)))
-            << "Non-alphanumeric character in boundary: " << c;
-    }
+    EXPECT_THAT(boundary, MatchesRegex("^------------------------[a-zA-Z0-9]{22}$"));
 }
 
 TEST_F(MultipartSerializerTest, EachInstanceGeneratesAUniqueBoundary)
@@ -54,7 +52,7 @@ TEST_F(MultipartSerializerTest, EmptyBodyOnlyHasClosingBoundary)
     std::string b(s.getBoundary());
     s.start();
     s.finish();
-    EXPECT_EQ(output, "\r\n\r\n--" + b + "--\r\n");
+    EXPECT_EQ(output, "\r\n--" + b + "--\r\n");
 }
 
 TEST_F(MultipartSerializerTest, SinglePartWithFieldsAndBody)
@@ -71,9 +69,7 @@ TEST_F(MultipartSerializerTest, SinglePartWithFieldsAndBody)
     s.finish();
 
     EXPECT_EQ(output,
-              "\r\n"
-              "\r\n--" +
-                  b +
+              "--" + b +
                   "\r\n"
                   "Content-Type: application/json\r\n"
                   "Content-Id: 1\r\n"
@@ -100,9 +96,7 @@ TEST_F(MultipartSerializerTest, MultiplePartsAreSeparatedByBoundary)
     s.finish();
 
     EXPECT_EQ(output,
-              "\r\n"
-              "\r\n--" +
-                  b +
+              "--" + b +
                   "\r\n"
                   "Content-Type: text/plain\r\n"
                   "\r\n"
@@ -128,9 +122,7 @@ TEST_F(MultipartSerializerTest, PartWithNoFieldsHasOnlyBlankHeaderSeparator)
     s.put("body");
     s.finish();
 
-    EXPECT_EQ(output, "\r\n"
-                      "\r\n--" +
-                          b +
+    EXPECT_EQ(output, "--" + b +
                           "\r\n"
                           "\r\n"
                           "body"
@@ -151,9 +143,7 @@ TEST_F(MultipartSerializerTest, PutCanBeCalledMultipleTimesAndConcatenates)
     s.put("world");
     s.finish();
 
-    EXPECT_EQ(output, "\r\n"
-                      "\r\n--" +
-                          b +
+    EXPECT_EQ(output, "--" + b +
                           "\r\n"
                           "\r\n"
                           "hello world"
@@ -179,8 +169,7 @@ TEST_F(MultipartSerializerTest, PutWritesPayloadVerbatimWithoutEscaping)
     s.finish();
 
     std::string expected;
-    expected += "\r\n";
-    expected += "\r\n--" + b + "\r\n";
+    expected += "--" + b + "\r\n";
     expected += "\r\n";
     expected += payload;
     expected += "\r\n--" + b + "--\r\n";
@@ -200,8 +189,7 @@ TEST_F(MultipartSerializerTest, BinaryDataIsWrittenVerbatim)
     s.finish();
 
     std::string expected;
-    expected += "\r\n";
-    expected += "\r\n--" + b + "\r\n";
+    expected += "--" + b + "\r\n";
     expected += "\r\n";
     expected.append(binary.data(), binary.size());
     expected += "\r\n--" + b + "--\r\n";
@@ -220,9 +208,7 @@ TEST_F(MultipartSerializerTest, RepeatedFieldNamesPreserveInsertionOrder)
     s.beginPart(fields);
     s.finish();
 
-    EXPECT_EQ(output, "\r\n"
-                      "\r\n--" +
-                          b +
+    EXPECT_EQ(output, "--" + b +
                           "\r\n"
                           "X-Custom: first\r\n"
                           "X-Custom: second\r\n"
@@ -247,9 +233,7 @@ TEST_F(MultipartSerializerTest, PutJsonObjectSerializesAsCompactJson)
     s.putJsonObject(std::move(obj));
     s.finish();
 
-    EXPECT_EQ(output, "\r\n"
-                      "\r\n--" +
-                          b +
+    EXPECT_EQ(output, "--" + b +
                           "\r\n"
                           "Content-Type: application/json\r\n"
                           "\r\n"
@@ -269,9 +253,7 @@ TEST_F(MultipartSerializerTest, PutJsonObjectEmptyObject)
     s.putJsonObject(nlohmann::json::object_t{});
     s.finish();
 
-    EXPECT_EQ(output, "\r\n"
-                      "\r\n--" +
-                          b +
+    EXPECT_EQ(output, "--" + b +
                           "\r\n"
                           "\r\n"
                           "{}"

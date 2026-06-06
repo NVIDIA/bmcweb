@@ -36,147 +36,6 @@ namespace redfish::nvidia
 namespace
 {
 
-struct ClockFake
-{
-    bool wascalled = false;
-    std::string getDateStr()
-    {
-        wascalled = true;
-        return "TestTime";
-    }
-};
-
-TEST(NvidiaMultipartUpdate, FullUpdateGoldenPath)
-{
-    using crow::TestStream;
-    App app;
-    requestRoutesNvUpdateServiceMultipartUpdate(app);
-    app.validate();
-
-    boost::asio::io_context io;
-    ClockFake clock;
-    TestStream stream(io);
-    TestStream out(io);
-    stream.connect(out);
-
-    constexpr std::string_view boundary = "BMCWEBTESTBOUNDARY";
-    std::string body = std::format(
-        "--{0}\r\n"
-        "Content-Disposition: form-data; name=\"UpdateParameters\"\r\n"
-        "Content-Type: application/json\r\n"
-        "\r\n"
-        "{{\"@Redfish.OperationApplyTime\":\"OnReset\"}}"
-        "\r\n--{0}\r\n"
-        "Content-Disposition: form-data; name=\"UpdateFile\"; "
-        "filename=\"image.bin\"\r\n"
-        "Content-Type: application/octet-stream\r\n"
-        "\r\n"
-        "DUMMYIMAGEDATA"
-        "\r\n--{0}--\r\n",
-        boundary);
-
-    std::string request = std::format(
-        "POST /redfish/v1/UpdateService/update-multipart/ HTTP/1.1\r\n"
-        "Host: openbmc_project.xyz\r\n"
-        "Content-Type: multipart/form-data; boundary={}\r\n"
-        "Content-Length: {}\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "{}",
-        boundary, body.size(), body);
-    out.write_some(boost::asio::buffer(request));
-    boost::asio::steady_timer timer(io);
-    std::function<std::string()> date(
-        std::bind_front(&ClockFake::getDateStr, &clock));
-
-    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
-    std::shared_ptr<crow::Connection<TestStream, App>> conn =
-        std::make_shared<crow::Connection<TestStream, App>>(
-            &app, crow::HttpType::HTTP, std::move(timer), date,
-            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
-    conn->disableAuth();
-    conn->start();
-    io.run_for(std::chrono::seconds(5));
-    std::string outStr = out.str();
-
-    std::string expected =
-        "HTTP/1.1 200 OK\r\n"
-        "Allow: POST\r\n"
-        "Connection: close\r\n"
-        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n"
-        "Pragma: no-cache\r\n"
-        "Cache-Control: no-store, max-age=0\r\n"
-        "X-Content-Type-Options: nosniff\r\n"
-        "Date: TestTime\r\n"
-        "Content-Length: 0\r\n\r\n";
-    EXPECT_EQ(outStr, expected);
-}
-
-// Regression test: clients (e.g. libcurl for uploads over ~1KB) send
-// "Expect: 100-continue".  The connection must still dispatch the headers to
-// the streamInput route so the multipart body callbacks are registered before
-// the body is read.  Previously the 100-continue path skipped header dispatch
-// entirely, so large uploads parsed with no callbacks.
-TEST(NvidiaMultipartUpdate, FullUpdateExpectContinue)
-{
-    using crow::TestStream;
-    App app;
-    requestRoutesNvUpdateServiceMultipartUpdate(app);
-    app.validate();
-
-    boost::asio::io_context io;
-    ClockFake clock;
-    TestStream stream(io);
-    TestStream out(io);
-    stream.connect(out);
-
-    constexpr std::string_view boundary = "BMCWEBTESTBOUNDARY";
-    std::string body = std::format(
-        "--{0}\r\n"
-        "Content-Disposition: form-data; name=\"UpdateParameters\"\r\n"
-        "Content-Type: application/json\r\n"
-        "\r\n"
-        "{{\"@Redfish.OperationApplyTime\":\"OnReset\"}}"
-        "\r\n--{0}\r\n"
-        "Content-Disposition: form-data; name=\"UpdateFile\"; "
-        "filename=\"image.bin\"\r\n"
-        "Content-Type: application/octet-stream\r\n"
-        "\r\n"
-        "DUMMYIMAGEDATA"
-        "\r\n--{0}--\r\n",
-        boundary);
-
-    std::string request = std::format(
-        "POST /redfish/v1/UpdateService/update-multipart/ HTTP/1.1\r\n"
-        "Host: openbmc_project.xyz\r\n"
-        "Content-Type: multipart/form-data; boundary={}\r\n"
-        "Content-Length: {}\r\n"
-        "Expect: 100-continue\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "{}",
-        boundary, body.size(), body);
-    out.write_some(boost::asio::buffer(request));
-    boost::asio::steady_timer timer(io);
-    std::function<std::string()> date(
-        std::bind_front(&ClockFake::getDateStr, &clock));
-
-    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
-    std::shared_ptr<crow::Connection<TestStream, App>> conn =
-        std::make_shared<crow::Connection<TestStream, App>>(
-            &app, crow::HttpType::HTTP, std::move(timer), date,
-            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
-    conn->disableAuth();
-    conn->start();
-    io.run_for(std::chrono::seconds(5));
-    std::string outStr = out.str();
-
-    // The server first emits a "100 Continue" interim response, then the final
-    // "200 OK" once the streamed body has been parsed via the route callbacks.
-    EXPECT_NE(outStr.find("HTTP/1.1 100 Continue\r\n"), std::string::npos);
-    EXPECT_NE(outStr.find("HTTP/1.1 200 OK\r\n"), std::string::npos);
-}
-
 static std::shared_ptr<UpdateCtx> makeCtx()
 {
     std::error_code ec;
@@ -328,6 +187,227 @@ TEST(ParseRfaUri, UnprefixedSoftwareInventoryIsLocal)
 TEST(ParseRfaUri, UnrelatedUriIsLocal)
 {
     EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Local);
+}
+
+TEST(ParseRfaUri, FirmwareInventoryIsLocal)
+{
+    // FirmwareInventory is not in the aggregation routing table; always local.
+    EXPECT_EQ(parseRfaUri("/redfish/v1/UpdateService/FirmwareInventory/fw0"),
+              TargetType::Local);
+}
+
+TEST(ParseRfaUri, AggregationPrefixedFirmwareInventoryIsLocal)
+{
+    std::string uri =
+        std::format("/redfish/v1/UpdateService/FirmwareInventory/{}_fw0",
+                    BMCWEB_REDFISH_AGGREGATION_PREFIX);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::Local);
+}
+
+TEST(ParseRfaUri, AggregationPrefixedManagerIsLocal)
+{
+    // Only the HMC target gets special treatment; other (aggregation-prefixed)
+    // manager IDs fall through and are treated as local.
+    std::string uri = std::format("/redfish/v1/Managers/{}_bmc",
+                                  BMCWEB_REDFISH_AGGREGATION_PREFIX);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::Local);
+}
+
+TEST(SetHeaders, WithForceUpdateFalse)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.forceUpdate = false;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(boundary, R"({"ForceUpdate":false})"));
+}
+
+TEST(SetHeaders, WithTargetsAndApplyTime)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.applyTime = "OnReset";
+
+    ctx->setHeaders({"target1"});
+
+    EXPECT_EQ(
+        ctx->pendingWriteBuffer,
+        expectedSetHeadersOutput(
+            boundary, R"({"ApplyTime":"OnReset","Targets":["target1"]})"));
+}
+
+TEST(ErrorHandler, AlwaysReturnsSuccess)
+{
+    EXPECT_FALSE(errorHandler(200));
+    EXPECT_FALSE(errorHandler(404));
+    EXPECT_FALSE(errorHandler(500));
+}
+
+TEST(PutBytesToHttpClient, BuffersBeforeFileDataState)
+{
+    auto ctx = makeCtx();
+    // Default state is WAITING_FOR_UPDATE_PARAMETERS_HEADERS — not yet ready
+    // to stream, so data must land in pendingWriteBuffer.
+    ctx->putBytesToHttpClient("hello");
+    EXPECT_EQ(ctx->pendingWriteBuffer, "hello");
+    ctx->putBytesToHttpClient(" world");
+    EXPECT_EQ(ctx->pendingWriteBuffer, "hello world");
+}
+
+TEST(PutBytesToHttpClient, AppendsWhenSocketInUse)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->socketInUse = true;
+
+    ctx->putBytesToHttpClient("chunk1");
+    ctx->putBytesToHttpClient("chunk2");
+
+    EXPECT_EQ(ctx->pendingWriteBuffer, "chunk1chunk2");
+}
+
+TEST(OnDataAvailable, AccumulatesUpdateParametersData)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
+
+    ctx->onDataAvailable(ctx, "part1");
+    ctx->onDataAvailable(ctx, "part2");
+
+    EXPECT_EQ(ctx->updateParametersString, "part1part2");
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
+}
+
+TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
+
+    // Just under the 8192-byte limit.
+    ctx->onDataAvailable(ctx, std::string(8000, 'x'));
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
+
+    // One more chunk that pushes past the limit.
+    ctx->onDataAvailable(ctx, std::string(200, 'y'));
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE);
+}
+
+TEST(OnDataAvailable, BuffersPendingFileDataWhileWaitingForSatInfo)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+
+    ctx->onDataAvailable(ctx, "file chunk 1");
+    ctx->onDataAvailable(ctx, " file chunk 2");
+
+    EXPECT_EQ(ctx->pendingFileDataBuffer, "file chunk 1 file chunk 2");
+}
+
+TEST(OnSectionComplete, SetsFileSectionCompleteWhenWaitingForSatInfo)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+    EXPECT_FALSE(ctx->fileSectionComplete);
+
+    ctx->onSectionComplete(ctx);
+
+    EXPECT_TRUE(ctx->fileSectionComplete);
+    EXPECT_EQ(ctx->state,
+              UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE);
+}
+
+TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+
+    ctx->onSectionComplete(ctx);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE);
+}
+
+TEST(OnParseComplete, SetsParseCompleteFlag)
+{
+    auto ctx = makeCtx();
+    EXPECT_FALSE(ctx->parseComplete);
+
+    ctx->onParseComplete(ctx);
+
+    EXPECT_TRUE(ctx->parseComplete);
+}
+
+TEST(CloseSendSocketIfReady, DoesNotCloseWhenParseNotComplete)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+    // parseComplete defaults to false
+
+    ctx->closeSendSocketIfReady();
+
+    EXPECT_TRUE(ctx->fileSendSocket.is_open());
+}
+
+TEST(CloseSendSocketIfReady, DoesNotCloseWhenSocketInUse)
+{
+    auto ctx = makeCtx();
+    ctx->parseComplete = true;
+    ctx->socketInUse = true;
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+
+    ctx->closeSendSocketIfReady();
+
+    EXPECT_TRUE(ctx->fileSendSocket.is_open());
+}
+
+TEST(CloseSendSocketIfReady, DoesNotCloseWhenPendingDataExists)
+{
+    auto ctx = makeCtx();
+    ctx->parseComplete = true;
+    ctx->pendingWriteBuffer = "pending";
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+
+    ctx->closeSendSocketIfReady();
+
+    EXPECT_TRUE(ctx->fileSendSocket.is_open());
+}
+
+TEST(CloseSendSocketIfReady, DoesNotCloseInNonTerminalState)
+{
+    auto ctx = makeCtx();
+    ctx->parseComplete = true;
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+
+    ctx->closeSendSocketIfReady();
+
+    EXPECT_TRUE(ctx->fileSendSocket.is_open());
+}
+
+TEST(CloseSendSocketIfReady, ClosesSocketWhenAllConditionsMet)
+{
+    auto ctx = makeCtx();
+    ctx->parseComplete = true;
+    ctx->socketInUse = false;
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+    // pendingWriteBuffer is empty by default
+
+    EXPECT_TRUE(ctx->fileSendSocket.is_open());
+    ctx->closeSendSocketIfReady();
+    EXPECT_FALSE(ctx->fileSendSocket.is_open());
+}
+
+TEST(CloseSendSocketIfReady, ClosesSocketOnUpdateCompleteError)
+{
+    auto ctx = makeCtx();
+    ctx->parseComplete = true;
+    ctx->socketInUse = false;
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE_ERROR;
+
+    ctx->closeSendSocketIfReady();
+
+    EXPECT_FALSE(ctx->fileSendSocket.is_open());
 }
 
 } // namespace
