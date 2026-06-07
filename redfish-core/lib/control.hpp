@@ -17,7 +17,7 @@
 #pragma once
 
 #include "error_messages.hpp"
-#include "health.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
@@ -412,7 +412,7 @@ inline void getControlSettings(
                                         "Disabled";
                                 }
                                 asyncResp->res.jsonValue["Status"]["Health"] =
-                                    "OK";
+                                    resource::Health::OK;
                             }
                         }
                     });
@@ -944,9 +944,7 @@ inline void requestRoutesChassisControls(App& app)
                                 asyncResp->res.jsonValue["ControlType"] =
                                     "Power";
                                 asyncResp->res.jsonValue["Status"]["Health"] =
-                                    "OK";
-                                asyncResp->res
-                                    .jsonValue["Status"]["HealthRollup"] = "OK";
+                                    resource::Health::OK;
 
                                 getChassisPower(asyncResp, object,
                                                 *validChassisPath);

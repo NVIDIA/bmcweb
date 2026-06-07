@@ -20,6 +20,7 @@
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -63,12 +64,8 @@ inline void doLeakDetection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors",
         chassisId);
 
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    }
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 }
 
 inline void handleLeakDetectionGet(

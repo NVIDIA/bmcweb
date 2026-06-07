@@ -14,7 +14,6 @@
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
@@ -27,7 +26,6 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -711,8 +709,6 @@ inline void handleChassisGetSubTree(
             // get debug token resource
             redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
         }
-        nvidia_chassis_utils::populateHealthRollupAndDeviceStatus(
-            asyncResp, objPath, chassisId);
         // Nvidia: added code end
 
         if (connectionNames.empty())

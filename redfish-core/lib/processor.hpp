@@ -12,7 +12,6 @@
 #include "error_messages.hpp"
 #include "generated/enums/processor.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
@@ -23,7 +22,6 @@
 #include "utils/collection.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
@@ -481,23 +479,6 @@ inline void getAcceleratorDataByService(
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
 
-    // Nvidia Added Code Start
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
-    // Nvidia Added Code End
-
     dbus::utility::getAllProperties(
         service, objPath, "",
         [acclrtrId, asyncResp{std::move(asyncResp)}](
@@ -529,72 +510,29 @@ inline void getAcceleratorDataByService(
                 return;
             }
 
-            std::string state = "Enabled";
-
-            // std::string health = "OK"; // upstream code
-            std::string health;
-            if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-            {
-                health = "OK";
-            }
-            // Nvidia Modified Code End
+            resource::State state = resource::State::Enabled;
+            resource::Health health = resource::Health::OK;
 
             if (present != nullptr && !*present)
             {
-                state = "Absent";
+                state = resource::State::Absent;
             }
-            // Nvidia added outer if-else block to check if health rollup is
-            // alternative
-            if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+
+            if (functional != nullptr && !*functional)
             {
-                if (functional != nullptr && !*functional)
+                if (state == resource::State::Enabled)
                 {
-                    if (state == "Enabled")
-                    {
-                        health = "Critical";
-                    }
+                    health = resource::Health::Critical;
                 }
-            }
-            else
-            {
-                (void)functional;
             }
 
             asyncResp->res.jsonValue["Id"] = acclrtrId;
             asyncResp->res.jsonValue["Name"] = "Processor";
             asyncResp->res.jsonValue["Status"]["State"] = state;
-            // Nvidia added if block to check if health rollup is alternative
-            if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-            {
-                asyncResp->res.jsonValue["Status"]["Health"] = health;
-            }
-            // Nvidia commented this code to avoid conflict with upstream code
-            // asyncResp->res.jsonValue["ProcessorType"] =
-            // processor::ProcessorType::Accelerator; // upstream code
-
-            // Nvidia Added Code Block Start: Handling for Health, ProcessorType
-            // ,State
-            redfish::nvidia_processor::populateNvidiaOemHealthTypeAndPowerState(
-                asyncResp, acclrtrId, accType, operationalState);
-            // Nvidia Modified Code End
+            asyncResp->res.jsonValue["Status"]["Health"] = health;
+            nvidia_processor::populatePowerState(asyncResp, accType,
+                                                 operationalState);
         });
-
-    // Nvidia Modified Code Start
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
-    // Nvidia Modified Code End
 }
 
 // OperatingConfig D-Bus Types

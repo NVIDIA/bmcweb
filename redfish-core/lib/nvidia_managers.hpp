@@ -25,7 +25,6 @@
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "nvidia_emmc_fullsecureerase.hpp"
 #include "nvidia_error_messages.hpp"
 #include "nvidia_event_service_manager.hpp"
@@ -532,11 +531,13 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     aResp->res.jsonValue["Status"]["State"] = state;
                     if (state == "Enabled")
                     {
-                        aResp->res.jsonValue["Status"]["Health"] = "OK";
+                        aResp->res.jsonValue["Status"]["Health"] =
+                            resource::Health::OK;
                     }
                     else
                     {
-                        aResp->res.jsonValue["Status"]["Health"] = "Critical";
+                        aResp->res.jsonValue["Status"]["Health"] =
+                            resource::Health::Critical;
                     }
                 }
             }
@@ -1285,23 +1286,6 @@ inline void handleGenericManager(
                     redfish::conditions_utils::populateServiceConditions(
                         asyncResp, managerId);
                 }
-
-                if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-                {
-                    auto health = std::make_shared<HealthRollup>(
-                        path, [asyncResp](const std::string& rootHealth,
-                                          const std::string& healthRollup) {
-                            asyncResp->res.jsonValue["Status"]["Health"] =
-                                rootHealth;
-                            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                            {
-                                asyncResp->res
-                                    .jsonValue["Status"]["HealthRollup"] =
-                                    healthRollup;
-                            }
-                        });
-                    health->start();
-                }
                 return;
             }
             messages::resourceNotFound(asyncResp->res,
@@ -1398,9 +1382,8 @@ inline void extendManagerGet(
     const std::string& managerId)
 {
     // Default Health State.
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
     if constexpr (BMCWEB_LLDP_DEDICATED_PORTS)
     {
@@ -1439,9 +1422,6 @@ inline void extendManagerGet(
     asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
         std::move(managerForServers);
 
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    health->isManagersHealth = true;
-    health->populate();
     if constexpr (BMCWEB_COMMAND_SHELL)
     {
         asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;

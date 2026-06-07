@@ -1209,12 +1209,9 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             messageId, messageArgs, *entry.Resolution, entry.Resolved,
             std::to_string(entry.Id), deviceName, entry.Severity);
 
-        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            origin_utils::convertDbusObjectToOriginOfCondition(
-                originOfCondition, std::to_string(entry.Id), asyncResp,
-                objectToFillOut, deviceName);
-        } // BMCWEB_DISABLE_HEALTH_ROLLUP
+        origin_utils::convertDbusObjectToOriginOfCondition(
+            originOfCondition, std::to_string(entry.Id), asyncResp,
+            objectToFillOut, deviceName);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

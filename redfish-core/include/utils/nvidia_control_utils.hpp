@@ -240,7 +240,6 @@ inline void getClockLimitControl(
                     asyncResp->res.jsonValue["Name"] = name;
                     asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
                     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
                     nlohmann::json& relatedItemsArray =
                         asyncResp->res.jsonValue["RelatedItem"];
                     relatedItemsArray = nlohmann::json::array();

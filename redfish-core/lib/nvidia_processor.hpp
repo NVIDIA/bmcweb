@@ -26,7 +26,6 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
@@ -4106,43 +4105,20 @@ inline void populateNvidiaProcessorPostData(
     }
 }
 
-inline void populateNvidiaOemHealthTypeAndPowerState(
+inline void populatePowerState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& acceleratorId, const std::string* accType,
-    const std::string* operationalState)
+    const std::string* accType, const std::string* operationalState)
 {
-    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+    if (accType != nullptr && !accType->empty())
     {
-        /** NOTES: This is a temporary solution to avoid performance
-         * issues may impact other Redfish services. Please call for
-         * architecture decisions from all NvBMC teams if want to use it
-         * in other places.
-         */
-        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-        {
-            // #error "Conflicts! Please set
-            // health-rollup-alternative=disabled."
-        }
+        asyncResp->res.jsonValue["ProcessorType"] =
+            redfish::nvidia_processor::getProcessorType(*accType);
+    }
 
-        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            // #error "Conflicts! Please set
-            // disable-health-rollup=disabled."
-        }
-
-        health_utils::getDeviceHealthInfo(asyncResp->res, acceleratorId);
-
-        if (accType != nullptr && !accType->empty())
-        {
-            asyncResp->res.jsonValue["ProcessorType"] =
-                redfish::nvidia_processor::getProcessorType(*accType);
-        }
-
-        if (operationalState != nullptr && !operationalState->empty())
-        {
-            asyncResp->res.jsonValue["Status"]["State"] =
-                redfish::chassis_utils::getPowerStateType(*operationalState);
-        }
+    if (operationalState != nullptr && !operationalState->empty())
+    {
+        asyncResp->res.jsonValue["Status"]["State"] =
+            redfish::chassis_utils::getPowerStateType(*operationalState);
     }
 }
 } // namespace nvidia_processor

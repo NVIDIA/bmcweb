@@ -79,11 +79,6 @@ inline void doThermalSubsystemCollection(
 
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-            resource::Health::OK;
-    }
 }
 
 inline void handleThermalSubsystemCollectionHead(

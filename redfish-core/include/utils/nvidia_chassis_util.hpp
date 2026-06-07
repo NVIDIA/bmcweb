@@ -19,10 +19,11 @@
 #include "async_resp.hpp"
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
+#include "generated/enums/nvidia_chassis.hpp"
+#include "generated/enums/resource.hpp"
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_write_protect_domains_util.hpp"
@@ -33,7 +34,6 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
-#include <health.hpp>
 #include <nlohmann/json.hpp>
 #include <openbmc_dbus_rest.hpp>
 
@@ -45,13 +45,13 @@
 
 namespace redfish
 {
-
 /**
  * @brief Get list of chassis that support in-band updates
  *
  * @param asyncResp - Pointer to object holding response data
  * @param callback Function to call with the list of chassis paths
- *                 The callback should accept std::vector<std::string> parameter
+ *                 The callback should accept std::vector<std::string>
+ * parameter
  * @return None
  */
 template <typename CallbackFunc>
@@ -632,7 +632,8 @@ inline void populateErrorInjectionChassis(
  *
  * @param[in,out]   aResp       Async HTTP response.
  * @param[in]       chassisId   Redfish chassis id.
- * @param[in]       interfaces  List of D-Bus interfaces on the chassis object.
+ * @param[in]       interfaces  List of D-Bus interfaces on the chassis
+ * object.
  */
 inline void populatePowerSmoothingChassisIfPresent(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -834,42 +835,7 @@ inline void getHealthByAssociation(
                                         asyncResp->res
                                             .jsonValue["Status"]["State"] =
                                             "Enabled";
-                                        if constexpr (
-                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                        {
-                                            asyncResp->res
-                                                .jsonValue["Status"]
-                                                          ["HealthRollup"] =
-                                                "OK";
-                                        }
-                                        // update health
-                                        if constexpr (
-                                            BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-                                        {
-                                            std::shared_ptr<HealthRollup>
-                                                health = std::make_shared<
-                                                    HealthRollup>(
-                                                    sensorPath,
-                                                    [asyncResp](
-                                                        const std::string&
-                                                            rootHealth,
-                                                        const std::string&
-                                                            healthRollup) {
-                                                        asyncResp->res.jsonValue
-                                                            ["Status"]
-                                                            ["Health"] =
-                                                            rootHealth;
-                                                        if constexpr (
-                                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                                        {
-                                                            asyncResp->res.jsonValue
-                                                                ["Status"]
-                                                                ["HealthRollup"] =
-                                                                healthRollup;
-                                                        }
-                                                    });
-                                            health->start();
-                                        }
+
                                         if (*value ==
                                             "xyz.openbmc_project.State.Decorator.Health.HealthType.OK")
                                         {
@@ -1695,10 +1661,10 @@ inline void setStaticPowerHintByObjPath(
                         }
 
                         // Only range-check NumberOfCores when the device
-                        // actually exposes the effecter. When the effecter is
-                        // absent the PLDM side reports max=min=0; ignore the
-                        // argument entirely so legacy devices keep working
-                        // with any value the client sends.
+                        // actually exposes the effecter. When the effecter
+                        // is absent the PLDM side reports max=min=0; ignore
+                        // the argument entirely so legacy devices keep
+                        // working with any value the client sends.
                         if ((numberOfCoresMax != 0 || numberOfCoresMin != 0) &&
                             ((numberOfCoresMax < numberOfCores) ||
                              (numberOfCoresMin > numberOfCores)))
@@ -2697,7 +2663,8 @@ inline void handleChassisGetAllProperties(
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
     // Assembly collection
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
@@ -2864,8 +2831,8 @@ inline void handleFruAssetInformation(
                     serviceMap = object.second;
 
                 sdbusplus::message::object_path objPath(path);
-                // The path should end with chassisId (representing resource)
-                // and that path should implement Asset Interface
+                // The path should end with chassisId (representing
+                // resource) and that path should implement Asset Interface
                 if (objPath.filename() != chassisId)
                 {
                     continue;
@@ -2976,7 +2943,8 @@ inline void getPhysicalSecurityData(
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
-                // do not add err msg in redfish response, because this is not
+                // do not add err msg in redfish response, because this is
+                // not
                 //     mandatory property
                 BMCWEB_LOG_INFO("DBUS error: no matched iface {}", ec);
                 return;
@@ -3171,7 +3139,8 @@ inline void setInBandEnabled(
 
 /**
  * @brief Handle combined getDbusObject response: dispatch getProperty for
- * FailoverPolicy, InbandUpdatePolicy, and ImageCopyPolicy per interface found.
+ * FailoverPolicy, InbandUpdatePolicy, and ImageCopyPolicy per interface
+ * found.
  *
  * @param policyInterfaces List of interface names requested (order used for
  *                         dispatch).
@@ -3443,49 +3412,6 @@ inline void checkIndicatorChassis(const std::string& connectionName,
         });
 }
 
-inline void populateHealthRollupAndDeviceStatus(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objPath, const std::string& chassisId)
-{
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
-
-    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
-    {
-        /** NOTES: This is a temporary solution to avoid performance
-         * issues may impact other Redfish services. Please call for
-         * architecture decisions from all NvBMC teams if want to use it
-         * in other places.
-         */
-
-        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-        {
-            // #error "Conflicts! Please set
-            // health-rollup-alternative=disabled."
-        }
-
-        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            // #error "Conflicts! Please set
-            // disable-health-rollup=disabled."
-        }
-
-        health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
-    }
-}
-
 template <typename InterfacesContainer>
 inline void populateChassisLinksOemAndStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3524,8 +3450,8 @@ inline void populateChassisLinksOemAndStatus(
     }
     else
     {
-        // if platform intrusion component is specified, get the intrusion data
-        // from the platform intrusion component
+        // if platform intrusion component is specified, get the intrusion
+        // data from the platform intrusion component
         // NOLINTNEXTLINE(readability-container-size-empty)
         if (chassisId == BMCWEB_PLATFORM_CHASSIS_INTRUSION_COMPONENT)
         {
@@ -3652,10 +3578,11 @@ inline void applyOemChassisPatch(
         }
         if (cpuClockFrequency || workloadFactor || temperature || numberOfCores)
         {
-            // NumberOfCores is optional for legacy devices that don't expose
-            // the underlying effecter; the PLDM side silently ignores the
-            // value when no NumberOfCores effecter is present. Default to 0
-            // when the client omits it so the call still goes through.
+            // NumberOfCores is optional for legacy devices that don't
+            // expose the underlying effecter; the PLDM side silently
+            // ignores the value when no NumberOfCores effecter is present.
+            // Default to 0 when the client omits it so the call still goes
+            // through.
             if (cpuClockFrequency && workloadFactor && temperature)
             {
                 redfish::nvidia_chassis_utils::setStaticPowerHintByChassis(
@@ -3953,7 +3880,8 @@ inline void handleAsyncSetCheckForOemSKU(
 }
 
 /**
- * @brief Check if SKU path has com.nvidia.Async.Set and add OEM SKU if writable
+ * @brief Check if SKU path has com.nvidia.Async.Set and add OEM SKU if
+ * writable
  *
  * This function is called after main SKU is found (either direct or via
  * associated_SKU). It checks if the same path that provided the main SKU
@@ -4097,8 +4025,8 @@ inline void checkAssociatedSKU(
 /**
  * @brief Handle direct SKU property read result
  *
- * First tries to read SKU directly from the chassis. If that fails or is empty,
- * falls back to checking backward association (associated_SKU).
+ * First tries to read SKU directly from the chassis. If that fails or is
+ * empty, falls back to checking backward association (associated_SKU).
  */
 inline void handleDirectSKURead(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -4222,7 +4150,8 @@ inline void handleSKUServiceFoundForPatch(
                      associatedChassisPath);
     // Use async operation utility to update SKU on the associated chassis
     // (main chassis reads it via associated_SKU association)
-    // The nvidia_async_operation_utils handles the Async.Set method internally
+    // The nvidia_async_operation_utils handles the Async.Set method
+    // internally
     updateChassisSKU(asyncResp, service, associatedChassisPath, skuValue);
 }
 

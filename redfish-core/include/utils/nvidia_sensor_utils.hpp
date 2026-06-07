@@ -5,6 +5,7 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 
 #include <boost/url/format.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -589,21 +590,9 @@ inline void getChassisSensors(
                 {
                     continue;
                 }
-                /*
-                // Get chassis sensors
-                const std::shared_ptr<boost::container::flat_set<std::string>>
-                    sensorList = std::make_shared<
-                        boost::container::flat_set<std::string>>();
 
-                sensorList->emplace(sensorPath);
-                processSensorList(asyncResp, sensorList);
-                */
-
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-                }
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::OK;
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =

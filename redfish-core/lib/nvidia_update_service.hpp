@@ -25,6 +25,8 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
+#include "generated/enums/resource.hpp"
+#include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
 #include "ossl_random.hpp"
@@ -70,7 +72,6 @@
 
 namespace redfish
 {
-
 /* holds compute digest operation state to allow one operation at a time */
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool computeDigestInProgress = false;
@@ -101,7 +102,8 @@ struct AsyncImageWriteSession :
     /**
      * @brief Constructs an AsyncImageWriteSession.
      *
-     * @param asyncRespIn A shared pointer to the asynchronous response object.
+     * @param asyncRespIn A shared pointer to the asynchronous response
+     * object.
      * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
      * @param filepathIn The file path where the image data will be written.
      * @param dataRefIn A reference to the string containing the image data.
@@ -120,7 +122,8 @@ struct AsyncImageWriteSession :
     /**
      * @brief Starts the asynchronous write operation.
      *
-     * Initiates the process of writing the image data to the file in chunks.
+     * Initiates the process of writing the image data to the file in
+     * chunks.
      */
     void start()
     {
@@ -988,10 +991,11 @@ inline static void getRelatedItemsOthers(
  * @param[in] uriTargets  List of components delivered in HTTPRequest
  * @param[in] updateables List of all unupdateable components in the system
  * @param[in] swInvPaths  List of software inventory paths
- * @param[out] validTargets  List of valid components delivered in HTTPRequest
+ * @param[out] validTargets  List of valid components delivered in
+ * HTTPRequest
  *
- * @return It returns true when a list of delivered components contains invalid
- * or unupdateable components
+ * @return It returns true when a list of delivered components contains
+ * invalid or unupdateable components
  */
 inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
@@ -1200,8 +1204,8 @@ inline void extendUpdateServiceGet(
 }
 
 /**
- * @brief update oem action with ComputeDigest for devices which supports hash
- * compute
+ * @brief update oem action with ComputeDigest for devices which supports
+ * hash compute
  *
  * @param[in] asyncResp
  * @param[in] swId
@@ -1614,7 +1618,8 @@ inline void handleCommitImagePost(
         hasTargets = true;
     }
 
-    // Pair: first = dbus software object path, second = redfish inventory path
+    // Pair: first = dbus software object path, second = redfish inventory
+    // path
     std::vector<std::pair<std::string, std::string>> softwareObjectPaths = {};
     bool hasInvalidTargets = false;
 
@@ -1624,8 +1629,9 @@ inline void handleCommitImagePost(
 
         for (auto& target : targetsCollection)
         {
-            // Validate that the target is a proper Redfish FirmwareInventory
-            // path (same style as processUrl() in update_service.hpp)
+            // Validate that the target is a proper Redfish
+            // FirmwareInventory path (same style as processUrl() in
+            // update_service.hpp)
             boost::system::result<boost::urls::url_view> url =
                 boost::urls::parse_origin_form(target);
             if (!url)
@@ -1725,8 +1731,8 @@ inline void handleCommitImagePost(
                     }
                     else
                     {
-                        // When no targets specified, only include paths that
-                        // are in the allowable values list
+                        // When no targets specified, only include paths
+                        // that are in the allowable values list
                         if (isInventoryAllowableValue(path))
                         {
                             matchingPaths.push_back(path);
@@ -2279,8 +2285,8 @@ inline void commitImageActionInfoResp(
 
 /**
  * @brief forward Commit Image Action Info request to satBMC.
- * the function will send the request to satBMC to get the CommitImageActionInfo
- * if the satellie BMC is available.
+ * the function will send the request to satBMC to get the
+ * CommitImageActionInfo if the satellie BMC is available.
  *
  * @param[in] req  HTTP request
  * @param[in] asyncResp Shared pointer to the response message
@@ -2493,11 +2499,8 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                 }
 
                 asyncResp->res.jsonValue["Id"] = *swId;
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-                }
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::OK;
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =

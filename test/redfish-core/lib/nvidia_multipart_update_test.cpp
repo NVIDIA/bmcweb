@@ -78,10 +78,9 @@ TEST(SetHeaders, WithApplyTime)
 
     ctx->setHeaders({});
 
-    EXPECT_EQ(
-        ctx->pendingWriteBuffer,
-        expectedSetHeadersOutput(
-            boundary, R"({"@Redfish.OperationApplyTime":"Immediate"})"));
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary, R"({"@Redfish.OperationApplyTime":"Immediate"})"));
 }
 
 TEST(SetHeaders, WithForceUpdateTrue)
@@ -221,10 +220,11 @@ TEST(SetHeaders, WithTargetsAndApplyTime)
 
     ctx->setHeaders({"target1"});
 
-    EXPECT_EQ(ctx->pendingWriteBuffer,
-              expectedSetHeadersOutput(
-                  boundary,
-                  R"({"@Redfish.OperationApplyTime":"OnReset","Targets":["target1"]})"));
+    EXPECT_EQ(
+        ctx->pendingWriteBuffer,
+        expectedSetHeadersOutput(
+            boundary,
+            R"({"@Redfish.OperationApplyTime":"OnReset","Targets":["target1"]})"));
 }
 
 TEST(ErrorHandler, AlwaysReturnsSuccess)

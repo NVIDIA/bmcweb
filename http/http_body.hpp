@@ -358,7 +358,7 @@ class HttpBody::writer
             sent += toReturn;
             ret.second = sent < body.str().size();
             BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
-                            ret.second);
+                             ret.second);
             return ret;
         }
         size_t readReq = std::min(fileReadBuf.size(), maxSize);

@@ -29,7 +29,6 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/bios_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
@@ -3955,30 +3954,9 @@ inline void handleComputerSystemGet(
     manager["@odata.id"] =
         "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
-    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
-    {
-        /** NOTES: This is a temporary solution to avoid performance issues may
-         * impact other Redfish services. Please call for architecture decisions
-         * from all NvBMC teams if want to use it in other places.
-         */
-
-        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-        {
-            // #error "Conflicts! Please set
-            // health-rollup-alternative=disabled."
-        }
-
-        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            // #error "Conflicts! Please set disable-health-rollup=disabled."
-        }
-
-        health_utils::getDeviceHealthInfo(
-            asyncResp->res, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
-    }
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     redfish::conditions_utils::populateServiceConditions(
         asyncResp, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 
