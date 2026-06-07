@@ -773,9 +773,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     }
 
     void onHttpClientDataSendComplete(
-        const std::shared_ptr<UpdateCtx>& /*self*/, bool /*keepAlive*/,
+        const std::weak_ptr<UpdateCtx>& weakSelf, bool /*keepAlive*/,
         int32_t /*connId*/, crow::Response& res)
     {
+        std::shared_ptr<UpdateCtx> self = weakSelf.lock();
+        if (!self)
+        {
+            BMCWEB_LOG_ERROR("Request was aborted before data send complete");
+            return;
+        }
+
         // Close the connection to the http server
         httpClient.reset();
         BMCWEB_LOG_DEBUG("Response code: {}", res.resultInt());
@@ -926,7 +933,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         crow::ConnectionInfo& conn = *httpClient;
 
         conn.callback = std::bind_front(
-            &UpdateCtx::onHttpClientDataSendComplete, this, shared_from_this());
+            &UpdateCtx::onHttpClientDataSendComplete, this, weak_from_this());
 
         conn.req.target("/redfish/v1/UpdateService/update-multipart");
         BMCWEB_LOG_DEBUG(
