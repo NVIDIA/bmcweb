@@ -773,8 +773,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     }
 
     void onHttpClientDataSendComplete(
-        const std::weak_ptr<UpdateCtx>& weakSelf, bool /*keepAlive*/,
-        int32_t /*connId*/, crow::Response& res)
+        const std::weak_ptr<UpdateCtx>& weakSelf, const std::string& prefix,
+        bool /*keepAlive*/, int32_t /*connId*/, crow::Response& res)
     {
         std::shared_ptr<UpdateCtx> self = weakSelf.lock();
         if (!self)
@@ -815,31 +815,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             asyncResp->res.addHeader(retry_after, retryAfter);
         }
 
-        // Copy the response code to the user.
-        asyncResp->res.result(res.result());
-
-        if (isJsonContentType(res.response[content_type]))
-        {
-            const std::string* body = res.body();
-            if (body != nullptr)
-            {
-                std::optional<nlohmann::json> jsonVal =
-                    parseStringAsJson(*body);
-                if (!jsonVal)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Error parsing satellite response as JSON");
-                }
-                else
-                {
-                    asyncResp->res.jsonValue = std::move(*jsonVal);
-                }
-            }
-            else
-            {
-                BMCWEB_LOG_ERROR("Response body is empty?");
-            }
-        }
+        redfish::RedfishAggregator::processResponse(prefix, asyncResp, res);
     }
 
     void onUpdateParametersComplete(MultiPartUpdate& multipart)
@@ -932,8 +908,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             ensuressl::VerifyCertificate::NoVerify, 0);
         crow::ConnectionInfo& conn = *httpClient;
 
-        conn.callback = std::bind_front(
-            &UpdateCtx::onHttpClientDataSendComplete, this, weak_from_this());
+        conn.callback =
+            std::bind_front(&UpdateCtx::onHttpClientDataSendComplete, this,
+                            weak_from_this(), satelliteInfo.begin()->first);
 
         conn.req.target("/redfish/v1/UpdateService/update-multipart");
         BMCWEB_LOG_DEBUG(
