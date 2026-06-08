@@ -897,12 +897,22 @@ inline void handleChassisGetSubTree(
                     asyncResp, path, interfaces2);
             }
 
+            // Read ChassisType from the Chassis interface only; a merged
+            // GetAll collides with EntityManager's record-level "Type".
+            dbus::utility::getAllProperties(
+                connectionName, path,
+                "xyz.openbmc_project.Inventory.Item.Chassis",
+                [asyncResp](
+                    const boost::system::error_code&,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    handleChassisProperties(asyncResp, propertiesList);
+                });
+
             dbus::utility::getAllProperties(
                 connectionName, path, "",
                 [asyncResp, chassisId, connectionName, path, interfaces2](
                     [[maybe_unused]] const boost::system::error_code& ec3,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    handleChassisProperties(asyncResp, propertiesList);
                     redfish::nvidia_chassis_utils::
                         handleChassisGetAllProperties(
                             asyncResp, chassisId, path, propertiesList,
