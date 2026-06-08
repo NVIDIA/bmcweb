@@ -327,8 +327,7 @@ class HTTP2Connection :
                     return;
                 }
                 Http2StreamData& s = it2->second;
-                if (!s.req ||
-                    !s.req->req.body().multipartParserCallbacks)
+                if (!s.req || !s.req->req.body().multipartParserCallbacks)
                 {
                     return;
                 }
@@ -336,8 +335,8 @@ class HTTP2Connection :
                     [weakSelf, streamId](Response& completedRes) {
                         if (auto self2 = weakSelf.lock())
                         {
-                            if (self2->sendResponse(completedRes,
-                                                    streamId) != 0)
+                            if (self2->sendResponse(completedRes, streamId) !=
+                                0)
                             {
                                 self2->close();
                             }
