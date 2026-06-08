@@ -60,6 +60,7 @@ struct Http2StreamData
     Response res;
     std::optional<bmcweb::HttpBody::writer> writer;
     bool valid = true;
+    std::shared_ptr<bmcweb::AsyncResp> headersAsyncResp;
 };
 
 template <typename Adaptor, typename Handler>
@@ -282,6 +283,72 @@ class HTTP2Connection :
         return session;
     }
 
+    int onHeadersFrameComplete(int32_t streamId)
+    {
+        BMCWEB_LOG_DEBUG("onHeadersFrameComplete streamId:{}", streamId);
+
+        auto it = streams.find(streamId);
+        if (it == streams.end())
+        {
+            close();
+            return -1;
+        }
+        Http2StreamData& stream = it->second;
+
+        if (!stream.valid)
+        {
+            return 0;
+        }
+
+        Request& thisReq = *stream.req;
+        using boost::beast::http::field;
+        stream.accept = thisReq.getHeaderValue(field::accept);
+        stream.acceptEnc = thisReq.getHeaderValue(field::accept_encoding);
+        thisReq.ipAddress = ip;
+
+        if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
+        {
+            thisReq.session = crow::authentication::authenticate(
+                ip, stream.res, thisReq.method(), thisReq.req, mtlsSession);
+        }
+
+        auto headersAsyncResp = std::make_shared<bmcweb::AsyncResp>();
+        stream.headersAsyncResp = headersAsyncResp;
+        headersAsyncResp->res.setCompleteRequestHandler(
+            [weakSelf = weak_from_this(), streamId](Response& /*phase1Res*/) {
+                auto self = weakSelf.lock();
+                if (!self)
+                {
+                    return;
+                }
+                auto it2 = self->streams.find(streamId);
+                if (it2 == self->streams.end())
+                {
+                    return;
+                }
+                Http2StreamData& s = it2->second;
+                if (!s.req ||
+                    !s.req->req.body().multipartParserCallbacks)
+                {
+                    return;
+                }
+                s.headersAsyncResp->res.setCompleteRequestHandler(
+                    [weakSelf, streamId](Response& completedRes) {
+                        if (auto self2 = weakSelf.lock())
+                        {
+                            if (self2->sendResponse(completedRes,
+                                                    streamId) != 0)
+                            {
+                                self2->close();
+                            }
+                        }
+                    });
+            });
+
+        handler->handleHeaders(stream.req, headersAsyncResp);
+        return 0;
+    }
+
     int onRequestRecv(int32_t streamId)
     {
         BMCWEB_LOG_DEBUG("onRequestRecv streamId:{}", streamId);
@@ -304,6 +371,12 @@ class HTTP2Connection :
                 return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
             }
         }
+
+        if (it->second.headersAsyncResp)
+        {
+            return 0;
+        }
+
         Request& thisReq = *it->second.req;
         using boost::beast::http::field;
         it->second.accept = thisReq.getHeaderValue(field::accept);
@@ -420,13 +493,17 @@ class HTTP2Connection :
         switch (frame.hd.type)
         {
             case NGHTTP2_DATA:
-            case NGHTTP2_HEADERS:
-                // Check that the client request has finished
                 if ((frame.hd.flags & NGHTTP2_FLAG_END_STREAM) != 0)
                 {
                     return onRequestRecv(frame.hd.stream_id);
                 }
                 break;
+            case NGHTTP2_HEADERS:
+                if ((frame.hd.flags & NGHTTP2_FLAG_END_STREAM) != 0)
+                {
+                    return onRequestRecv(frame.hd.stream_id);
+                }
+                return onHeadersFrameComplete(frame.hd.stream_id);
             default:
                 break;
         }

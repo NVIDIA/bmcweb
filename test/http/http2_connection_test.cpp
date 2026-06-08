@@ -59,6 +59,10 @@ struct FakeHandler
         asyncResp->res.write("StringOutput");
     }
 
+    void handleHeaders(const std::shared_ptr<Request>& /*req*/,
+                       const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
+    {}
+
     bool handleAuthFailed(const std::shared_ptr<Request>& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
