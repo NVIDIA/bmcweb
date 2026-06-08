@@ -392,9 +392,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     std::string updateParametersString;
     std::optional<MultiPartUpdate::UpdateParameters> updateParameters;
 
-    // Note, this intentionally bypasses the normal connection pool.
-    std::shared_ptr<crow::ConnectionInfo> httpClient;
-
     // Socket for sending data to the http client
     boost::asio::local::stream_protocol::socket fileSendSocket;
 
@@ -773,18 +770,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     }
 
     void onHttpClientDataSendComplete(
-        const std::weak_ptr<UpdateCtx>& weakSelf, const std::string& prefix,
+        const std::shared_ptr<UpdateCtx>& /*self*/, const std::string& prefix,
         bool /*keepAlive*/, int32_t /*connId*/, crow::Response& res)
     {
-        std::shared_ptr<UpdateCtx> self = weakSelf.lock();
-        if (!self)
-        {
-            BMCWEB_LOG_ERROR("Request was aborted before data send complete");
-            return;
-        }
-
-        // Close the connection to the http server
-        httpClient.reset();
         BMCWEB_LOG_DEBUG("Response code: {}", res.resultInt());
         BMCWEB_LOG_DEBUG("Response body: {}", *res.body());
         for (const auto& header : res.fields())
@@ -903,14 +891,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         connPolicy->maxRetryAttempts = 0;
         connPolicy->invalidResp = errorHandler;
 
-        httpClient = std::make_shared<crow::ConnectionInfo>(
-            getIoContext(), "NvidiaMultipartUpdate", connPolicy, host,
-            ensuressl::VerifyCertificate::NoVerify, 0);
+        std::shared_ptr<crow::ConnectionInfo> httpClient =
+            std::make_shared<crow::ConnectionInfo>(
+                getIoContext(), "NvidiaMultipartUpdate", connPolicy, host,
+                ensuressl::VerifyCertificate::NoVerify, 0);
         crow::ConnectionInfo& conn = *httpClient;
 
         conn.callback =
             std::bind_front(&UpdateCtx::onHttpClientDataSendComplete, this,
-                            weak_from_this(), satelliteInfo.begin()->first);
+                            shared_from_this(), satelliteInfo.begin()->first);
 
         conn.req.target("/redfish/v1/UpdateService/update-multipart");
         BMCWEB_LOG_DEBUG(
