@@ -10,7 +10,6 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
 #include "nvidia_storage.hpp"
@@ -89,7 +88,6 @@ inline void handleStorageCollectionGet(
 
 inline void afterChassisDriveCollectionSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::shared_ptr<HealthPopulate>& health,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& ret)
 {
@@ -124,8 +122,6 @@ inline void afterChassisDriveCollectionSubtree(
             continue;
         }
 
-        health->inventory.insert(health->inventory.end(), path);
-
         nlohmann::json::object_t driveJson;
         std::string file = std::filesystem::path(path).filename();
 
@@ -136,14 +132,13 @@ inline void afterChassisDriveCollectionSubtree(
     }
     count = driveArray.size();
 }
-inline void getDrives(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::shared_ptr<HealthPopulate>& health)
+inline void getDrives(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        std::bind_front(afterChassisDriveCollectionSubtree, asyncResp, health));
+        std::bind_front(afterChassisDriveCollectionSubtree, asyncResp));
 }
 
 inline void afterSystemsStorageGetSubtree(
@@ -178,11 +173,9 @@ inline void afterSystemsStorageGetSubtree(
     asyncResp->res.jsonValue["Name"] = "Storage";
     asyncResp->res.jsonValue["Id"] = storageId;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    health->populate();
-
-    getDrives(asyncResp, health);
+    getDrives(asyncResp);
     asyncResp->res.jsonValue["Controllers"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/{}/Controllers",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);

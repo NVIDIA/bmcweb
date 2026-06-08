@@ -543,12 +543,6 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // default it to Enabled
         asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-        // FIXME: Health Populate
-        // auto health = std::make_shared<HealthPopulate>(asyncResp);
-        // health->inventory.emplace_back(path);
-        // health->selfPath = path;
-        // health->populate();
-
         nlohmann::json::object_t linkChassisNav;
         linkChassisNav["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);

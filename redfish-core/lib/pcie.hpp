@@ -12,7 +12,6 @@
 #include "generated/enums/pcie_device.hpp"
 #include "generated/enums/pcie_slots.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
 #include "nvidia_dbus_utility.hpp"

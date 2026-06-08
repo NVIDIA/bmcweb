@@ -18,6 +18,7 @@
 #pragma once
 
 #include "dbus_singleton.hpp"
+#include "generated/enums/resource.hpp"
 #include "nvidia_dbus_utility.hpp"
 #include "nvidia_fabric_config_update.hpp"
 #include "redfish_util.hpp"
@@ -934,27 +935,8 @@ inline void updateSwitchData(
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    }
-
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 }
 
 inline void updateZoneData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

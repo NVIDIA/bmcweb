@@ -423,7 +423,6 @@ inline void assembleDimmProperties(
         resource::State::Enabled;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
         resource::Health::OK;
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
 
     std::string dimmIdStr{dimmId};
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)

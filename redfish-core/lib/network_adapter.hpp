@@ -17,6 +17,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "generated/enums/resource.hpp"
 #include "nvidia_oem_device_reset.hpp"
 #include "ports.hpp"
 #include "query.hpp"
@@ -753,12 +754,8 @@ inline void doNetworkAdapter(
              chassisId, networkAdapterId)},
         {"ResetType@Redfish.AllowableValues", {"ForceRestart"}}};
 
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    } // BMCWEB_DISABLE_HEALTH_ROLLUP
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {
         asyncResp->res.jsonValue["Status"]["Conditions"] =
@@ -1161,26 +1158,6 @@ inline void getPortData(
             }
         });
 
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    } // BMCWEB_DISABLE_HEALTH_ROLLUP
-      // update health rollup
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                } // BMCWEB_DISABLE_HEALTH_ROLLUP
-            });
-        health->start();
-
-    } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {
         redfish::conditions_utils::populateServiceConditions(asyncResp,

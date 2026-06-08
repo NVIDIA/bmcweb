@@ -21,7 +21,7 @@
 #include "credential_pipe.hpp"
 #include "dot.hpp"
 #include "failover_policy.hpp"
-#include "health.hpp"
+#include "generated/enums/resource.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
@@ -663,46 +663,10 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
 
-                if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-                {
-                    auto health = std::make_shared<HealthRollup>(
-                        path,
-                        [asyncResp](const std::string& rootHealth,
-                                    const std::string& healthRollup) {
-                            asyncResp->res.jsonValue["Status"]["Health"] =
-                                rootHealth;
-                            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                            {
-                                asyncResp->res
-                                    .jsonValue["Status"]["HealthRollup"] =
-                                    healthRollup;
-                            } // BMCWEB_DISABLE_HEALTH_ROLLUP
-                        },
-                        &health_state::ok);
-                    health->start();
-                }
-                else
-                { // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-                    auto health = std::make_shared<HealthPopulate>(asyncResp);
-
-                    dbus::utility::getProperty<std::vector<std::string>>(
-
-                        "xyz.openbmc_project.ObjectMapper",
-                        path + "/all_sensors",
-                        "xyz.openbmc_project.Association", "endpoints",
-                        [health](const boost::system::error_code& ec2,
-                                 const std::vector<std::string>& resp) {
-                            if (ec2)
-                            {
-                                return; // no sensors = no failures
-                            }
-                            health->inventory = resp;
-                        });
-
-                    health->populate();
-                } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-
-                asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::OK;
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Enabled;
 
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#Chassis.v1_22_0.Chassis";
@@ -710,6 +674,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     "/redfish/v1/Chassis/" + chassisId;
                 asyncResp->res.jsonValue["Name"] = chassisId;
                 asyncResp->res.jsonValue["Id"] = chassisId;
+
                 if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
                 {
                     auto certsObject = std::string("/redfish/v1/Chassis/") +

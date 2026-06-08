@@ -18,6 +18,7 @@
 
 #include "dbus_singleton.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
@@ -634,12 +635,8 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         });
 
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    }
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 }
 
 /**

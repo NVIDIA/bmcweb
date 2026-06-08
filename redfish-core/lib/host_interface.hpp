@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include "health.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 
 #include <app.hpp>
@@ -53,33 +53,20 @@ inline void getInterfaceStatus(
                 return;
             }
 
-            constexpr const std::array<std::string_view, 1>
-                inventoryForEthernet = {
-                    "xyz.openbmc_project.Inventory.Item.Ethernet"};
-
-            nlohmann::json& jsonResponse = asyncResp->res.jsonValue;
-            auto health = std::make_shared<HealthPopulate>(asyncResp);
-
-            dbus::utility::getSubTreePaths(
-                "/", int32_t(0), inventoryForEthernet,
-                [health](const boost::system::error_code& ec1,
-                         const std::vector<std::string>& resp) {
-                    if (ec1)
-                    {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
-                        return;
-                    }
-                    health->inventory = resp;
-                });
-            health->populate();
             if (nicEnabled)
             {
-                jsonResponse["Status"]["State"] = "Enabled";
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Enabled;
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::OK;
                 asyncResp->res.jsonValue["InterfaceEnabled"] = true;
             }
             else
             {
-                jsonResponse["Status"]["State"] = "Disabled";
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Disabled;
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::Critical;
                 asyncResp->res.jsonValue["InterfaceEnabled"] = false;
             }
         });

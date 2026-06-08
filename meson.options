@@ -536,6 +536,7 @@ option(
     'redfish-health-populate',
     type: 'feature',
     value: 'enabled',
+    deprecated: true,
     description: '''Enables HealthPopulate and generate the Status property for
                     the resource. This option will be removed Q1 2024''',
 )
@@ -709,12 +710,14 @@ option(
     'health-rollup-alternative',
     type: 'feature',
     value: 'disabled',
+    deprecated: true,
     description: 'Enable health rollup alternative with support of xyz.openbmc_project.State.Decorator.Health interface and health_rollup association.',
 )
 option(
     'disable-health-rollup',
     type: 'feature',
     value: 'disabled',
+    deprecated: true,
     description: 'Disable health rollup.',
 )
 option(
@@ -793,6 +796,7 @@ option(
     'nvidia-oem-device-status-from-file',
     type: 'feature',
     value: 'disabled',
+    deprecated: true,
     description: 'Enable OEM Nvidia device status properties from file.',
 )
 option(

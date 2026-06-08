@@ -517,7 +517,6 @@ Fields common to all schemas
 - Ports
 - Status
   - Health
-  - HealthRollup
   - State
 
 ### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Ports/
@@ -541,7 +540,6 @@ Fields common to all schemas
 - Name
 - Status
   - Health
-  - HealthRollup
   - State
 
 ### /redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Ports/{PortId}/Metrics/

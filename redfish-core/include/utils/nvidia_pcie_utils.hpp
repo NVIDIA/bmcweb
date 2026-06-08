@@ -5,6 +5,7 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "utils/dbus_utils.hpp"
@@ -1127,43 +1128,17 @@ static inline void getPCIeDeviceState(
 
         if (deviceState == "xyz.openbmc_project.State.Chassis.PowerState.On")
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-            if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-            {
-                std::shared_ptr<HealthRollup> health =
-                    std::make_shared<HealthRollup>(
-                        escapedPath,
-                        [asyncResp](const std::string& rootHealth,
-                                    const std::string& healthRollup) {
-                            asyncResp->res.jsonValue["Status"]["Health"] =
-                                rootHealth;
-                            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                            {
-                                asyncResp->res
-                                    .jsonValue["Status"]["HealthRollup"] =
-                                    healthRollup;
-                            }
-                        });
-                health->start();
-            }
-            else
-            {
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-                }
-            }
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Enabled;
+            asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
         }
         else if (deviceState ==
                  "xyz.openbmc_project.State.Chassis.PowerState.Off")
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Disabled";
-            asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
-            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-            {
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] = "Critical";
-            }
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Disabled;
+            asyncResp->res.jsonValue["Status"]["Health"] =
+                resource::Health::Critical;
         }
         else
         {

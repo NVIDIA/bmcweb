@@ -25,6 +25,7 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
+#include "generated/enums/resource.hpp"
 #include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
@@ -2484,11 +2485,8 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                 }
 
                 asyncResp->res.jsonValue["Id"] = *swId;
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-                }
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::OK;
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =

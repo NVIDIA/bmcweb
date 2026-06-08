@@ -20,10 +20,10 @@
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/nvidia_chassis.hpp"
+#include "generated/enums/resource.hpp"
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
-#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_write_protect_domains_util.hpp"
@@ -34,7 +34,6 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
-#include <health.hpp>
 #include <nlohmann/json.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -836,42 +835,7 @@ inline void getHealthByAssociation(
                                         asyncResp->res
                                             .jsonValue["Status"]["State"] =
                                             "Enabled";
-                                        if constexpr (
-                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                        {
-                                            asyncResp->res
-                                                .jsonValue["Status"]
-                                                          ["HealthRollup"] =
-                                                "OK";
-                                        }
-                                        // update health
-                                        if constexpr (
-                                            BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-                                        {
-                                            std::shared_ptr<HealthRollup>
-                                                health = std::make_shared<
-                                                    HealthRollup>(
-                                                    sensorPath,
-                                                    [asyncResp](
-                                                        const std::string&
-                                                            rootHealth,
-                                                        const std::string&
-                                                            healthRollup) {
-                                                        asyncResp->res.jsonValue
-                                                            ["Status"]
-                                                            ["Health"] =
-                                                            rootHealth;
-                                                        if constexpr (
-                                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                                        {
-                                                            asyncResp->res.jsonValue
-                                                                ["Status"]
-                                                                ["HealthRollup"] =
-                                                                healthRollup;
-                                                        }
-                                                    });
-                                            health->start();
-                                        }
+
                                         if (*value ==
                                             "xyz.openbmc_project.State.Decorator.Health.HealthType.OK")
                                         {
@@ -2698,7 +2662,8 @@ inline void handleChassisGetAllProperties(
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
     // Assembly collection
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
@@ -3500,49 +3465,6 @@ inline void checkIndicatorChassis(const std::string& connectionName,
 
             callback(indicatorChassis);
         });
-}
-
-inline void populateHealthRollupAndDeviceStatus(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objPath, const std::string& chassisId)
-{
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
-
-    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
-    {
-        /** NOTES: This is a temporary solution to avoid performance
-         * issues may impact other Redfish services. Please call for
-         * architecture decisions from all NvBMC teams if want to use it
-         * in other places.
-         */
-
-        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-        {
-            // #error "Conflicts! Please set
-            // health-rollup-alternative=disabled."
-        }
-
-        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            // #error "Conflicts! Please set
-            // disable-health-rollup=disabled."
-        }
-
-        health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
-    }
 }
 
 template <typename InterfacesContainer>

@@ -21,7 +21,7 @@
 #include "app.hpp"
 #include "dbus_singleton.hpp"
 #include "ethernet.hpp"
-#include "health.hpp"
+#include "generated/enums/resource.hpp"
 #include "nvidia_dbus_utility.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"

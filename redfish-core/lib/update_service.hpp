@@ -1751,11 +1751,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                 });
         }
 
-        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-        {
-            asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-        }
+        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
         if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
         {
             asyncResp->res.jsonValue["Status"]["Conditions"] =
@@ -1772,7 +1768,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
         }
         else
         {
-            asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+            asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
         }
         // Nvidia FirmwareInventoryGet end
     }
@@ -1802,8 +1798,6 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     asyncResp->res.jsonValue["Name"] = "Software Inventory";
     if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-            resource::Health::OK;
         asyncResp->res.jsonValue["Updateable"] = false;
         sw_util::getSwUpdatableStatus(asyncResp, swId);
     }
