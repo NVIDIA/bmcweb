@@ -21,7 +21,11 @@
 #include "utils/dbus_fd_download_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
+#include <systemd/sd-bus.h>
+
 #include <boost/system/error_code.hpp>
+
+#include <string_view>
 
 namespace redfish
 {
@@ -37,15 +41,8 @@ enum class SpiEventType
 inline void afterSpiEventStarted(
     SpiEventType spiEventType, task::Payload&& payload,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& serviceName, const sdbusplus::object_path& eraseObjPath,
-    const boost::system::error_code& ec)
+    const std::string& serviceName, const sdbusplus::object_path& eraseObjPath)
 {
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Failed to start erase task: {}", ec.message());
-        messages::internalError(asyncResp->res);
-        return;
-    }
     std::string match = sdbusplus::bus::match::rules::propertiesChanged(
         eraseObjPath.str, "xyz.openbmc_project.Common.Progress");
 
@@ -68,6 +65,49 @@ inline void afterSpiEventStarted(
     task->startTimer(std::chrono::seconds(300));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+}
+
+inline bool handleSpiStartError(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const sdbusplus::message::message& msg)
+{
+    if (!ec)
+    {
+        return false;
+    }
+
+    BMCWEB_LOG_ERROR("Failed to start SPI task: {}", ec.message());
+
+    const sd_bus_error* dbusError = msg.get_error();
+    if (dbusError != nullptr && dbusError->name != nullptr)
+    {
+        std::string_view errorName(dbusError->name);
+        if (errorName == "xyz.openbmc_project.Common.Error.NotAllowed")
+        {
+            messages::chassisPowerStateOffRequired(asyncResp->res, chassisId);
+            return true;
+        }
+    }
+
+    messages::internalError(asyncResp->res);
+    return true;
+}
+
+inline void handleSpiStartResponse(
+    SpiEventType spiEventType, task::Payload&& payload,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& service,
+    const boost::system::error_code& ec, sdbusplus::message::message& msg,
+    const sdbusplus::object_path& objPath)
+{
+    if (handleSpiStartError(asyncResp, chassisId, ec, msg))
+    {
+        return;
+    }
+
+    afterSpiEventStarted(spiEventType, std::move(payload), asyncResp, service,
+                         objPath);
 }
 
 inline void afterSpiInterfacesFound(
@@ -132,9 +172,10 @@ inline void afterSpiInterfacesFound(
     dbus::utility::async_method_call(
         [asyncResp, payload = std::move(payload), chassisId, spiEventType,
          service](const boost::system::error_code& ec2,
+                  sdbusplus::message::message& msg,
                   const sdbusplus::object_path& objPath) mutable {
-            afterSpiEventStarted(spiEventType, std::move(payload), asyncResp,
-                                 service, objPath, ec2);
+            handleSpiStartResponse(spiEventType, std::move(payload), asyncResp,
+                                   chassisId, service, ec2, msg, objPath);
         },
         service, path, "com.nvidia.GraceSPI", method);
 }
