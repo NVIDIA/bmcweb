@@ -448,6 +448,11 @@ class Connection :
                             req->getHeaderValue("X-Requested-With"),
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
+                    if (requestAsyncResp)
+                    {
+                        requestAsyncResp->res.releaseCompleteRequestHandler();
+                        requestAsyncResp.reset();
+                    }
                     return;
                 }
             }
