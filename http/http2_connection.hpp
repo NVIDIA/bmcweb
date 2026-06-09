@@ -371,7 +371,11 @@ class HTTP2Connection :
 
         if (it->second.headersAsyncResp)
         {
-            return 0;
+            if (it->second.req &&
+                it->second.req->req.body().multipartParserCallbacks)
+            {
+                return 0;
+            }
         }
 
         crow::Request& thisReq = *it->second.req;
