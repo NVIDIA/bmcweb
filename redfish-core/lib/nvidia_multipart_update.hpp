@@ -871,18 +871,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         BMCWEB_LOG_DEBUG("Satellite controller get complete");
-        boost::urls::url host;
         if (satelliteInfo.empty())
         {
-            // TODO(Ed)
-            // BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-            // return;
-            host = boost::urls::url("http://127.0.0.1:5000");
+            BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+            return;
         }
-        else
-        {
-            host = satelliteInfo.begin()->second;
-        }
+        boost::urls::url& host = satelliteInfo.begin()->second;
 
         BMCWEB_LOG_DEBUG("Satellite host: {}", host);
 
