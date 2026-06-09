@@ -48,7 +48,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -404,8 +403,7 @@ class Connection :
         req->ipAddress = ip;
 
         // Check for HTTP version 1.1.
-        if (req &&
-            req->version() == 11) // NVIDIA code for streaming: added null guard
+        if (req->version() == 11)
         {
             if (req->getHeaderValue(field::host).empty())
             {
@@ -795,20 +793,17 @@ class Connection :
                       const boost::system::error_code& ec,
                       std::size_t bytesTransferred)
     {
-        BMCWEB_LOG_DEBUG("{} afterDoWrite {} bytes ec={}", logPtr(this),
+        BMCWEB_LOG_DEBUG("{} async_write wrote {} bytes, ec={}", logPtr(this),
                          bytesTransferred, ec);
 
-        // NVIDIA code starts for streaming: cancel the absolute streaming abort
-        // timer once the write finished (replaces the original EAGAIN doWrite
-        // retry). Streaming finished (cleanly or with error); cancel the
-        // absolute abort timer so it doesn't fire after the wire is already
-        // done.
-        if (streamAbortTimer)
+        cancelDeadlineTimer();
+
+        if (ec == boost::system::errc::operation_would_block ||
+            ec == boost::system::errc::resource_unavailable_try_again)
         {
-            streamAbortTimer->cancel();
-            streamAbortTimer.reset();
+            doWrite();
+            return;
         }
-        // NVIDIA code ends for streaming
 
         if (ec == boost::beast::http::error::end_of_stream ||
             ec == boost::asio::ssl::error::stream_truncated)
@@ -839,20 +834,6 @@ class Connection :
             return;
         }
 
-        // NVIDIA code starts for streaming: a streamed response is not
-        // reusable; close instead of reading another request on the same
-        // socket.
-        if (responseWasStreaming)
-        {
-            BMCWEB_LOG_DEBUG(
-                "{} Streaming response complete; closing socket without "
-                "reading next request",
-                logPtr(this));
-            gracefulClose();
-            return;
-        }
-        // NVIDIA code ends for streaming
-
         if (!keepAlive)
         {
             BMCWEB_LOG_DEBUG("{} keepalive not set.  Closing socket",
@@ -875,94 +856,29 @@ class Connection :
     void doWrite()
     {
         BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
-        boost::urls::url_view urlView;
-        if (req != nullptr)
-        {
-            urlView = req->url();
-        }
-
         ForceChunking chunked = ForceChunking::Disabled;
+
         if constexpr (BMCWEB_HTTP_CHUNKING)
         {
             if (req && req->version() == 11)
             {
                 std::string_view acceptEncodings = req->getHeaderValue(
-                    boost::beast::http::field::accept_encoding);
+                    boost::beast::http::field::
+                        accept_encoding); // NOLINTNEXTLINE(readability-identifier-naming)
                 if (http_helpers::headerContains(acceptEncodings, "chunked"))
                 {
                     chunked = ForceChunking::Enabled;
                 }
             }
         }
+
+        boost::urls::url_view urlView;
+        if (req != nullptr)
+        {
+            urlView = req->url();
+        }
         res.preparePayload(urlView, chunked);
 
-        // NVIDIA code starts for streaming: streaming-pipe write path. When the
-        // body is a pipe, register the data-ready callback, arm an absolute
-        // abort timer, and drive the write through doWriteStreamChunk() instead
-        // of a single boost::beast::async_write of the whole message.
-        if (res.response.body().isStreamingPipe())
-        {
-            // Remember that this response was a streaming pipe so afterDoWrite
-            // skips doReadHeaders() and closes the connection instead of
-            // attempting to reuse it for another request.
-            responseWasStreaming = true;
-            // Register "body data is readable" callback. The body owns the FD
-            // watcher (dup + async_wait); we only hand it our executor and
-            // a member-function entry point. Connection state checks
-            // (writeGen / writeActive) live in onDataReady() — they are
-            // connection concerns and stay on this side of the boundary.
-            res.response.body().setOnReady(
-                adaptor.get_executor(),
-                std::bind_front(&self_type::onDataReady, shared_from_this()));
-
-            // Absolute wall-clock cap on the whole streaming response.
-            // Closing the upstream pipe alone is not enough when the client
-            // is rate-limited: the kernel pipe + TCP send buffer can keep
-            // the connection alive for hours after the upstream deadline.
-            // Schedule a hard close here so the wire is dropped at the cap
-            // regardless of per-chunk progress. The connection is kept alive
-            // by the strong capture until the timer fires or is cancelled in
-            // afterDoWrite().
-            bmcweb::armStreamAbortTimer(
-                streamAbortTimer, adaptor.get_executor(),
-                res.response.body().getStreamDeadline(),
-                std::format("{} HTTP/1.1", logPtr(this)),
-                [self = shared_from_this()]() { self->hardClose(); });
-
-            // Only streaming-pipe bodies use the manual
-            // prepare()/async_write_some()/consume() loop, because that loop is
-            // the only thing that can suspend on EAGAIN and resume when the
-            // pipe FD becomes readable. Buffered responses fall through to the
-            // composed async_write below.
-            writeGen = std::make_unique<boost::beast::http::message_generator>(
-                std::move(res.response));
-            doWriteStreamChunk();
-            return;
-        }
-        // NVIDIA code starts for streaming: file-backed (non-pipe) bodies must
-        // also use the manual chunked loop, not the composed async_write below.
-        // doWriteStreamChunk() resets the per-chunk response deadline on every
-        // write, so a multi-GB file survives a slow downstream client. The
-        // composed async_write arms startDeadline() exactly once, which becomes
-        // a hard cap on the whole transfer at BMCWEB_HTTP_RESPONSE_TIMEOUT
-        // (300s in the meta-layer): an HTTP/2 client draining slower than that
-        // gets the connection hard-closed mid-file. file().is_open() is true
-        // only for FdSource bodies; the pipe case already returned above, so
-        // reaching here with an open file means a regular file body.
-        if (res.response.body().file().is_open())
-        {
-            writeGen = std::make_unique<boost::beast::http::message_generator>(
-                std::move(res.response));
-            doWriteStreamChunk();
-            return;
-        }
-        // NVIDIA code ends for streaming
-
-        // Buffered in-memory (string, e.g. JSON) response: original bmcweb
-        // write path, unchanged. A single composed async_write of the whole
-        // in-memory message. Safe here because a string body is fully resident
-        // and small, so it completes well within the response deadline; it
-        // cannot suspend on an external FD the way a file or pipe can.
         startDeadline(DeadlineTimerType::Default);
         if (httpType == HttpType::HTTP)
         {
@@ -981,138 +897,6 @@ class Connection :
                                 shared_from_this()));
         }
     }
-
-    // NVIDIA code starts for streaming
-    // Callback registered with the body via setOnReady(). Fires when more
-    // body data becomes readable. Returns true to keep the watcher
-    // re-arming, false to disarm.
-    bool onDataReady(boost::system::error_code ec)
-    {
-        if (ec)
-        {
-            return false;
-        }
-        // writeGen is null after the body is fully serialised; guard against
-        // a second afterDoWrite() call if the notifier fires post pipe EOF.
-        if (!writeGen)
-        {
-            return false;
-        }
-        // A socket write is already in flight; disarm rather than spin.
-        // afterWriteSome -> doWriteStreamChunk() will drain the pipe once the
-        // write completes, and re-arm on the next EAGAIN if needed.
-        if (writeActive)
-        {
-            return false;
-        }
-        doWriteStreamChunk();
-        return true;
-    }
-
-    void doWriteStreamChunk()
-    {
-        if (!writeGen || writeGen->is_done())
-        {
-            writeGen.reset();
-            afterDoWrite(shared_from_this(), {}, 0);
-            return;
-        }
-        // Prevent concurrent writes racing on fileReadBuf.
-        if (writeActive)
-        {
-            return;
-        }
-        // Per-chunk stall timer: resets after every successful buffer write.
-        cancelDeadlineTimer();
-        startDeadline(DeadlineTimerType::Default);
-
-        // Use prepare()/async_write_some()/consume() for broad Boost version
-        // compatibility.
-        boost::system::error_code prepEc{};
-        auto buf = writeGen->prepare(prepEc);
-        if (prepEc)
-        {
-            // EAGAIN: no data yet; the body writer re-arms the notifier
-            // lazily (from getWithMaxSize) so doWriteStreamChunk() will be
-            // called when data arrives.
-            if (prepEc == boost::system::errc::operation_would_block ||
-                prepEc == boost::system::errc::resource_unavailable_try_again)
-            {
-                return;
-            }
-            cancelDeadlineTimer();
-            writeGen.reset();
-            BMCWEB_LOG_ERROR("{} write prepare error: {}", logPtr(this),
-                             prepEc.message());
-            // Hard-close so the client detects the error without waiting for
-            // stall timer.
-            hardClose();
-            return;
-        }
-        if (boost::asio::buffer_size(buf) == 0)
-        {
-            // CL serializer stalls on empty buf (pipe EOF): skip straight to
-            // afterDoWrite().
-            BMCWEB_LOG_DEBUG(
-                "{} prepare returned empty buffer (pipe EOF), closing",
-                logPtr(this));
-            cancelDeadlineTimer();
-            writeGen.reset();
-            afterDoWrite(shared_from_this(), {}, 0);
-            return;
-        }
-
-        writeActive = true;
-        auto afterWrite =
-            [self = shared_from_this(),
-             this](boost::system::error_code ec, std::size_t transferred) {
-                writeActive = false;
-                if (transferred > 0)
-                {
-                    writeGen->consume(transferred);
-                }
-                afterWriteSome(self, ec, transferred);
-            };
-        if (httpType == HttpType::HTTP)
-        {
-            adaptor.next_layer().async_write_some(buf, std::move(afterWrite));
-        }
-        else
-        {
-            adaptor.async_write_some(buf, std::move(afterWrite));
-        }
-    }
-
-    void afterWriteSome(const std::shared_ptr<self_type>& /*self*/,
-                        const boost::system::error_code& ec,
-                        std::size_t /*bytesTransferred*/)
-    {
-        cancelDeadlineTimer();
-
-        if (ec == boost::system::errc::operation_would_block ||
-            ec == boost::system::errc::resource_unavailable_try_again)
-        {
-            doWriteStreamChunk();
-            return;
-        }
-
-        if (ec)
-        {
-            writeGen.reset();
-            BMCWEB_LOG_DEBUG("{} write error: {}", logPtr(this), ec.message());
-            return;
-        }
-
-        if (writeGen && !writeGen->is_done())
-        {
-            doWriteStreamChunk();
-            return;
-        }
-
-        writeGen.reset();
-        afterDoWrite(shared_from_this(), {}, 0);
-    }
-    // NVIDIA code ends for streaming
 
     void cancelDeadlineTimer()
     {
@@ -1212,36 +996,9 @@ class Connection :
 
     boost::asio::steady_timer timer;
 
-    // NVIDIA code starts for streaming
-    // Wall-clock cap on a single streaming response. Distinct from `timer`
-    // (per-chunk wire stall, reset on every write) — this one is set once at
-    // streaming start from body.getStreamDeadline() and forces hardClose at
-    // the absolute time, regardless of per-chunk progress. Needed because a
-    // slow client can keep the per-chunk timer perpetually reset by ack-ing
-    // one byte at a time, so the existing 60s deadline never fires.
-    std::optional<boost::asio::steady_timer> streamAbortTimer;
-    // NVIDIA code ends for streaming
-
     bool keepAlive = true;
 
-    // NVIDIA code starts for streaming
-    // Set in doWrite() when the response body is a streaming pipe.
-    // afterDoWrite() reads this (post-completion) to close the connection
-    // instead of calling doReadHeaders() to read another request on the same
-    // socket.
-    bool responseWasStreaming = false;
-    // NVIDIA code ends for streaming
-
     bool timerStarted = false;
-
-    // NVIDIA code starts for streaming
-    // Holds the response generator across per-chunk async_write_some calls.
-    // Using a pointer so we can detect "write in progress" vs "idle".
-    std::unique_ptr<boost::beast::http::message_generator> writeGen;
-
-    // Prevents concurrent writes from racing on fileReadBuf.
-    bool writeActive = false;
-    // NVIDIA code ends for streaming
 
     std::function<std::string()>& getCachedDateStr;
 

@@ -4,18 +4,13 @@
 
 #include "duplicatable_file_handle.hpp"
 #include "logging.hpp"
-#include "nvidia_http_body_streaming.hpp" // NVIDIA code for streaming
 #include "utility.hpp"
 #include "zstd_compressor.hpp"
 #include "zstd_decompressor.hpp"
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/beast/core/buffer_traits.hpp>
 #include <boost/beast/core/buffers_range.hpp>
 #include <boost/beast/core/error.hpp>
@@ -29,17 +24,13 @@
 
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace bmcweb
 {
@@ -86,36 +77,15 @@ enum class CompressionType
     Zstd,
 };
 
-// NVIDIA code for streaming: HttpResponseWireFormat,
-// prepareResponseHeadersForWireFormat and PipeNotifier live in
-// nvidia_http_body_streaming.hpp (included above).
-
 class HttpBody::value_type
 {
-    // NVIDIA code starts for streaming: value_type reworked from {fileHandle,
-    // strBody} to a variant<string, FdSource> plus streaming state (pipe
-    // notifier, lifeline, stream deadline, streamingReceiver). This member
-    // block and several methods below differ from upstream. Pipe EOF requires
-    // read()==0; file EOF uses read < readReq.
-    struct FdSource
-    {
-        DuplicatableFileHandle handle;
-        bool isPipe = false;
-    };
-
-    // String by default; FdSource when backed by a file or pipe.
-    std::variant<std::string, FdSource> body;
+    DuplicatableFileHandle fileHandle;
     std::optional<size_t> fileSize;
-    // All streaming-only state (pipe watcher, data-ready callback, lifeline,
-    // deadline, trusted-receiver flag) lives in StreamingBodyState so this
-    // file's divergence from upstream stays a single member plus the thin
-    // forwarders below. See nvidia_http_body_streaming.hpp.
-    bmcweb::StreamingBodyState streaming;
-    // NVIDIA code ends for streaming
+    std::string strBody;
 
   public:
     value_type() = default;
-    explicit value_type(std::string_view s) : body(std::string(s)) {}
+    explicit value_type(std::string_view s) : strBody(s) {}
     explicit value_type(EncodingType e) : encodingType(e) {}
     EncodingType encodingType = EncodingType::Raw;
     CompressionType compressionType = CompressionType::Raw;
@@ -127,144 +97,31 @@ class HttpBody::value_type
         encodingType(enc), compressionType(comp)
     {}
 
-    value_type(const value_type& other) = default;
-    value_type& operator=(const value_type& other) = default;
+    value_type(const value_type& other) noexcept = default;
+    value_type& operator=(const value_type& other) noexcept = default;
     value_type(value_type&& other) noexcept = default;
     value_type& operator=(value_type&& other) noexcept = default;
 
-    // NVIDIA code for streaming: file() reads the handle out of the variant.
-    // Returns a closed handle for string bodies.
     const boost::beast::file_posix& file() const
     {
-        if (const auto* src = std::get_if<FdSource>(&body))
-        {
-            return src->handle.fileHandle;
-        }
-        static const boost::beast::file_posix closed;
-        return closed;
+        return fileHandle.fileHandle;
     }
 
-    // NVIDIA code starts for streaming: streaming-pipe accessors and lifecycle
-    // helpers.
-    bool isStreamingPipe() const
-    {
-        const auto* src = std::get_if<FdSource>(&body);
-        return src != nullptr && src->isPipe;
-    }
-
-    bool hasOnReady() const
-    {
-        return streaming.hasOnReady();
-    }
-
-    // Register the connection's "pipe is readable" callback.  The body owns
-    // the watcher (dup() of the pipe fd +
-    // posix::stream_descriptor::async_wait); the connection only supplies an
-    // executor to run the callback on and the callback itself.  Idempotent: a
-    // second call is ignored, so call sites can register lazily on first need
-    // without an explicit hasOnReady() guard. No-op for non-pipe bodies.
-    void setOnReady(boost::asio::any_io_executor exec,
-                    std::function<bool(boost::system::error_code)> onReady)
-    {
-        if (!isStreamingPipe())
-        {
-            return;
-        }
-        streaming.setOnReady(std::move(exec), std::move(onReady));
-    }
-
-    void setLifeline(std::shared_ptr<void> guard)
-    {
-        streaming.lifeline = std::move(guard);
-    }
-
-    void setStreamDeadline(std::chrono::steady_clock::duration dur)
-    {
-        streaming.setStreamDeadline(dur);
-    }
-
-    void setStreamingReceiver(bool enable)
-    {
-        streaming.streamingReceiver = enable;
-    }
-
-    bool isStreamingReceiver() const
-    {
-        return streaming.streamingReceiver;
-    }
-
-    std::chrono::steady_clock::time_point getStreamDeadline() const
-    {
-        return streaming.streamDeadline;
-    }
-
-    bool hasStreamDeadline() const
-    {
-        return streaming.hasStreamDeadline();
-    }
-
-    // Cancel the pipe watcher on EOF to break the re-arm loop.
-    void cancelNotifier()
-    {
-        streaming.cancelNotifier();
-    }
-
-    // Arm the pipe watcher, creating it on first use.  Called from the body
-    // writer on EAGAIN: the body decides when an FD watcher is needed
-    // (only when the producer pipe has nothing ready), creates it from the
-    // executor + callback the connection supplied via setOnReady(), and
-    // re-arms on subsequent EAGAINs.  No-op if no onReady handler was
-    // registered (e.g. non-streaming body, or test path).
-    void armNotifier()
-    {
-        if (streaming.notifier)
-        {
-            streaming.notifier->arm();
-            return;
-        }
-        if (!isStreamingPipe())
-        {
-            return;
-        }
-        streaming.createAndArmNotifier(file().native_handle());
-    }
-    // NVIDIA code ends for streaming
-
-    // NVIDIA code for streaming: str() switches the variant back to its string
-    // alternative.
     std::string& str()
     {
-        // std::variant::get throws bad_variant_access if the variant currently
-        // holds FdSource (e.g. after open()/setFd()). Switch the variant back
-        // to its string alternative so this never throws.
-        if (std::string* strPtr = std::get_if<std::string>(&body);
-            strPtr != nullptr)
-        {
-            return *strPtr;
-        }
-        return body.emplace<std::string>();
+        return strBody;
     }
 
-    // NVIDIA code for streaming: const str() reads the string alternative out
-    // of the variant.
     const std::string& str() const
     {
-        if (const std::string* strPtr = std::get_if<std::string>(&body);
-            strPtr != nullptr)
-        {
-            return *strPtr;
-        }
-        static const std::string empty;
-        return empty;
+        return strBody;
     }
 
-    // NVIDIA code for streaming: payloadSize() reads the string size out of the
-    // variant.
     std::optional<size_t> payloadSize() const
     {
-        if (const auto* strPtr = std::get_if<std::string>(&body))
+        if (!fileHandle.fileHandle.is_open())
         {
-            return strPtr->size();
+            return strBody.size();
         }
         if (fileSize)
         {
@@ -276,30 +133,25 @@ class HttpBody::value_type
         return fileSize;
     }
 
-    // NVIDIA code for streaming: clear() resets the variant to string and drops
-    // streaming state (notifier, onReady callback/executor, lifeline).
     void clear()
     {
-        body.emplace<std::string>();
+        strBody.clear();
+        strBody.shrink_to_fit();
+        fileHandle.fileHandle = boost::beast::file_posix();
         fileSize = std::nullopt;
         encodingType = EncodingType::Raw;
-        streaming.reset();
     }
 
-    // NVIDIA code for streaming: open() stores the handle in the variant's
-    // FdSource.
     void open(const char* path, boost::beast::file_mode mode,
               boost::system::error_code& ec)
     {
-        auto& src = body.emplace<FdSource>();
-        src.handle.fileHandle.open(path, mode, ec);
+        fileHandle.fileHandle.open(path, mode, ec);
         if (ec)
         {
-            body.emplace<std::string>();
             return;
         }
         boost::system::error_code ec2;
-        uint64_t size = src.handle.fileHandle.size(ec2);
+        uint64_t size = fileHandle.fileHandle.size(ec2);
         if (!ec2)
         {
             BMCWEB_LOG_INFO("File size was {} bytes", size);
@@ -310,7 +162,7 @@ class HttpBody::value_type
             BMCWEB_LOG_WARNING("Failed to read file size on {}", path);
         }
 
-        int fadvise = posix_fadvise(src.handle.fileHandle.native_handle(), 0, 0,
+        int fadvise = posix_fadvise(fileHandle.fileHandle.native_handle(), 0, 0,
                                     POSIX_FADV_SEQUENTIAL);
         if (fadvise != 0)
         {
@@ -319,46 +171,21 @@ class HttpBody::value_type
         ec = {};
     }
 
-    // NVIDIA code starts for streaming: setFd() detects pipes (fstat/S_ISFIFO),
-    // accepts a caller-supplied knownSize for Content-Length, and stores into
-    // the variant's FdSource.
-    void setFd(int fd, boost::system::error_code& ec,
-               std::optional<size_t> knownSize = std::nullopt)
+    void setFd(int fd, boost::system::error_code& ec)
     {
-        struct stat fileStat{};
-        auto& src = body.emplace<FdSource>();
-        src.isPipe = (::fstat(fd, &fileStat) == 0) &&
-                     S_ISFIFO(fileStat.st_mode);
-        src.handle.fileHandle.native_handle(fd);
+        fileHandle.fileHandle.native_handle(fd);
 
-        if (src.isPipe)
+        boost::system::error_code ec2;
+        uint64_t size = fileHandle.fileHandle.size(ec2);
+        if (!ec2)
         {
-            // fstat() on a pipe always reports size 0; trust the caller's
-            // Content-Length value when provided.
-            fileSize = knownSize;
-        }
-        else
-        {
-            if (knownSize.has_value())
+            if (size != 0 && size < std::numeric_limits<size_t>::max())
             {
-                fileSize = knownSize;
-            }
-            else
-            {
-                boost::system::error_code ec2;
-                uint64_t size = src.handle.fileHandle.size(ec2);
-                if (!ec2)
-                {
-                    if (size != 0 && size < std::numeric_limits<size_t>::max())
-                    {
-                        fileSize = static_cast<size_t>(size);
-                    }
-                }
+                fileSize = static_cast<size_t>(size);
             }
         }
         ec = {};
     }
-    // NVIDIA code ends for streaming
 };
 
 class HttpBody::writer
@@ -439,34 +266,14 @@ class HttpBody::writer
         else
         {
             size_t readReq = std::min(fileReadBuf.size(), maxSize);
-            BMCWEB_LOG_INFO("Reading {} handle", readReq);
+            BMCWEB_LOG_INFO("Reading {}", readReq);
             boost::system::error_code readEc;
             size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
             if (readEc)
             {
-                // NVIDIA code starts for streaming: treat EAGAIN on a pipe as
-                // backpressure (re-arm the notifier and yield) rather than a
-                // fatal error.
-                if (readEc == boost::system::errc::operation_would_block ||
-                    readEc ==
+                if (readEc != boost::system::errc::operation_would_block &&
+                    readEc !=
                         boost::system::errc::resource_unavailable_try_again)
-                {
-                    if (read == 0)
-                    {
-                        // Pipe empty; re-arm the notifier lazily so it fires
-                        // when data arrives.  arm() is idempotent if already
-                        // pending, and handles the case where the callback was
-                        // disarmed while a socket write was in progress.
-                        body.armNotifier();
-                        ec = readEc;
-                        return boost::none;
-                    }
-                    // Bytes read before EAGAIN are valid; clear the spurious
-                    // error.
-                    readEc = {};
-                }
-                else
-                // NVIDIA code ends for streaming
                 {
                     BMCWEB_LOG_CRITICAL("Failed to read from file {}",
                                         readEc.message());
@@ -476,27 +283,10 @@ class HttpBody::writer
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
-            BMCWEB_LOG_INFO("Read {} bytes ec {}", read, readEc.message());
-            // NVIDIA code starts for streaming: pipe EOF requires read()==0;
-            // file EOF uses read < readReq.
-            if (body.isStreamingPipe())
-            {
-                ret.second =
-                    (read > 0); // pipe: more data until write end closed
-                if (read == 0)
-                {
-                    // Stop the notifier to avoid infinite async_wait loop after
-                    // EOF.
-                    body.cancelNotifier();
-                }
-            }
-            else
-            {
-                // If the number of bytes read equals the amount requested, we
-                // haven't reached EOF yet
-                ret.second = read == readReq;
-            }
-            // NVIDIA code ends for streaming
+            BMCWEB_LOG_INFO("Read {} bytes from file", read);
+            // If the number of bytes read equals the amount requested, we
+            // haven't reached EOF yet
+            ret.second = read == readReq;
             if (body.encodingType == EncodingType::Base64)
             {
                 buf.clear();
@@ -559,21 +349,11 @@ class HttpBody::reader
     void init(const boost::optional<std::uint64_t>& contentLength,
               boost::beast::error_code& ec)
     {
-        // NVIDIA code starts for streaming: skip the Content-Length
-        // reserve/guard for streaming receivers (they never reserve
-        // proportional memory); cap the reservation otherwise.
-        if (contentLength && !value.file().is_open() &&
-            !value.isStreamingReceiver())
+        if (contentLength)
         {
             constexpr size_t maxReserveSize =
                 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
 
-            // Reject only when this is an inbound body from an external
-            // client that would be reserved into a std::string. Trusted
-            // internal receivers that stream the body chunk-by-chunk mark
-            // their parser body via setStreamingReceiver(true) so this guard
-            // is skipped; they never reserve memory proportional to
-            // Content-Length.
             if (*contentLength > maxReserveSize)
             {
                 BMCWEB_LOG_WARNING(
@@ -583,12 +363,11 @@ class HttpBody::reader
                 return;
             }
 
-            // Cap reservation to avoid OOM for large responses on
-            // low-memory BMCs.
-            value.str().reserve(
-                std::min(static_cast<size_t>(*contentLength), maxReserveSize));
+            if (!value.file().is_open())
+            {
+                value.str().reserve(static_cast<size_t>(*contentLength));
+            }
         }
-        // NVIDIA code ends for streaming
         ec = {};
     }
 

@@ -34,17 +34,7 @@ namespace redfish
 namespace log_services_utils
 {
 
-// NVIDIA code starts for streaming
-// Default max size of 20MB to accommodate BMC/System dumps
-constexpr long long int defaultMaxFileSize = 20LL * 1024LL * 1024LL;
-// FDR dumps can be much larger; allow up to 2GB
-constexpr long long int fdrMaxFileSize = 2LL * 1024LL * 1024LL * 1024LL;
-// NVIDIA code ends for streaming
-
-inline bool checkSizeLimit(
-    int fd, crow::Response& res,
-    // NVIDIA code for streaming: added maxFileSize parameter
-    long long int maxFileSize = defaultMaxFileSize)
+inline bool checkSizeLimit(int fd, crow::Response& res)
 {
     long long int size = lseek(fd, 0, SEEK_END);
     if (size <= 0)
@@ -55,6 +45,8 @@ inline bool checkSizeLimit(
         return false;
     }
 
+    // Arbitrary max size of 20MB to accommodate BMC dumps
+    constexpr long long int maxFileSize = 20LL * 1024LL * 1024LL;
     if (size > maxFileSize)
     {
         BMCWEB_LOG_ERROR("File size {} exceeds maximum allowed size of {}",
@@ -110,11 +102,7 @@ inline void downloadEntryCallback(
         messages::internalError(asyncResp->res);
         return;
     }
-    // NVIDIA code starts for streaming
-    long long int maxFileSize =
-        (downloadEntryType == "FDR") ? fdrMaxFileSize : defaultMaxFileSize;
-    if (!checkSizeLimit(fd, asyncResp->res, maxFileSize))
-    // NVIDIA code ends for streaming
+    if (!checkSizeLimit(fd, asyncResp->res))
     {
         close(fd);
         return;
