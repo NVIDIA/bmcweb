@@ -101,19 +101,19 @@ TEST(HttpParsing, isJsonContentType)
 
 TEST(HttpParsing, parseRequestAsJsonLimitsArrayDepth)
 {
-    EXPECT_TRUE(parseStringAsJson(makeDeepArray(10)))
-        << "10 level deep should parse";
+    EXPECT_TRUE(parseStringAsJson(makeDeepArray(20)))
+        << "20 level deep should parse";
 
-    EXPECT_FALSE(parseStringAsJson(makeDeepArray(11)))
-        << "11 level deep should fail to parse";
+    EXPECT_FALSE(parseStringAsJson(makeDeepArray(21)))
+        << "21 level deep should fail to parse";
 }
 
 TEST(HttpParsing, parseRequestAsJsonLimitsObjectDepths)
 {
-    EXPECT_TRUE(parseStringAsJson(makeDeepObject(10)))
-        << "10 level deep should parse";
-    EXPECT_FALSE(parseStringAsJson(makeDeepObject(11)))
-        << "11 level deep should fail to parse";
+    EXPECT_TRUE(parseStringAsJson(makeDeepObject(20)))
+        << "20 level deep should parse";
+    EXPECT_FALSE(parseStringAsJson(makeDeepObject(21)))
+        << "21 level deep should fail to parse";
 }
 
 TEST(HttpParsing, parseStringAsJsonMaxValues)

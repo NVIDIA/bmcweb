@@ -49,7 +49,7 @@ class BmcwebSaxParse : public nlohmann::json::json_sax_t
 
     // Depth counter treating arrays and objects as the same level
     int currentDepth = 0;
-    constexpr static int maxDepth = 10;
+    constexpr static int maxDepth = 20;
 
     int totalValues = 0;
     // Sized for Vera BIOS PUT (~4100 attrs, ~100k SAX events).
