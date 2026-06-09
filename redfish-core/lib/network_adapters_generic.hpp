@@ -2707,7 +2707,8 @@ inline void doNetworkAdapterSettingsPatch(
             return;
         }
         nvidia_network_adapters_utils::patchDpuOperationMode(
-            asyncResp, *validNetworkAdapterPath, *dpuOperationMode);
+            asyncResp, networkAdapterId, *validNetworkAdapterPath,
+            *dpuOperationMode);
     }
 
     std::vector<std::tuple<std::string, uint32_t>> pciePatches;
