@@ -19,6 +19,7 @@
 #include <boost/url/url.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <utils/privilege_utils.hpp>
 #include <utils/registry_utils.hpp>
 
 #include <array>
@@ -74,4 +75,37 @@ inline void handleNvidiaDeleteError(
         messages::internalError(asyncResp->res);
     }
 }
+inline void handleNvidiaBootstrapSelfDelete(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& username)
+{
+    sdbusplus::message::object_path userObjPath("/xyz/openbmc_project/user/");
+    userObjPath /= username;
+    const std::string userPath(userObjPath);
+
+    privilege_utils::isBiosPrivilege(
+        username,
+        [asyncResp, username,
+         userPath](const boost::system::error_code& ec, const bool isBios) {
+            if (ec || !isBios)
+            {
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            }
+            dbus::utility::async_method_call(
+                asyncResp,
+                [asyncResp, username](const boost::system::error_code& ec2,
+                                      sdbusplus::message::message& m) {
+                    if (ec2)
+                    {
+                        handleNvidiaDeleteError(asyncResp, username, m);
+                        return;
+                    }
+                    messages::accountRemoved(asyncResp->res);
+                },
+                "xyz.openbmc_project.User.Manager", userPath,
+                "xyz.openbmc_project.Object.Delete", "Delete");
+        });
+}
+
 } // namespace redfish
