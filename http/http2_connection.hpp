@@ -78,6 +78,15 @@ class HTTP2Connection :
 {
     using self_type = HTTP2Connection<Adaptor, Handler>;
     static constexpr size_t frameSize = 65536;
+    // NVIDIA code start
+    // Tuned to keep a single FDR stream at parity with HTTP/1.1
+    // throughput.  The default nghttp2 frame size (16 KiB) and initial
+    // window (65 KiB) leave the pipe under-utilised for binary streams;
+    // 16 KiB frames with a 1 MiB connection/stream window allows nghttp2
+    // to queue several frames in-flight and sustain ~4 MB/s on BMC HW.
+    static constexpr uint32_t http2MaxFrameSize = 1U << 14;      // 16 KiB
+    static constexpr uint32_t http2InitialWindowSize = 1U << 20; // 1 MiB
+    // NVIDIA code end
 
   public:
     HTTP2Connection(
@@ -138,9 +147,10 @@ class HTTP2Connection :
         std::array<nghttp2_settings_entry, 4> iv = {{
             {NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxStreams},
             {NGHTTP2_SETTINGS_ENABLE_PUSH, 0},
-            // Set an approximately 1MB window size
-            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, windowSize},
-            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, maxFrameSize},
+            // NVIDIA code start
+            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, http2InitialWindowSize},
+            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, http2MaxFrameSize},
+            // NVIDIA code end
         }};
         if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0, 1 << 20) != 0)
         {
