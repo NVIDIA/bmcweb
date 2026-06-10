@@ -2204,7 +2204,7 @@ inline void handleAccountDelete(
 
     if (username == req.session->username)
     {
-        messages::operationNotAllowed(asyncResp->res);
+        handleNvidiaBootstrapSelfDelete(asyncResp, username);
         return;
     }
 
