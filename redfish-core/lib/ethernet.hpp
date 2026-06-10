@@ -802,8 +802,8 @@ inline void deleteIPAddress(const std::string& ifaceId,
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const sdbusplus::message_t& msg) {
-        handleDbusError(asyncResp, ec, msg);
-    },
+            handleDbusError(asyncResp, ec, msg);
+        },
         "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId + ipHash,
         "xyz.openbmc_project.Object.Delete", "Delete");
@@ -824,11 +824,11 @@ inline void createIPv4(const std::string& ifaceId, uint8_t prefixLength,
                        const std::string& gateway, const std::string& address,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto createIpHandler = [asyncResp, ifaceId,
-                            gateway](const boost::system::error_code& ec,
-                                     const sdbusplus::message_t& msg) {
-        handleDbusError(asyncResp, ec, msg);
-    };
+    auto createIpHandler =
+        [asyncResp, ifaceId, gateway](const boost::system::error_code& ec,
+                                      const sdbusplus::message_t& msg) {
+            handleDbusError(asyncResp, ec, msg);
+        };
 
     dbus::utility::async_method_call(
         asyncResp, std::move(createIpHandler), "xyz.openbmc_project.Network",
@@ -863,21 +863,21 @@ inline void deleteAndCreateIPAddress(
         [asyncResp, version, ifaceId, address, prefixLength,
          gateway](const boost::system::error_code& ec,
                   const sdbusplus::message_t& msg) {
-        if (handleDbusError(asyncResp, ec, msg))
-        {
-            return;
-        }
-        std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
-        protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec2,
-                        const sdbusplus::message_t& msg2) {
-            handleDbusError(asyncResp, ec2, msg2);
-        },
-            "xyz.openbmc_project.Network",
-            "/xyz/openbmc_project/network/" + ifaceId,
-            "xyz.openbmc_project.Network.IP.Create", "IP", protocol,
-            address, prefixLength, gateway);
+            if (handleDbusError(asyncResp, ec, msg))
+            {
+                return;
+            }
+            std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
+            protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code& ec2,
+                            const sdbusplus::message_t& msg2) {
+                    handleDbusError(asyncResp, ec2, msg2);
+                },
+                "xyz.openbmc_project.Network",
+                "/xyz/openbmc_project/network/" + ifaceId,
+                "xyz.openbmc_project.Network.IP.Create", "IP", protocol,
+                address, prefixLength, gateway);
         },
         "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId + id,
@@ -939,20 +939,20 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
 
-    auto createIpHandler = [asyncResp,
-                            address](const boost::system::error_code& ec,
-                                     const sdbusplus::message_t& msg) {
-        if (ec)
-        {
-            if (ec == boost::system::errc::io_error)
+    auto createIpHandler =
+        [asyncResp, address](const boost::system::error_code& ec,
+                             const sdbusplus::message_t& msg) {
+            if (ec)
             {
-                messages::propertyValueFormatError(asyncResp->res, address,
-                                                   "Address");
-                return;
+                if (ec == boost::system::errc::io_error)
+                {
+                    messages::propertyValueFormatError(asyncResp->res, address,
+                                                       "Address");
+                    return;
+                }
+                handleDbusError(asyncResp, ec, msg);
             }
-            handleDbusError(asyncResp, ec, msg);
-        }
-    };
+        };
     // Passing null for gateway, as per redfish spec IPv6StaticAddresses
     // object does not have associated gateway property
     dbus::utility::async_method_call(
@@ -981,8 +981,8 @@ inline void deleteIPv6Gateway(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const sdbusplus::message_t& msg) {
-        handleDbusError(asyncResp, ec, msg);
-    },
+            handleDbusError(asyncResp, ec, msg);
+        },
         "xyz.openbmc_project.Network", path,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
@@ -1034,10 +1034,10 @@ inline void deleteAndCreateIPv6DefaultGateway(
     path /= gatewayId;
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, ifaceId, gateway](const boost::system::error_code& ec) {
-            if (ec)
+        [asyncResp, ifaceId, gateway](const boost::system::error_code& ec,
+                                      const sdbusplus::message_t& msg) {
+            if (handleDbusError(asyncResp, ec, msg))
             {
-                messages::internalError(asyncResp->res);
                 return;
             }
             createIPv6DefaultGateway(ifaceId, gateway, asyncResp);
@@ -2157,6 +2157,12 @@ inline void afterVlanCreate(
         {
             messages::resourceAlreadyExists(asyncResp->res, "EthernetInterface",
                                             "Id", vlanInterface);
+            return;
+        }
+        if (std::string_view("xyz.openbmc_project.Common.Error.NotAllowed") ==
+            dbusError->name)
+        {
+            messages::operationNotAllowed(asyncResp->res);
             return;
         }
         messages::internalError(asyncResp->res);
