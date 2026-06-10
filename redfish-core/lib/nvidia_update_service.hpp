@@ -394,6 +394,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::debugTokenEraseFailed(arg1, arg2);
     }
+    if (msgId == "NvidiaUpdate.1.1.DebugTokenEraseSkipped")
+    {
+        return messages::debugTokenEraseSkipped(arg1);
+    }
     if (msgId == "NvidiaResourceEvent.1.0.DeviceDriverErrorsDetected")
     {
         return messages::deviceDriverErrorsDetected(arg1, arg2, arg3);
