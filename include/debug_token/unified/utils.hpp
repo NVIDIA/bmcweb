@@ -65,7 +65,7 @@ static constexpr std::array<std::pair<std::string_view, std::string_view>, 21>
     }};
 
 // Token subtype mapping: Redfish name <-> D-Bus enum string
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 91>
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 93>
     tokenSubtypeMap = {
         {{"OOBHub", "com.nvidia.DebugToken.Common.SubTypes.OOBHub"},
          {"RAS", "com.nvidia.DebugToken.Common.SubTypes.RAS"},
@@ -119,6 +119,7 @@ static constexpr std::array<std::pair<std::string_view, std::string_view>, 91>
           "com.nvidia.DebugToken.Common.SubTypes.CpldDebugEnable"},
          {"SMA", "com.nvidia.DebugToken.Common.SubTypes.MCU"},
          {"CPLD", "com.nvidia.DebugToken.Common.SubTypes.CPLD"},
+         {"LPX", "com.nvidia.DebugToken.Common.SubTypes.LPX"},
          {"VBIOS", "com.nvidia.DebugToken.Common.SubTypes.VBIOS"},
          {"FSPRT", "com.nvidia.DebugToken.Common.SubTypes.FSPRT"},
          {"OOBHubRT", "com.nvidia.DebugToken.Common.SubTypes.OOBHubRT"},
@@ -177,6 +178,8 @@ static constexpr std::array<std::pair<std::string_view, std::string_view>, 91>
           "com.nvidia.DebugToken.Common.SubTypes.PxucGlobalHulk"},
          {"TargetMaskUnlock",
           "com.nvidia.DebugToken.Common.SubTypes.TargetMaskUnlock"},
+         {"I2cVregUnlock",
+          "com.nvidia.DebugToken.Common.SubTypes.I2cVregUnlock"},
          {"NvlinkErrorInjectionEnable",
           "com.nvidia.DebugToken.Common.SubTypes.NvlinkErrorInjectionEnable"},
          {"NvlinkDebugApiEnable",

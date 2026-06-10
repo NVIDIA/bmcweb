@@ -361,6 +361,28 @@
         <Member Name="I2ccAccess">
           <Annotation Term="OData.Description" String="I2ccAccess token subtype."/>
         </Member>
+        <Member Name="I2cVregUnlock">
+          <Annotation Term="OData.Description" String="I2C voltage regulator unlock subtype under the GPU hardware unlock token type."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="LPX">
+          <Annotation Term="OData.Description" String="LPX firmware debug unlock subtype under the SMA debug firmware unlock token type. Authorizes debug signed LPX firmware flash on production hardware."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
         <Member Name="ECCPoisonDisable">
           <Annotation Term="OData.Description" String="ECCPoisonDisable token subtype."/>
         </Member>
