@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.9.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.8.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -302,42 +302,6 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-    </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_9_0">
-      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EnumType Name="OperatingSystemState">
-        <Member Name="Inactive">
-          <Annotation Term="OData.Description" String="The host operating system is inactive."/>
-        </Member>
-        <Member Name="Standby">
-          <Annotation Term="OData.Description" String="The host operating system is in standby."/>
-        </Member>
-        <Member Name="BootComplete">
-          <Annotation Term="OData.Description" String="The host operating system boot is complete."/>
-        </Member>
-        <Member Name="PXEBoot">
-          <Annotation Term="OData.Description" String="The host is booting from Preboot Execution Environment (PXE)."/>
-        </Member>
-        <Member Name="CBoot">
-          <Annotation Term="OData.Description" String="The host is booting from a CBoot path."/>
-        </Member>
-        <Member Name="CDROMBoot">
-          <Annotation Term="OData.Description" String="The host is booting from CD-ROM media."/>
-        </Member>
-        <Member Name="DiagBoot">
-          <Annotation Term="OData.Description" String="The host is booting into diagnostics."/>
-        </Member>
-        <Member Name="ROMBoot">
-          <Annotation Term="OData.Description" String="The host is booting from ROM."/>
-        </Member>
-      </EnumType>
-      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem">
-        <Property Name="OperatingSystemState" Type="NvidiaComputerSystem.v1_9_0.OperatingSystemState">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The host operating system or UEFI firmware initialization state."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the host operating system or UEFI firmware. This property may be set by means other than boot progress codes, for instance by a GPIO controlled by UEFI firmware, to provide host operating system or UEFI firmware initialization state without depending on ODM-specific boot progress codes."/>
-        </Property>
-      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

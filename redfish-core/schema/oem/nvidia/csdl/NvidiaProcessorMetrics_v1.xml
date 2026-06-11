@@ -486,10 +486,28 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the core clock speed in MHz. The core clock speed of the processor may change more frequently than the manager is able to monitor."/>
           <Annotation Term="Measures.Unit" String="MHz"/>
         </Property>
-        <Property Name="C2CClockSpeedMHz" Type="Edm.Int64">
+        <Property Name="C2CNEClockSpeedMHz" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The C2C clock speed in MHz."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed in MHz. The C2C clock speed of the processor may change more frequently than the manager is able to monitor."/>
+          <Annotation Term="OData.Description" String="The C2C clock speed for the North-East (NE) quadrant in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed for the North-East (NE) quadrant in MHz."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="C2CSEClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The C2C clock speed for the South-East (SE) quadrant in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed for the South-East (SE) quadrant in MHz."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="C2CSWClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The C2C clock speed for the South-West (SW) quadrant in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed for the South-West (SW) quadrant in MHz."/>
+          <Annotation Term="Measures.Unit" String="MHz"/>
+        </Property>
+        <Property Name="C2CNWClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The C2C clock speed for the North-West (NW) quadrant in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the C2C clock speed for the North-West (NW) quadrant in MHz."/>
           <Annotation Term="Measures.Unit" String="MHz"/>
         </Property>
         <Property Name="ActivityMonitorState" Type="NvidiaProcessorMetrics.v1_5_0.LPUActivityMonitorState">

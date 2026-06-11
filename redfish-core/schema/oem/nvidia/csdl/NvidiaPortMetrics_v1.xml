@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.8.0                                       -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.9.0                                       -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -508,15 +508,36 @@
         </Property>
       </ComplexType>
       <ComplexType Name="NvidiaLPUPortMetrics">
-        <Property Name="FecError" Type="Edm.Boolean">
+        <Property Name="FecErrorsPerLane" Type="Collection(Edm.Int64)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Indicates whether an uncorrected packet has been detected by the Forward Error Correction (FEC) system."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether an uncorrected packet has been detected by the Forward Error Correction (FEC) system."/>
+          <Annotation Term="OData.Description" String="An array of Forward Error Correction (FEC) uncorrected packet counts, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of uncorrected packet counts detected by the Forward Error Correction (FEC) system, indexed by the lane number."/>
         </Property>
-        <Property Name="LinkLocked" Type="Edm.Boolean">
+        <Property Name="LinkLockedPerLane" Type="Collection(Edm.Boolean)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Indicates whether the link is detected as locked by the physical media subsystem."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the link is detected as locked by the physical media subsystem. A value of `true` indicates that the link is synchronized and operational."/>
+          <Annotation Term="OData.Description" String="An array of boolean values indicating whether each lane is detected as locked by the physical media subsystem, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of boolean values indicating whether each lane is detected as locked by the physical media subsystem, indexed by the lane number. A value of `true` indicates that the lane is synchronized and operational."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics">
+        <Property Name="PacketCRCErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The cumulative count of packet CRC errors observed on this port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the cumulative count of packet CRC errors observed on this port since the last reset."/>
+        </Property>
+        <Property Name="PacketReplayErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The cumulative count of packet replay errors observed on this port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the cumulative count of packet replay events observed on this port since the last reset."/>
+        </Property>
+        <Property Name="BandwidthBytesPerSecond" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth on this port, expressed in bytes per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth on this port, expressed in bytes per second."/>
+          <Annotation Term="Measures.Unit" String="By/s"/>
         </Property>
       </ComplexType>
     </Schema>
