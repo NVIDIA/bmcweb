@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPowerSmoothing   v1.4.0                                   -->
+<!--# Redfish OEM Schema:  NvidiaPowerSmoothing   v1.5.0                                   -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -277,6 +277,15 @@
         <Property Name="StateOfChargeFeatures" Type="NvidiaPowerSmoothing.v1_3_0.StateOfChargeFeatures">
           <Annotation Term="OData.Description" String="The State of Charge (SoC) power smoothing features."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the State of Charge (SoC) power smoothing features."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_5_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `EnergyStorageFeatures` property."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
       </EntityType>
       <ComplexType Name="StateOfChargeFeatures">
@@ -327,6 +336,17 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed rate of change of AC power draw, expressed in watts per second."/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate the `StateOfChargeFeatures` in favor of the `EnergyStorageFeatures`."/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing">
+        <Property Name="EnergyStorageFeatures" Type="NvidiaPowerSmoothing.v1_5_0.EnergyStorageFeatures">
+          <Annotation Term="OData.Description" String="The energy storage power smoothing features."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the energy storage power smoothing features."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="EnergyStorageFeatures" BaseType="NvidiaPowerSmoothing.v1_4_0.StateOfChargeFeatures"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

@@ -627,8 +627,9 @@ inline void populateErrorInjectionChassis(
 }
 
 /**
- * @brief If the chassis exposes PowerSmoothing (SOC StateOfChargeFeatures),
- * add the PowerSmoothing OEM link to the response. Same object path as chassis.
+ * @brief If the chassis exposes PowerSmoothing (EnergyStorageFeatures via
+ * D-Bus StateOfChargeFeatures), add the PowerSmoothing OEM link to the
+ * response. Same object path as chassis.
  *
  * @param[in,out]   aResp       Async HTTP response.
  * @param[in]       chassisId   Redfish chassis id.
