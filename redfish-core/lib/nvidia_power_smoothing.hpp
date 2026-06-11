@@ -474,11 +474,14 @@ inline void getProcessorPowerSmoothingControlData(
         });
 }
 
+static constexpr std::string_view nvidiaPowerSmoothingOdataTypeV150 =
+    "#NvidiaPowerSmoothing.v1_5_0.NvidiaPowerSmoothing";
+
 /**
- * @brief Get StateOfChargeFeatures (MaxACPowerRampRateWattsPerSecond,
+ * @brief Get EnergyStorageFeatures (MaxACPowerRampRateWattsPerSecond,
  * PowerSmoothingEnabled) from processor object and add to PowerSmoothing JSON.
  */
-inline void getProcessorPowerSmoothingStateOfChargeFeatures(
+inline void getProcessorPowerSmoothingEnergyStorageFeatures(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
 {
@@ -491,10 +494,11 @@ inline void getProcessorPowerSmoothingStateOfChargeFeatures(
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
-                    "StateOfChargeFeatures not available or error: {}", ec);
+                    "EnergyStorageFeatures not available or error: {}", ec);
                 return;
             }
-            nlohmann::json& soc = aResp->res.jsonValue["StateOfChargeFeatures"];
+            nlohmann::json& energyStorage =
+                aResp->res.jsonValue["EnergyStorageFeatures"];
             for (const auto& [name, value] : properties)
             {
                 if (name == "MaxACPowerRampRateWattsPerSecond")
@@ -507,7 +511,7 @@ inline void getProcessorPowerSmoothingStateOfChargeFeatures(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    soc["MaxACPowerRampRateWattsPerSecond"] = *v;
+                    energyStorage["MaxACPowerRampRateWattsPerSecond"] = *v;
                 }
                 else if (name == "PowerSmoothingEnabled")
                 {
@@ -519,7 +523,7 @@ inline void getProcessorPowerSmoothingStateOfChargeFeatures(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    soc["PowerSmoothingEnabled"] = *v;
+                    energyStorage["PowerSmoothingEnabled"] = *v;
                 }
             }
         });
@@ -558,7 +562,7 @@ inline void getProcessorPowerSmoothingData(
                 pwrSmoothingURI += processorId;
                 pwrSmoothingURI += "/Oem/Nvidia/PowerSmoothing";
                 aResp->res.jsonValue["@odata.type"] =
-                    "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing";
+                    std::string(nvidiaPowerSmoothingOdataTypeV150);
                 aResp->res.jsonValue["@odata.id"] = pwrSmoothingURI;
                 aResp->res.jsonValue["Id"] = "PowerSmoothing";
                 aResp->res.jsonValue["Name"] = processorId + " Power Smoothing";
@@ -624,7 +628,7 @@ inline void getProcessorPowerSmoothingData(
                             "com.nvidia.PowerSmoothing.StateOfChargeFeatures") !=
                         interfaceList.end())
                     {
-                        getProcessorPowerSmoothingStateOfChargeFeatures(
+                        getProcessorPowerSmoothingEnergyStorageFeatures(
                             aResp, service, path);
                     }
                     return;
@@ -1248,11 +1252,11 @@ inline void patchPowerSmoothingFeature(
 }
 
 /**
- * @brief PATCH StateOfChargeFeatures (MaxACPowerRampRateWattsPerSecond,
+ * @brief PATCH EnergyStorageFeatures (MaxACPowerRampRateWattsPerSecond,
  * PowerSmoothingEnabled) on processor PowerSmoothing. Same object path as
  * other processor PowerSmoothing interfaces.
  */
-inline void patchProcessorStateOfChargeFeatures(
+inline void patchProcessorEnergyStorageFeatures(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& processorId,
     const std::optional<uint32_t>& maxAcPowerRampRateWattsPerSecond,
@@ -1298,7 +1302,7 @@ inline void patchProcessorStateOfChargeFeatures(
                 if (servicePtr == nullptr)
                 {
                     BMCWEB_LOG_ERROR(
-                        "StateOfChargeFeatures service not found for processor: {}",
+                        "EnergyStorageFeatures service not found for processor: {}",
                         processorId);
                     return;
                 }
@@ -1723,9 +1727,9 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         });
 }
 
-// Chassis SOC PowerSmoothing (StateOfChargeFeatures) - same D-Bus path as
-// chassis
-static constexpr std::string_view chassisPowerSmoothingStateOfChargeInterface =
+// Chassis energy-storage PowerSmoothing (EnergyStorageFeatures Redfish key;
+// D-Bus interface name unchanged).
+static constexpr std::string_view chassisPowerSmoothingEnergyStorageInterface =
     "com.nvidia.PowerSmoothing.StateOfChargeFeatures";
 
 inline void chassisPowerSmoothingOnGetObject(
@@ -1738,7 +1742,7 @@ inline void chassisPowerSmoothingOnGetObject(
     if (ecObj || object.empty())
     {
         messages::resourceNotFound(
-            aResp->res, "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing",
+            aResp->res, std::string(nvidiaPowerSmoothingOdataTypeV150),
             chassisId);
         return;
     }
@@ -1760,7 +1764,7 @@ inline void chassisPowerSmoothingOnSubTreePaths(
         return;
     }
     constexpr std::array<std::string_view, 1> ifaces = {
-        chassisPowerSmoothingStateOfChargeInterface};
+        chassisPowerSmoothingEnergyStorageInterface};
     for (const auto& path : paths)
     {
         if (!path.ends_with(chassisId))
@@ -1776,14 +1780,13 @@ inline void chassisPowerSmoothingOnSubTreePaths(
         return;
     }
     messages::resourceNotFound(
-        aResp->res, "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing",
-        chassisId);
+        aResp->res, std::string(nvidiaPowerSmoothingOdataTypeV150), chassisId);
 }
 
 /**
- * @brief Resolve chassis to (service, path) that implements
- * StateOfChargeFeatures. On success invokes handler(service, path); on failure
- * returns 404.
+ * @brief Resolve chassis to (service, path) that implements energy-storage
+ * PowerSmoothing D-Bus properties. On success invokes handler(service, path);
+ * on failure returns 404.
  */
 template <typename Handler>
 inline void getChassisPowerSmoothingService(
@@ -1807,8 +1810,8 @@ inline void getChassisPowerSmoothingService(
 }
 
 /**
- * @brief GET chassis PowerSmoothing (SOC StateOfChargeFeatures) data.
- * Fills JSON with #NvidiaPowerSmoothing.v1_4_0 schema.
+ * @brief GET chassis PowerSmoothing EnergyStorageFeatures data.
+ * Fills JSON with #NvidiaPowerSmoothing.v1_5_0 schema.
  */
 inline void getChassisPowerSmoothingData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -1820,14 +1823,14 @@ inline void getChassisPowerSmoothingData(
          chassisId](const std::string& service, const std::string& objPath) {
             dbus::utility::getAllProperties(
                 service, objPath,
-                std::string(chassisPowerSmoothingStateOfChargeInterface),
+                std::string(chassisPowerSmoothingEnergyStorageInterface),
                 [aResp, chassisId](
                     const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
-                            "DBUS error getting StateOfChargeFeatures: {}", ec);
+                            "DBUS error getting EnergyStorageFeatures: {}", ec);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -1835,12 +1838,12 @@ inline void getChassisPowerSmoothingData(
                     const std::string baseUri =
                         "/redfish/v1/Chassis/" + chassisId;
                     json["@odata.id"] = baseUri + "/Oem/Nvidia/PowerSmoothing";
-                    json["@odata.type"] =
-                        "#NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing";
+                    json["@odata.type"] = nvidiaPowerSmoothingOdataTypeV150;
                     json["Id"] = "PowerSmoothing";
                     json["Name"] = chassisId + " Oem Nvidia PowerSmoothing";
 
-                    nlohmann::json& soc = json["StateOfChargeFeatures"];
+                    nlohmann::json& energyStorage =
+                        json["EnergyStorageFeatures"];
                     for (const auto& [name, value] : properties)
                     {
                         if (name == "MaxACPowerRampRateWattsPerSecond")
@@ -1848,7 +1851,8 @@ inline void getChassisPowerSmoothingData(
                             const uint32_t* v = std::get_if<uint32_t>(&value);
                             if (v != nullptr)
                             {
-                                soc["MaxACPowerRampRateWattsPerSecond"] = *v;
+                                energyStorage
+                                    ["MaxACPowerRampRateWattsPerSecond"] = *v;
                             }
                         }
                         else if (name == "PowerSmoothingEnabled")
@@ -1856,7 +1860,7 @@ inline void getChassisPowerSmoothingData(
                             const bool* v = std::get_if<bool>(&value);
                             if (v != nullptr)
                             {
-                                soc["PowerSmoothingEnabled"] = *v;
+                                energyStorage["PowerSmoothingEnabled"] = *v;
                             }
                         }
                         else if (name == "ProfileName")
@@ -1865,7 +1869,7 @@ inline void getChassisPowerSmoothingData(
                                 std::get_if<std::string>(&value);
                             if (v != nullptr)
                             {
-                                soc["ProfileName"] = *v;
+                                energyStorage["ProfileName"] = *v;
                             }
                         }
                         else if (name == "AvailableProfileNames")
@@ -1874,7 +1878,7 @@ inline void getChassisPowerSmoothingData(
                                 std::get_if<std::vector<std::string>>(&value);
                             if (v != nullptr)
                             {
-                                soc["AvailableProfileNames"] = *v;
+                                energyStorage["AvailableProfileNames"] = *v;
                             }
                         }
                         else if (name == "PowerBrakeEnabled")
@@ -1882,7 +1886,7 @@ inline void getChassisPowerSmoothingData(
                             const bool* v = std::get_if<bool>(&value);
                             if (v != nullptr)
                             {
-                                soc["PowerBrakeEnabled"] = *v;
+                                energyStorage["PowerBrakeEnabled"] = *v;
                             }
                         }
                     }
@@ -1891,7 +1895,7 @@ inline void getChassisPowerSmoothingData(
 }
 
 /**
- * @brief Apply StateOfChargeFeatures property patches to the given D-Bus
+ * @brief Apply EnergyStorageFeatures property patches to the given D-Bus
  * service/path. Called after chassis resolution.
  */
 inline void applyChassisPowerSmoothingPatches(
@@ -1929,8 +1933,9 @@ inline void applyChassisPowerSmoothingPatches(
 }
 
 /**
- * @brief PATCH chassis PowerSmoothing (SOC StateOfChargeFeatures).
- * Parses StateOfChargeFeatures in body and calls D-Bus patch per property.
+ * @brief PATCH chassis PowerSmoothing EnergyStorageFeatures.
+ * Parses EnergyStorageFeatures in body (StateOfChargeFeatures accepted as
+ * deprecated alias) and calls D-Bus patch per property.
  */
 inline void patchChassisPowerSmoothingData(
     App& app, const crow::Request& req,
@@ -1951,45 +1956,55 @@ inline void patchChassisPowerSmoothingData(
             "Failed to parse request body for chassis PowerSmoothing PATCH");
         return;
     }
+    std::optional<nlohmann::json> energyStorageFeatures;
     std::optional<nlohmann::json> stateOfChargeFeatures;
-    if (!redfish::json_util::readJson(reqJson, asyncResp->res,
-                                      "StateOfChargeFeatures",
-                                      stateOfChargeFeatures))
+    if (!redfish::json_util::readJson(
+            reqJson, asyncResp->res, "EnergyStorageFeatures",
+            energyStorageFeatures, "StateOfChargeFeatures",
+            stateOfChargeFeatures))
     {
         BMCWEB_LOG_ERROR(
-            "Failed to read StateOfChargeFeatures from chassis PowerSmoothing PATCH");
+            "Failed to read EnergyStorageFeatures from chassis PowerSmoothing PATCH");
         return;
     }
-    if (!stateOfChargeFeatures || !stateOfChargeFeatures->is_object())
+    nlohmann::json* featuresJson = nullptr;
+    if (energyStorageFeatures && energyStorageFeatures->is_object())
+    {
+        featuresJson = &*energyStorageFeatures;
+    }
+    else if (stateOfChargeFeatures && stateOfChargeFeatures->is_object())
+    {
+        featuresJson = &*stateOfChargeFeatures;
+    }
+    if (featuresJson == nullptr)
     {
         BMCWEB_LOG_ERROR(
-            "StateOfChargeFeatures is missing or not an object in chassis PowerSmoothing PATCH");
+            "EnergyStorageFeatures is missing or not an object in chassis PowerSmoothing PATCH");
         return;
     }
     std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
     std::optional<bool> powerSmoothingEnabled;
     std::optional<std::string> profileName;
     std::optional<bool> powerBrakeEnabled;
-    nlohmann::json& socJson = *stateOfChargeFeatures;
     if (!redfish::json_util::readJson(
-            socJson, asyncResp->res, "MaxACPowerRampRateWattsPerSecond",
+            *featuresJson, asyncResp->res, "MaxACPowerRampRateWattsPerSecond",
             maxAcPowerRampRateWattsPerSecond, "PowerSmoothingEnabled",
             powerSmoothingEnabled, "ProfileName", profileName,
             "PowerBrakeEnabled", powerBrakeEnabled))
     {
         BMCWEB_LOG_ERROR(
-            "Invalid StateOfChargeFeatures fields in chassis PowerSmoothing PATCH");
+            "Invalid EnergyStorageFeatures fields in chassis PowerSmoothing PATCH");
         return;
     }
     if (!maxAcPowerRampRateWattsPerSecond && !powerSmoothingEnabled &&
         !profileName && !powerBrakeEnabled)
     {
         BMCWEB_LOG_ERROR(
-            "No StateOfChargeFeatures properties provided in chassis PowerSmoothing PATCH");
+            "No EnergyStorageFeatures properties provided in chassis PowerSmoothing PATCH");
         messages::noOperation(asyncResp->res);
         return;
     }
-    const std::string iface(chassisPowerSmoothingStateOfChargeInterface);
+    const std::string iface(chassisPowerSmoothingEnergyStorageInterface);
     getChassisPowerSmoothingService(
         asyncResp, chassisId,
         [asyncResp, iface, maxAcPowerRampRateWattsPerSecond,
@@ -2061,10 +2076,12 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             }
             std::optional<bool> pwrSmoothingFeature;
             std::optional<bool> immediateRampDownFeature;
+            std::optional<nlohmann::json> energyStorageFeatures;
             std::optional<nlohmann::json> stateOfChargeFeatures;
             if (!redfish::json_util::readJsonAction(
                     req, asyncResp->res, "Enabled", pwrSmoothingFeature,
                     "ImmediateRampDown", immediateRampDownFeature,
+                    "EnergyStorageFeatures", energyStorageFeatures,
                     "StateOfChargeFeatures", stateOfChargeFeatures))
             {
                 return;
@@ -2081,24 +2098,34 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
                                            "ImmediateRampDownEnabled",
                                            *immediateRampDownFeature);
             }
-            if (stateOfChargeFeatures && stateOfChargeFeatures->is_object())
+            nlohmann::json* featuresJson = nullptr;
+            if (energyStorageFeatures && energyStorageFeatures->is_object())
+            {
+                featuresJson = &*energyStorageFeatures;
+            }
+            else if (stateOfChargeFeatures &&
+                     stateOfChargeFeatures->is_object())
+            {
+                featuresJson = &*stateOfChargeFeatures;
+            }
+            if (featuresJson != nullptr)
             {
                 std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
-                std::optional<bool> socPowerSmoothingEnabled;
-                nlohmann::json& socJson = *stateOfChargeFeatures;
+                std::optional<bool> energyStoragePowerSmoothingEnabled;
                 if (!redfish::json_util::readJson(
-                        socJson, asyncResp->res,
+                        *featuresJson, asyncResp->res,
                         "MaxACPowerRampRateWattsPerSecond",
                         maxAcPowerRampRateWattsPerSecond,
-                        "PowerSmoothingEnabled", socPowerSmoothingEnabled))
+                        "PowerSmoothingEnabled",
+                        energyStoragePowerSmoothingEnabled))
                 {
                     BMCWEB_LOG_ERROR(
-                        "Failed to parse StateOfChargeFeatures in processor PowerSmoothing PATCH");
+                        "Failed to parse EnergyStorageFeatures in processor PowerSmoothing PATCH");
                     return;
                 }
-                patchProcessorStateOfChargeFeatures(
+                patchProcessorEnergyStorageFeatures(
                     asyncResp, processorId, maxAcPowerRampRateWattsPerSecond,
-                    socPowerSmoothingEnabled);
+                    energyStoragePowerSmoothingEnabled);
             }
         });
 
