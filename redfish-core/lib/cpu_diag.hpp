@@ -483,8 +483,6 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
         else if (propStr == "Disable"s)
         {
-            clearDiagResult(aResp);
-            initDiagStatus(aResp);
             setPreBootDiagEnabled(aResp, false);
         }
         else
