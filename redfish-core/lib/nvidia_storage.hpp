@@ -642,7 +642,7 @@ inline void handleDriveSanitizePost(
             if (service.empty() || interface.empty())
             {
                 BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
-                messages::internalError(asyncResp->res);
+                messages::resourceNotFound(asyncResp->res, "Drive", driveId);
                 return;
             }
 
@@ -736,7 +736,7 @@ inline void handleDriveSanitizetActionInfoGet(
             if (service.empty() || interface.empty())
             {
                 BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
-                messages::internalError(asyncResp->res);
+                messages::resourceNotFound(asyncResp->res, "Drive", driveId);
                 return;
             }
             dbus::utility::getProperty<std::vector<std::string>>(
