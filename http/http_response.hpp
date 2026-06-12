@@ -289,6 +289,9 @@ struct Response
 
     void write(std::string&& bodyPart)
     {
+        // NVIDIA code start
+        response.body().clear(); // reset fd/variant before reuse
+        // NVIDIA code end
         response.body().str() = std::move(bodyPart);
     }
 
@@ -387,7 +390,10 @@ struct Response
         return OpenCode::Success;
     }
 
-    bool openFd(int fd, bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
+    // NVIDIA code start
+    bool openFd(int fd, bmcweb::EncodingType enc = bmcweb::EncodingType::Raw,
+                std::optional<size_t> knownSize = std::nullopt)
+    // NVIDIA code end
     {
         boost::beast::error_code ec;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -397,7 +403,9 @@ struct Response
             BMCWEB_LOG_ERROR("Setting O_NONBLOCK failed");
         }
         response.body().encodingType = enc;
-        response.body().setFd(fd, ec);
+        // NVIDIA code start
+        response.body().setFd(fd, ec, knownSize);
+        // NVIDIA code end
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to set fd");

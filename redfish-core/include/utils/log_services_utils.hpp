@@ -111,7 +111,8 @@ inline void downloadEntryCallback(
     {
         if constexpr (BMCWEB_SYSTEM_DUMP_BASE64_ENCODE)
         {
-            if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Base64))
+            if (!asyncResp->res.openFd(DuplicatableFileHandle(fd),
+                                       bmcweb::EncodingType::Base64))
             {
                 messages::internalError(asyncResp->res);
                 close(fd);
@@ -124,7 +125,8 @@ inline void downloadEntryCallback(
     // NVIDIA code starts here
     if (downloadEntryType == "FDR")
     {
-        if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Raw))
+        if (!asyncResp->res.openFd(DuplicatableFileHandle(fd),
+                                   bmcweb::EncodingType::Raw))
         {
             messages::internalError(asyncResp->res);
             close(fd);
@@ -133,7 +135,7 @@ inline void downloadEntryCallback(
         return;
     }
     // NVIDIA code ends here
-    if (!asyncResp->res.openFd(fd))
+    if (!asyncResp->res.openFd(DuplicatableFileHandle(fd)))
     {
         messages::internalError(asyncResp->res);
         close(fd);
