@@ -1403,11 +1403,130 @@ inline void getProcessorPortMetricsData(
         });
 }
 
+inline void afterGetPortObjectForMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& portId,
+    const std::string& inventoryPath, const std::string& sensorpath,
+    const boost::system::error_code& ec,
+    const std::vector<std::pair<std::string, std::vector<std::string>>>&
+        objectData)
+{
+    if (ec)
+    {
+        // the path does not implement port interfaces
+        BMCWEB_LOG_DEBUG("no port interface on object path {}", sensorpath);
+        return;
+    }
+
+    sdbusplus::message::object_path pathObj(sensorpath);
+    if (pathObj.filename() != portId)
+    {
+        return;
+    }
+
+    std::string portMetricUri =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/Processors/";
+    portMetricUri += processorId;
+    portMetricUri += "/Ports/";
+    portMetricUri += portId + "/Metrics";
+
+    asyncResp->res.jsonValue["@odata.id"] = portMetricUri;
+    asyncResp->res.jsonValue["@odata.type"] = "#PortMetrics.v1_3_0.PortMetrics";
+    asyncResp->res.jsonValue["Name"] = portId + " Port Metrics";
+    asyncResp->res.jsonValue["Id"] = "Metrics";
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
+        getCpuPortOemMetrics(asyncResp, cpuPortOemPortMetricsMappings,
+                             inventoryPath, portId);
+    }
+
+    for (const auto& [service, interfacesInner] : objectData)
+    {
+        getProcessorPortMetricsData(asyncResp, service, sensorpath);
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            if (std::ranges::find(
+                    interfacesInner,
+                    "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
+                interfacesInner.end())
+            {
+                asyncResp->res.jsonValue["Actions"]["Oem"]
+                                        ["#NvidiaPortMetrics.ClearPCIeCounters"]
+                                        ["target"] =
+                    portMetricUri +
+                    "/Actions/Oem/NvidiaPortMetrics.ClearPCIeCounters";
+                asyncResp->res.jsonValue["Actions"]["Oem"]
+                                        ["#NvidiaPortMetrics.ClearPCIeCounters"]
+                                        ["@Redfish.ActionInfo"] =
+                    portMetricUri + "/Oem/Nvidia/ClearPCIeCountersActionInfo";
+            }
+        }
+    }
+}
+
+inline void afterGetAllStatesForMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& portId,
+    const std::string& inventoryPath, const boost::system::error_code& ec,
+    const std::vector<std::string>& sensorpaths)
+{
+    if (ec)
+    {
+        // no state sensors attached.
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> portIfaces = {
+        "xyz.openbmc_project.Inventory.Item.Port"};
+
+    for (const std::string& sensorpath : sensorpaths)
+    {
+        BMCWEB_LOG_DEBUG("processor state sensor object path {}", sensorpath);
+        dbus::utility::getDbusObject(
+            sensorpath, portIfaces,
+            std::bind_front(afterGetPortObjectForMetrics, asyncResp,
+                            processorId, portId, inventoryPath, sensorpath));
+    }
+}
+
+inline void afterGetProcessorSubtreeForMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& portId,
+    const boost::system::error_code& ec,
+    const dbus::utility::GetSubTreeType& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& [path, object] : subtree)
+    {
+        if (!path.ends_with(processorId))
+        {
+            continue;
+        }
+        dbus::utility::getProperty<std::vector<std::string>>(
+            "xyz.openbmc_project.ObjectMapper", path + "/all_states",
+            "xyz.openbmc_project.Association", "endpoints",
+            std::bind_front(afterGetAllStatesForMetrics, asyncResp, processorId,
+                            portId, path));
+        return;
+    }
+
+    messages::resourceNotFound(asyncResp->res, "#Processor.v1_20_0.Processor",
+                               processorId);
+}
+
 inline void requestRoutesProcessorPortMetrics(App& app)
 {
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
                       "Ports/<str>/Metrics")
         .privileges(redfish::privileges::getProcessor)
@@ -1421,200 +1540,15 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
-                std::array<std::string_view, 2> interfacesList = {
+
+                constexpr std::array<std::string_view, 2> processorIfaces = {
                     "xyz.openbmc_project.Inventory.Item.Cpu",
                     "xyz.openbmc_project.Inventory.Item.Accelerator"};
 
                 dbus::utility::getSubTree(
-                    "/xyz/openbmc_project/inventory", 0, interfacesList,
-                    [processorId, portId,
-                     asyncResp](const boost::system::error_code& ec,
-                                const dbus::utility::GetSubTreeType& subtree) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("DBUS response error");
-                            messages::internalError(asyncResp->res);
-
-                            return;
-                        }
-                        for (const auto& [path, object] : subtree)
-                        {
-                            if (!path.ends_with(processorId))
-                            {
-                                continue;
-                            }
-                            std::string inventoryPath = path;
-
-                            dbus::
-                                utility::
-                                    getProperty<std::vector<std::string>>(
-                                        "xyz.openbmc_project.ObjectMapper",
-                                        inventoryPath + "/all_states",
-                                        "xyz.openbmc_project.Association",
-                                        "endpoints",
-                                        [asyncResp, processorId, portId,
-                                         inventoryPath](
-                                            const boost::system::error_code& e,
-                                            const std::vector<std::string>&
-                                                resp) {
-                                            if (e)
-                                            {
-                                                // no state sensors attached.
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                return;
-                                            }
-
-                                            for (const std::string& sensorpath :
-                                                 resp)
-                                            {
-                                                // Check Interface in Object
-                                                // or not
-                                                BMCWEB_LOG_DEBUG(
-                                                    "processor state sensor object path {}",
-                                                    sensorpath);
-                                                dbus::
-                                                    utility::
-                                                        getDbusObject(sensorpath,
-                                                                      std::array<
-                                                                          std::
-                                                                              string_view,
-                                                                          1>(
-                                                                          {"xyz.openbmc_project.Inventory.Item.Port"}),
-                                                                      [asyncResp,
-                                                                       sensorpath,
-                                                                       processorId,
-                                                                       portId,
-                                                                       inventoryPath](
-                                                                          const boost::
-                                                                              system::error_code&
-                                                                                  innerEc,
-                                                                          const std::vector<
-                                                                              std::
-                                                                                  pair<std::string, std::vector<
-                                                                                                        std::string>>>& objectData) {
-                                                                          if (innerEc)
-                                                                          {
-                                                                              // the path does not implement
-                                                                              // port interfaces
-                                                                              BMCWEB_LOG_DEBUG(
-                                                                                  "no port interface on object path {}",
-                                                                                  sensorpath);
-                                                                              return;
-                                                                          }
-
-                                                                          sdbusplus::
-                                                                              message::object_path
-                                                                                  pathObj(
-                                                                                      sensorpath);
-                                                                          if (pathObj
-                                                                                  .filename() !=
-                                                                              portId)
-                                                                          {
-                                                                              return;
-                                                                          }
-
-                                                                          std::string portMetricUri =
-                                                                              "/redfish/v1/Systems/" +
-                                                                              std::string(
-                                                                                  BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                                                              "/Processors/";
-                                                                          portMetricUri +=
-                                                                              processorId;
-                                                                          portMetricUri +=
-                                                                              "/Ports/";
-                                                                          portMetricUri +=
-                                                                              portId +
-                                                                              "/Metrics";
-                                                                          asyncResp
-                                                                              ->res
-                                                                              .jsonValue
-                                                                                  ["@odata.id"] =
-                                                                              portMetricUri;
-                                                                          asyncResp
-                                                                              ->res
-                                                                              .jsonValue
-                                                                                  ["@odata.type"] =
-                                                                              "#PortMetrics.v1_3_0.PortMetrics";
-                                                                          asyncResp
-                                                                              ->res
-                                                                              .jsonValue
-                                                                                  ["Name"] =
-                                                                              portId +
-                                                                              " Port Metrics";
-                                                                          asyncResp
-                                                                              ->res
-                                                                              .jsonValue
-                                                                                  ["Id"] =
-                                                                              "Metrics";
-
-                                                                          if constexpr (
-                                                                              BMCWEB_NVIDIA_OEM_PROPERTIES)
-                                                                          {
-                                                                              asyncResp
-                                                                                  ->res
-                                                                                  .jsonValue
-                                                                                      ["Oem"]
-                                                                                      ["Nvidia"]
-                                                                                      ["@odata.type"] =
-                                                                                  "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
-                                                                              getCpuPortOemMetrics(
-                                                                                  asyncResp,
-                                                                                  cpuPortOemPortMetricsMappings,
-                                                                                  inventoryPath,
-                                                                                  portId);
-                                                                          }
-
-                                                                          for (
-                                                                              const auto& [service,
-                                                                                           interfacesInner] :
-                                                                              objectData)
-                                                                          {
-                                                                              getProcessorPortMetricsData(
-                                                                                  asyncResp,
-                                                                                  service,
-                                                                                  sensorpath);
-                                                                              if constexpr (
-                                                                                  BMCWEB_NVIDIA_OEM_PROPERTIES)
-                                                                              {
-                                                                                  if (std::ranges::find(
-                                                                                          interfacesInner,
-
-                                                                                          "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
-                                                                                      interfacesInner
-                                                                                          .end())
-                                                                                  {
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["Actions"]
-                                                                                              ["Oem"]
-                                                                                              ["#NvidiaPortMetrics.ClearPCIeCounters"]
-                                                                                              ["target"] =
-                                                                                          portMetricUri +
-                                                                                          "/Actions/Oem/NvidiaPortMetrics.ClearPCIeCounters";
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["Actions"]
-                                                                                              ["Oem"]
-                                                                                              ["#NvidiaPortMetrics.ClearPCIeCounters"]
-                                                                                              ["@Redfish.ActionInfo"] =
-                                                                                          portMetricUri +
-                                                                                          "/Oem/Nvidia/ClearPCIeCountersActionInfo";
-                                                                                  }
-                                                                              }
-                                                                          }
-                                                                      });
-                                            }
-                                        });
-                            return;
-                        }
-                        // Object not found
-                        messages::resourceNotFound(
-                            asyncResp->res, "#Processor.v1_20_0.Processor",
-                            processorId);
-                    });
+                    "/xyz/openbmc_project/inventory", 0, processorIfaces,
+                    std::bind_front(afterGetProcessorSubtreeForMetrics,
+                                    asyncResp, processorId, portId));
             });
 }
 
