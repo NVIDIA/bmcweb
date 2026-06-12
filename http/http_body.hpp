@@ -4,13 +4,20 @@
 
 #include "duplicatable_file_handle.hpp"
 #include "logging.hpp"
+// Nvidia code starts here
 #include "multipart_parser.hpp"
+// Nvidia code ends here
 #include "utility.hpp"
+#include "zstd_compressor.hpp"
 #include "zstd_decompressor.hpp"
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/beast/core/buffer_traits.hpp>
 #include <boost/beast/core/buffers_range.hpp>
 #include <boost/beast/core/error.hpp>
@@ -24,16 +31,21 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+// Nvidia code starts here
 #include <functional>
 #include <limits>
 #include <memory>
+// Nvidia code ends here
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+// Nvidia code starts here
 #include <variant>
+// Nvidia code ends here
 
 namespace bmcweb
 {
@@ -80,11 +92,13 @@ enum class CompressionType
     Zstd,
 };
 
-struct FileBody
+// NVIDIA code start
+// Streaming download source: wraps a file/pipe fd for fd-backed bodies.
+struct FdSource
 {
-    std::optional<size_t> fileSize;
-    DuplicatableFileHandle fileHandle;
+    DuplicatableFileHandle handle;
 };
+// NVIDIA code end
 
 struct MultiPartBody
 {
@@ -102,11 +116,11 @@ class HttpBody::value_type
     friend HttpBody::reader;
     friend HttpBody::writer;
 
-    std::variant<std::string, FileBody, MultiPartBody> bodyData;
+    std::variant<std::string, FdSource, MultiPartBody> body;
 
     std::span<const FormPart> getMimeFields() const
     {
-        if (const auto* multiPartBody = std::get_if<MultiPartBody>(&bodyData))
+        if (const auto* multiPartBody = std::get_if<MultiPartBody>(&body))
         {
             return {multiPartBody->parts};
         }
@@ -115,16 +129,23 @@ class HttpBody::value_type
 
     std::span<FormPart> getMimeFields()
     {
-        if (auto* multiPartBody = std::get_if<MultiPartBody>(&bodyData))
+        if (auto* multiPartBody = std::get_if<MultiPartBody>(&body))
         {
             return {multiPartBody->parts};
         }
         return {};
     }
+    // Nvidia code ends here
 
   public:
+    std::optional<size_t> fileSize;
+
+    // When set, reader::init() skips the Content-Length DoS guard (trusted
+    // internal streaming receivers).
+    bool streamingReceiver = false;
+
     value_type() = default;
-    explicit value_type(std::string_view s) : bodyData(std::string(s)) {}
+    explicit value_type(std::string_view s) : body(std::string(s)) {}
     explicit value_type(EncodingType e) : encodingType(e) {}
     EncodingType encodingType = EncodingType::Raw;
     CompressionType compressionType = CompressionType::Raw;
@@ -141,42 +162,60 @@ class HttpBody::value_type
     value_type(value_type&& other) noexcept = default;
     value_type& operator=(value_type&& other) noexcept = default;
 
+    // NVIDIA code start
+    // fd handle for fd-backed bodies; closed handle for string bodies.
     const boost::beast::file_posix& file() const
     {
-        if (const auto* fileBody = std::get_if<FileBody>(&bodyData))
+        if (const auto* src = std::get_if<FdSource>(&body))
         {
-            return fileBody->fileHandle.fileHandle;
+            return src->handle.fileHandle;
         }
-        static boost::beast::file_posix emptyFile;
-        return emptyFile;
+        static const boost::beast::file_posix closed;
+        return closed;
     }
+    // NVIDIA code end
 
+    // NVIDIA code start
+    void setStreamingReceiver(bool enable)
+    {
+        streamingReceiver = enable;
+    }
+    // NVIDIA code end
+
+    // NVIDIA code start
+    // Returns the string body, switching the variant from FdSource if needed
+    // (so this never throws bad_variant_access).
     std::string& str()
     {
-        if (auto* s = std::get_if<std::string>(&bodyData))
+        if (std::string* strPtr = std::get_if<std::string>(&body);
+            strPtr != nullptr)
         {
-            return *s;
+            return *strPtr;
         }
-        return bodyData.emplace<std::string>();
+        return body.emplace<std::string>();
     }
 
+    // const string body; empty string for non-string bodies.
     const std::string& str() const
     {
-        if (const auto* s = std::get_if<std::string>(&bodyData))
+        if (const std::string* strPtr = std::get_if<std::string>(&body);
+            strPtr != nullptr)
         {
-            return *s;
+            return *strPtr;
         }
-        static const std::string emptyString;
-        return emptyString;
+        static const std::string empty;
+        return empty;
     }
+    // NVIDIA code end
 
     std::span<FormPart> multipart()
     {
-        if (auto* multiPartBody = std::get_if<MultiPartBody>(&bodyData))
+        if (auto* multiPartBody = std::get_if<MultiPartBody>(&body))
         {
             return {multiPartBody->parts};
         }
         return {};
+        // Nvidia code ends here
     }
 
     std::span<const FormPart> multipart() const
@@ -184,81 +223,97 @@ class HttpBody::value_type
         return getMimeFields();
     }
 
+    // NVIDIA code start
+    // payload size for string/fd bodies; nullopt when unknown.
     std::optional<size_t> payloadSize() const
     {
-        if (const auto* s = std::get_if<std::string>(&bodyData))
+        if (const auto* strPtr = std::get_if<std::string>(&body))
         {
-            return s->size();
+            return strPtr->size();
         }
-        if (const auto* fileBody = std::get_if<FileBody>(&bodyData))
+        if (const auto* src = std::get_if<FdSource>(&body))
         {
-            if (fileBody->fileHandle.fileHandle.is_open() && fileBody->fileSize)
+            if (src->handle.fileHandle.is_open() && fileSize)
             {
                 if (encodingType == EncodingType::Base64)
                 {
-                    return crow::utility::Base64Encoder::encodedSize(
-                        *fileBody->fileSize);
+                    return crow::utility::Base64Encoder::encodedSize(*fileSize);
                 }
             }
-            return fileBody->fileSize;
+            return fileSize;
         }
         return std::nullopt;
+        // Nvidia code ends here
     }
+    // NVIDIA code end
 
     void clear()
     {
-        bodyData = std::string{};
+        body.emplace<std::string>();
+        fileSize = std::nullopt;
         encodingType = EncodingType::Raw;
+        streamingReceiver = false;
     }
 
+    // NVIDIA code start
+    // open a file into an FdSource body.
     void open(const char* path, boost::beast::file_mode mode,
               boost::system::error_code& ec)
     {
-        FileBody fileBody;
-        fileBody.fileHandle.fileHandle.open(path, mode, ec);
+        auto& src = body.emplace<FdSource>();
+        src.handle.fileHandle.open(path, mode, ec);
         if (ec)
         {
+            body.emplace<std::string>();
             return;
         }
         boost::system::error_code ec2;
-        uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
+        uint64_t size = src.handle.fileHandle.size(ec2);
         if (!ec2)
         {
             BMCWEB_LOG_INFO("File size was {} bytes", size);
-            fileBody.fileSize = static_cast<size_t>(size);
+            fileSize = static_cast<size_t>(size);
         }
         else
         {
             BMCWEB_LOG_WARNING("Failed to read file size on {}", path);
         }
 
-        int fadvise =
-            posix_fadvise(fileBody.fileHandle.fileHandle.native_handle(), 0, 0,
-                          POSIX_FADV_SEQUENTIAL);
+        int fadvise = posix_fadvise(src.handle.fileHandle.native_handle(), 0, 0,
+                                    POSIX_FADV_SEQUENTIAL);
         if (fadvise != 0)
         {
+            // Nvidia code starts here
             BMCWEB_LOG_WARNING("Fadvise returned {} ignoring", fadvise);
         }
-        bodyData = std::move(fileBody);
         ec = {};
     }
 
-    void setFd(int fd, boost::system::error_code& ec)
+    void setFd(int fd, boost::system::error_code& ec,
+               std::optional<size_t> knownSize = std::nullopt)
     {
-        FileBody& fileBody = bodyData.emplace<FileBody>();
-        fileBody.fileHandle.fileHandle.native_handle(fd);
+        auto& src = body.emplace<FdSource>();
+        src.handle.fileHandle.native_handle(fd);
 
-        boost::system::error_code ec2;
-        uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
-        if (!ec2)
+        if (knownSize.has_value())
         {
-            if (size != 0 && size < std::numeric_limits<size_t>::max())
+            fileSize = knownSize;
+        }
+        else
+        {
+            boost::system::error_code ec2;
+            uint64_t size = src.handle.fileHandle.size(ec2);
+            if (!ec2)
             {
-                fileBody.fileSize = static_cast<size_t>(size);
+                if (size != 0 && size < std::numeric_limits<size_t>::max())
+                {
+                    fileSize = static_cast<size_t>(size);
+                }
             }
         }
         ec = {};
     }
+    // Nvidia code starts here
 
     void setMultipartParserCallbacks(
         MultipartParserStreamingCallbacks&& callbacks)
@@ -305,6 +360,7 @@ class HttpBody::value_type
     std::optional<MultipartParserStreamingCallbacks> multipartParserCallbacks;
     std::shared_ptr<BackpressureState> backpressureState =
         std::make_shared<BackpressureState>();
+    // NVIDIA code end
 };
 
 class HttpBody::writer
@@ -316,10 +372,12 @@ class HttpBody::writer
     std::string buf;
     crow::utility::Base64Encoder encoder;
 
-    std::optional<ZstdDecompressor> zstd;
+    std::optional<ZstdDecompressor> zstdDecompressor;
+    std::optional<ZstdCompressor> zstdCompressor;
 
     value_type& body;
     size_t sent = 0;
+    size_t fileBytesRead = 0;
     // 64KB This number is arbitrary, and selected to try to optimize for larger
     // files and fewer loops over per-connection reduction in memory usage.
     // Nginx uses 16-32KB here, so we're in the range of what other webservers
@@ -327,15 +385,86 @@ class HttpBody::writer
     constexpr static size_t readBufSize = 1024UL * 64UL;
     std::array<char, readBufSize> fileReadBuf{};
 
+    // NVIDIA code start
+    // Pipe watcher + data-ready callback for the HTTP/2 streaming path
+    // (HTTP/1.1 retries on EAGAIN instead).
+    std::optional<boost::asio::posix::stream_descriptor> watchSd;
+    boost::asio::any_io_executor onReadyExec;
+    std::function<bool(boost::system::error_code)> onReadyCb;
+
+    void armNotifier()
+    {
+        if (watchSd || !onReadyCb)
+        {
+            return;
+        }
+        int watchFd = ::dup(body.file().native_handle());
+        if (watchFd < 0)
+        {
+            BMCWEB_LOG_ERROR("dup() failed for pipe fd {}: {}",
+                             body.file().native_handle(),
+                             std::generic_category().message(errno));
+            return;
+        }
+        watchSd.emplace(onReadyExec, watchFd);
+        watchSd->async_wait(boost::asio::posix::stream_descriptor::wait_read,
+                            [this](boost::system::error_code ec) {
+                                watchSd.reset();
+                                onReadyCb(ec);
+                            });
+    }
+    // NVIDIA code end
+
   public:
+    // NVIDIA code start
+    // Idempotent: used by the HTTP/2 path which has direct writer access.
+    void setOnReady(boost::asio::any_io_executor exec,
+                    std::function<bool(boost::system::error_code)> cb)
+    {
+        if (onReadyCb)
+        {
+            return;
+        }
+        onReadyExec = std::move(exec);
+        onReadyCb = std::move(cb);
+    }
+
+    void cancelNotifier()
+    {
+        if (watchSd)
+        {
+            watchSd->cancel();
+            watchSd.reset();
+        }
+    }
+    // NVIDIA code end
+
     template <bool IsRequest, class Fields>
     writer(boost::beast::http::header<IsRequest, Fields>& /*header*/,
            value_type& bodyIn) : body(bodyIn)
     {
+        // If zstd compressed and client doesn't support zstd, need to
+        // decompress
         if (body.compressionType == CompressionType::Zstd &&
             body.clientCompressionType != CompressionType::Zstd)
         {
-            zstd.emplace();
+            zstdDecompressor.emplace();
+        }
+        if (body.compressionType == CompressionType::Raw &&
+            body.clientCompressionType == CompressionType::Zstd)
+        {
+            std::optional<size_t> size = body.payloadSize();
+            if (size)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Body is raw, client supports zstd, and paylod is not streaming.  Compressing.");
+                zstdCompressor.emplace();
+                if (!zstdCompressor->init(*size))
+                {
+                    BMCWEB_LOG_ERROR("Failed to initialize Zstd Compressor");
+                    zstdCompressor = std::nullopt;
+                }
+            }
         }
     }
 
@@ -362,63 +491,105 @@ class HttpBody::writer
 
             sent += toReturn;
             ret.second = sent < body.str().size();
-            BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
-                             ret.second);
-            return ret;
-        }
-        size_t readReq = std::min(fileReadBuf.size(), maxSize);
-        BMCWEB_LOG_DEBUG("Reading {}", readReq);
-        boost::system::error_code readEc;
-        size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
-        if (readEc)
-        {
-            if (readEc != boost::system::errc::operation_would_block &&
-                readEc != boost::system::errc::resource_unavailable_try_again)
-            {
-                BMCWEB_LOG_CRITICAL("Failed to read from file {}",
-                                    readEc.message());
-                ec = readEc;
-                return boost::none;
-            }
-            if (read == 0)
-            {
-                ec = readEc;
-                return boost::none;
-            }
-        }
-
-        std::string_view chunkView(fileReadBuf.data(), read);
-        BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
-
-        ret.second = read != 0;
-        if (body.encodingType == EncodingType::Base64)
-        {
-            buf.clear();
-            buf.reserve(
-                crow::utility::Base64Encoder::encodedSize(chunkView.size()));
-            encoder.encode(chunkView, buf);
-            if (!ret.second)
-            {
-                encoder.finalize(buf);
-            }
-            ret.first = const_buffers_type(buf.data(), buf.size());
         }
         else
         {
-            ret.first = const_buffers_type(chunkView.data(), chunkView.size());
+            size_t readReq = std::min(fileReadBuf.size(), maxSize);
+            // keep per-chunk file reads at DEBUG to avoid journal flooding
+            // during large satellite firmware and FDR streaming relays.
+            BMCWEB_LOG_DEBUG("Reading {}", readReq);
+            boost::system::error_code readEc;
+            size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
+            if (readEc)
+            {
+                if (readEc == boost::system::errc::operation_would_block ||
+                    readEc ==
+                        boost::system::errc::resource_unavailable_try_again)
+                {
+                    if (read == 0)
+                    {
+                        armNotifier();
+                        ec = readEc;
+                        return boost::none;
+                    }
+                    readEc = {};
+                }
+                else
+                {
+                    BMCWEB_LOG_CRITICAL("Failed to read from file {}",
+                                        readEc.message());
+                    ec = readEc;
+                    return boost::none;
+                }
+                // Nvidia code starts here
+                if (read == 0)
+                {
+                    ec = readEc;
+                    return boost::none;
+                }
+                // Nvidia code ends here
+            }
+
+            std::string_view chunkView(fileReadBuf.data(), read);
+            BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
+            fileBytesRead += read;
+            // With a known size, detect EOF by byte count (pipes can
+            // short-read without being at EOF).
+            if (body.fileSize)
+            {
+                ret.second = fileBytesRead < *body.fileSize;
+            }
+            else
+            {
+                ret.second = read != 0;
+            }
+            if (body.encodingType == EncodingType::Base64)
+            {
+                buf.clear();
+                buf.reserve(crow::utility::Base64Encoder::encodedSize(
+                    chunkView.size()));
+                encoder.encode(chunkView, buf);
+                if (!ret.second)
+                {
+                    encoder.finalize(buf);
+                }
+                ret.first = const_buffers_type(buf.data(), buf.size());
+            }
+            else
+            {
+                ret.first =
+                    const_buffers_type(chunkView.data(), chunkView.size());
+            }
         }
 
-        if (zstd)
+        if (zstdDecompressor)
         {
             std::optional<const_buffers_type> decompressed =
-                zstd->decompress(ret.first);
+                zstdDecompressor->decompress(ret.first);
             if (!decompressed)
             {
                 return boost::none;
             }
             ret.first = *decompressed;
         }
-
+        if (zstdCompressor)
+        {
+            BMCWEB_LOG_DEBUG("Compressing body more={}", ret.second);
+            std::span<const uint8_t> spanIn(
+                static_cast<const uint8_t*>(ret.first.data()),
+                ret.first.size());
+            std::optional<std::span<const uint8_t>> compressed =
+                zstdCompressor->compress(spanIn, ret.second);
+            if (!compressed)
+            {
+                return boost::none;
+            }
+            ret.first = *compressed;
+        }
+        // Nvidia code starts here
+        BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
+                         // Nvidia code ends here
+                         ret.second);
         return ret;
     }
 };
@@ -426,18 +597,23 @@ class HttpBody::writer
 class HttpBody::reader
 {
     value_type& value;
+    // Nvidia code starts here
     std::optional<MultipartParser> multipartParser;
     const boost::beast::http::fields& hdr;
+    // Nvidia code ends here
 
   public:
     template <bool IsRequest, class Fields>
+    // Nvidia code starts here
     reader(boost::beast::http::header<IsRequest, Fields>& headers,
            value_type& body) : value(body), hdr(headers)
+    // Nvidia code ends here
     {}
 
     void init(const boost::optional<std::uint64_t>& contentLength,
               boost::beast::error_code& ec)
     {
+        // Nvidia code starts here
         std::string_view contentType =
             hdr[boost::beast::http::field::content_type];
 
@@ -498,7 +674,8 @@ class HttpBody::reader
             return;
         }
 
-        if (contentLength)
+        if (contentLength && !value.file().is_open() &&
+            !value.streamingReceiver)
         {
             constexpr size_t maxReserveSize =
                 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
@@ -512,10 +689,8 @@ class HttpBody::reader
                 return;
             }
 
-            if (!value.file().is_open())
-            {
-                value.str().reserve(static_cast<size_t>(*contentLength));
-            }
+            value.str().reserve(
+                std::min(static_cast<size_t>(*contentLength), maxReserveSize));
         }
         ec = {};
     }
@@ -525,10 +700,13 @@ class HttpBody::reader
                     boost::system::error_code& ec)
     {
         size_t extra = boost::beast::buffer_bytes(buffers);
+        // Nvidia code starts here
         // BMCWEB_LOG_DEBUG("http body put called with {} bytes", extra);
+        // Nvidia code ends here
         for (const auto b : boost::beast::buffers_range_ref(buffers))
         {
             const char* ptr = static_cast<const char*>(b.data());
+            // Nvidia code starts here
             if (multipartParser)
             {
                 std::string_view buf(ptr, b.size());
@@ -546,11 +724,13 @@ class HttpBody::reader
             {
                 value.str().append(ptr, b.size());
             }
+            // Nvidia code ends here
         }
         ec = {};
         return extra;
     }
 
+    // Nvidia code starts here
     void finish(boost::beast::error_code& ec)
     {
         if (multipartParser)
@@ -564,9 +744,9 @@ class HttpBody::reader
                       boost::system::generic_category()};
                 return;
             }
-            value.bodyData =
-                MultiPartBody{std::move(multipartParser->mime_fields)};
+            value.body = MultiPartBody{std::move(multipartParser->mime_fields)};
         }
+        // Nvidia code ends here
         ec = {};
     }
 };
