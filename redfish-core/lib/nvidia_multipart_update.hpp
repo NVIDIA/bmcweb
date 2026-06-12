@@ -1366,7 +1366,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         conn.req.method(boost::beast::http::verb::post);
         boost::system::error_code ec2;
-        conn.req.body().setFd(fileGetSocket.release(), ec2);
+        conn.req.body().setFd(DuplicatableFileHandle(fileGetSocket.release()),
+                              ec2);
         if (ec2)
         {
             BMCWEB_LOG_ERROR("Failed to set fd: {}", ec2.message());

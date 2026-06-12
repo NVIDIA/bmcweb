@@ -53,8 +53,8 @@ inline void streamFdResponse(
 
     lseek(fd, 0, SEEK_SET);
 
-    int dupFd = ::dup(fd);
-    if (dupFd < 0)
+    DuplicatableFileHandle dupHandle(::dup(fd));
+    if (!dupHandle.fileHandle.is_open())
     {
         BMCWEB_LOG_ERROR("Failed to dup fd");
         asyncResp->res.result(
@@ -62,10 +62,9 @@ inline void streamFdResponse(
         return;
     }
 
-    if (!asyncResp->res.openFd(dupFd))
+    if (!asyncResp->res.openFd(std::move(dupHandle)))
     {
         BMCWEB_LOG_ERROR("Failed to open fd for response");
-        ::close(dupFd);
         asyncResp->res.result(
             boost::beast::http::status::internal_server_error);
         return;

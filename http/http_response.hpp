@@ -289,9 +289,6 @@ struct Response
 
     void write(std::string&& bodyPart)
     {
-        // NVIDIA code start
-        response.body().clear(); // reset fd/variant before reuse
-        // NVIDIA code end
         response.body().str() = std::move(bodyPart);
     }
 
@@ -391,20 +388,22 @@ struct Response
     }
 
     // NVIDIA code start
-    bool openFd(int fd, bmcweb::EncodingType enc = bmcweb::EncodingType::Raw,
-                std::optional<size_t> knownSize = std::nullopt)
+    bool openFd(DuplicatableFileHandle handle,
+                bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
     // NVIDIA code end
     {
         boost::beast::error_code ec;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        int retval = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+        int retval = fcntl(handle.fileHandle.native_handle(), F_SETFL,
+                           fcntl(handle.fileHandle.native_handle(), F_GETFL) |
+                               O_NONBLOCK);
         if (retval == -1)
         {
             BMCWEB_LOG_ERROR("Setting O_NONBLOCK failed");
         }
         response.body().encodingType = enc;
         // NVIDIA code start
-        response.body().setFd(fd, ec, knownSize);
+        response.body().setFd(std::move(handle), ec);
         // NVIDIA code end
         if (ec)
         {

@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -121,9 +122,12 @@ TEST(HttpFileBodyValueType, SetFd)
     HttpBody::value_type value(EncodingType::Base64, CompressionType::Raw);
     DuplicatableFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
-    FILE* r = fopen(temporaryFile.filePath.c_str(), "r");
-    ASSERT_NE(r, nullptr);
-    value.setFd(fileno(r), ec);
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
     ASSERT_FALSE(ec);
     std::array<char, 4096> buffer{};
 
@@ -133,7 +137,57 @@ TEST(HttpFileBodyValueType, SetFd)
     EXPECT_THAT(std::span(buffer.data(), out),
                 ElementsAre('t', 'e', 's', 't', 's', 't', 'r', 'i', 'n', 'g'));
     EXPECT_EQ(value.payloadSize(), 16);
-    fclose(r);
+}
+
+TEST(HttpFileBodyValueType, SetStreamingReceiver)
+{
+    HttpBody::value_type value;
+    EXPECT_FALSE(value.streamingReceiver);
+    value.setStreamingReceiver(true);
+    EXPECT_TRUE(value.streamingReceiver);
+    value.setStreamingReceiver(false);
+    EXPECT_FALSE(value.streamingReceiver);
+}
+
+TEST(HttpFileBodyValueType, SetFileSizeOverridesFstat)
+{
+    HttpBody::value_type value;
+    DuplicatableFileHandle temporaryFile("teststring");
+    boost::system::error_code ec;
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
+    ASSERT_FALSE(ec);
+
+    // Override the fstat-derived size with an explicit value.
+    value.setFileSize(99);
+    ASSERT_TRUE(value.payloadSize().has_value());
+    EXPECT_EQ(*value.payloadSize(), 99U);
+}
+
+TEST(HttpFileBodyValueType, ClearResetsToString)
+{
+    HttpBody::value_type value;
+    DuplicatableFileHandle temporaryFile("teststring");
+    boost::system::error_code ec;
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
+    ASSERT_FALSE(ec);
+
+    EXPECT_TRUE(value.file().is_open());
+
+    value.clear();
+
+    EXPECT_FALSE(value.file().is_open());
+    EXPECT_EQ(value.str(), "");
+    EXPECT_FALSE(value.streamingReceiver);
 }
 
 } // namespace
