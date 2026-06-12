@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
-#include "file_test_utilities.hpp"
+#include "duplicatable_file_handle.hpp"
 #include "http_body.hpp"
 
 #include <boost/beast/core/file_base.hpp>
@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -70,9 +71,9 @@ TEST(HttpHttpBodyValueType, CopyOperatorString)
 TEST(HttpHttpBodyValueType, MoveFile)
 {
     HttpBody::value_type value(EncodingType::Base64, CompressionType::Raw);
-    TemporaryFileHandle temporaryFile("teststring");
+    DuplicatableFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
-    value.open(temporaryFile.stringPath.c_str(), boost::beast::file_mode::read,
+    value.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
                ec);
     ASSERT_FALSE(ec);
     // Move constructor
@@ -95,9 +96,9 @@ TEST(HttpHttpBodyValueType, MoveFile)
 TEST(HttpHttpBodyValueType, MoveOperatorFile)
 {
     HttpBody::value_type value(EncodingType::Base64, CompressionType::Raw);
-    TemporaryFileHandle temporaryFile("teststring");
+    DuplicatableFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
-    value.open(temporaryFile.stringPath.c_str(), boost::beast::file_mode::read,
+    value.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
                ec);
     ASSERT_FALSE(ec);
     // Move constructor
@@ -119,12 +120,14 @@ TEST(HttpHttpBodyValueType, MoveOperatorFile)
 TEST(HttpFileBodyValueType, SetFd)
 {
     HttpBody::value_type value(EncodingType::Base64, CompressionType::Raw);
-    TemporaryFileHandle temporaryFile("teststring");
+    DuplicatableFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
-    FILE* r = fopen(temporaryFile.stringPath.c_str(), "r");
-    // NOLINTNEXTLINE(clang-analyzer-unix.Stream)
-    ASSERT_NE(r, nullptr);
-    value.setFd(fileno(r), ec);
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
     ASSERT_FALSE(ec);
     std::array<char, 4096> buffer{};
 
@@ -134,7 +137,57 @@ TEST(HttpFileBodyValueType, SetFd)
     EXPECT_THAT(std::span(buffer.data(), out),
                 ElementsAre('t', 'e', 's', 't', 's', 't', 'r', 'i', 'n', 'g'));
     EXPECT_EQ(value.payloadSize(), 16);
-    fclose(r);
+}
+
+TEST(HttpFileBodyValueType, SetStreamingReceiver)
+{
+    HttpBody::value_type value;
+    EXPECT_FALSE(value.streamingReceiver);
+    value.setStreamingReceiver(true);
+    EXPECT_TRUE(value.streamingReceiver);
+    value.setStreamingReceiver(false);
+    EXPECT_FALSE(value.streamingReceiver);
+}
+
+TEST(HttpFileBodyValueType, SetFileSizeOverridesFstat)
+{
+    HttpBody::value_type value;
+    DuplicatableFileHandle temporaryFile("teststring");
+    boost::system::error_code ec;
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
+    ASSERT_FALSE(ec);
+
+    // Override the fstat-derived size with an explicit value.
+    value.setFileSize(99);
+    ASSERT_TRUE(value.payloadSize().has_value());
+    EXPECT_EQ(*value.payloadSize(), 99U);
+}
+
+TEST(HttpFileBodyValueType, ClearResetsToString)
+{
+    HttpBody::value_type value;
+    DuplicatableFileHandle temporaryFile("teststring");
+    boost::system::error_code ec;
+
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    value.setFd(std::move(fh), ec);
+    ASSERT_FALSE(ec);
+
+    EXPECT_TRUE(value.file().is_open());
+
+    value.clear();
+
+    EXPECT_FALSE(value.file().is_open());
+    EXPECT_EQ(value.str(), "");
+    EXPECT_FALSE(value.streamingReceiver);
 }
 
 } // namespace

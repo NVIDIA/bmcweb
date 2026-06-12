@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/error.hpp>
@@ -74,7 +75,10 @@ struct Http2StreamData
     // Armed for fd-backed responses; hard-closes after 15 min to bound
     // slow-read attacks.
     std::optional<boost::asio::steady_timer> streamAbortTimer;
-    // Nvidia code ends here
+    // Pipe watcher: armed when fileReadCallback gets EAGAIN, fires
+    // resumeData() when the pipe has data available.
+    std::optional<boost::asio::posix::stream_descriptor> watchSd;
+    // NVIDIA code end
 };
 
 template <typename Adaptor, typename Handler>
@@ -83,15 +87,6 @@ class HTTP2Connection :
 {
     using self_type = HTTP2Connection<Adaptor, Handler>;
     static constexpr size_t frameSize = 65536;
-    // NVIDIA code start
-    // Tuned to keep a single FDR stream at parity with HTTP/1.1
-    // throughput.  The default nghttp2 frame size (16 KiB) and initial
-    // window (65 KiB) leave the pipe under-utilised for binary streams;
-    // 16 KiB frames with a 1 MiB connection/stream window allows nghttp2
-    // to queue several frames in-flight and sustain ~4 MB/s on BMC HW.
-    static constexpr uint32_t http2MaxFrameSize = 1U << 14;      // 16 KiB
-    static constexpr uint32_t http2InitialWindowSize = 1U << 20; // 1 MiB
-    // NVIDIA code end
 
   public:
     HTTP2Connection(
@@ -144,16 +139,19 @@ class HTTP2Connection :
 
         uint32_t maxStreams = 4;
 
+        // Both of these settings were found experimentally to allow a single
+        // fast stream to upload at a rate equivalent to http1.1  They will
+        // likely be tuned in the future.
+        uint32_t maxFrameSize = 1 << 14;
+        uint32_t windowSize = 1 << 20;
         std::array<nghttp2_settings_entry, 4> iv = {{
             {NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxStreams},
             {NGHTTP2_SETTINGS_ENABLE_PUSH, 0},
-            // NVIDIA code start
-            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, http2InitialWindowSize},
-            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, http2MaxFrameSize},
-            // NVIDIA code end
+            // Set an approximately 1MB window size
+            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, windowSize},
+            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, maxFrameSize},
         }};
-        if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0,
-                                         http2InitialWindowSize) != 0)
+        if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0, 1 << 20) != 0)
         {
             BMCWEB_LOG_ERROR("Failed to set local window size");
         }
@@ -208,14 +206,6 @@ class HTTP2Connection :
         {
             return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
-        // NVIDIA code start
-        // Must be set before getWithMaxSize() so the first EAGAIN can arm
-        // the pipe watcher; armNotifier() is a no-op if onReadyCb is unset.
-        stream.writer->setOnReady(
-            self.adaptor.get_executor(),
-            std::bind_front(&self_type::onDataReady, self.weak_from_this(),
-                            streamId));
-        // NVIDIA code end
         boost::beast::error_code ec;
         boost::optional<std::pair<boost::asio::const_buffer, bool>> out =
             stream.writer->getWithMaxSize(ec, length);
@@ -229,6 +219,37 @@ class HTTP2Connection :
                     "fileReadCallback: no body data ready, deferring "
                     "stream {}",
                     streamId);
+                if (!stream.watchSd)
+                {
+                    int pipeFd =
+                        stream.res.response.body().file().native_handle();
+                    int watchFd = ::dup(pipeFd);
+                    if (watchFd < 0)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "dup() failed for pipe fd {}: {}", pipeFd,
+                            std::generic_category().message(errno));
+                        return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+                    }
+                    stream.watchSd.emplace(self.adaptor.get_executor(),
+                                           watchFd);
+                    stream.watchSd->async_wait(
+                        boost::asio::posix::stream_descriptor::wait_read,
+                        [selfWeak = self.weak_from_this(),
+                         streamId](boost::system::error_code waitEc) {
+                            auto s = selfWeak.lock();
+                            if (!s)
+                            {
+                                return;
+                            }
+                            auto it = s->streams.find(streamId);
+                            if (it != s->streams.end())
+                            {
+                                it->second.watchSd.reset();
+                            }
+                            onDataReady(selfWeak, streamId, waitEc);
+                        });
+                }
                 return NGHTTP2_ERR_DEFERRED;
             }
             // NVIDIA code end
@@ -321,26 +342,8 @@ class HTTP2Connection :
             static constexpr std::chrono::minutes streamAbortTimeout{15};
             stream.streamAbortTimer.emplace(adaptor.get_executor());
             stream.streamAbortTimer->expires_after(streamAbortTimeout);
-            stream.streamAbortTimer->async_wait(
-                [weakSelf = this->weak_from_this(),
-                 streamId](boost::system::error_code ec) {
-                    if (ec == boost::asio::error::operation_aborted)
-                    {
-                        return;
-                    }
-                    auto self = weakSelf.lock();
-                    if (!self)
-                    {
-                        return;
-                    }
-                    BMCWEB_LOG_WARNING(
-                        "HTTP/2 stream {} streamAbortTimer fired; RST_STREAM",
-                        streamId);
-                    // Abort only this stream; other concurrent streams on the
-                    // same HTTP/2 connection are unaffected.
-                    self->ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
-                    self->writeBuffer();
-                });
+            stream.streamAbortTimer->async_wait(std::bind_front(
+                &self_type::onStreamAbortTimer, this, streamId));
         }
         // NVIDIA code end
 
@@ -734,9 +737,10 @@ class HTTP2Connection :
         }
         // NVIDIA code start
         // Cancel before erase to prevent resumeData() on a recycled stream id.
-        if (it->second.writer)
+        if (it->second.watchSd)
         {
-            it->second.writer->cancelNotifier();
+            it->second.watchSd->cancel();
+            it->second.watchSd.reset();
         }
         if (it->second.streamAbortTimer)
         {
@@ -885,6 +889,19 @@ class HTTP2Connection :
             return NGHTTP2_ERR_CALLBACK_FAILURE;
         }
         return userPtrToSelf(userData).onBeginHeadersCallback(*frame);
+    }
+
+    void onStreamAbortTimer(int32_t streamId,
+                            const boost::system::error_code& ec)
+    {
+        if (ec == boost::asio::error::operation_aborted)
+        {
+            return;
+        }
+        BMCWEB_LOG_WARNING(
+            "HTTP/2 stream {} streamAbortTimer fired; RST_STREAM", streamId);
+        ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
+        writeBuffer();
     }
 
     static void afterWriteBuffer(const std::shared_ptr<self_type>& self,

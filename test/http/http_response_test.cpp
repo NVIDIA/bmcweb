@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
-#include "file_test_utilities.hpp"
+#include "duplicatable_file_handle.hpp"
 #include "http/http_body.hpp"
 #include "http/http_response.hpp"
 #include "utility.hpp"
 
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/file_base.hpp>
-#include <boost/beast/core/file_posix.hpp>
-#include <boost/beast/http/message.hpp>
 #include <boost/beast/http/serializer.hpp>
 #include <boost/beast/http/status.hpp>
 
@@ -17,15 +15,17 @@
 #include <string>
 
 #include "gtest/gtest.h"
+namespace crow
+{
 namespace
 {
-void addHeaders(crow::Response& res)
+void addHeaders(Response& res)
 {
     res.addHeader("myheader", "myvalue");
     res.keepAlive(true);
     res.result(boost::beast::http::status::ok);
 }
-void verifyHeaders(crow::Response& res)
+void verifyHeaders(Response& res)
 {
     EXPECT_EQ(res.getHeaderValue("myheader"), "myvalue");
     EXPECT_EQ(res.keepAlive(), true);
@@ -68,13 +68,13 @@ std::string getData(boost::beast::http::response<bmcweb::HttpBody>& m)
 
 TEST(HttpResponse, Headers)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
     verifyHeaders(res);
 }
 TEST(HttpResponse, StringBody)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
     std::string_view bodyValue = "this is my new body";
     res.write({bodyValue.data(), bodyValue.length()});
@@ -83,43 +83,47 @@ TEST(HttpResponse, StringBody)
 }
 TEST(HttpResponse, HttpBody)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
-    TemporaryFileHandle temporaryFile("sample text");
-    res.openFile(temporaryFile.stringPath);
+    DuplicatableFileHandle temporaryFile("sample text");
+    res.openFile(temporaryFile.filePath);
 
     verifyHeaders(res);
 }
 TEST(HttpResponse, HttpBodyWithFd)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
-    TemporaryFileHandle temporaryFile("sample text");
-    FILE* fd = fopen(temporaryFile.stringPath.c_str(), "r+");
-    res.openFd(fileno(fd));
+    DuplicatableFileHandle temporaryFile("sample text");
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh));
     verifyHeaders(res);
-    fclose(fd);
 }
 
 TEST(HttpResponse, Base64HttpBodyWithFd)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
-    TemporaryFileHandle temporaryFile("sample text");
-    FILE* fd = fopen(temporaryFile.stringPath.c_str(), "r");
-    // NOLINTNEXTLINE(clang-analyzer-unix.Stream)
-    ASSERT_NE(fd, nullptr);
-    res.openFd(fileno(fd), bmcweb::EncodingType::Base64);
+    DuplicatableFileHandle temporaryFile("sample text");
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
     verifyHeaders(res);
-    fclose(fd);
 }
 
 TEST(HttpResponse, BodyTransitions)
 {
-    crow::Response res;
+    Response res;
     addHeaders(res);
-    TemporaryFileHandle temporaryFile("sample text");
-    res.openFile(temporaryFile.stringPath);
+    DuplicatableFileHandle temporaryFile("sample text");
+    res.openFile(temporaryFile.filePath);
 
     verifyHeaders(res);
     res.write("body text");
@@ -139,7 +143,7 @@ std::string generateBigdata()
 
 TEST(HttpResponse, StringBodyWriterLarge)
 {
-    crow::Response res;
+    Response res;
     std::string data = generateBigdata();
     res.write(std::string(data));
     EXPECT_EQ(getData(res.response), data);
@@ -147,43 +151,44 @@ TEST(HttpResponse, StringBodyWriterLarge)
 
 TEST(HttpResponse, Base64HttpBodyWriter)
 {
-    crow::Response res;
+    Response res;
     std::string data = "sample text";
-    TemporaryFileHandle temporaryFile(data);
-    FILE* f = fopen(temporaryFile.stringPath.c_str(), "r+");
-    res.openFd(fileno(f), bmcweb::EncodingType::Base64);
+    DuplicatableFileHandle temporaryFile(data);
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
     EXPECT_EQ(getData(res.response), "c2FtcGxlIHRleHQ=");
-    fclose(f);
 }
 
 TEST(HttpResponse, Base64HttpBodyWriterLarge)
 {
-    crow::Response res;
+    Response res;
     std::string data = generateBigdata();
-    TemporaryFileHandle temporaryFile(data);
-
-    boost::beast::file_posix file;
+    DuplicatableFileHandle temporaryFile(data);
     boost::system::error_code ec;
-    file.open(temporaryFile.stringPath.c_str(), boost::beast::file_mode::read,
-              ec);
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
     EXPECT_EQ(ec.value(), 0);
-    res.openFd(file.native_handle(), bmcweb::EncodingType::Base64);
-    EXPECT_EQ(getData(res.response), crow::utility::base64encode(data));
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
+    EXPECT_EQ(getData(res.response), utility::base64encode(data));
 }
 
 TEST(HttpResponse, HttpBodyWriterLarge)
 {
-    crow::Response res;
+    Response res;
     std::string data = generateBigdata();
-    TemporaryFileHandle temporaryFile(data);
-
-    boost::beast::file_posix file;
+    DuplicatableFileHandle temporaryFile(data);
     boost::system::error_code ec;
-    file.open(temporaryFile.stringPath.c_str(), boost::beast::file_mode::read,
-              ec);
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
     EXPECT_EQ(ec.value(), 0);
-    res.openFd(file.native_handle());
+    res.openFd(std::move(fh));
     EXPECT_EQ(getData(res.response), data);
 }
-
 } // namespace
+} // namespace crow
