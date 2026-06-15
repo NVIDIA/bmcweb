@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPowerSmoothingPresetProfile   v1.0.0                      -->
+<!--# Redfish OEM Schema:  NvidiaPowerSmoothingPresetProfile   v1.1.0                      -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -13,6 +13,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
     <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
@@ -74,6 +77,33 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Ramp down hysteresis value in seconds."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the ramp down hysteresis value in seconds."/>
+        </Property>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothingPresetProfile.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothingPresetProfile" BaseType="NvidiaPowerSmoothingPresetProfile.v1_0_0.NvidiaPowerSmoothingPresetProfile">
+        <Property Name="PFAWindowMultiplier" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Primary floor activation (PFA) window multiplier."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain primary floor activation (PFA) window multiplier."/>
+        </Property>
+        <Property Name="PFTWindowMultiplier" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Primary floor target (PFT) window multiplier."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain primary floor target (PFT) window multiplier."/>
+        </Property>
+        <Property Name="SecondaryPowerFloorWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Secondary power floor in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain secondary power floor in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="PFAOffsetWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
         </Property>
       </EntityType>
     </Schema>
