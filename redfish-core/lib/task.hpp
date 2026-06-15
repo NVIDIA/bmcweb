@@ -558,26 +558,31 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
-                if (ptr->endTime.has_value())
+
+                // Per Redfish DSP0266: while the operation is in progress,
+                // return 202 Accepted with no response body.
+                if (!ptr->endTime.has_value())
                 {
-                    nlohmann::json* resp =
-                        std::get_if<nlohmann::json>(&ptr->taskResponse);
-                    if (resp != nullptr)
-                    {
-                        asyncResp->res.jsonValue = *resp;
-                        return;
-                    }
-                    std::move_only_function<void(
-                        const std::shared_ptr<bmcweb::AsyncResp>&)>*
-                        getBodyCallback =
-                            std::get_if<task::TaskResponseCallback>(
-                                &ptr->taskResponse);
-                    if (getBodyCallback != nullptr)
-                    {
-                        (*getBodyCallback)(asyncResp);
-                        return;
-                    }
+                    asyncResp->res.result(boost::beast::http::status::accepted);
+                    return;
                 }
+
+                // Task is complete. Return the final operation result.
+                nlohmann::json* resp =
+                    std::get_if<nlohmann::json>(&ptr->taskResponse);
+                if (resp != nullptr)
+                {
+                    asyncResp->res.jsonValue = *resp;
+                    return;
+                }
+                auto* getBodyCallback =
+                    std::get_if<task::TaskResponseCallback>(&ptr->taskResponse);
+                if (getBodyCallback != nullptr)
+                {
+                    (*getBodyCallback)(asyncResp);
+                    return;
+                }
+
                 // monitor expires after 204
                 if (ptr->gave204)
                 {
@@ -585,7 +590,8 @@ inline void requestRoutesTaskMonitor(App& app)
                                                strParam);
                     return;
                 }
-                ptr->populateResp(asyncResp->res);
+                asyncResp->res.result(boost::beast::http::status::no_content);
+                ptr->gave204 = true;
             });
 }
 
