@@ -317,31 +317,45 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         state = ConnState::sendInProgress;
 
-        // Set a timeout on the operation
-        timer.expires_after(std::chrono::seconds(60));
-        timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
-        // Send the HTTP request to the remote host
         if (!serializer)
         {
             serializer.emplace(req);
         }
+
+        armSendTimer();
+        writeSome();
+    }
+
+  private:
+    void armSendTimer()
+    {
+        timer.expires_after(std::chrono::seconds(60));
+        timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
+    }
+
+    void writeSome()
+    {
+        if (!serializer)
+        {
+            return;
+        }
+        auto& ser = *serializer;
         if (sslConn)
         {
-            boost::beast::http::async_write(
-                *sslConn, *serializer,
+            boost::beast::http::async_write_some(
+                *sslConn, ser,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
         else
         {
-            boost::beast::http::async_write(
-                conn, *serializer,
+            boost::beast::http::async_write_some(
+                conn, ser,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
     }
 
-  private:
     void afterWriteHeaders(const std::shared_ptr<ConnectionInfo>& /*self*/,
                            const boost::beast::error_code& ec,
                            size_t /*bytesTransferred*/)
@@ -373,10 +387,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                                                    this, shared_from_this()));
             return;
         }
-        serializer.reset();
-        timer.cancel();
         if (ec)
         {
+            serializer.reset();
+            timer.cancel();
             BMCWEB_LOG_ERROR("sendMessage() failed: {} {}", ec.message(), host);
             state = ConnState::sendFailed;
             waitAndRetry();
@@ -384,6 +398,17 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         }
         BMCWEB_LOG_DEBUG("sendMessage() bytes transferred: {}",
                          bytesTransferred);
+
+        // More body remains: re-arm the idle timeout and keep writing.
+        if (serializer && !serializer->is_done())
+        {
+            armSendTimer();
+            writeSome();
+            return;
+        }
+
+        serializer.reset();
+        timer.cancel();
 
         recvMessage();
     }
