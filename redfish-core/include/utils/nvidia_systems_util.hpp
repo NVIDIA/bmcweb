@@ -3,6 +3,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/privilege_utils.hpp"
 #include "utils/sw_utils.hpp"
@@ -16,6 +17,7 @@ static const std::string& entityMangerService =
     "xyz.openbmc_project.EntityManager";
 static const std::string& card1Path =
     "/xyz/openbmc_project/inventory/system/board/Card1";
+
 /**
  * @brief Populate objects from D-Bus object of entity-manager
  *
@@ -422,6 +424,269 @@ inline void setProtocolServiceEnabled(
                 });
         }
     }
+}
+
+/**
+ * @brief Converts a D-Bus IPMI restriction mode to the IPMIHostInterface
+ *        ServiceEnabled state.
+ *
+ * None, Allowlist and ProvisionedHostAllowlist map to enabled;
+ * ProvisionedHostDisabled maps to disabled.
+ *
+ * @param[in] mode  The D-Bus restriction mode string.
+ *
+ * @return The ServiceEnabled state, or std::nullopt if the mode is unknown.
+ */
+inline std::optional<bool> ipmiHostInterfaceEnabledFromDbus(
+    const std::string& mode)
+{
+    if (mode ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.None")
+    {
+        return true;
+    }
+    if (mode ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.Allowlist")
+    {
+        return true;
+    }
+    if (mode ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostAllowlist")
+    {
+        return true;
+    }
+    if (mode ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostDisabled")
+    {
+        return false;
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Converts a Redfish interface enabled state to the IPMI restriction
+ * mode.
+ *
+ * @param[in] enabled The Redfish interface enabled state.
+ *
+ * @return The IPMI restriction mode.
+ */
+inline std::string ipmiHostInterfaceEnabledFromRedfish(const bool enabled)
+{
+    if (enabled)
+    {
+        return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.None";
+    }
+    return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostDisabled";
+}
+
+/**
+ * @brief Populates ComputerSystem.IPMIHostInterface.ServiceEnabled from
+ *        the IPMI restriction mode.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] ec          The error code.
+ * @param[in] modeStr     The D-Bus restriction mode string.
+ */
+inline void populateIPMIHostInterfaceData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& modeStr)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS getProperty error: {}", ec);
+        return;
+    }
+    std::optional<bool> serviceEnabled =
+        ipmiHostInterfaceEnabledFromDbus(modeStr);
+    if (!serviceEnabled)
+    {
+        BMCWEB_LOG_ERROR("Invalid restriction mode: {}", modeStr);
+        return;
+    }
+    asyncResp->res.jsonValue["IPMIHostInterface"]["ServiceEnabled"] =
+        *serviceEnabled;
+}
+
+/**
+ * @brief Handles getting the restriction mode property from D-Bus.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] path        The path of the restriction mode.
+ * @param[in] interface   The interface of the restriction mode.
+ * @param[in] property    The property of the restriction mode.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] object      The MapperGetObject result from D-Bus.
+ */
+inline void getIPMIHostInterfaceHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& interface,
+    const std::string& property, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("getDbusObject failed for {}: {}", path, ec);
+        return;
+    }
+
+    if (object.empty())
+    {
+        // No restriction mode object (e.g. HMC): the in-band IPMI host
+        // interface is simply not present, so skip without an error.
+        BMCWEB_LOG_DEBUG("No restriction mode service for {}", path);
+        return;
+    }
+
+    const std::string& service = object.begin()->first;
+    dbus::utility::getProperty<std::string>(
+        service, path, interface, property,
+        std::bind_front(populateIPMIHostInterfaceData, asyncResp));
+}
+
+/**
+ * @brief Gets the in-band IPMI host interface state if SSIF is present.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] subTreePaths The MapperGetSubTreePaths result from D-Bus.
+ */
+inline void getIPMIHostInterfaceIfSsifPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS getSubTreePaths error getting SSIF interface: {}", ec);
+        return;
+    }
+
+    if (subTreePaths.empty())
+    {
+        BMCWEB_LOG_DEBUG("SSIF interface not found");
+        return;
+    }
+
+    dbus::utility::getDbusObject(
+        nvidia_ipmi::restrictionModePath,
+        nvidia_ipmi::restrictionModeInterfaceArray,
+        std::bind_front(getIPMIHostInterfaceHandler, asyncResp,
+                        nvidia_ipmi::restrictionModePath,
+                        nvidia_ipmi::restrictionModeInterface,
+                        nvidia_ipmi::restrictionModeProperty));
+}
+
+/**
+ * @brief Populates the in-band IPMI (SSIF) host interface state.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ */
+inline void getIPMIHostInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/Ipmi", 0, nvidia_ipmi::ssifInterfaceArray,
+        std::bind_front(getIPMIHostInterfaceIfSsifPresent, asyncResp));
+}
+
+/**
+ * @brief Handles setting the restriction mode property on D-Bus.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] path        The path of the restriction mode.
+ * @param[in] interface   The interface of the restriction mode.
+ * @param[in] property    The property of the restriction mode.
+ * @param[in] dbusMode    The D-Bus restriction mode to set.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] object      The MapperGetObject result from D-Bus.
+ */
+inline void setIPMIHostInterfaceHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& interface,
+    const std::string& property, const std::string& dbusMode,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("getDbusObject failed for {}: {}", path, ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (object.empty())
+    {
+        // No restriction mode object (e.g. HMC): the in-band IPMI host
+        // interface is not present, so report it as a missing resource.
+        BMCWEB_LOG_DEBUG("No restriction mode service for {}", path);
+        messages::resourceNotFound(asyncResp->res, "IPMIHostInterface", path);
+        return;
+    }
+
+    const std::string& service = object.begin()->first;
+    redfish::setDbusProperty(asyncResp, "IPMIHostInterface/ServiceEnabled",
+                             service, sdbusplus::message::object_path(path),
+                             interface, property, dbusMode);
+}
+
+/**
+ * @brief Sets the in-band IPMI host interface state if SSIF is present.
+ *
+ * BEHAVIOR 2: when the in-band IPMI host interface is set to enabled the IPMI
+ * restriction mode is set to None; when it is set to disabled the restriction
+ * mode is set to ProvisionedHostDisabled.
+ *
+ * @param[in] asyncResp       Shared pointer for generating response message.
+ * @param[in] serviceEnabled  Desired state of the in-band IPMI host interface.
+ * @param[in] ec              The error code from D-Bus call.
+ * @param[in] subTreePaths    The MapperGetSubTreePaths result from D-Bus.
+ */
+inline void setIPMIHostInterfaceIfSsifPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool serviceEnabled, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS getSubTreePaths error getting SSIF interface: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (subTreePaths.empty())
+    {
+        BMCWEB_LOG_ERROR("SSIF interface not found");
+        messages::resourceNotFound(asyncResp->res, "IPMIHostInterface", "SSIF");
+        return;
+    }
+
+    std::string dbusMode = ipmiHostInterfaceEnabledFromRedfish(serviceEnabled);
+    dbus::utility::getDbusObject(
+        nvidia_ipmi::restrictionModePath,
+        nvidia_ipmi::restrictionModeInterfaceArray,
+        std::bind_front(setIPMIHostInterfaceHandler, asyncResp,
+                        nvidia_ipmi::restrictionModePath,
+                        nvidia_ipmi::restrictionModeInterface,
+                        nvidia_ipmi::restrictionModeProperty, dbusMode));
+}
+
+/**
+ * @brief Sets the in-band IPMI (SSIF) host interface state.
+ *
+ * @param[in] asyncResp       Shared pointer for generating response message.
+ * @param[in] serviceEnabled  Desired state of the in-band IPMI host interface.
+ */
+inline void setIPMIHostInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool serviceEnabled)
+{
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/Ipmi", 0, nvidia_ipmi::ssifInterfaceArray,
+        std::bind_front(setIPMIHostInterfaceIfSsifPresent, asyncResp,
+                        serviceEnabled));
 }
 
 } // namespace nvidia_systems_utils

@@ -3868,7 +3868,7 @@ inline void handleComputerSystemGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_23_0.ComputerSystem";
+        "#ComputerSystem.v1_25_0.ComputerSystem";
     asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
@@ -4041,6 +4041,9 @@ inline void handleComputerSystemGet(
 
     getPortStatusAndPath(std::span{protocolToDBusForSystems},
                          std::bind_front(afterPortRequest, asyncResp));
+
+    // Report the state of the in-band IPMI (SSIF) host interface
+    redfish::nvidia_systems_utils::getIPMIHostInterface(asyncResp);
 
     if constexpr (BMCWEB_KVM)
     {
@@ -4293,6 +4296,7 @@ inline void handleComputerSystemPatch(
     std::optional<std::string> bootOrderPropertySelection;
     std::optional<std::string> httpBootUri;
     std::optional<nlohmann::json> processorDebugCapabilities;
+    std::optional<bool> ipmiHostInterfaceServiceEnabled;
 
     // clang-format off
     if (!json_util::readJsonPatch(
@@ -4330,7 +4334,8 @@ inline void handleComputerSystemPatch(
             "Boot/BootOrderPropertySelection", bootOrderPropertySelection,
             "Boot/HttpBootUri", httpBootUri,
             "Oem/Nvidia/ProcessorDebugCapabilities", processorDebugCapabilities,
-            "Oem/Nvidia/ISTModeEnabled", istModeEnabled
+            "Oem/Nvidia/ISTModeEnabled", istModeEnabled,
+            "IPMIHostInterface/ServiceEnabled", ipmiHostInterfaceServiceEnabled
             ))
     {
         return;
@@ -4433,6 +4438,12 @@ inline void handleComputerSystemPatch(
     if (bootSource || bootType || bootEnable)
     {
         setBootProperties(asyncResp, bootSource, bootType, bootEnable);
+    }
+
+    if (ipmiHostInterfaceServiceEnabled)
+    {
+        redfish::nvidia_systems_utils::setIPMIHostInterface(
+            asyncResp, *ipmiHostInterfaceServiceEnabled);
     }
 
     if (bootSourceOverrideTargetAllowableValues || sku || uuid ||

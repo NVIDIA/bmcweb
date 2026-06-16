@@ -21,12 +21,14 @@
 
 #include <nlohmann/json.hpp>
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -240,6 +242,19 @@ inline void convertDbusToRedfishProperty(AdditionalData& additional,
     }
     BMCWEB_LOG_DEBUG("Final message args: {}", messageArgs);
 }
+
+namespace nvidia_ipmi
+{
+inline constexpr auto restrictionModePath =
+    "/xyz/openbmc_project/control/host0/restriction_mode";
+inline constexpr auto restrictionModeInterface =
+    "xyz.openbmc_project.Control.Security.RestrictionMode";
+inline constexpr auto restrictionModeProperty = "RestrictionMode";
+inline constexpr std::array<std::string_view, 1> restrictionModeInterfaceArray =
+    {restrictionModeInterface};
+inline constexpr std::array<std::string_view, 1> ssifInterfaceArray = {
+    "xyz.openbmc_project.Ipmi.Channel.ipmi_ssif"};
+} // namespace nvidia_ipmi
 
 const std::string certificateDbusPrefix = "/xyz/openbmc_project/certs";
 const std::string systemsDbusPrefix = "/xyz/openbmc_project/inventory/system";
