@@ -42,28 +42,30 @@ enum class TargetType
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload payload,
     const std::string& target, const boost::system::error_code& ec,
-    const sdbusplus::message::object_path& retPath)
+    const sdbusplus::message::object_path& retPath,
+    const std::function<void()>& onResponseReady)
 {
     if (ec)
     {
         BMCWEB_LOG_ERROR("error_code = {}", ec);
         BMCWEB_LOG_ERROR("error msg = {}", ec.message());
         messages::internalError(asyncResp->res);
-        asyncResp->res.end();
+        onResponseReady();
         return;
     }
 
     BMCWEB_LOG_INFO("Call to StartUpdate on {} Success, retPath = {}", target,
                     retPath.str);
     createTask(asyncResp, std::move(payload), retPath);
-    asyncResp->res.end();
+    onResponseReady();
 }
 
 inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
-    const sdbusplus::message::object_path& target)
+    const sdbusplus::message::object_path& target,
+    std::function<void()> onResponseReady)
 {
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
@@ -71,11 +73,12 @@ inline void startSoftwareUpdate(
 
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, payload = std::move(payload),
-         target](const boost::system::error_code& ec1,
-                 const sdbusplus::message::object_path& retPath) mutable {
+        [asyncResp, payload = std::move(payload), target,
+         onResponseReady = std::move(onResponseReady)](
+            const boost::system::error_code& ec1,
+            const sdbusplus::message::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
-                                      ec1, retPath);
+                                      ec1, retPath, onResponseReady);
         },
         serviceName, target, updateInterface, "StartUpdate", fd, applyTime);
 }
@@ -102,17 +105,19 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
     std::vector<sdbusplus::message::object_path> targets;
 
     redfish::task::Payload payload;
+    std::function<void()> onResponseReady;
 
-    PLDMUpdateCtx(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-        Payload&& payloadIn,
-        boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
-        const std::string& applyTimeIn, bool forceUpdateIn,
-        const std::vector<sdbusplus::message::object_path>& targetsIn) :
+    PLDMUpdateCtx(const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+                  Payload&& payloadIn,
+                  boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
+                  const std::string& applyTimeIn, bool forceUpdateIn,
+                  const std::vector<sdbusplus::message::object_path>& targetsIn,
+                  std::function<void()> onResponseReadyIn) :
         memfd(getRandomId()), asyncResp(asyncRespIn),
         fileGetSocket(std::move(fileGetSocketIn)), applyTime(applyTimeIn),
         forceUpdate(forceUpdateIn), targets(targetsIn),
-        payload(std::move(payloadIn))
+        payload(std::move(payloadIn)),
+        onResponseReady(std::move(onResponseReadyIn))
     {}
 
     void doRead()
@@ -165,11 +170,13 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
         dbus::utility::async_method_call(
             [asyncResp{asyncResp}, payload = std::move(payload),
-             fileGetSocket{std::move(fileGetSocket)},
-             objectPath](const boost::system::error_code& ec1,
-                         const sdbusplus::message::object_path& retPath) mutable {
+             fileGetSocket{std::move(fileGetSocket)}, objectPath,
+             onResponseReady{onResponseReady}](
+                const boost::system::error_code& ec1,
+                const sdbusplus::message::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
-                                          objectPath, ec1, retPath);
+                                          objectPath, ec1, retPath,
+                                          onResponseReady);
             },
             serviceName, objectPath, updateInterface, "StartUpdate", fd,
             applyTime, forceUpdate, targets);
@@ -180,14 +187,15 @@ inline void startPLDMUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
-    const std::vector<sdbusplus::message::object_path>& targets)
+    const std::vector<sdbusplus::message::object_path>& targets,
+    std::function<void()> onResponseReady)
 {
     BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
 
     std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
-        std::make_shared<PLDMUpdateCtx>(asyncResp, std::move(payload),
-                                        std::move(fileGetSocket), applyTime,
-                                        forceUpdate, targets);
+        std::make_shared<PLDMUpdateCtx>(
+            asyncResp, std::move(payload), std::move(fileGetSocket), applyTime,
+            forceUpdate, targets, std::move(onResponseReady));
     pldmUpdateCtx->doRead();
 }
 
@@ -197,7 +205,8 @@ inline void afterGetSubtreePathsSoftware(
         fileGetSocket,
     const std::string& updateUriTarget, const std::string& dbusApplyTime,
     const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& swInvPaths)
+    const dbus::utility::MapperGetSubTreeResponse& swInvPaths,
+    std::function<void()> onResponseReady)
 {
     if (ec)
     {
@@ -228,7 +237,8 @@ inline void afterGetSubtreePathsSoftware(
         BMCWEB_LOG_DEBUG("Starting software update for {} on path {}",
                          path.second[0].first, softwarePath.str);
         startSoftwareUpdate(asyncResp, std::move(payload), *fileGetSocket,
-                            dbusApplyTime, path.second[0].first, softwarePath);
+                            dbusApplyTime, path.second[0].first, softwarePath,
+                            std::move(onResponseReady));
         return;
     }
 
@@ -244,7 +254,8 @@ inline void afterGetSubtreePaths(
     const std::string& dbusApplyTime, bool forceUpdate,
     const std::vector<std::string>& uriTargets,
     const boost::system::error_code& ec,
-    const std::vector<std::string>& swInvPaths)
+    const std::vector<std::string>& swInvPaths,
+    std::function<void()> onResponseReady)
 {
     if (ec)
     {
@@ -272,7 +283,8 @@ inline void afterGetSubtreePaths(
     }
 
     startPLDMUpdate(asyncResp, std::move(payload), std::move(*fileGetSocket),
-                    dbusApplyTime, forceUpdate, validTargets);
+                    dbusApplyTime, forceUpdate, validTargets,
+                    std::move(onResponseReady));
 }
 
 inline TargetType parseRfaUri(std::string_view uri)
@@ -417,6 +429,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     bool fileSectionComplete = false;
     bool parseComplete = false;
 
+    // End the client response only once this is set AND the inbound body is
+    // fully consumed (parseComplete).
+    bool responseReady = false;
+
     // True for a local (PLDM/Software.Update) target.  Local updates forward
     // the raw fwpkg bytes straight to the socket fd handed to the update
     // service; satellite updates re-serialize the body as multipart form-data.
@@ -454,6 +470,40 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             BMCWEB_LOG_ERROR("Failed to close file send socket: {}",
                              ec.message());
         }
+    }
+
+    // Ending a streamInput response before the inbound body is fully consumed
+    // desyncs HTTP framing (leftover body is parsed as the next request).
+    void endClientResponseIfReady()
+    {
+        if (!responseReady)
+        {
+            return;
+        }
+        if (!parseComplete)
+        {
+            if (resumeReadCb)
+            {
+                resumeReadCb();
+            }
+            return;
+        }
+        asyncResp->res.end();
+    }
+
+    std::function<void()> responseReadyCallback()
+    {
+        return [self(shared_from_this())]() {
+            self->responseReady = true;
+            self->endClientResponseIfReady();
+        };
+    }
+
+    void failClientResponse()
+    {
+        state = State::UPDATE_COMPLETE_ERROR;
+        responseReady = true;
+        endClientResponseIfReady();
     }
 
     void putBytesToHttpClient(std::string_view data)
@@ -507,11 +557,20 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 fileSendSocket, boost::asio::buffer(currentWriteBuffer),
                 std::bind_front(&UpdateCtx::afterWritePartialData, this,
                                 shared_from_this()));
+            return;
         }
         if (ec)
         {
             BMCWEB_LOG_ERROR("afterWritePartialData() failed: {}",
                              ec.message());
+            // The downstream socket is gone; discard the rest of the body and
+            // keep reading so parseComplete can fire and the response ends.
+            state = State::UPDATE_COMPLETE_ERROR;
+            if (resumeReadCb)
+            {
+                resumeReadCb();
+            }
+            endClientResponseIfReady();
             return;
         }
         BMCWEB_LOG_DEBUG("afterWritePartialData() success: {} bytes sent",
@@ -713,6 +772,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             pendingFileDataBuffer.append(data);
             return;
         }
+        if (state == State::UPDATE_COMPLETE ||
+            state == State::UPDATE_COMPLETE_ERROR)
+        {
+            // Discard trailing body so the connection can finish reading.
+            return;
+        }
 
         BMCWEB_LOG_ERROR("Unexpected state on data available: {}",
                          static_cast<int>(state));
@@ -760,6 +825,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             fileSectionComplete = true;
             return;
         }
+        if (state == State::UPDATE_COMPLETE ||
+            state == State::UPDATE_COMPLETE_ERROR)
+        {
+            return;
+        }
 
         BMCWEB_LOG_ERROR("Unexpected state: {}", static_cast<int>(state));
     }
@@ -769,6 +839,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         BMCWEB_LOG_DEBUG("Parse complete");
         parseComplete = true;
         closeSendSocketIfReady();
+        endClientResponseIfReady();
     }
 
     void onHttpClientDataSendComplete(
@@ -806,7 +877,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         redfish::RedfishAggregator::processResponse(prefix, asyncResp, res);
-        asyncResp->res.end();
+        responseReady = true;
+        endClientResponseIfReady();
     }
 
     void onUpdateParametersComplete(MultiPartUpdate& multipart)
@@ -870,8 +942,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     void satControllerGetComplete(
         const SelfPtr& /*self*/,
         const std::vector<std::string>& localTargetsOut,
-        size_t remainingBodyLength,
-        const boost::system::error_code& ec,
+        size_t remainingBodyLength, const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         BMCWEB_LOG_DEBUG("Satellite controller get complete");
@@ -880,14 +951,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
                              ec.message());
             messages::internalError(asyncResp->res);
-            asyncResp->res.end();
+            failClientResponse();
             return;
         }
         if (satelliteInfo.empty())
         {
             BMCWEB_LOG_ERROR("No satellite BMC configs found.");
             messages::internalError(asyncResp->res);
-            asyncResp->res.end();
+            failClientResponse();
             return;
         }
         const boost::urls::url& host = satelliteInfo.begin()->second;
@@ -924,7 +995,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             BMCWEB_LOG_ERROR("Failed to set fd: {}", ec2.message());
             messages::internalError(asyncResp->res);
-            asyncResp->res.end();
+            failClientResponse();
             return;
         }
 
@@ -1001,13 +1072,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             std::array<std::string_view, 1>{
                 "xyz.openbmc_project.Software.Update"},
             [asyncResp{asyncResp}, payload = std::move(payload),
-             fileGetSocketPtr, uriTargets, dbusApplyTime,
-             softwareId](const boost::system::error_code& ec,
-                         const dbus::utility::MapperGetSubTreeResponse&
-                             swInvPaths) mutable {
-                afterGetSubtreePathsSoftware(asyncResp, std::move(payload),
-                                             fileGetSocketPtr, softwareId,
-                                             dbusApplyTime, ec, swInvPaths);
+             fileGetSocketPtr, uriTargets, dbusApplyTime, softwareId,
+             onResponseReady{responseReadyCallback()}](
+                const boost::system::error_code& ec,
+                const dbus::utility::MapperGetSubTreeResponse&
+                    swInvPaths) mutable {
+                afterGetSubtreePathsSoftware(
+                    asyncResp, std::move(payload), fileGetSocketPtr, softwareId,
+                    dbusApplyTime, ec, swInvPaths, std::move(onResponseReady));
             });
         return true;
     }
@@ -1057,7 +1129,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             std::vector<sdbusplus::message::object_path> emptyTargets{};
             nvidia::startPLDMUpdate(asyncResp, std::move(payload),
                                     std::move(fileGetSocket), dbusApplyTime,
-                                    forceUpdate, emptyTargets);
+                                    forceUpdate, emptyTargets,
+                                    responseReadyCallback());
             beginLocalFileStreaming();
             return;
         }
@@ -1081,12 +1154,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             std::array<std::string_view, 2>{
                 "xyz.openbmc_project.Software.Version"},
             [asyncResp{asyncResp}, payload = std::move(payload),
-             fileGetSocketPtr, dbusApplyTime, forceUpdate,
-             uriTargets](const boost::system::error_code& ec,
-                         const std::vector<std::string>& swInvPaths) mutable {
+             fileGetSocketPtr, dbusApplyTime, forceUpdate, uriTargets,
+             onResponseReady{responseReadyCallback()}](
+                const boost::system::error_code& ec,
+                const std::vector<std::string>& swInvPaths) mutable {
                 afterGetSubtreePaths(asyncResp, std::move(payload),
                                      fileGetSocketPtr, dbusApplyTime,
-                                     forceUpdate, uriTargets, ec, swInvPaths);
+                                     forceUpdate, uriTargets, ec, swInvPaths,
+                                     std::move(onResponseReady));
             });
         beginLocalFileStreaming();
     }

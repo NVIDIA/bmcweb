@@ -4,9 +4,13 @@
 
 #include "bmcweb_config.h"
 
+#include "async_resp.hpp"
 #include "http/http_request.hpp"
 #include "nvidia_multipart_update.hpp"
 #include "task.hpp"
+
+#include <boost/beast/core/error.hpp>
+#include <boost/system/errc.hpp>
 
 #include <format>
 #include <memory>
@@ -393,6 +397,78 @@ TEST(CloseSendSocketIfReady, ClosesSocketOnUpdateCompleteError)
     ctx->closeSendSocketIfReady();
 
     EXPECT_FALSE(ctx->fileSendSocket.is_open());
+}
+
+TEST(EndClientResponseIfReady, DoesNotEndWhenOnlyResponseReady)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->responseReady = true;
+
+    ctx->endClientResponseIfReady();
+
+    EXPECT_FALSE(ctx->asyncResp->res.isCompleted());
+}
+
+TEST(EndClientResponseIfReady, DoesNotEndWhenOnlyParseComplete)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->parseComplete = true;
+
+    ctx->endClientResponseIfReady();
+
+    EXPECT_FALSE(ctx->asyncResp->res.isCompleted());
+}
+
+TEST(EndClientResponseIfReady, EndsWhenResponseReadyAndParseComplete)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->responseReady = true;
+    ctx->parseComplete = true;
+
+    ctx->endClientResponseIfReady();
+
+    EXPECT_TRUE(ctx->asyncResp->res.isCompleted());
+}
+
+TEST(FailClientResponse, SetsErrorStateAndMarksResponseReady)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    ctx->failClientResponse();
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_TRUE(ctx->responseReady);
+}
+
+TEST(OnDataAvailable, DiscardsDataInTerminalState)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+
+    ctx->onDataAvailable(ctx, "late data");
+
+    EXPECT_TRUE(ctx->pendingWriteBuffer.empty());
+    EXPECT_TRUE(ctx->pendingFileDataBuffer.empty());
+    EXPECT_TRUE(ctx->updateParametersString.empty());
+}
+
+TEST(AfterWritePartialData, ErrorDiscardsBodyAndResumesReads)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    bool resumed = false;
+    ctx->resumeReadCb = [&resumed]() { resumed = true; };
+
+    boost::beast::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::broken_pipe);
+    ctx->afterWritePartialData(ctx, ec, 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_TRUE(resumed);
 }
 
 } // namespace
