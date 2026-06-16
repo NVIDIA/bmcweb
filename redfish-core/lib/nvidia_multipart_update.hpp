@@ -49,12 +49,14 @@ inline void handleStartUpdate(
         BMCWEB_LOG_ERROR("error_code = {}", ec);
         BMCWEB_LOG_ERROR("error msg = {}", ec.message());
         messages::internalError(asyncResp->res);
+        asyncResp->res.end();
         return;
     }
 
     BMCWEB_LOG_INFO("Call to StartUpdate on {} Success, retPath = {}", target,
                     retPath.str);
     createTask(asyncResp, std::move(payload), retPath);
+    asyncResp->res.end();
 }
 
 inline void startSoftwareUpdate(
