@@ -806,6 +806,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         redfish::RedfishAggregator::processResponse(prefix, asyncResp, res);
+        asyncResp->res.end();
     }
 
     void onUpdateParametersComplete(MultiPartUpdate& multipart)
@@ -878,11 +879,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
                              ec.message());
+            messages::internalError(asyncResp->res);
+            asyncResp->res.end();
             return;
         }
         if (satelliteInfo.empty())
         {
             BMCWEB_LOG_ERROR("No satellite BMC configs found.");
+            messages::internalError(asyncResp->res);
+            asyncResp->res.end();
             return;
         }
         const boost::urls::url& host = satelliteInfo.begin()->second;
@@ -918,6 +923,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (ec2)
         {
             BMCWEB_LOG_ERROR("Failed to set fd: {}", ec2.message());
+            messages::internalError(asyncResp->res);
+            asyncResp->res.end();
             return;
         }
 
