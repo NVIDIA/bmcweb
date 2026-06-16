@@ -1069,12 +1069,9 @@ inline void createDumpTaskCallback(
                     if (thisInterfaceName ==
                         std::string_view("xyz.openbmc_project.Common.Progress"))
                     {
-                        interfaceNode =
-                            interfaceNode->NextSiblingElement("interface");
-                        continue;
+                        isProgressIntfPresent = true;
+                        break;
                     }
-                    isProgressIntfPresent = true;
-                    break;
                 }
                 interfaceNode = interfaceNode->NextSiblingElement("interface");
             }
