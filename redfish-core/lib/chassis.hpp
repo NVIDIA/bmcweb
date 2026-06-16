@@ -1073,6 +1073,7 @@ inline void handleChassisPatch(
     std::optional<double> cpuClockFrequency;
     std::optional<double> workloadFactor;
     std::optional<double> temperature;
+    std::optional<uint32_t> numberOfCores;
     std::optional<bool> hardwareWriteProtectEnable;
     std::optional<bool> hostNetworkEnable;
     std::optional<std::string> oemSKU;
@@ -1102,7 +1103,8 @@ inline void handleChassisPatch(
             redfish::nvidia_chassis_utils::parseOemNvidiaPatchPayload(
                 asyncResp, oemJsonObj, partNumber, serialNumber,
                 hardwareWriteProtectEnable, hostNetworkEnable,
-                cpuClockFrequency, workloadFactor, temperature, oemSKU);
+                cpuClockFrequency, workloadFactor, temperature, numberOfCores,
+                oemSKU);
         }
     }
     // Nvidia added code end
@@ -1128,7 +1130,8 @@ inline void handleChassisPatch(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-         temperature, hardwareWriteProtectEnable, hostNetworkEnable,
+         temperature, numberOfCores, hardwareWriteProtectEnable,
+         hostNetworkEnable,
          oemSKU](const boost::system::error_code& ec,
                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -1210,7 +1213,8 @@ inline void handleChassisPatch(
                 redfish::nvidia_chassis_utils::applyOemChassisPatch(
                     asyncResp, chassisId, path, hardwareWriteProtectEnable,
                     hostNetworkEnable, partNumber, serialNumber,
-                    cpuClockFrequency, workloadFactor, temperature);
+                    cpuClockFrequency, workloadFactor, temperature,
+                    numberOfCores);
 
                 if (oemSKU)
                 {

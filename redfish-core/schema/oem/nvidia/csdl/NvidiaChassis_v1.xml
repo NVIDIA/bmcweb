@@ -269,6 +269,10 @@
           <Annotation Term="OData.Description" String="The workload factor parameter for this estimation."/>
           <Annotation Term="OData.LongDescription" String="This property shall specify the workload factor parameter for this estimation."/>
         </Property>
+        <Property Name="NumberOfCores" Type="NvidiaChassis.v1_1_0.StaticPowerHintInput">
+          <Annotation Term="OData.Description" String="The number of active CPU cores parameter for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the number of active CPU cores parameter for this estimation."/>
+        </Property>
       </ComplexType>
       <ComplexType Name="StaticPowerHintInput">
         <Property Name="AllowableMax" Type="Edm.Decimal">
