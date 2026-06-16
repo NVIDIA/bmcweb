@@ -140,7 +140,7 @@ inline void processAssociatedDomains(
         [](const ObjectServicePair& a, const ObjectServicePair& b) {
             return alphanumComp(a.first.filename(), b.first.filename()) < 0;
         };
-    std::sort(domains.begin(), domains.end(), sortByFileName);
+    std::ranges::sort(domains, sortByFileName);
     callback(std::move(domains));
 }
 

@@ -476,7 +476,8 @@ inline std::optional<std::string> scanMimePartsForImportFile(
  * @return File content on success, std::nullopt on any validation failure.
  */
 inline std::optional<std::string> parseImportFilePart(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId, const std::string& uploadUri)
 {
     std::string_view contentType = req.getHeaderValue("Content-Type");
@@ -493,7 +494,7 @@ inline std::optional<std::string> parseImportFilePart(
     }
 
     MultipartParser parser;
-    ParserError parseEc = parser.parse(req);
+    ParserError parseEc = parser.parse(contentType, req.body());
     if (parseEc != ParserError::PARSER_SUCCESS)
     {
         BMCWEB_LOG_ERROR(
@@ -825,7 +826,7 @@ inline void onFabricFoundForDelete(
  * Returns HTTP 204 on success.
  */
 inline void handleConfigFilePost(
-    App& app, crow::Request& req,
+    App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId)
 {
