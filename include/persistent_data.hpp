@@ -262,7 +262,7 @@ class ConfigFile
                         // downgrades in that case, even if we don't officially
                         // support it
                     }
-                    persistent_data::nvidia::getConfig().fromJson(*data);
+                    persistent_data::nvidia::getConfig().fromJson(data);
                 }
             }
         }

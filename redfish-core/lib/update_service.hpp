@@ -276,7 +276,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload,
-                       const sdbusplus::object_path& objPath)
+                       const sdbusplus::message::object_path& objPath)
 {
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
         std::bind_front(handleCreateTask),
@@ -316,7 +316,7 @@ inline void softwareInterfaceAdded(
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
 
-    sdbusplus::object_path objPath;
+    sdbusplus::message::object_path objPath;
 
     m.read(objPath, interfacesProperties);
 
@@ -482,7 +482,7 @@ inline void afterUpdateErrorMatcher(
     sdbusplus::message_t& m)
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
-    sdbusplus::object_path objPath;
+    sdbusplus::message::object_path objPath;
     m.read(objPath, interfacesProperties);
     BMCWEB_LOG_DEBUG("obj path = {}", objPath.str);
     for (const std::pair<std::string, dbus::utility::DBusPropertiesMap>&
@@ -752,7 +752,7 @@ inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     setDbusProperty(
         asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
-        sdbusplus::object_path("/xyz/openbmc_project/software/apply_time"),
+        sdbusplus::message::object_path("/xyz/openbmc_project/software/apply_time"),
         "xyz.openbmc_project.Software.ApplyTime", "RequestedApplyTime",
         applyTimeNewVal);
 }
@@ -821,7 +821,8 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     std::string_view content)
 {
     MultiPartUpdate::UpdateParameters multiRet;
-    std::optional<nlohmann::json> jsonContent = parseStringAsJson(content);
+    std::optional<nlohmann::json> jsonContent =
+        parseStringAsJson(std::string(content));
     if (!jsonContent)
     {
         // Nvidia code starts here
@@ -931,7 +932,7 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
     const std::string& objectPath, const boost::system::error_code& ec,
-    const sdbusplus::object_path& retPath)
+    const sdbusplus::message::object_path& retPath)
 {
     if (ec)
     {
@@ -964,7 +965,7 @@ inline void startUpdate(
         asyncResp,
         [asyncResp, payload = std::move(payload), memfd,
          objectPath](const boost::system::error_code& ec1,
-                     const sdbusplus::object_path& retPath) mutable {
+                     const sdbusplus::message::object_path& retPath) mutable {
             handleStartUpdate(asyncResp, std::move(payload), objectPath, ec1,
                               retPath);
         },
@@ -982,7 +983,7 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     using SwInfoMap =
         std::unordered_map<std::string,
-                           std::pair<sdbusplus::object_path, std::string>>;
+                           std::pair<sdbusplus::message::object_path, std::string>>;
     SwInfoMap swInfoMap;
 
     if (ec)
@@ -996,7 +997,7 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     for (const auto& entry : subtree)
     {
-        sdbusplus::object_path path(entry.first);
+        sdbusplus::message::object_path path(entry.first);
         std::string swId = path.filename();
         swInfoMap.emplace(swId, make_pair(path, entry.second[0].first));
     }
@@ -1519,7 +1520,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
              std::vector<std::pair<std::string, std::vector<std::string>>>>&
              obj : subtree)
     {
-        sdbusplus::object_path path(obj.first);
+        sdbusplus::message::object_path path(obj.first);
         std::string id = path.filename();
         if (id.empty())
         {

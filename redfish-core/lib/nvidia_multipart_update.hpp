@@ -42,7 +42,7 @@ enum class TargetType
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload payload,
     const std::string& target, const boost::system::error_code& ec,
-    const sdbusplus::object_path& retPath)
+    const sdbusplus::message::object_path& retPath)
 {
     if (ec)
     {
@@ -71,7 +71,7 @@ inline void startSoftwareUpdate(
         asyncResp,
         [asyncResp, payload = std::move(payload),
          target](const boost::system::error_code& ec1,
-                 const sdbusplus::object_path& retPath) mutable {
+                 const sdbusplus::message::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
                                       ec1, retPath);
         },
@@ -165,7 +165,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocket{std::move(fileGetSocket)},
              objectPath](const boost::system::error_code& ec1,
-                         const sdbusplus::object_path& retPath) mutable {
+                         const sdbusplus::message::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
                                           objectPath, ec1, retPath);
             },
@@ -868,12 +868,19 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         const SelfPtr& /*self*/,
         const std::vector<std::string>& localTargetsOut,
         size_t remainingBodyLength,
+        const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         BMCWEB_LOG_DEBUG("Satellite controller get complete");
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
+                             ec.message());
+            return;
+        }
         if (satelliteInfo.empty())
         {
-            BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+            BMCWEB_LOG_ERROR("No satellite BMC configs found.");
             return;
         }
         const boost::urls::url& host = satelliteInfo.begin()->second;
