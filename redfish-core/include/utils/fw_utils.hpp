@@ -395,7 +395,7 @@ inline void getFwRecoveryStatus(
     dbus::utility::getAllProperties(
         dbusSvc, "/xyz/openbmc_project/software/" + *swId,
         "xyz.openbmc_project.State.Decorator.Health",
-        [asyncResp, swId, &getLastSegnmentFromDotterString](
+        [asyncResp, swId, getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec || propertiesList.empty())
@@ -432,7 +432,7 @@ inline void getFwRecoveryStatus(
     dbus::utility::getAllProperties(
         dbusSvc, "/xyz/openbmc_project/software/" + *swId,
         "xyz.openbmc_project.State.Decorator.OperationalStatus",
-        [asyncResp, swId, &getLastSegnmentFromDotterString](
+        [asyncResp, swId, getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec || propertiesList.empty())
