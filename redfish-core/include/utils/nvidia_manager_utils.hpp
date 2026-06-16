@@ -28,6 +28,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/system/error_code.hpp>
@@ -45,16 +46,6 @@ namespace redfish
 
 namespace nvidia_manager_util
 {
-
-static constexpr auto restrictionModePath =
-    "/xyz/openbmc_project/control/host0/restriction_mode";
-static constexpr auto restrictionModeInterface =
-    "xyz.openbmc_project.Control.Security.RestrictionMode";
-static constexpr auto restrictionModeProperty = "RestrictionMode";
-static constexpr std::array<std::string_view, 1> restrictionModeInterfaceArray =
-    {restrictionModeInterface};
-static constexpr std::array<std::string_view, 1> ssifInterfaceArray = {
-    "xyz.openbmc_project.Ipmi.Channel.ipmi_ssif"};
 
 /**
  * @brief Retrieves telemetry ready state data over DBus
@@ -729,10 +720,12 @@ inline void getRestrictionModeIfSsifPresent(
     }
 
     dbus::utility::getDbusObject(
-        restrictionModePath, restrictionModeInterfaceArray,
+        nvidia_ipmi::restrictionModePath,
+        nvidia_ipmi::restrictionModeInterfaceArray,
         std::bind_front(getRestrictionModeHandler, asyncResp,
-                        restrictionModePath, restrictionModeInterface,
-                        restrictionModeProperty));
+                        nvidia_ipmi::restrictionModePath,
+                        nvidia_ipmi::restrictionModeInterface,
+                        nvidia_ipmi::restrictionModeProperty));
 }
 
 /**
@@ -744,7 +737,7 @@ inline void getRestrictionMode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/Ipmi", 0, ssifInterfaceArray,
+        "/xyz/openbmc_project/Ipmi", 0, nvidia_ipmi::ssifInterfaceArray,
         std::bind_front(getRestrictionModeIfSsifPresent, asyncResp));
 }
 
@@ -815,10 +808,12 @@ inline void setRestrictionModeIfSsifPresent(
         return;
     }
     dbus::utility::getDbusObject(
-        restrictionModePath, restrictionModeInterfaceArray,
+        nvidia_ipmi::restrictionModePath,
+        nvidia_ipmi::restrictionModeInterfaceArray,
         std::bind_front(setRestrictionModeHandler, asyncResp,
-                        restrictionModePath, restrictionModeInterface,
-                        restrictionModeProperty, dbusMode));
+                        nvidia_ipmi::restrictionModePath,
+                        nvidia_ipmi::restrictionModeInterface,
+                        nvidia_ipmi::restrictionModeProperty, dbusMode));
 }
 
 /**
@@ -832,7 +827,7 @@ inline void setRestrictionMode(
     const std::string& mode)
 {
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/Ipmi", 0, ssifInterfaceArray,
+        "/xyz/openbmc_project/Ipmi", 0, nvidia_ipmi::ssifInterfaceArray,
         std::bind_front(setRestrictionModeIfSsifPresent, asyncResp, mode));
 }
 

@@ -3876,7 +3876,7 @@ inline void processComputerSystemGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_23_0.ComputerSystem";
+        "#ComputerSystem.v1_25_0.ComputerSystem";
     asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
@@ -4059,6 +4059,9 @@ inline void processComputerSystemGet(
 
     getPortStatusAndPath(std::span{protocolToDBusForSystems},
                          std::bind_front(afterPortRequest, asyncResp));
+
+    // Report the state of the in-band IPMI (SSIF) host interface
+    redfish::nvidia_systems_utils::getIPMIHostInterface(asyncResp);
 
     if constexpr (BMCWEB_KVM)
     {
@@ -4345,6 +4348,7 @@ struct PatchParams
     std::optional<uint32_t> bootAutomaticRetryAttempts;
     std::optional<bool> locationIndicatorActive;
     std::optional<bool> sshServiceEnabled;
+    std::optional<bool> ipmiHostInterfaceServiceEnabled;
     std::optional<bool> wdtEnable;
     std::optional<bool> bootTrustedModuleRequired;
     std::optional<bool> ipsEnable;
@@ -4507,6 +4511,12 @@ inline void processComputerSystemPatch(
         }
     }
 
+    if (patchParams.ipmiHostInterfaceServiceEnabled)
+    {
+        redfish::nvidia_systems_utils::setIPMIHostInterface(
+            asyncResp, *patchParams.ipmiHostInterfaceServiceEnabled);
+    }
+
     if (patchParams.bootSourceOverrideTargetAllowableValues ||
         patchParams.sku || patchParams.uuid ||
         patchParams.bootSourceOverrideEnabledAllowableValues ||
@@ -4658,6 +4668,8 @@ inline void handleComputerSystemPatch(
             "PowerMode", patchParams.powerMode,                               //
             "PowerOnDelaySeconds", patchParams.powerOnDelaySeconds,           //
             "SerialConsole/SSH/ServiceEnabled", patchParams.sshServiceEnabled,//
+            "IPMIHostInterface/ServiceEnabled",
+            patchParams.ipmiHostInterfaceServiceEnabled,                      //
             "PowerRestorePolicy", patchParams.powerRestorePolicy,             //
             "Oem/Nvidia/ProcessorDebugCapabilities",
             patchParams.processorDebugCapabilities,                           //
