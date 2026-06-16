@@ -750,11 +750,11 @@ inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    setDbusProperty(
-        asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
-        sdbusplus::message::object_path("/xyz/openbmc_project/software/apply_time"),
-        "xyz.openbmc_project.Software.ApplyTime", "RequestedApplyTime",
-        applyTimeNewVal);
+    setDbusProperty(asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
+                    sdbusplus::message::object_path(
+                        "/xyz/openbmc_project/software/apply_time"),
+                    "xyz.openbmc_project.Software.ApplyTime",
+                    "RequestedApplyTime", applyTimeNewVal);
 }
 
 struct MultiPartUpdate
@@ -981,9 +981,8 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    using SwInfoMap =
-        std::unordered_map<std::string,
-                           std::pair<sdbusplus::message::object_path, std::string>>;
+    using SwInfoMap = std::unordered_map<
+        std::string, std::pair<sdbusplus::message::object_path, std::string>>;
     SwInfoMap swInfoMap;
 
     if (ec)
