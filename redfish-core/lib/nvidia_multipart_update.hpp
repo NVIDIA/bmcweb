@@ -876,7 +876,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
             return;
         }
-        boost::urls::url& host = satelliteInfo.begin()->second;
+        const boost::urls::url& host = satelliteInfo.begin()->second;
 
         BMCWEB_LOG_DEBUG("Satellite host: {}", host);
 
