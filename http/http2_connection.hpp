@@ -60,6 +60,13 @@ struct Http2StreamData
     std::optional<bmcweb::HttpBody::writer> writer;
     bool valid = true;
     std::shared_ptr<bmcweb::AsyncResp> headersAsyncResp;
+    // Defer body reads until handleHeaders() completes (mirrors HTTP/1.1
+    // afterHeadersComplete).  Only data that arrives during the async
+    // privilege check is buffered here, not the full upload.
+    bool bodyReadPending = false;
+    bool isStreamInput = false;
+    bool endStreamPending = false;
+    std::vector<uint8_t> pendingBodyData;
 };
 
 template <typename Adaptor, typename Handler>
@@ -312,38 +319,67 @@ class HTTP2Connection :
 
         auto headersAsyncResp = std::make_shared<bmcweb::AsyncResp>();
         stream.headersAsyncResp = headersAsyncResp;
+        stream.bodyReadPending = true;
         headersAsyncResp->res.setCompleteRequestHandler(
             [weakSelf = weak_from_this(), streamId](Response& /*phase1Res*/) {
-                auto self = weakSelf.lock();
-                if (!self)
+                if (auto self = weakSelf.lock())
                 {
-                    return;
+                    self->onHeadersHandlerComplete(streamId);
                 }
-                auto it2 = self->streams.find(streamId);
-                if (it2 == self->streams.end())
-                {
-                    return;
-                }
-                Http2StreamData& s = it2->second;
-                if (!s.req || !s.req->req.body().multipartParserCallbacks)
-                {
-                    return;
-                }
-                s.headersAsyncResp->res.setCompleteRequestHandler(
-                    [weakSelf, streamId](Response& completedRes) {
-                        if (auto self2 = weakSelf.lock())
-                        {
-                            if (self2->sendResponse(completedRes, streamId) !=
-                                0)
-                            {
-                                self2->close();
-                            }
-                        }
-                    });
             });
 
         handler->handleHeaders(stream.req, headersAsyncResp);
         return 0;
+    }
+
+    void onHeadersHandlerComplete(int32_t streamId)
+    {
+        auto it = streams.find(streamId);
+        if (it == streams.end())
+        {
+            return;
+        }
+        Http2StreamData& stream = it->second;
+
+        if (stream.req && stream.req->req.body().multipartParserCallbacks)
+        {
+            stream.isStreamInput = true;
+            if (stream.headersAsyncResp)
+            {
+                stream.headersAsyncResp->res.setCompleteRequestHandler(
+                    [weakSelf = weak_from_this(),
+                     streamId](Response& completedRes) {
+                        if (auto self = weakSelf.lock())
+                        {
+                            if (self->sendResponse(completedRes, streamId) != 0)
+                            {
+                                self->close();
+                            }
+                        }
+                    });
+            }
+        }
+
+        stream.bodyReadPending = false;
+
+        if (!stream.pendingBodyData.empty())
+        {
+            if (processBodyData(streamId, stream.pendingBodyData.data(),
+                                stream.pendingBodyData.size()) != 0)
+            {
+                close();
+                return;
+            }
+            stream.pendingBodyData.clear();
+        }
+
+        if (stream.endStreamPending)
+        {
+            if (finishStreamBody(streamId) != 0)
+            {
+                close();
+            }
+        }
     }
 
     int onRequestRecv(int32_t streamId)
@@ -356,26 +392,20 @@ class HTTP2Connection :
             close();
             return -1;
         }
-        auto& reqReader = it->second.reqReader;
-        if (reqReader)
+        if (it->second.bodyReadPending)
         {
-            boost::beast::error_code ec;
-            reqReader->finish(ec);
-            if (ec)
-            {
-                BMCWEB_LOG_CRITICAL("Failed to finalize payload");
-                close();
-                return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
-            }
+            it->second.endStreamPending = true;
+            return 0;
+        }
+        if (finishStreamBody(streamId) != 0)
+        {
+            close();
+            return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
 
-        if (it->second.headersAsyncResp)
+        if (it->second.headersAsyncResp && it->second.isStreamInput)
         {
-            if (it->second.req &&
-                it->second.req->req.body().multipartParserCallbacks)
-            {
-                return 0;
-            }
+            return 0;
         }
 
         crow::Request& thisReq = *it->second.req;
@@ -446,6 +476,26 @@ class HTTP2Connection :
             return -1;
         }
 
+        if (thisStream->second.bodyReadPending)
+        {
+            std::vector<uint8_t>& pending = thisStream->second.pendingBodyData;
+            const std::span<const uint8_t> chunk(data, len);
+            pending.insert(pending.end(), chunk.begin(), chunk.end());
+            return 0;
+        }
+
+        return processBodyData(streamId, data, len);
+    }
+
+    int processBodyData(int32_t streamId, const uint8_t* data, size_t len)
+    {
+        auto thisStream = streams.find(streamId);
+        if (thisStream == streams.end())
+        {
+            BMCWEB_LOG_ERROR("Unknown stream{}", streamId);
+            return -1;
+        }
+
         std::optional<bmcweb::HttpBody::reader>& reqReader =
             thisStream->second.reqReader;
         if (!reqReader)
@@ -466,6 +516,31 @@ class HTTP2Connection :
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("Failed to write payload");
+            return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+        }
+        return 0;
+    }
+
+    int finishStreamBody(int32_t streamId)
+    {
+        auto it = streams.find(streamId);
+        if (it == streams.end())
+        {
+            return -1;
+        }
+        it->second.endStreamPending = false;
+
+        std::optional<bmcweb::HttpBody::reader>& reqReader =
+            it->second.reqReader;
+        if (!reqReader)
+        {
+            return 0;
+        }
+        boost::beast::error_code ec;
+        reqReader->finish(ec);
+        if (ec)
+        {
+            BMCWEB_LOG_CRITICAL("Failed to finalize payload");
             return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
         return 0;
