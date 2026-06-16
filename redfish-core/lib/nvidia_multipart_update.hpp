@@ -605,7 +605,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 }
                 state = State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
                 BMCWEB_LOG_DEBUG("Getting satellite configs");
-                RedfishAggregator::getInstance().getSatelliteConfigs(
+                RedfishAggregator::getSatelliteConfigs(
                     std::bind_front(&UpdateCtx::satControllerGetComplete, this,
                                     shared_from_this(), satelliteTargetsOut,
                                     remainingBodyLength));

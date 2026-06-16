@@ -336,17 +336,23 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     void writeSome()
     {
+        if (!serializer)
+        {
+            BMCWEB_LOG_ERROR("writeSome called without serializer");
+            return;
+        }
+        http::serializer<true, bmcweb::HttpBody>& ser = *serializer;
         if (sslConn)
         {
             boost::beast::http::async_write_some(
-                *sslConn, *serializer,
+                *sslConn, ser,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
         else
         {
             boost::beast::http::async_write_some(
-                conn, *serializer,
+                conn, ser,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
