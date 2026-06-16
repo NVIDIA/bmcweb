@@ -33,7 +33,6 @@ namespace login_routes
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    MultipartParser parser;
     std::string_view contentType = req.getHeaderValue("content-type");
     std::string_view username;
     std::string_view password;
@@ -126,7 +125,8 @@ inline void handleLogin(const crow::Request& req,
     }
     else if (contentType.starts_with("multipart/form-data"))
     {
-        ParserError ec = parser.parse(req);
+        MultipartParser parser(req.body().size());
+        ParserError ec = parser.parse(contentType, req.body());
         if (ec != ParserError::PARSER_SUCCESS)
         {
             // handle error
