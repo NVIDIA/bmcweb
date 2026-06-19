@@ -2235,7 +2235,7 @@ inline void requestRoutesNVSwitchReset(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Fabrics/<str>/Switches/<str>/"
                       "Actions/Switch.Reset/")
-        .privileges({{"Login"}})
+        .privileges(redfish::privileges::postSwitch)
         .methods(
             boost::beast::http::verb::
                 post)([&app](
