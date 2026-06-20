@@ -386,7 +386,7 @@ class HttpBody::writer
         else
         {
             size_t readReq = std::min(fileReadBuf.size(), maxSize);
-            BMCWEB_LOG_INFO("Reading {}", readReq);
+            BMCWEB_LOG_DEBUG("Reading {}", readReq);
             boost::system::error_code readEc;
             size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
             if (readEc)
@@ -408,7 +408,7 @@ class HttpBody::writer
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
-            BMCWEB_LOG_INFO("Read {} bytes from file", read);
+            BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
 
             ret.second = read != 0;
             if (body.encodingType == EncodingType::Base64)
@@ -454,7 +454,7 @@ class HttpBody::writer
             }
             ret.first = *compressed;
         }
-        BMCWEB_LOG_INFO("Returning {} bytes more={}", ret.first.size(),
+        BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
                         ret.second);
         return ret;
     }
