@@ -178,19 +178,18 @@ TEST(ParseRfaUri, UnrelatedUriIsLocal)
     EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Local);
 }
 
-TEST(ParseRfaUri, FirmwareInventoryIsLocal)
+TEST(ParseRfaUri, UnprefixedFirmwareInventoryIsLocal)
 {
-    // FirmwareInventory is not in the aggregation routing table; always local.
     EXPECT_EQ(parseRfaUri("/redfish/v1/UpdateService/FirmwareInventory/fw0"),
               TargetType::Local);
 }
 
-TEST(ParseRfaUri, AggregationPrefixedFirmwareInventoryIsLocal)
+TEST(ParseRfaUri, AggregationPrefixedFirmwareInventoryIsSatellite)
 {
     std::string uri =
-        std::format("/redfish/v1/UpdateService/FirmwareInventory/{}_fw0",
+        std::format("/redfish/v1/UpdateService/FirmwareInventory/{}_FW_BMC_0",
                     BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_EQ(parseRfaUri(uri), TargetType::Local);
+    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
 }
 
 TEST(ParseRfaUri, AggregationPrefixedManagerIsLocal)

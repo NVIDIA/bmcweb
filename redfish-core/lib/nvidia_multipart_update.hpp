@@ -355,6 +355,23 @@ inline TargetType parseRfaUri(std::string_view uri)
         return TargetType::Satellite;
     }
 
+    std::string firmwareId;
+    if (crow::utility::readUrlSegments(*parsed, "redfish", "v1",
+                                       "UpdateService", "FirmwareInventory",
+                                       std::ref(firmwareId)))
+    {
+        std::string prefix =
+            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        if (!firmwareId.starts_with(prefix))
+        {
+            return TargetType::Local;
+        }
+
+        BMCWEB_LOG_DEBUG(
+            "Update target was satellite FirmwareInventory.  Returning Satellite.");
+        return TargetType::Satellite;
+    }
+
     return TargetType::Local;
 }
 
