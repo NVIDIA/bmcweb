@@ -49,6 +49,9 @@ inline void handleStartUpdate(
     {
         BMCWEB_LOG_ERROR("error_code = {}", ec);
         BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+        // StartUpdate failed; release the guard (handleCreateTask() clears it
+        // on success).
+        redfish::fwUpdateInProgress = false;
         messages::internalError(asyncResp->res);
         onResponseReady();
         return;
@@ -70,6 +73,8 @@ inline void startSoftwareUpdate(
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
     sdbusplus::message::unix_fd fd(fileGetSocket.native_handle());
+
+    redfish::fwUpdateInProgress = true;
 
     dbus::utility::async_method_call(
         asyncResp,
@@ -167,6 +172,8 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
         memfd.rewind();
         sdbusplus::message::unix_fd fd(memfd.fd);
+
+        redfish::fwUpdateInProgress = true;
 
         dbus::utility::async_method_call(
             [asyncResp{asyncResp}, payload = std::move(payload),
@@ -1134,6 +1141,23 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         BMCWEB_LOG_DEBUG("Starting local update for {} targets",
                          uriTargets.size());
         isLocal = true;
+
+        // Local firmware-update mutual exclusion. Reject early (before the
+        // file body streams) if a local update is already running. This is the
+        // fast-fail; the authoritative race-free claim is the check-and-set at
+        // the StartUpdate dispatch point. Satellite updates target a different
+        // BMC and intentionally do not consult this guard.
+        if (redfish::fwUpdateInProgress)
+        {
+            BMCWEB_LOG_ERROR("Update already in progress.");
+            redfish::messages::updateInProgressMsg(
+                asyncResp->res,
+                "Another update is in progress. Retry the update operation "
+                "once it is complete.");
+            failClientResponse();
+            return;
+        }
+
         std::string dbusApplyTime;
         if (!convertApplyTime(asyncResp->res,
                               multiRet.params.applyTime.value_or("OnReset"),
