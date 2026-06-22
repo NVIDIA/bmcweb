@@ -37,8 +37,7 @@ enum class SpiEventType
 inline void afterSpiEventStarted(
     SpiEventType spiEventType, task::Payload&& payload,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& serviceName,
-    const sdbusplus::message::object_path& eraseObjPath,
+    const std::string& serviceName, const sdbusplus::object_path& eraseObjPath,
     const boost::system::error_code& ec)
 {
     if (ec)
@@ -129,11 +128,11 @@ inline void afterSpiInterfacesFound(
     {
         method = "ReadSpi";
     }
-    sdbusplus::message::object_path path(objectPath);
+    sdbusplus::object_path path(objectPath);
     dbus::utility::async_method_call(
         [asyncResp, payload = std::move(payload), chassisId, spiEventType,
          service](const boost::system::error_code& ec2,
-                  const sdbusplus::message::object_path& objPath) mutable {
+                  const sdbusplus::object_path& objPath) mutable {
             afterSpiEventStarted(spiEventType, std::move(payload), asyncResp,
                                  service, objPath, ec2);
         },

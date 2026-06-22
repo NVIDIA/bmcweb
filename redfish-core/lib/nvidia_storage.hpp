@@ -395,7 +395,7 @@ inline void getDriveProgress(
             //  The change follows the Redfish spec. The AssociatedTask property
             //  is a link to the task associated with the operation.
             // https://www.dmtf.org/sites/default/files/standards/documents/DSP2046_2024.2.html
-            sdbusplus::message::object_path objectPath(path);
+            sdbusplus::object_path objectPath(path);
             std::string driveId = objectPath.filename();
             if (!taskUri[driveId].empty())
             {
@@ -449,7 +449,7 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
 
             // Find the chassisId that contains this driveId
-            sdbusplus::message::object_path chassisPath(resp[0]);
+            sdbusplus::object_path chassisPath(resp[0]);
             auto chassisId = std::string(chassisPath.filename());
 
             asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
@@ -615,8 +615,8 @@ inline void handleDriveSanitizePost(
                 [&driveId](
                     const std::pair<std::string,
                                     dbus::utility::MapperServiceMap>& object) {
-                    return sdbusplus::message::object_path(object.first)
-                               .filename() == driveId;
+                    return sdbusplus::object_path(object.first).filename() ==
+                           driveId;
                 });
             if (drive == subtree.end())
             {
@@ -709,8 +709,8 @@ inline void handleDriveSanitizetActionInfoGet(
                 [&driveId](
                     const std::pair<std::string,
                                     dbus::utility::MapperServiceMap>& object) {
-                    return sdbusplus::message::object_path(object.first)
-                               .filename() == driveId;
+                    return sdbusplus::object_path(object.first).filename() ==
+                           driveId;
                 });
             if (drive == subtree.end())
             {
@@ -930,7 +930,7 @@ inline void driveCollectionGet(
                 // We expect to have NVMe resource from nvme-manager so we
                 // filter out drive instances from EM by the number of Dbus
                 // interface.
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 auto id = objPath.filename();
                 uint32_t num = 0;
                 for (const std::string& interface : connNames.begin()->second)

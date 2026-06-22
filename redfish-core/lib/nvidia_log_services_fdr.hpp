@@ -111,7 +111,7 @@ inline void requestRoutesSystemFDREntryDownload(App& app)
                             asyncResp, entryID, "FDR", ec, unixfd);
                     };
 
-                sdbusplus::message::object_path entry(
+                sdbusplus::object_path entry(
                     "/xyz/openbmc_project/dump/fdr/entry");
                 entry /= entryID;
                 dbus::utility::async_method_call(
@@ -177,8 +177,7 @@ void inline requestRoutesSystemFDRClear(App& app)
                 dbus::utility::async_method_call(
                     [asyncResp](const boost::system::error_code& ec,
                                 const sdbusplus::message::message& msg,
-                                const sdbusplus::message::object_path&
-                                    objPath) mutable {
+                                const sdbusplus::object_path& objPath) mutable {
                         (void)msg;
                         (void)objPath;
 
@@ -449,7 +448,7 @@ void inline requestRoutesSystemFDRGenBirthCert(App& app)
                     [asyncResp](
                         const boost::system::error_code& ec,
                         [[maybe_unused]] const sdbusplus::message::message& msg,
-                        [[maybe_unused]] const sdbusplus::message::object_path&
+                        [[maybe_unused]] const sdbusplus::object_path&
                             objPath) mutable {
                         if (ec)
                         {

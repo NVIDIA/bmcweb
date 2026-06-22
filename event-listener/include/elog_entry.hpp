@@ -52,7 +52,7 @@ class evtEntry final :
      *  @param[in] resolution - The resolution information for the error.
      *  @param[in] additionalDataErr - The error metadata.
      */
-    evtEntry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t id,
+    evtEntry(sdbusplus::bus_t& bus, const std::string& path, uint32_t id,
              uint64_t timestamp, Level severity, std::string&& msg,
              std::string&& resolution,
              std::vector<std::pair<std::string, std::string>>&& additionalData);

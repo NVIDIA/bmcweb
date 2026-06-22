@@ -46,7 +46,7 @@ namespace nvidia_oem_power_profile
  * @return None
  */
 inline void handlePowerProfileCollectionGetRequest(
-    App& app, const sdbusplus::message::object_path& dbusPath,
+    App& app, const sdbusplus::object_path& dbusPath,
     const std::string& memberDbusIntf, const boost::urls::url& redfishUri,
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

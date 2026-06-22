@@ -43,7 +43,7 @@ inline void getCpuObjectPath(
     std::function<void(const boost::system::error_code&, const std::string)>&&
         callback)
 {
-    sdbusplus::message::object_path path(rootSPDMDbusPath);
+    sdbusplus::object_path path(rootSPDMDbusPath);
     dbus::utility::getManagedObjects(
         spdmBusName, path,
         [callback{std::move(callback)}](
@@ -113,7 +113,7 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "CPU");
             return;
         }
-        auto objectName = sdbusplus::message::object_path(path).filename();
+        auto objectName = sdbusplus::object_path(path).filename();
         mctp_utils::enumerateMctpEndpoints(
             [asyncResp, callback](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&

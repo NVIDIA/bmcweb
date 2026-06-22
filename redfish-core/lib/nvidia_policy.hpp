@@ -52,7 +52,7 @@ inline static bool checkChassisId(const std::string& path,
                                   const std::string& chassisId)
 {
     std::string chassisName =
-        sdbusplus::message::object_path(path).parent_path().filename();
+        sdbusplus::object_path(path).parent_path().filename();
 
     return (chassisName == chassisId);
 }
@@ -147,8 +147,7 @@ inline void handleLeakDetectorPolicyPathsGet(
         // Add the detector as a member of PolicyCondition
         boost::urls::url propertyURI = boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors/{}/#DetectorState",
-            chassisId,
-            sdbusplus::message::object_path(leakDetectorPath).filename());
+            chassisId, sdbusplus::object_path(leakDetectorPath).filename());
 
         nlohmann::json::object_t conditionObject;
         conditionObject.emplace("Property", propertyURI);
@@ -166,8 +165,7 @@ inline void getLeakDetectorPolicyPaths(
     const std::function<void(const dbus::utility::MapperGetSubTreePathsResponse&
                                  leakDetectorPaths)>&& callback)
 {
-    sdbusplus::message::object_path inventoryPath(
-        "/xyz/openbmc_project/inventory");
+    sdbusplus::object_path inventoryPath("/xyz/openbmc_project/inventory");
 
     dbus::utility::getSubTreePaths(
         inventoryPath, 0, leakDetectorConfigInterfaces,

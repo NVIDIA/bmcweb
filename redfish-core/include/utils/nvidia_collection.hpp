@@ -88,7 +88,7 @@ inline void getCollectionMembersByAssociation(
                         }
 
                         // Found member
-                        sdbusplus::message::object_path path(sensorpath);
+                        sdbusplus::object_path path(sensorpath);
                         if (path.filename().empty())
                         {
                             return;

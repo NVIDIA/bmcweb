@@ -32,7 +32,7 @@ inline void defaultSystemURI(
 
 inline void handleChassisRedfishURL(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& chassisPath)
+    const sdbusplus::object_path& chassisPath)
 {
     chassis_utils::getRedfishURL(
         chassisPath.str,
@@ -68,9 +68,9 @@ inline void populateRelatedNetworkAdapterData(
                 asyncResp->res.jsonValue["RelatedItem"];
             for (const std::string& chassisPath : resp)
             {
-                sdbusplus::message::object_path adapterPath(objPath);
+                sdbusplus::object_path adapterPath(objPath);
                 std::string adapterId = adapterPath.filename();
-                sdbusplus::message::object_path objectPath(chassisPath);
+                sdbusplus::object_path objectPath(chassisPath);
                 std::string chassisId = objectPath.filename();
                 std::string adapterURI =
                     std::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}",
@@ -101,7 +101,7 @@ inline void getRelatedNetworkAdapterData(
 
             for (const std::string& chassisPath : resp)
             {
-                sdbusplus::message::object_path objectPath(chassisPath);
+                sdbusplus::object_path objectPath(chassisPath);
                 const std::string chassisId = objectPath.filename();
 
                 // Now check the network adapter link
@@ -166,8 +166,7 @@ inline void getRelatedItemData(
                         }
                         for (const std::string& processorPath : resp1)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                processorPath);
+                            sdbusplus::object_path objectPath(processorPath);
                             std::string processorId = objectPath.filename();
                             std::string processorURI = std::format(
                                 "/redfish/v1/Systems/{}/Processors/{}",
@@ -180,7 +179,7 @@ inline void getRelatedItemData(
             }
             for (const std::string& fabricPath : resp)
             {
-                sdbusplus::message::object_path objectPath(fabricPath);
+                sdbusplus::object_path objectPath(fabricPath);
                 const std::string fabricId = objectPath.filename();
                 dbus::utility::getProperty<std::vector<std::string>>(
                     "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
@@ -197,8 +196,7 @@ inline void getRelatedItemData(
                             asyncResp->res.jsonValue["RelatedItem"];
                         for (const std::string& switchPath : resp1)
                         {
-                            sdbusplus::message::object_path objectPath1(
-                                switchPath);
+                            sdbusplus::object_path objectPath1(switchPath);
                             std::string switchId = objectPath1.filename();
                             std::string switchURI =
                                 boost::urls::format(
@@ -574,7 +572,7 @@ inline void getChassisSensors(
 
             for (const std::string& sensorPath : variantEndpoints)
             {
-                sdbusplus::message::object_path path(sensorPath);
+                sdbusplus::object_path path(sensorPath);
                 const std::string& sensorId = path.filename();
                 if (sensorId.empty())
                 {
@@ -632,7 +630,7 @@ inline void handleSensorGetAfterSetup(
 
         for (const std::string& chassisPath : chassisPaths)
         {
-            sdbusplus::message::object_path path(chassisPath);
+            sdbusplus::object_path path(chassisPath);
             const std::string& chassisName = path.filename();
             if (chassisName.empty())
             {

@@ -35,8 +35,7 @@ namespace nvidia_oem_psu_redundancy
 
 inline void afterGetPsuRedundancyProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::urls::url& redfishUri,
-    const sdbusplus::message::object_path& dbusPath,
+    const boost::urls::url& redfishUri, const sdbusplus::object_path& dbusPath,
     const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& properties)
 {
@@ -106,7 +105,7 @@ inline void handlePSURedundancyGetRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/psu_redundancy");
 
     boost::urls::url redfishUri = boost::urls::format(
@@ -162,7 +161,7 @@ inline void handlePSURedundancyPatchRequest(
         }
 
         // Set the value via D-Bus
-        sdbusplus::message::object_path dbusPath(
+        sdbusplus::object_path dbusPath(
             "/com/nvidia/state/power_compliance/psu_redundancy");
 
         setDbusProperty(asyncResp, "RedundancySetting",

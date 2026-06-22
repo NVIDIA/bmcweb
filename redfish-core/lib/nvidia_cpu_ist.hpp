@@ -43,7 +43,7 @@ class IstTaskContext
                    const std::string& runPath) :
         weakTask(weakTaskIn),
         stageMatch(
-            static_cast<sdbusplus::bus::bus&>(*crow::connections::systemBus),
+            static_cast<sdbusplus::bus_t&>(*crow::connections::systemBus),
             sdbusplus::bus::match::rules::propertiesChanged(
                 runPath, "com.nvidia.vera.ist.run.State"),
             std::bind_front(&IstTaskContext::onStageChange, this))
@@ -126,7 +126,7 @@ inline void fetchIstResults(const std::string& runPathStr,
 inline void onStartIstComplete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task::Payload&& payload, const boost::system::error_code& ec,
-    const sdbusplus::message::object_path& runPath)
+    const sdbusplus::object_path& runPath)
 {
     if (ec)
     {
@@ -256,7 +256,7 @@ inline void handlePostStartIst(
     dbus::utility::async_method_call(
         [asyncResp, payload = std::move(payload)](
             const boost::system::error_code& ec,
-            const sdbusplus::message::object_path& runPath) mutable {
+            const sdbusplus::object_path& runPath) mutable {
             onStartIstComplete(asyncResp, std::move(payload), ec, runPath);
         },
         "com.nvidia.vera.ist", "/com/nvidia/vera/ist",

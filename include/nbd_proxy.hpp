@@ -30,7 +30,7 @@
 #include <functional> // For std::function
 #include <memory> // For std::shared_ptr, std::make_shared, std::enable_shared_from_this
 // NOLINTNEXTLINE(misc-include-cleaner)
-#include <sdbusplus/message/types.hpp> // For sdbusplus::message::object_path
+#include <sdbusplus/message/types.hpp> // For sdbusplus::object_path
 
 #include <string>
 #include <string_view>
@@ -336,7 +336,7 @@ inline void onOpen(crow::websocket::Connection& conn)
 {
     BMCWEB_LOG_DEBUG("nbd-proxy.onopen({})", logPtr(&conn));
 
-    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    sdbusplus::object_path path("/xyz/openbmc_project/VirtualMedia");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.VirtualMedia", path,
         [&conn](const boost::system::error_code& ec,

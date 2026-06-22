@@ -172,7 +172,7 @@ inline void getConnectedPortLinks(
             linksArray = nlohmann::json::array();
             for (const std::string& portPath : *data)
             {
-                sdbusplus::message::object_path portObjPath(portPath);
+                sdbusplus::object_path portObjPath(portPath);
                 const std::string& endpointId = portObjPath.filename();
                 BMCWEB_LOG_DEBUG("{}", endpointId);
                 std::string endpointURI =
@@ -221,7 +221,7 @@ inline void updateProcessorPortLinks(
             linksArray = nlohmann::json::array();
             for (const std::string& portPath : *data)
             {
-                sdbusplus::message::object_path portObjPath(portPath);
+                sdbusplus::object_path portObjPath(portPath);
                 const std::string& endpointId = portObjPath.filename();
                 std::string endpointURI = "/redfish/v1/Fabrics/";
                 endpointURI += fabricId;
@@ -266,8 +266,7 @@ inline void getNetworkAdapterPorts(
                 asyncResp->res.jsonValue["Links"]["ConnectedPorts"];
             for (const std::string& networkAdapterPortPath : *data)
             {
-                sdbusplus::message::object_path objectPath(
-                    networkAdapterPortPath);
+                sdbusplus::object_path objectPath(networkAdapterPortPath);
                 std::string networkAdapterPortId = objectPath.filename();
                 if (networkAdapterPortId.empty())
                 {
@@ -315,8 +314,7 @@ inline void getConnectedNetworkAdapter(
             }
             for (const std::string& networkAdapterChassisPath : *data)
             {
-                sdbusplus::message::object_path objectPath(
-                    networkAdapterChassisPath);
+                sdbusplus::object_path objectPath(networkAdapterChassisPath);
                 std::string networkAdapterChassisId = objectPath.filename();
                 if (networkAdapterChassisId.empty())
                 {
@@ -363,7 +361,7 @@ inline void updateNetworkAdapterPortLinks(
             }
             for (const std::string& networkAdapterPath : *data)
             {
-                sdbusplus::message::object_path networkAdapterObjPath(
+                sdbusplus::object_path networkAdapterObjPath(
                     networkAdapterPath);
                 const std::string& networkAdapterName =
                     networkAdapterObjPath.filename();
@@ -410,7 +408,7 @@ inline void getConnectedSwitchPort(
                 asyncResp->res.jsonValue["Links"]["ConnectedPorts"];
             for (const std::string& portPath1 : *data)
             {
-                sdbusplus::message::object_path objectPath(portPath1);
+                sdbusplus::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
                 if (portId.empty())
                 {
@@ -464,7 +462,7 @@ inline void updateSwitchPortLinks(
             }
             for (const std::string& switchPath : *data)
             {
-                sdbusplus::message::object_path switchObjPath(switchPath);
+                sdbusplus::object_path switchObjPath(switchPath);
                 const std::string& switchName = switchObjPath.filename();
                 if (switchName.empty())
                 {
@@ -1055,7 +1053,7 @@ inline void requestRoutesFabric(App& app)
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                             connectionNames = object.second;
-                        sdbusplus::message::object_path objPath(path);
+                        sdbusplus::object_path objPath(path);
                         if (objPath.filename() != fabricId)
                         {
                             continue;
@@ -1240,7 +1238,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
                 return;
             }
             const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectPath(parentChassisPath);
+            sdbusplus::object_path objectPath(parentChassisPath);
             std::string parentChassisName = objectPath.filename();
             if (parentChassisName.empty())
             {
@@ -1309,7 +1307,7 @@ inline void getSwitchChassisLink(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -1342,8 +1340,7 @@ inline void getSwitchChassisLink(
 
                     for (const std::string& pcieDevicePath : *data1)
                     {
-                        sdbusplus::message::object_path objectPath2(
-                            pcieDevicePath);
+                        sdbusplus::object_path objectPath2(pcieDevicePath);
                         std::string pcieDeviceName = objectPath2.filename();
                         if (pcieDeviceName.empty())
                         {
@@ -1397,7 +1394,7 @@ inline void getSwitchEndpointsLink(
             linksArray = nlohmann::json::array();
             for (const std::string& endpointPath : *data)
             {
-                sdbusplus::message::object_path objPath1(endpointPath);
+                sdbusplus::object_path objPath1(endpointPath);
                 const std::string& endpointId = objPath1.filename();
                 std::string endpointURI = "/redfish/v1/Fabrics/";
                 endpointURI += fabricId;
@@ -1440,7 +1437,7 @@ inline void getManagerLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             linksArray = nlohmann::json::array();
             for (const std::string& endpointPath : *data)
             {
-                sdbusplus::message::object_path objPath2(endpointPath);
+                sdbusplus::object_path objPath2(endpointPath);
                 const std::string& endpointId = objPath2.filename();
                 std::string endpointURI = "/redfish/v1/Managers/";
                 endpointURI += endpointId;
@@ -1518,7 +1515,7 @@ inline void getZoneEndpointsLink(
             linksArray = nlohmann::json::array();
             for (const std::string& endpointPath : *data)
             {
-                sdbusplus::message::object_path objPath2(endpointPath);
+                sdbusplus::object_path objPath2(endpointPath);
                 const std::string& endpointId = objPath2.filename();
                 std::string endpointURI = "/redfish/v1/Fabrics/";
                 endpointURI += fabricId;
@@ -1585,8 +1582,7 @@ inline void requestRoutesSwitch(App& app)
                                 // Iterate over all retrieved ObjectPaths.
                                 for (const std::string& path : *data)
                                 {
-                                    sdbusplus::message::object_path objPath2(
-                                        path);
+                                    sdbusplus::object_path objPath2(path);
                                     if (objPath2.filename() != switchId)
                                     {
                                         continue;
@@ -2595,7 +2591,7 @@ inline void getPortOnSwitch(
             }
             for (const std::string& portPath : *data4)
             {
-                sdbusplus::message::object_path pPath(portPath);
+                sdbusplus::object_path pPath(portPath);
                 if (pPath.filename() != portId)
                 {
                     continue;
@@ -2926,8 +2922,7 @@ inline void requestRoutesZone(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object2.second;
-                                    sdbusplus::message::object_path objPath(
-                                        path);
+                                    sdbusplus::object_path objPath(path);
                                     if (objPath.filename() != zoneId)
                                     {
                                         continue;
@@ -3217,7 +3212,7 @@ inline void getProcessorParentEndpointData(
                 return;
             }
             const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectPath(parentChassisPath);
+            sdbusplus::object_path objectPath(parentChassisPath);
             std::string parentChassisName = objectPath.filename();
             if (parentChassisName.empty())
             {
@@ -3297,7 +3292,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -3325,7 +3320,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         return;
                     }
                     const std::string& pcieDevicePath = data2->front();
-                    sdbusplus::message::object_path objectPath2(pcieDevicePath);
+                    sdbusplus::object_path objectPath2(pcieDevicePath);
                     std::string pcieDeviceName = objectPath2.filename();
                     if (pcieDeviceName.empty())
                     {
@@ -3463,14 +3458,14 @@ inline void getConnectedPortsLinks(
             nlohmann::json& linksConnectedPortsArray =
                 aResp->res.jsonValue["Links"]["ConnectedPorts"];
 
-            sdbusplus::message::object_path objPath(switchPath);
+            sdbusplus::object_path objPath(switchPath);
             const std::string& switchId = objPath.filename();
             // Add port link if exists in switch ports
             for (const std::string& portPath : portPaths)
             {
                 if (std::ranges::find(objects, portPath) != objects.end())
                 {
-                    sdbusplus::message::object_path portObjPath(portPath);
+                    sdbusplus::object_path portObjPath(portPath);
                     const std::string& portId = portObjPath.filename();
                     {
                         boost::urls::url portURI = boost::urls::format(
@@ -3521,7 +3516,7 @@ inline void getEndpointZoneData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             for (const std::string& zonePath : *data)
             {
                 // Get subtree for switchPath link path
-                sdbusplus::message::object_path dbusObjPath(zonePath);
+                sdbusplus::object_path dbusObjPath(zonePath);
                 const std::string& zoneId = dbusObjPath.filename();
                 if (zonePath.find(fabricId) != std::string::npos)
                 {
@@ -3688,7 +3683,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::object_path objectPath(
                                         entityPath);
                                     const std::string& entityLink =
                                         "/redfish/v1/Systems/" +
@@ -3715,7 +3710,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     BMCWEB_LOG_DEBUG("Item type switch ");
                                     std::string servName = connectionName.first;
 
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::object_path objectPath(
                                         entityPath);
                                     std::string entityName =
                                         objectPath.filename();
@@ -3751,7 +3746,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                             for (const std::string& fabricPath :
                                                  *data2)
                                             {
-                                                sdbusplus::message::object_path
+                                                sdbusplus::object_path
                                                     dbusObjPath(fabricPath);
                                                 fabricName =
                                                     dbusObjPath.filename();
@@ -3788,7 +3783,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::object_path objectPath(
                                         entityPath);
                                     const std::string& entityLink =
                                         "/redfish/v1/Systems/" +
@@ -3881,8 +3876,7 @@ inline void requestRoutesEndpoint(App& app)
                                     {
                                         // Get the endpointId object
                                         const std::string& path = object1.first;
-                                        sdbusplus::message::object_path objPath(
-                                            path);
+                                        sdbusplus::object_path objPath(path);
                                         if (objPath.filename() != endpointId)
                                         {
                                             continue;
@@ -3993,7 +3987,7 @@ inline void processLanePaths(
 
     for (const std::string& lanePath : lanePaths)
     {
-        sdbusplus::message::object_path laneObjPath(lanePath);
+        sdbusplus::object_path laneObjPath(lanePath);
         std::string laneIdStr = laneObjPath.filename();
         size_t laneIndex = 0;
         try
@@ -4794,8 +4788,8 @@ inline void requestRoutesPortMetrics(App& app)
                                                  *data2)
                                             {
                                                 // Get the portId object
-                                                sdbusplus::message::object_path
-                                                    pPath(portPath);
+                                                sdbusplus::object_path pPath(
+                                                    portPath);
                                                 if (pPath.filename() != portId)
                                                 {
                                                     continue;
@@ -4958,8 +4952,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                                 // Iterate over all retrieved ObjectPaths.
                                 for (const std::string& path : *data1)
                                 {
-                                    sdbusplus::message::object_path objPath(
-                                        path);
+                                    sdbusplus::object_path objPath(path);
                                     if (objPath.filename() != switchId)
                                     {
                                         continue;

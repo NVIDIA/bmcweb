@@ -691,7 +691,7 @@ inline void getReconfigPermissionsData(
             }
             auto& json = aResp->res.jsonValue;
             auto reconfigPermissionsName =
-                sdbusplus::message::object_path(objPath).filename();
+                sdbusplus::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessor.v1_7_0.NvidiaGPU";
             std::string reconfigPermissionsType;
@@ -1185,7 +1185,7 @@ inline void getClearPCIeCountersActionInfo(
                                         return;
                                     }
 
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::object_path objectPath(
                                         sensorpath);
                                     if (objectPath.filename() != portId)
                                     {
@@ -1362,7 +1362,7 @@ inline void getPortDisableFutureStatus(
 
                     for (const std::string& portPath : resp)
                     {
-                        sdbusplus::message::object_path pPath(portPath);
+                        sdbusplus::object_path pPath(portPath);
                         if (pPath.filename() != portId)
                         {
                             continue;
@@ -1578,7 +1578,7 @@ inline void patchPortDisableFuture(
                     for (const std::string& portPath : resp)
                     {
                         // Get the portId object
-                        sdbusplus::message::object_path pPath(portPath);
+                        sdbusplus::object_path pPath(portPath);
                         if (pPath.filename() != portId)
                         {
                             continue;
@@ -2041,7 +2041,7 @@ inline void postPCIeClearCounter(
                                 "processor state sensor object path {}",
                                 sensorpath);
 
-                            sdbusplus::message::object_path path1(sensorpath);
+                            sdbusplus::object_path path1(sensorpath);
                             if (path1.filename() != portId)
                             {
                                 continue;

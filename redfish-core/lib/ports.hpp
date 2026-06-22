@@ -714,7 +714,7 @@ inline bool isPhysicalInterface(const std::string& ifaceName)
 template <typename CallbackFunc>
 void getPhysicalEthernetIfaceList(CallbackFunc&& callback)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    sdbusplus::object_path path("/xyz/openbmc_project/network");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Network", path,
         [callback = std::forward<CallbackFunc>(callback)](

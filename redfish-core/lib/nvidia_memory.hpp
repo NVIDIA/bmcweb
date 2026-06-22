@@ -67,7 +67,7 @@ inline void getMemoryProcessorLink(
             linksArray = nlohmann::json::array();
             for (const std::string& processorPath : resp)
             {
-                sdbusplus::message::object_path objectPath(processorPath);
+                sdbusplus::object_path objectPath(processorPath);
                 std::string processorName = objectPath.filename();
                 if (processorName.empty())
                 {
@@ -110,7 +110,7 @@ inline void getMemoryChassisLink(
                 return;
             }
             const std::string& chassisPath = resp.front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {

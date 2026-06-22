@@ -404,7 +404,7 @@ inline void setProtocolServiceEnabled(
                             serviceFound = true;
                             redfish::setDbusProperty(
                                 asyncResp, "Running", service,
-                                sdbusplus::message::object_path(path),
+                                sdbusplus::object_path(path),
                                 "xyz.openbmc_project.Control.Service.Attributes",
                                 "Running", serviceEnabled);
                             break;

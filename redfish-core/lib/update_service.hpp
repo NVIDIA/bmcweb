@@ -89,7 +89,7 @@ static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 // match for logging
 constexpr auto fwObjectCreationDefaultTimeout = 40;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::bus::match::match> loggingMatch = nullptr;
+static std::unique_ptr<sdbusplus::bus::match_t> loggingMatch = nullptr;
 
 /* @brief String that indicates the Software Update D-Bus interface */
 constexpr const char* updateInterface = "xyz.openbmc_project.Software.Update";
@@ -289,7 +289,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
     // Nvidia code starts here
-    loggingMatch = std::make_unique<sdbusplus::bus::match::match>(
+    loggingMatch = std::make_unique<sdbusplus::bus::match_t>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',"
@@ -365,7 +365,7 @@ inline void softwareInterfaceAdded(
                     // is added
                     fwAvailableTimer = nullptr;
                     // Nvidia code starts here
-                    sdbusplus::message::object_path objectPath(objPath.str);
+                    sdbusplus::object_path objectPath(objPath.str);
                     std::string swID = objectPath.filename();
                     if (swID.empty())
                     {
@@ -949,11 +949,11 @@ inline void handleStartUpdate(
     createTask(asyncResp, std::move(payload), retPath);
 }
 
-inline void startUpdate(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    const std::shared_ptr<MemoryFileDescriptor>& memfd,
-    const std::string& applyTime, bool forceUpdate,
-    const std::vector<sdbusplus::message::object_path>& targets)
+inline void startUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        task::Payload payload,
+                        const std::shared_ptr<MemoryFileDescriptor>& memfd,
+                        const std::string& applyTime, bool forceUpdate,
+                        const std::vector<sdbusplus::object_path>& targets)
 {
     // PLDM UA is the only service implementing StartUpdate
     const std::string serviceName = "xyz.openbmc_project.PLDM";
@@ -1182,7 +1182,7 @@ inline void processUpdateRequest(
                     return;
                 }
 
-                std::vector<sdbusplus::message::object_path> validTargets;
+                std::vector<sdbusplus::object_path> validTargets;
                 std::vector<std::string> updateableFw;
                 updateableFw.reserve(swInvPaths.size());
                 for (const auto& path : swInvPaths)
@@ -1207,7 +1207,7 @@ inline void processUpdateRequest(
     }
     else
     {
-        std::vector<sdbusplus::message::object_path> emptyTargets{};
+        std::vector<sdbusplus::object_path> emptyTargets{};
         startUpdate(asyncResp, std::move(payload), memfd, dbusApplyTime,
                     forceUpdate, emptyTargets);
     }

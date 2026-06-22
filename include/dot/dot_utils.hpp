@@ -51,7 +51,7 @@ inline std::optional<std::pair<
 
     for (const auto& [path, serviceMap] : resp)
     {
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         std::string dbusComponentName = objPath.filename();
 
         if (dbusComponentName == componentId)

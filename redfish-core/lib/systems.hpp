@@ -428,7 +428,7 @@ inline void afterSystemGetSubTree(
 
                     if constexpr (BMCWEB_NVIDIA_UUID_FROM_PLATFORM_CHASSIS_NAME)
                     {
-                        sdbusplus::message::object_path uuidPath(path);
+                        sdbusplus::object_path uuidPath(path);
                         if (uuidPath.filename() == BMCWEB_PLATFORM_CHASSIS_NAME)
                         {
                             dbus::utility::getAllProperties(
@@ -445,7 +445,7 @@ inline void afterSystemGetSubTree(
                     else if constexpr (BMCWEB_BIOS)
                     {
                         // Make sure to get SMBIOS UUID
-                        sdbusplus::message::object_path uuidPath(path);
+                        sdbusplus::object_path uuidPath(path);
                         if (uuidPath.filename() == "bios")
                         {
                             dbus::utility::getAllProperties(
@@ -2655,7 +2655,7 @@ inline void setPowerOnDelaySeconds(
     const uint64_t powerRestoreDelayUSec = restoreDelay * 1000 * 1000;
     setDbusProperty(
         asyncResp, "PowerRestoreDelay", "xyz.openbmc_project.Settings",
-        sdbusplus::message::object_path(
+        sdbusplus::object_path(
             "/xyz/openbmc_project/control/host0/power_restore_policy"),
         "xyz.openbmc_project.Control.Power.RestorePolicy", "PowerRestoreDelay",
         powerRestoreDelayUSec);
@@ -4107,7 +4107,7 @@ inline void processComputerSystemGet(
                             // single entry will be present
                             for (const std::string& p : property)
                             {
-                                sdbusplus::message::object_path objPath(p);
+                                sdbusplus::object_path objPath(p);
                                 const std::string& chassisId =
                                     objPath.filename();
                                 asyncResp->res.jsonValue["Links"]["Chassis"]

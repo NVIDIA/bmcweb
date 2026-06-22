@@ -1040,7 +1040,7 @@ inline void handleTruststoreCertificatesCollectionPost(
                         return;
                     }
 
-                    sdbusplus::message::object_path path(objectPath);
+                    sdbusplus::object_path path(objectPath);
                     std::string certId = path.filename();
                     messages::created(asyncResp->res);
                     asyncResp->res.addHeader(

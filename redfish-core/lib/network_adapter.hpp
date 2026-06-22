@@ -85,7 +85,7 @@ void getValidNetworkAdapterPath(
                 std::string networkAdapterName;
                 for (const std::string& networkAdapter : networkAdapterPaths)
                 {
-                    sdbusplus::message::object_path path(networkAdapter);
+                    sdbusplus::object_path path(networkAdapter);
                     networkAdapterName = path.filename();
                     if (networkAdapterName.empty())
                     {
@@ -129,7 +129,7 @@ void getValidNetworkAdapterPath(
                 std::optional<std::string> validNetworkAdapterPath;
                 for (const std::string& networkAdapterPath : resp)
                 {
-                    sdbusplus::message::object_path networkAdapterObjPath(
+                    sdbusplus::object_path networkAdapterObjPath(
                         networkAdapterPath);
                     const std::string& networkAdapterName =
                         networkAdapterObjPath.filename();
@@ -201,7 +201,7 @@ inline void doNetworkAdaptersCollection(
                 members = nlohmann::json::array();
                 for (const auto& object : objects)
                 {
-                    sdbusplus::message::object_path path2(object);
+                    sdbusplus::object_path path2(object);
                     std::string parentPath = path2.parent_path();
 
                     if (parentPath.find(chassisId) != std::string::npos ||
@@ -242,7 +242,7 @@ inline void doNetworkAdaptersCollection(
             members = nlohmann::json::array();
             for (const std::string& networkAdapterPath : resp)
             {
-                sdbusplus::message::object_path networkAdapterObjPath(
+                sdbusplus::object_path networkAdapterObjPath(
                     networkAdapterPath);
                 const std::string& networkAdapterId =
                     networkAdapterObjPath.filename();
@@ -615,7 +615,7 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         std::string pcieDevicePath;
                         for (const std::string& path : pcieResp)
                         {
-                            sdbusplus::message::object_path objectPath(path);
+                            sdbusplus::object_path objectPath(path);
                             std::string deviceId = objectPath.filename();
                             if (deviceId.empty())
                             {
@@ -670,7 +670,7 @@ inline void getControllersData(
 
             for (const std::string& portPath : resp)
             {
-                sdbusplus::message::object_path objectPath(portPath);
+                sdbusplus::object_path objectPath(portPath);
                 std::string portId = objectPath.filename();
                 if (portId.empty())
                 {
@@ -1205,7 +1205,7 @@ inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
             for (const std::string& portPath1 : resp)
             {
-                sdbusplus::message::object_path objectPath(portPath1);
+                sdbusplus::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
                 if (portId.empty())
                 {
@@ -1242,7 +1242,7 @@ inline void getConnectedSwitch(
             }
             for (const std::string& fabricPath : resp)
             {
-                sdbusplus::message::object_path objectPath(fabricPath);
+                sdbusplus::object_path objectPath(fabricPath);
                 std::string fabricId = objectPath.filename();
                 if (fabricId.empty())
                 {
@@ -1290,7 +1290,7 @@ inline void updatePortLink(
             portlinksArray = nlohmann::json::array();
             for (const std::string& switchPath : resp)
             {
-                sdbusplus::message::object_path objectPath(switchPath);
+                sdbusplus::object_path objectPath(switchPath);
                 std::string switchName = objectPath.filename();
                 if (switchName.empty())
                 {
@@ -1335,7 +1335,7 @@ inline void getPortDataByAssociation(
 
             for (const std::string& sensorPath : resp)
             {
-                sdbusplus::message::object_path pPath(sensorPath);
+                sdbusplus::object_path pPath(sensorPath);
                 if (pPath.filename() != portId)
                 {
                     continue;
@@ -1379,7 +1379,7 @@ inline void getPortDataByAssociation(
                                     return;
                                 }
 
-                                sdbusplus::message::object_path path(
+                                sdbusplus::object_path path(
                                     objectPathToGetPortData);
                                 if (path.filename() != portId ||
                                     object.size() != 1)
@@ -1970,7 +1970,7 @@ inline void getPortMetricsDataByAssociation(
                             return;
                         }
 
-                        sdbusplus::message::object_path path(sensorPath);
+                        sdbusplus::object_path path(sensorPath);
                         if (path.filename() != portId || object.size() != 1)
                         {
                             return;
@@ -2269,7 +2269,7 @@ inline void doNDFCollection(
             members = nlohmann::json::array();
             for (const std::string& sensorpath : resp)
             {
-                sdbusplus::message::object_path ndfPath(sensorpath);
+                sdbusplus::object_path ndfPath(sensorpath);
                 if (!ndfPath.filename().empty())
                 {
                     std::string dbusNDFId = ndfPath.filename();
@@ -2426,7 +2426,7 @@ inline void getNDFData(
                 "/redfish/v1/Chassis/{}/NetworkAdapters/{}/NetworkDeviceFunctions/{}",
                 chassisId, networkAdapterId, ndfId);
 
-            sdbusplus::message::object_path path(sensorPath);
+            sdbusplus::object_path path(sensorPath);
             std::string portId = path.filename();
             nlohmann::json& assignablePhysicalNetworkPorts =
                 asyncResp->res.jsonValue["AssignablePhysicalNetworkPorts"];
@@ -2538,7 +2538,7 @@ inline void getNDFDataByAssociation(
 
         for (const std::string& sensorPath : resp)
         {
-            sdbusplus::message::object_path ndfPath(sensorPath);
+            sdbusplus::object_path ndfPath(sensorPath);
             if (!ndfPath.filename().empty())
             {
                 std::string dbusNDFId = ndfPath.filename();

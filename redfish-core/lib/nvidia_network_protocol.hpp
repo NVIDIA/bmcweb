@@ -85,7 +85,7 @@ inline void setOemNvidiaOpenOCDPortForward(
 {
     setDbusProperty(asyncResp, "Oem/Nvidia/OpenOCDPortForward/Enable",
                     openocdPortForwardService,
-                    sdbusplus::message::object_path(openocdPortForwardPath),
+                    sdbusplus::object_path(openocdPortForwardPath),
                     openocdPortForwardInterface, openocdPortForwardProperty,
                     value);
 }
@@ -331,7 +331,7 @@ inline void handleSSHPreferredAuthsPatch(
         return;
     }
     setDbusProperty(asyncResp, "Oem/Nvidia/SSH/PreferredAuthentications",
-                    service, sdbusplus::message::object_path(objectPath),
+                    service, sdbusplus::object_path(objectPath),
                     std::string(sshAuthPolicyIface),
                     std::string(sshAuthPolicyProp), currentAuthMethods);
 }

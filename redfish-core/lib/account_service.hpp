@@ -2208,7 +2208,7 @@ inline void handleAccountDelete(
         return;
     }
 
-    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+    sdbusplus::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 

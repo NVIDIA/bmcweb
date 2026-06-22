@@ -192,7 +192,7 @@ inline void updatePCIeSlotsProcessorLinks(
 
             for (const std::string& processorPath : data)
             {
-                sdbusplus::message::object_path dbusObjPath(processorPath);
+                sdbusplus::object_path dbusObjPath(processorPath);
                 const std::string& processorId = dbusObjPath.filename();
 
                 // Get Port links using associtaions
@@ -237,8 +237,7 @@ inline void updatePCIeSlotsProcessorLinks(
 
                         for (const std::string& portPath : dbusResp)
                         {
-                            sdbusplus::message::object_path dbusObjPortPath(
-                                portPath);
+                            sdbusplus::object_path dbusObjPortPath(portPath);
                             const std::string& portId =
                                 dbusObjPortPath.filename();
 
@@ -292,7 +291,7 @@ inline void updatePCIeSlotsSwitchLinks(
             std::string fabricId; // pcieslot fabric id
             for (const std::string& fabricPath : data)
             {
-                sdbusplus::message::object_path dbusObjPath(fabricPath);
+                sdbusplus::object_path dbusObjPath(fabricPath);
                 fabricId = dbusObjPath.filename();
 
                 // Get Switch links using associtaions
@@ -311,7 +310,7 @@ inline void updatePCIeSlotsSwitchLinks(
 
                         for (const std::string& switchPath : dbusResp)
                         {
-                            sdbusplus::message::object_path dbusObjSwitchPath(
+                            sdbusplus::object_path dbusObjSwitchPath(
                                 switchPath);
                             const std::string& switchId =
                                 dbusObjSwitchPath.filename();
@@ -357,8 +356,8 @@ inline void updatePCIeSlotsSwitchLinks(
                                     for (const std::string& portPath :
                                          endpointsDbusResp)
                                     {
-                                        sdbusplus::message::object_path
-                                            dbusObjPortPath(portPath);
+                                        sdbusplus::object_path dbusObjPortPath(
+                                            portPath);
                                         const std::string& portId =
                                             dbusObjPortPath.filename();
 
@@ -411,7 +410,7 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
             std::string chassisId; // pcieslot chassis id
             for (const std::string& chassisPath : data)
             {
-                sdbusplus::message::object_path dbusObjPath(chassisPath);
+                sdbusplus::object_path dbusObjPath(chassisPath);
                 chassisId = dbusObjPath.filename();
 
                 // Get NetworkAdapter links using associtaions
@@ -431,8 +430,8 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
 
                         for (const std::string& networkAdapterPath : dbusResp)
                         {
-                            sdbusplus::message::object_path
-                                dbusObjNetworkAdaptorPath(networkAdapterPath);
+                            sdbusplus::object_path dbusObjNetworkAdaptorPath(
+                                networkAdapterPath);
                             const std::string& networkAdapterId =
                                 dbusObjNetworkAdaptorPath.filename();
 
@@ -477,8 +476,8 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
                                     for (const std::string& portPath :
                                          endpointsDbusResp)
                                     {
-                                        sdbusplus::message::object_path
-                                            dbusObjPortPath(portPath);
+                                        sdbusplus::object_path dbusObjPortPath(
+                                            portPath);
                                         const std::string& portId =
                                             dbusObjPortPath.filename();
 
@@ -755,7 +754,7 @@ inline void requestPcieSlotsRoutes(App& app)
                              objectLambda : subtree)
                     {
                         const std::string& path = objectLambda.first;
-                        sdbusplus::message::object_path objPath(path);
+                        sdbusplus::object_path objPath(path);
                         if (objPath.filename() != chassisId)
                         {
                             continue;

@@ -263,8 +263,7 @@ inline void enumerateMctpEndpoints(
                 {
                     bool match = false;
                     const auto& name =
-                        sdbusplus::message::object_path(object.first)
-                            .filename();
+                        sdbusplus::object_path(object.first).filename();
                     for (const auto& f : spdmObjectFilter)
                     {
                         if (name.find(f) != std::string::npos)

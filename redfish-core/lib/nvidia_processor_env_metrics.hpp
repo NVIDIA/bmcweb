@@ -237,7 +237,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                     std::string, std::vector<std::string>>>&
                                     connectionNames = object.second;
 
-                                sdbusplus::message::object_path objPath(path);
+                                sdbusplus::object_path objPath(path);
                                 if (objPath.filename() != processorId)
                                 {
                                     continue;
@@ -391,7 +391,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                                 std::string, std::vector<std::string>>>&
                                 connectionNames = object.second;
 
-                            sdbusplus::message::object_path objPath(path);
+                            sdbusplus::object_path objPath(path);
                             if (objPath.filename() != processorId)
                             {
                                 continue;

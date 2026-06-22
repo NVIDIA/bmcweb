@@ -131,7 +131,7 @@ inline void populateFirmwareInformation(
             //        "/xyz/openbmc_project/software/230fb078"
             for (const auto& fw : functionalFw)
             {
-                sdbusplus::message::object_path path(fw);
+                sdbusplus::object_path path(fw);
                 std::string leaf = path.filename();
                 if (leaf.empty())
                 {
@@ -169,7 +169,7 @@ inline void populateFirmwareInformation(
                                  std::string, std::vector<std::string>>>>& obj :
                          subtree)
                     {
-                        sdbusplus::message::object_path path(obj.first);
+                        sdbusplus::object_path path(obj.first);
                         std::string swId = path.filename();
                         if (swId.empty())
                         {

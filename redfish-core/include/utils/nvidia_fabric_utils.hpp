@@ -187,7 +187,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                         // Iterate over all retrieved ObjectPaths.
                         for (const std::string& path : response)
                         {
-                            sdbusplus::message::object_path objPath(path);
+                            sdbusplus::object_path objPath(path);
                             if (objPath.filename() != switchId)
                             {
                                 continue;

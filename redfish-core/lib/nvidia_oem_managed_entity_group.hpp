@@ -50,7 +50,7 @@ inline void afterGetManagedEntityGroupProperties(
     std::string name;
     std::string description;
     std::string currentManagedEntityId;
-    sdbusplus::message::object_path managedEntitiesDbusPath;
+    sdbusplus::object_path managedEntitiesDbusPath;
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -102,7 +102,7 @@ inline void handleManagedEntityGroupGetRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the groupId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= groupId;
 
@@ -136,7 +136,7 @@ inline void handleManagedEntityGroupPatchRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the groupId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= groupId;
 
@@ -178,7 +178,7 @@ inline void handleManagedEntityGroupCollectionGetRequest(
         "#NvidiaManagedEntityGroupCollection.NvidiaManagedEntityGroupCollection";
     asyncResp->res.jsonValue["Name"] = "Managed Entity Group Collection";
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
 
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(

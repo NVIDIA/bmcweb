@@ -67,7 +67,7 @@ inline void populateChassisResetAllowableValues(
             for (const std::string& resetPath : resetPaths)
             {
                 std::string resetType =
-                    sdbusplus::message::object_path(resetPath).filename();
+                    sdbusplus::object_path(resetPath).filename();
                 if (!resetType.empty())
                 {
                     allowableValues.emplace_back(std::move(resetType));
@@ -129,7 +129,7 @@ inline void afterResetControlsForChassisReset(
     }
     for (const std::string& resetPath : resetPaths)
     {
-        if (sdbusplus::message::object_path(resetPath).filename() == resetType)
+        if (sdbusplus::object_path(resetPath).filename() == resetType)
         {
             dbus::utility::getDbusObject(
                 resetPath, std::array<std::string_view, 1>{resetAsyncIface},
@@ -332,7 +332,7 @@ inline void resolvePortForTransceiverReset(
     {
         for (const std::string& portPath : portPaths)
         {
-            if (sdbusplus::message::object_path(portPath).filename() == portId)
+            if (sdbusplus::object_path(portPath).filename() == portId)
             {
                 dbus::utility::getDbusObject(
                     portPath, std::array<std::string_view, 1>{resetAsyncIface},
@@ -357,14 +357,12 @@ inline void resolveAdapterForTransceiverReset(
     {
         for (const std::string& adapterPath : adapterPaths)
         {
-            if (sdbusplus::message::object_path(adapterPath).filename() ==
+            if (sdbusplus::object_path(adapterPath).filename() ==
                 networkAdapterId)
             {
                 dbus::utility::getAssociatedSubTreePaths(
                     adapterPath + "/all_states",
-                    sdbusplus::message::object_path(
-                        "/xyz/openbmc_project/inventory"),
-                    0,
+                    sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
                     std::array<std::string_view, 1>{
                         "xyz.openbmc_project.Inventory.Item.Port"},
                     std::bind_front(resolvePortForTransceiverReset, asyncResp,

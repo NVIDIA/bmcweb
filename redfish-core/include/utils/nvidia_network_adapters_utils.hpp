@@ -657,9 +657,8 @@ inline void patchDpuOperationMode(
         std::string(dpuOperationModeEnumPrefix) + redfishValue;
 
     dbus::utility::getAssociatedSubTree(
-        sdbusplus::message::object_path(
-            networkAdapterPath + "/device_mode_settings"),
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        sdbusplus::object_path(networkAdapterPath + "/device_mode_settings"),
+        sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
         std::array<std::string_view, 1>{dpuOperationModeIntf},
         std::bind_front(afterGetDpuModeEndpoints, asyncResp, networkAdapterId,
                         dbusEnumValue));

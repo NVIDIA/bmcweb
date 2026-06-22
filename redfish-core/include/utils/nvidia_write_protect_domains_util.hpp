@@ -27,8 +27,7 @@ namespace redfish
 namespace write_protect_domains
 {
 
-using ObjectServicePair =
-    std::pair<sdbusplus::message::object_path, std::string>;
+using ObjectServicePair = std::pair<sdbusplus::object_path, std::string>;
 
 inline void getAssociatedDomains(
     const std::string& chassisId,
@@ -36,7 +35,7 @@ inline void getAssociatedDomains(
                        const dbus::utility::MapperGetSubTreeResponse& subTree)>
         callback)
 {
-    sdbusplus::message::object_path endpointPath(
+    sdbusplus::object_path endpointPath(
         "/xyz/openbmc_project/inventory/system/chassis");
     endpointPath /= chassisId;
     endpointPath /= "write_protect_domains";
@@ -46,13 +45,12 @@ inline void getAssociatedDomains(
     };
 
     dbus::utility::getAssociatedSubTree(
-        endpointPath,
-        sdbusplus::message::object_path("/xyz/openbmc_project/state"), 0,
+        endpointPath, sdbusplus::object_path("/xyz/openbmc_project/state"), 0,
         interfaces, std::move(callback));
 }
 
 inline std::optional<boost::urls::url> redfishUriForObject(
-    const sdbusplus::message::object_path& objectPath)
+    const sdbusplus::object_path& objectPath)
 {
     const std::string& path = objectPath;
     const std::string deviceName = objectPath.filename();
@@ -133,7 +131,7 @@ inline void processAssociatedDomains(
                 serviceMap.size());
         }
         const auto& [service, _interfaces] = serviceMap[0];
-        domains.emplace_back(sdbusplus::message::object_path(p), service);
+        domains.emplace_back(sdbusplus::object_path(p), service);
     }
 
     auto sortByFileName =
@@ -212,15 +210,13 @@ inline void afterGetWriteProtection(
 inline void getDomainProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json::json_pointer& domainPointer,
-    const sdbusplus::message::object_path& domainPath,
-    const std::string& domainService)
+    const sdbusplus::object_path& domainPath, const std::string& domainService)
 {
     dbus::utility::getProperty<bool>(
         domainService, domainPath, "com.nvidia.Software.WriteProtection",
         "WriteProtected",
         std::bind_front(afterGetWriteProtection, asyncResp, domainPointer));
-    sdbusplus::message::object_path writeProtects(
-        domainPath / "write_protects");
+    sdbusplus::object_path writeProtects(domainPath / "write_protects");
     dbus::utility::getAssociationEndPoints(
         writeProtects, std::bind_front(afterGetAssociatedProtectedComponents,
                                        asyncResp, domainPointer));

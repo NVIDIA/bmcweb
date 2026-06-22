@@ -201,8 +201,7 @@ inline void isServiceActive(const boost::system::error_code& ec1,
     {
         dbus::utility::getProperty<std::string>(
             "org.freedesktop.systemd1",
-            sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
-            unit,
+            sdbusplus::object_path("/org/freedesktop/systemd1/unit") /= unit,
             "org.freedesktop.systemd1.Unit", "ActiveState",
             [callback{std::forward<Callback>(callbackIn)}](
                 const boost::system::error_code& ec2,
@@ -215,8 +214,7 @@ inline void isLoaded(std::string_view unit, Callback&& callbackIn)
 {
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.systemd1",
-        sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
-        unit,
+        sdbusplus::object_path("/org/freedesktop/systemd1/unit") /= unit,
         "org.freedesktop.systemd1.Unit", "LoadState",
         [unit, callback{std::forward<Callback>(callbackIn)}](
             const boost::system::error_code& ec, const std::string& property) {
@@ -775,9 +773,9 @@ inline void setRestrictionModeHandler(
         return;
     }
     const std::string& service = object.begin()->first;
-    setDbusPropertyAction(asyncResp, service,
-                          sdbusplus::message::object_path(path), interface,
-                          property, "RestrictionMode", "Manager", dbusMode);
+    setDbusPropertyAction(asyncResp, service, sdbusplus::object_path(path),
+                          interface, property, "RestrictionMode", "Manager",
+                          dbusMode);
 }
 
 /**

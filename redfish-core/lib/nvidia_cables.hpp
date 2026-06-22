@@ -244,7 +244,7 @@ inline void handleDownstreamChassisAssociation(
     nlohmann::json::array_t downstreamChassis;
     for (const std::string& chassisPath : resp)
     {
-        sdbusplus::message::object_path chassisObjPath(chassisPath);
+        sdbusplus::object_path chassisObjPath(chassisPath);
         std::string chassisId = chassisObjPath.filename();
 
         nlohmann::json::object_t chassis;
@@ -388,7 +388,7 @@ inline void handleCableAssemblyProperties(
         }
     }
 
-    sdbusplus::message::object_path assemblyPath(assembly);
+    sdbusplus::object_path assemblyPath(assembly);
     std::string assemblyName = assemblyPath.filename();
     std::string memberId = assemblyMemberId(assemblyName);
     // Use Name from DBus if available, otherwise fall back to path filename
@@ -509,7 +509,7 @@ inline void handleCableAssemblySubtree(
 
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() != cableId)
         {
             continue;

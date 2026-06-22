@@ -877,9 +877,8 @@ inline void handleInstallTokenSubtreeResponse(
                      service);
 
     dbus::utility::async_method_call(
-        [aggregator,
-         service](const boost::system::error_code& ec2,
-                  const sdbusplus::message::object_path& asyncOpPath) {
+        [aggregator, service](const boost::system::error_code& ec2,
+                              const sdbusplus::object_path& asyncOpPath) {
             if (ec2)
             {
                 BMCWEB_LOG_ERROR(

@@ -29,8 +29,7 @@ namespace nvidia_oem_power_domain
 
 inline void afterGetPowerDomainProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& dbusPath,
-    const boost::system::error_code& ec,
+    const sdbusplus::object_path& dbusPath, const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec.value() == EBADR || ec == boost::system::errc::host_unreachable)
@@ -53,7 +52,7 @@ inline void afterGetPowerDomainProperties(
     std::string sensorImpl;
     std::string type;
     std::string unit;
-    sdbusplus::message::object_path powerPoliciesDbusPath;
+    sdbusplus::object_path powerPoliciesDbusPath;
     uint64_t value = 0;
 
     // clang-format off
@@ -120,7 +119,7 @@ inline void handlePowerDomainGetRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the powerDomainId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
 
@@ -163,7 +162,7 @@ inline void handlePowerDomainPatchRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the powerDomainId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
 
@@ -221,7 +220,7 @@ inline void handlePowerDomainCollectionGetRequest(
         "#NvidiaPowerDomainCollection.NvidiaPowerDomainCollection";
     asyncResp->res.jsonValue["Name"] = "Power Domain Collection";
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
 
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(

@@ -323,8 +323,7 @@ inline void validateProcessorWorkloadPowerProfile(
 
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string profileIdOndbus = objectPath.filename();
                             if (profileIdOndbus != profileId)
                             {
@@ -430,8 +429,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
                             aResp->res.jsonValue["Members"];
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string profileUri = profileCollectionURI;
                             profileUri += "/";
                             profileUri += objectPath.filename();

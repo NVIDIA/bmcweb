@@ -74,7 +74,7 @@ inline void afterSetRecoveryModeInterfacesFound(
         return;
     }
 
-    sdbusplus::message::object_path path(objectPath);
+    sdbusplus::object_path path(objectPath);
     dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec2) {
             if (ec2)

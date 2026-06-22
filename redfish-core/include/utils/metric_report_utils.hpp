@@ -429,7 +429,7 @@ static std::string generateURI(
             if (metricName == "PCIeType" || metricName == "MaxLanes" ||
                 metricName == "LanesInUse")
             {
-                sdbusplus::message::object_path deviceObjectPath(devicePath);
+                sdbusplus::object_path deviceObjectPath(devicePath);
                 const std::string childDeviceName = deviceObjectPath.filename();
                 std::string parentDeviceName(BMCWEB_PLATFORM_DEVICE_PREFIX);
                 parentDeviceName += childDeviceName;
@@ -900,7 +900,7 @@ inline void getSensorMap(
         std::string,
         std::tuple<std::variant<std::string, int, int16_t, int64_t, uint16_t,
                                 uint32_t, uint64_t, double, bool>,
-                   uint64_t, sdbusplus::message::object_path>>;
+                   uint64_t, sdbusplus::object_path>>;
 
     dbus::utility::getProperty<sensorMap>(
         serviceName, objectPath, "xyz.openbmc_project.Sensor.Aggregation",
@@ -943,7 +943,7 @@ inline void getSensorMap(
                 thisMetric["Timestamp"] =
                     redfish::time_utils::getDateTimeUintMs(
                         sensorUpdatetimeSystemClock);
-                sdbusplus::message::object_path chassisPath = std::get<2>(data);
+                sdbusplus::object_path chassisPath = std::get<2>(data);
                 std::string sensorUri = "/redfish/v1/Chassis/";
                 sensorUri += chassisPath.filename();
                 sensorUri += "/Sensors/";
@@ -1028,7 +1028,7 @@ inline void getPlatformMetrics(
 
         for (const std::string& chassisPath : chassisPaths)
         {
-            sdbusplus::message::object_path path(chassisPath);
+            sdbusplus::object_path path(chassisPath);
             const std::string& chassisName = path.filename();
             if (chassisName.empty())
             {
@@ -1370,7 +1370,7 @@ inline void getPlatforMetrics(
             for (const auto& [path, serviceMap] : subtree)
             {
                 const std::string objectPath = path;
-                sdbusplus::message::object_path objPath(objectPath);
+                sdbusplus::object_path objPath(objectPath);
                 const std::string metricfname = objPath.filename();
                 for (const auto& [conName, interfaceList] : serviceMap)
                 {

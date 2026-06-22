@@ -94,8 +94,7 @@ inline void afterGetUSBPortService(
         return;
     }
 
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/control/port");
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
     objPath /= portId;
     const std::string& service = object.begin()->first;
 
@@ -129,8 +128,7 @@ inline void handleUSBPortGet(
         return;
     }
 
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/control/port");
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
     objPath /= portId;
 
     constexpr std::array<std::string_view, 1> interfaces{
@@ -152,8 +150,7 @@ inline void afterSetUSBPortService(
         return;
     }
 
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/control/port");
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
     objPath /= portId;
     const std::string& service = object.begin()->first;
 
@@ -187,8 +184,7 @@ inline void handleUSBPortPatch(
         return;
     }
 
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/control/port");
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
     objPath /= portId;
 
     constexpr std::array<std::string_view, 1> interfaces{

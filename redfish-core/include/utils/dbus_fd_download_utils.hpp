@@ -72,11 +72,10 @@ inline void streamFdResponse(
     }
 }
 
-inline void getDbusResultFd(const std::string& serviceName,
-                            const sdbusplus::message::object_path& objectPath,
-                            const std::string& interface,
-                            const std::string& property,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getDbusResultFd(
+    const std::string& serviceName, const sdbusplus::object_path& objectPath,
+    const std::string& interface, const std::string& property,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Reading result FD from {} path={} iface={} prop={}",
                      serviceName, objectPath.str, interface, property);

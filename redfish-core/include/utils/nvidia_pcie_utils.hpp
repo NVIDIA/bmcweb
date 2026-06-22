@@ -977,7 +977,7 @@ inline void postClearAerErrorStatus(
             for (const std::string& chassisPath : chassisPaths)
             {
                 // Get the chassisId object
-                sdbusplus::message::object_path objPath(chassisPath);
+                sdbusplus::object_path objPath(chassisPath);
                 if (objPath.filename() != chassisId)
                 {
                     continue;
@@ -1062,7 +1062,7 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             const std::string& fabricPath = resp.front();
-            sdbusplus::message::object_path objectPath(fabricPath);
+            sdbusplus::object_path objectPath(fabricPath);
             std::string fabricId = objectPath.filename();
             if (fabricId.empty())
             {
@@ -1088,7 +1088,7 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     }
 
                     const std::string& switchPath = resp1.front();
-                    sdbusplus::message::object_path objectPath1(switchPath);
+                    sdbusplus::object_path objectPath1(switchPath);
                     std::string switchId = objectPath1.filename();
                     if (switchId.empty())
                     {
@@ -1185,7 +1185,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                     for (const std::string& chassisPath : chassisPaths)
                     {
                         // Get the chassisId object
-                        sdbusplus::message::object_path objPath(chassisPath);
+                        sdbusplus::object_path objPath(chassisPath);
                         if (objPath.filename() != chassisId)
                         {
                             continue;
@@ -1300,7 +1300,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                     for (const std::string& chassisPath : chassisPaths)
                     {
                         // Get the chassisId object
-                        sdbusplus::message::object_path objPath(chassisPath);
+                        sdbusplus::object_path objPath(chassisPath);
                         if (objPath.filename() != chassisId)
                         {
                             continue;
@@ -1508,7 +1508,7 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
                     for (const std::string& chassisPath : chassisPaths)
                     {
                         // Get the chassisId object
-                        sdbusplus::message::object_path objPath(chassisPath);
+                        sdbusplus::object_path objPath(chassisPath);
                         if (objPath.filename() != chassisId)
                         {
                             continue;
@@ -1564,7 +1564,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                     for (const std::string& chassisPath : chassisPaths)
                     {
                         // Get the chassisId object
-                        sdbusplus::message::object_path objPath(chassisPath);
+                        sdbusplus::object_path objPath(chassisPath);
                         if (objPath.filename() != chassisId)
                         {
                             continue;

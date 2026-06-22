@@ -53,7 +53,7 @@ inline void getXIDLogEntries(
     std::string namespaceName = chassisName + "_XID";
     BMCWEB_LOG_DEBUG("Namespace: {}", namespaceName);
 
-    sdbusplus::message::object_path path("/xyz/openbmc_project/logging");
+    sdbusplus::object_path path("/xyz/openbmc_project/logging");
     const std::string interface = "xyz.openbmc_project.Logging.Namespace";
     dbus::utility::getAllNameSpaceObjects(
         "xyz.openbmc_project.Logging", path, interface, namespaceName,
@@ -88,7 +88,7 @@ inline void populateXIDLogServiceFromSubtree(
 
         const std::string& connectionName = connectionNames[0].first;
 
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         if (objPath.filename() != chassisId)
         {
             continue;
@@ -243,7 +243,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                             std::pair<std::string, std::vector<std::string>>>&
                             connectionNames = object.second;
 
-                        sdbusplus::message::object_path objPath(path);
+                        sdbusplus::object_path objPath(path);
                         if (objPath.filename() != chassisId)
                         {
                             continue;

@@ -58,7 +58,7 @@ namespace redfish
 {
 
 using ManagedObjectsVectorType = std::vector<std::pair<
-    sdbusplus::message::object_path,
+    sdbusplus::object_path,
     boost::container::flat_map<
         std::string, boost::container::flat_map<
                          std::string, dbus::utility::DbusVariantType>>>>;

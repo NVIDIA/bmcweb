@@ -48,7 +48,7 @@ inline void processSensorsValue(
         auto sensorElem = std::ranges::find_if(
             managedObjectsResp,
             [sensorPath](const std::pair<
-                         sdbusplus::message::object_path,
+                         sdbusplus::object_path,
                          boost::container::flat_map<
                              std::string,
                              boost::container::flat_map<
@@ -299,7 +299,7 @@ inline void getChassisHandler(
     for (const std::string& objectPath : chassisPaths)
     {
         // Get the chassis path for respective sensors
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         const std::string chassisId = path.filename();
         dbus::utility::getAssociationEndPoints(
             objectPath + "/all_sensors",

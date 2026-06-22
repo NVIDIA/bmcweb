@@ -333,16 +333,15 @@ inline void LldpUtil::setTlvValue(
     {
         // For EnableLLDP property, we need to pass a boolean value
         bool boolValue = (lldpTlv == LldpTlv::ENABLE_ADMIN_STATUS);
-        redfish::setDbusProperty(asyncResp, property,
-                                 "xyz.openbmc_project.LLDP",
-                                 sdbusplus::message::object_path(path),
-                                 interface, property, boolValue);
+        redfish::setDbusProperty(
+            asyncResp, property, "xyz.openbmc_project.LLDP",
+            sdbusplus::object_path(path), interface, property, boolValue);
     }
     else
     {
         // For other properties, use the string value
         redfish::setDbusProperty(
             asyncResp, property, "xyz.openbmc_project.LLDP",
-            sdbusplus::message::object_path(path), interface, property, value);
+            sdbusplus::object_path(path), interface, property, value);
     }
 }

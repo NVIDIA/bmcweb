@@ -69,7 +69,7 @@ inline void getNetworkAdapterCollectionMembersLegacy(
                 {
                     continue;
                 }
-                sdbusplus::message::object_path path(object);
+                sdbusplus::object_path path(object);
                 std::string leaf = path.filename();
                 if (leaf.empty())
                 {
@@ -533,7 +533,7 @@ inline void handleGetLegacy(App& app, const crow::Request& req,
                 {
                     continue;
                 }
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 const std::string& connectionName = connectionNames[0].first;
                 if (objPath.filename() != id && objPath.filename() + "f0" != id)
                 {

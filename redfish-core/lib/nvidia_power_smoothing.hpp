@@ -287,9 +287,8 @@ inline void getProcessorCurrentProfileData(
                 }
                 else if (property.first == "AppliedProfilePath")
                 {
-                    const sdbusplus::message::object_path* value =
-                        std::get_if<sdbusplus::message::object_path>(
-                            &property.second);
+                    const sdbusplus::object_path* value =
+                        std::get_if<sdbusplus::object_path>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("AppliedPresetProfile nullptr");
@@ -816,8 +815,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
 
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string processorName = objectPath.filename();
                             if (processorName.empty())
                             {
@@ -1046,8 +1044,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
 
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string profileIdOndbus = objectPath.filename();
                             if (profileIdOndbus != profileId)
                             {
@@ -1151,8 +1148,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
                             aResp->res.jsonValue["Members"];
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string profileUri = profileCollectionURI;
                             profileUri += "/";
                             profileUri += objectPath.filename();
@@ -1368,8 +1364,7 @@ inline void patchAdminOverrideProfile(
 
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string adminProfile = objectPath.filename();
                             if (adminProfile.empty())
                             {
@@ -1464,8 +1459,7 @@ inline void patchPresetProfile(
 
                         for (const std::string& profilePath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                profilePath);
+                            sdbusplus::object_path objectPath(profilePath);
                             std::string profileIdOndbus = objectPath.filename();
                             if (profileIdOndbus != profileId)
                             {

@@ -16,7 +16,7 @@ namespace dbus
 namespace utility
 {
 void getAllNameSpaceObjects(
-    const std::string& service, const sdbusplus::message::object_path& path,
+    const std::string& service, const sdbusplus::object_path& path,
     const std::string& interfaces, const std::string& namespaceName,
     const std::string& filter,
     std::function<void(const boost::system::error_code&,

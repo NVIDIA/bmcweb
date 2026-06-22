@@ -332,7 +332,7 @@ inline void processNvidiaRoTImageSlotSubtree(
     std::vector<std::pair<std::string, std::string>> cachedPathServices;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() != dbusComponentId)
         {
             continue;
@@ -506,7 +506,7 @@ inline void processComponentCollectionProperties(
         }
         else if (*fwType == "xyz.openbmc_project.Software.Slot.FirmwareType.AP")
         {
-            sdbusplus::message::object_path path(objectPath);
+            sdbusplus::object_path path(objectPath);
             auto componentId = path.filename();
             asyncResp->res.jsonValue["Members"].push_back(
                 {{"@odata.id",
@@ -636,7 +636,7 @@ inline void processNvidiaRoTImageSlotSubtree(
     std::vector<std::pair<std::string, std::string>> cachedPathServices;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() != dbusComponentId)
         {
             continue;
@@ -1145,7 +1145,7 @@ inline void processNvidiaRoTProtectedComponentSubtree(
     std::vector<std::pair<std::string, std::string>> cachedPathServices;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() != dbusComponentId)
         {
             continue;
@@ -1424,7 +1424,7 @@ inline void setIrreversibleConfig(
                                                  chassisCfgPath, msg, state);
             };
             updateIrreversibleConfigMatch =
-                std::make_unique<sdbusplus::bus::match::match>(
+                std::make_unique<sdbusplus::bus::match_t>(
                     *crow::connections::systemBus,
                     "interface='org.freedesktop.DBus.Properties',type='signal',"
                     "member='PropertiesChanged',path='" +
@@ -1504,7 +1504,7 @@ inline void afterGetSubTreeUpdateMinSecVersionActionInfo(
     bool found = false;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() == dbusComponentId)
         {
             found = true;
@@ -1549,7 +1549,7 @@ inline void handleUpdateMinSecVersionActionInfo(
         return;
     }
 
-    sdbusplus::message::object_path obj(chassisDbusPath);
+    sdbusplus::object_path obj(chassisDbusPath);
     obj /= chassisId;
 
     dbus::utility::getSubTree(
@@ -1701,7 +1701,7 @@ inline void updateMinSecurityVersion(
                                                   securityPath, msg);
             };
             updateMinSecVersionMatch =
-                std::make_unique<sdbusplus::bus::match::match>(
+                std::make_unique<sdbusplus::bus::match_t>(
                     *crow::connections::systemBus,
                     "interface='org.freedesktop.DBus.Properties',type='signal',"
                     "member='PropertiesChanged',path='" +
@@ -1792,7 +1792,7 @@ inline void afterGetSubTreeRevokeKeysActionInfo(
     bool found = false;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
         if (path.filename() == dbusComponentId)
         {
             found = true;
@@ -1840,7 +1840,7 @@ inline void handleRevokeKeysActionInfo(
     {
         return;
     }
-    sdbusplus::message::object_path obj(chassisDbusPath);
+    sdbusplus::object_path obj(chassisDbusPath);
     obj /= chassisId;
 
     dbus::utility::getSubTree(
@@ -1988,7 +1988,7 @@ inline void revokeKeys(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                              securityPath](sdbusplus::message_t& msg) mutable {
                 handleRevokeKeysResponse(asyncResp, service, securityPath, msg);
             };
-            revokeKeysMatch = std::make_unique<sdbusplus::bus::match::match>(
+            revokeKeysMatch = std::make_unique<sdbusplus::bus::match_t>(
                 *crow::connections::systemBus,
                 "interface='org.freedesktop.DBus.Properties',type='signal',"
                 "member='PropertiesChanged',path='" +

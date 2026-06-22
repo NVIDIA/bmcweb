@@ -54,7 +54,7 @@ inline void processGetTopLevelPowerPolicies(
 
     for (const auto& objectPath : paths)
     {
-        sdbusplus::message::object_path path(objectPath);
+        sdbusplus::object_path path(objectPath);
 
         std::string filename = path.filename();
         if (filename.empty())
@@ -70,8 +70,7 @@ inline void processGetTopLevelPowerPolicies(
 
 inline void afterGetPowerPolicyProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::urls::url& redfishUri,
-    const sdbusplus::message::object_path& dbusPath,
+    const boost::urls::url& redfishUri, const sdbusplus::object_path& dbusPath,
     const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& properties)
 {
@@ -156,7 +155,7 @@ inline void handlePowerPolicyGetRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
     dbusPath /= "power_policy";
@@ -205,7 +204,7 @@ inline void handlePowerPolicyTopLevelGetRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_policy");
     dbusPath /= powerPolicyId;
 
@@ -257,7 +256,7 @@ inline void handlePowerPolicyCollectionGetRequest(
     asyncResp->res.jsonValue["Name"] = "Power Policies Collection";
 
     // Dynamically construct the D-Bus paths based on the powerPolicyId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
     dbusPath /= "power_policy";
@@ -299,7 +298,7 @@ inline void handlePowerPolicyPatchRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the powerDomainId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
     dbusPath /= "power_policy";
@@ -403,7 +402,7 @@ inline void handlePowerPolicyTopLevelPatchRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the powerPolicyId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_policy");
     dbusPath /= powerPolicyId;
 

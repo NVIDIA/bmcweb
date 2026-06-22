@@ -243,7 +243,7 @@ class BMCStatusAsyncResp
  */
 inline void checkInitialActivationState(
     const std::shared_ptr<task::TaskData>& task,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::getDbusObject(
         objPath.str,
@@ -421,7 +421,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
 {
     std::vector<std::pair<std::string, dbus::utility::DBusPropertiesMap>>
         interfacesProperties;
-    sdbusplus::message::object_path objPath;
+    sdbusplus::object_path objPath;
     m.read(objPath, interfacesProperties);
     const std::vector<std::pair<std::string, std::string>>* additionalData =
         nullptr;
@@ -542,7 +542,7 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
 
 inline static void getRelatedItemsDrive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     // Drive is expected to be under a Chassis
     // Only add Chassis/Drives link, not Storage/Drives link
@@ -567,7 +567,7 @@ inline static void getRelatedItemsDrive(
             }
 
             // Find the chassisId that contains this driveId
-            sdbusplus::message::object_path chassisPath(resp[0]);
+            sdbusplus::object_path chassisPath(resp[0]);
             std::string chassisId = chassisPath.filename();
 
             // Build Chassis drive link only (no Storage link)
@@ -591,7 +591,7 @@ inline static void getRelatedItemsDrive(
 
 inline static void getRelatedItemsStorageController(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
@@ -609,7 +609,7 @@ inline static void getRelatedItemsStorageController(
                     continue;
                 }
 
-                sdbusplus::message::object_path path(object);
+                sdbusplus::object_path path(object);
 
                 dbus::utility::getSubTree(
                     object, int32_t(0),
@@ -661,7 +661,7 @@ inline static void getRelatedItemsStorageController(
 
 inline static void getRelatedItemsPowerSupply(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
@@ -677,7 +677,7 @@ inline static void getRelatedItemsPowerSupply(
             std::string chassisName = "chassis";
             for (const std::string& path : data)
             {
-                sdbusplus::message::object_path myLocalPath(path);
+                sdbusplus::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -696,7 +696,7 @@ inline static void getRelatedItemsPowerSupply(
 
 inline static void getRelatedItemsPCIeDevice(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
@@ -712,7 +712,7 @@ inline static void getRelatedItemsPCIeDevice(
             std::string chassisName = "chassis";
             for (const std::string& path : data)
             {
-                sdbusplus::message::object_path myLocalPath(path);
+                sdbusplus::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -729,7 +729,7 @@ inline static void getRelatedItemsPCIeDevice(
 
 inline static void getRelatedItemsSwitch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/fabrics",
@@ -745,7 +745,7 @@ inline static void getRelatedItemsSwitch(
             std::string fabricName = "fabric";
             for (const std::string& path : data)
             {
-                sdbusplus::message::object_path myLocalPath(path);
+                sdbusplus::object_path myLocalPath(path);
                 fabricName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -762,7 +762,7 @@ inline static void getRelatedItemsSwitch(
 
 inline static void getRelatedItemsNetworkAdapter(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objPath)
+    const sdbusplus::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/parent_chassis",
@@ -778,7 +778,7 @@ inline static void getRelatedItemsNetworkAdapter(
             std::string networAdapterChassisName = "Networkadapter";
             if (!data.empty())
             {
-                sdbusplus::message::object_path myLocalPath(data.front());
+                sdbusplus::object_path myLocalPath(data.front());
                 networAdapterChassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -796,7 +796,7 @@ inline static void getRelatedItemsNetworkAdapter(
 
 inline static void getRelatedItemsOther(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const sdbusplus::message::object_path& association)
+    const sdbusplus::object_path& association)
 {
     // Find supported device types.
     dbus::utility::async_method_call(
@@ -942,7 +942,7 @@ inline static void getRelatedItemsOthers(
                                      std::string, std::vector<std::string>>>>&
                      obj : subtree)
             {
-                sdbusplus::message::object_path path(obj.first);
+                sdbusplus::object_path path(obj.first);
                 if (path.filename() != swId)
                 {
                     continue;
@@ -971,8 +971,7 @@ inline static void getRelatedItemsOthers(
                             {
                                 continue;
                             }
-                            sdbusplus::message::object_path associationPath(
-                                association);
+                            sdbusplus::object_path associationPath(association);
 
                             getRelatedItemsOther(aResp, associationPath);
                         }
@@ -998,7 +997,7 @@ inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
     const std::vector<std::string>& updateables,
     const std::vector<std::string>& swInvPaths,
-    std::vector<sdbusplus::message::object_path>& validTargets)
+    std::vector<sdbusplus::object_path>& validTargets)
 {
     bool hasAnyInvalidOrUnupdateableTarget = false;
     for (const std::string& target : uriTargets)
@@ -1230,7 +1229,7 @@ inline void updateOemActionComputeDigest(
             }
             for (const auto& obj : subtree)
             {
-                sdbusplus::message::object_path hashPath(obj.first);
+                sdbusplus::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
                 if (hashId == swId)
                 {
@@ -1470,7 +1469,7 @@ inline void handlePostComputeDigest(
             }
             for (const auto& obj : subtree)
             {
-                sdbusplus::message::object_path hashPath(obj.first);
+                sdbusplus::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
                 if (hashId == swId)
                 {
@@ -1569,7 +1568,7 @@ inline void updateParametersForCommitImageInfo(
 
     for (const auto& obj : subtree)
     {
-        sdbusplus::message::object_path path(obj.first);
+        sdbusplus::object_path path(obj.first);
         std::string fwId = path.filename();
         if (fwId.empty())
         {
@@ -2473,7 +2472,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                      obj : subtree)
             {
                 const std::string& path = obj.first;
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 if (objPath.filename() != *swId)
                 {
                     continue;
@@ -2586,7 +2585,7 @@ inline void tryInventoryPatchAfterGetSubTree(
     for (const auto& obj : subtree)
     {
         const std::string& path = obj.first;
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         if (objPath.filename() != *swId)
         {
             continue;

@@ -139,7 +139,7 @@ inline void processNDFAssociationsForMAC(
 
     for (const std::string& ndfPath : ndfPaths)
     {
-        sdbusplus::message::object_path p(ndfPath);
+        sdbusplus::object_path p(ndfPath);
         if (p.filename() != targetNdfFilename)
         {
             continue;
@@ -300,7 +300,7 @@ inline void onAllStatesForLinkStatus(
 
     for (const std::string& statePath : *statePaths)
     {
-        sdbusplus::message::object_path p(statePath);
+        sdbusplus::object_path p(statePath);
         if (p.filename() != ndfFilename)
         {
             continue;
@@ -351,7 +351,7 @@ inline void processNetworkAdapterEthInterface(
 
     for (const std::string& networkAdapterPath : networkAdapterPaths)
     {
-        sdbusplus::message::object_path path(networkAdapterPath);
+        sdbusplus::object_path path(networkAdapterPath);
         std::string candidateId = path.filename();
         if (candidateId.empty())
         {
@@ -455,7 +455,7 @@ inline void appendAdapterNDFMembers(
     {
         for (const std::string& ndfPath : ndfPaths)
         {
-            sdbusplus::message::object_path p(ndfPath);
+            sdbusplus::object_path p(ndfPath);
             std::string ndfFilename = p.filename();
             if (ndfFilename.empty())
             {
@@ -506,7 +506,7 @@ inline void onNetworkAdapterSubTreePaths(
 
     for (const std::string& networkAdapterPath : networkAdapterPaths)
     {
-        sdbusplus::message::object_path path(networkAdapterPath);
+        sdbusplus::object_path path(networkAdapterPath);
         std::string adapterId = path.filename();
         if (adapterId.empty())
         {
@@ -580,7 +580,7 @@ void getEthernetIfaceListHost(CallbackFunc&& callback,
             {
                 // Extract the interface ID or name from the object path
                 std::string ifaceId =
-                    sdbusplus::message::object_path(objectPath).filename();
+                    sdbusplus::object_path(objectPath).filename();
                 if (!ifaceId.empty())
                 {
                     ifaceList.emplace(std::move(ifaceId));

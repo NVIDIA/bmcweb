@@ -250,7 +250,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         debugTokenService = service;
         debugTokenObjectPath = objectPath;
         std::function<void(const boost::system::error_code&,
-                           const sdbusplus::message::object_path&)>
+                           const sdbusplus::object_path&)>
             asyncHandler = std::bind_front(&Handler::asyncMethodHandler, this,
                                            shared_from_this());
         switch (operation)
@@ -393,7 +393,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      */
     void asyncMethodHandler(const std::shared_ptr<Handler>& self,
                             const boost::system::error_code& ec,
-                            const sdbusplus::message::object_path& objectPath)
+                            const sdbusplus::object_path& objectPath)
     {
         if (ec)
         {

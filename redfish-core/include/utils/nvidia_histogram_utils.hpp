@@ -238,7 +238,7 @@ inline void getHistogramDataByAssociation(
             // Iterate over all retrieved ObjectPaths.
             for (const std::string& histoPath : resp)
             {
-                sdbusplus::message::object_path histoObjPath(histoPath);
+                sdbusplus::object_path histoObjPath(histoPath);
                 if (histoObjPath.filename() != histogramId)
                 {
                     continue;

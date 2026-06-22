@@ -264,7 +264,7 @@ inline void handleTpmComponentsCollectionGet(
 
             for (const auto& [path, services] : subtree)
             {
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 const std::string componentID = objPath.filename();
                 if (componentID.empty())
                 {
@@ -316,7 +316,7 @@ inline void updateTPMCollection(
             bool foundComponents = false;
             for (const auto& [path, services] : subtree)
             {
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 const std::string componentID = objPath.filename();
                 if (componentID.empty())
                 {
@@ -792,7 +792,7 @@ inline void handleTpmComponentGet(
 
                     for (const auto& [path, services] : subtree)
                     {
-                        sdbusplus::message::object_path opath(path);
+                        sdbusplus::object_path opath(path);
                         std::string componentName = opath.filename();
                         if (componentName != componentID)
                         {

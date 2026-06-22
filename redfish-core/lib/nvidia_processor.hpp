@@ -731,7 +731,7 @@ inline void getProcessorMemoryLinks(
             linksArray = nlohmann::json::array();
             for (const std::string& memoryPath : *data)
             {
-                sdbusplus::message::object_path objectPath(memoryPath);
+                sdbusplus::object_path objectPath(memoryPath);
                 std::string memoryName = objectPath.filename();
                 if (memoryName.empty())
                 {
@@ -777,8 +777,7 @@ inline void getParentChassisPCIeDeviceLink(
                 return;
             }
             const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectParentChassisPath(
-                parentChassisPath);
+            sdbusplus::object_path objectParentChassisPath(parentChassisPath);
             std::string parentChassisName = objectParentChassisPath.filename();
             if (parentChassisName.empty())
             {
@@ -844,7 +843,7 @@ inline void getProcessorChassisLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
     const std::string& service, const std::string& deviceType)
 {
-    sdbusplus::message::object_path associationPath;
+    sdbusplus::object_path associationPath;
     if (deviceType == "xyz.openbmc_project.Inventory.Item.Cpu")
     {
         associationPath = objPath + "/chassis";
@@ -870,7 +869,7 @@ inline void getProcessorChassisLink(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -901,7 +900,7 @@ inline void getProcessorChassisLink(
                         return;
                     }
                     const std::string& pcieDevicePath = data1->front();
-                    sdbusplus::message::object_path objectPath1(pcieDevicePath);
+                    sdbusplus::object_path objectPath1(pcieDevicePath);
                     std::string pcieDeviceName = objectPath1.filename();
                     if (pcieDeviceName.empty())
                     {
@@ -1523,7 +1522,7 @@ inline void getMetricValueSensorData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& sensorPath, const std::string& deviceType)
 {
-    sdbusplus::message::object_path objPath(sensorPath);
+    sdbusplus::object_path objPath(sensorPath);
     std::string sensorName = objPath.filename();
 
     // Maps D-Bus sensor names to Redfish OEM property names. Backend sensor
@@ -2868,7 +2867,7 @@ inline void getVoltageData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 BMCWEB_LOG_DEBUG("Can't get sensor reading");
                 return;
             }
-            sdbusplus::message::object_path objectPath(sensorPath);
+            sdbusplus::object_path objectPath(sensorPath);
             const std::string& sensorName = objectPath.filename();
             std::string sensorURI =
                 boost::urls::format("/redfish/v1/Chassis/{}/Sensors/{}",
@@ -2916,7 +2915,7 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -4204,8 +4203,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                     BMCWEB_LOG_DEBUG(
                                         "processor state sensor object path {}",
                                         sensorpath);
-                                    sdbusplus::message::object_path path(
-                                        sensorpath);
+                                    sdbusplus::object_path path(sensorpath);
                                     if (path.filename() != portId)
                                     {
                                         continue;
@@ -4243,7 +4241,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                             for (const std::string& histoPath :
                                                  *bucketData)
                                             {
-                                                sdbusplus::message::object_path
+                                                sdbusplus::object_path
                                                     histoObjPath(histoPath);
                                                 if (histoObjPath.filename() !=
                                                     histogramId)
@@ -4395,8 +4393,7 @@ inline void requestRoutesProcessorPortHistogram(App& app)
                                     BMCWEB_LOG_DEBUG(
                                         "processor state sensor object path {}",
                                         sensorpath);
-                                    sdbusplus::message::object_path path(
-                                        sensorpath);
+                                    sdbusplus::object_path path(sensorpath);
                                     if (path.filename() != portId)
                                     {
                                         continue;
@@ -4533,8 +4530,7 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
                                     BMCWEB_LOG_DEBUG(
                                         "processor state sensor object path {}",
                                         sensorpath);
-                                    sdbusplus::message::object_path path(
-                                        sensorpath);
+                                    sdbusplus::object_path path(sensorpath);
                                     if (path.filename() != portId)
                                     {
                                         continue;

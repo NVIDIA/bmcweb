@@ -242,7 +242,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         createMatch();
 
         std::function<void(const boost::system::error_code&,
-                           const sdbusplus::message::object_path&)>
+                           const sdbusplus::object_path&)>
             handler = std::bind_front(&Handler::methodHandler, this,
                                       shared_from_this());
         switch (operation)
@@ -398,7 +398,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      */
     void methodHandler(const std::shared_ptr<Handler>& self,
                        const boost::system::error_code& ec,
-                       const sdbusplus::message::object_path& objectPath)
+                       const sdbusplus::object_path& objectPath)
     {
         if (ec)
         {

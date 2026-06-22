@@ -96,7 +96,7 @@ inline void handlePsuStateGetRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the id
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_state_group/power_supply");
     dbusPath /= id;
 
@@ -140,7 +140,7 @@ inline void handlePsuStateCollectionGetRequest(
         "#NvidiaPsuStateCollection.NvidiaPsuStateCollection";
     asyncResp->res.jsonValue["Name"] = "Power Supply State Collection";
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_state_group/power_supply");
 
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(

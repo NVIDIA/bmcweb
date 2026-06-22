@@ -253,7 +253,7 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string chassisName;
         for (const std::string& chassis : chassisPaths)
         {
-            sdbusplus::message::object_path path(chassis);
+            sdbusplus::object_path path(chassis);
             chassisName = path.filename();
             if (chassisName.empty())
             {
@@ -366,7 +366,7 @@ void getValidChassisPathAndInterfaces(
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                sdbusplus::message::object_path path(chassis);
+                sdbusplus::object_path path(chassis);
                 std::string chassisName = path.filename();
                 if (chassisName.empty())
                 {
@@ -412,7 +412,7 @@ inline void getChassisLinksContainedBy(
                 return;
             }
             const std::string& chassisPath = data.front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -696,8 +696,7 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                                     callback(false, urlResult);
                                     return;
                                 }
-                                sdbusplus::message::object_path invObjectPath(
-                                    ep);
+                                sdbusplus::object_path invObjectPath(ep);
                                 const std::string& fabricID =
                                     invObjectPath.filename();
 

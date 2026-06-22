@@ -9,7 +9,7 @@ namespace logging
 {
 
 evtEntry::evtEntry(
-    sdbusplus::bus::bus& bus, const std::string& path, uint32_t idErr,
+    sdbusplus::bus_t& bus, const std::string& path, uint32_t idErr,
     uint64_t timestampErr, Level severityErr, std::string&& msg,
     std::string&& resolutionErr,
     std::vector<std::pair<std::string, std::string>>&& additionalDataErr) :

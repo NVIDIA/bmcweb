@@ -871,7 +871,7 @@ class EventServiceManager
                 return;
             }
         }
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         std::string deviceName = objPath.filename();
         if (!deviceName.empty())
         {
@@ -884,7 +884,7 @@ class EventServiceManager
                     {
                         std::string chassisName(PLATFORMDEVICEPREFIX);
                         chassisName += devName;
-                        sdbusplus::message::object_path sensorObjPath(path);
+                        sdbusplus::object_path sensorObjPath(path);
                         std::string sensorName = sensorObjPath.filename();
                         newPath = chassisName + "/Sensors/";
                         newPath += sensorName;

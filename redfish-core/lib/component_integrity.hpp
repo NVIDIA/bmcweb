@@ -224,7 +224,7 @@ inline void getCertificateURI(
 
         try
         {
-            sdbusplus::message::object_path endpointPath(ep);
+            sdbusplus::object_path endpointPath(ep);
             std::string endpointName = endpointPath.filename();
             std::string chassisName = chassisURI.segments().back();
             std::string componentID = chassisName;
@@ -500,8 +500,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                                     return;
                                 }
 
-                                sdbusplus::message::object_path objPath(
-                                    objPathString);
+                                sdbusplus::object_path objPath(objPathString);
                                 nlohmann::json::array_t& currentMembers =
                                     collection_util::getJsonArray(
                                         asyncResp->res.jsonValue, "Members");
@@ -585,8 +584,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                             BMCWEB_LOG_DEBUG(
                                 "Unable to get the association endpoint");
                         }
-                        sdbusplus::message::object_path erotInvObjectPath(
-                            endpoint);
+                        sdbusplus::object_path erotInvObjectPath(endpoint);
                         const std::string& objName =
                             erotInvObjectPath.filename();
                         boost::urls::url chassisURI = boost::urls::format(

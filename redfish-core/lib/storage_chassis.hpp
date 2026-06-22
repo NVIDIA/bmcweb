@@ -380,8 +380,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
         subtree,
         [&driveId](const std::pair<std::string,
                                    dbus::utility::MapperServiceMap>& object) {
-            return sdbusplus::message::object_path(object.first).filename() ==
-                   driveId;
+            return sdbusplus::object_path(object.first).filename() == driveId;
         });
 
     if (drive == subtree.end())
@@ -522,7 +521,7 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Iterate over all retrieved ObjectPaths.
     for (const auto& [path, connectionNames] : subtree)
     {
-        sdbusplus::message::object_path objPath(path);
+        sdbusplus::object_path objPath(path);
         if (objPath.filename() != driveName)
         {
             continue;

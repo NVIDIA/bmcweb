@@ -61,7 +61,7 @@ inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
-    const sdbusplus::message::object_path& target)
+    const sdbusplus::object_path& target)
 {
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
@@ -97,16 +97,15 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
     std::string applyTime;
     bool forceUpdate;
-    std::vector<sdbusplus::message::object_path> targets;
+    std::vector<sdbusplus::object_path> targets;
 
     redfish::task::Payload payload;
 
-    PLDMUpdateCtx(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-        Payload&& payloadIn,
-        boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
-        const std::string& applyTimeIn, bool forceUpdateIn,
-        const std::vector<sdbusplus::message::object_path>& targetsIn) :
+    PLDMUpdateCtx(const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+                  Payload&& payloadIn,
+                  boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
+                  const std::string& applyTimeIn, bool forceUpdateIn,
+                  const std::vector<sdbusplus::object_path>& targetsIn) :
         memfd(getRandomId()), asyncResp(asyncRespIn),
         fileGetSocket(std::move(fileGetSocketIn)), applyTime(applyTimeIn),
         forceUpdate(forceUpdateIn), targets(targetsIn),
@@ -178,7 +177,7 @@ inline void startPLDMUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
-    const std::vector<sdbusplus::message::object_path>& targets)
+    const std::vector<sdbusplus::object_path>& targets)
 {
     BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
 
@@ -207,7 +206,7 @@ inline void afterGetSubtreePathsSoftware(
 
     for (const auto& path : swInvPaths)
     {
-        sdbusplus::message::object_path softwarePath(path.first);
+        sdbusplus::object_path softwarePath(path.first);
         std::string filename = softwarePath.filename();
         BMCWEB_LOG_DEBUG("Comparing filename {} to updateUriTarget {}",
                          filename, updateUriTarget);
@@ -251,7 +250,7 @@ inline void afterGetSubtreePaths(
         return;
     }
 
-    std::vector<sdbusplus::message::object_path> validTargets;
+    std::vector<sdbusplus::object_path> validTargets;
     std::vector<std::string> updateableFw;
     updateableFw.reserve(swInvPaths.size());
     for (const auto& path : swInvPaths)
@@ -1038,7 +1037,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         if (uriTargets.empty())
         {
-            std::vector<sdbusplus::message::object_path> emptyTargets{};
+            std::vector<sdbusplus::object_path> emptyTargets{};
             nvidia::startPLDMUpdate(asyncResp, std::move(payload),
                                     std::move(fileGetSocket), dbusApplyTime,
                                     forceUpdate, emptyTargets);

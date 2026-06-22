@@ -59,7 +59,7 @@ using DbusVariantType = std::variant<
     std::vector<std::tuple<uint32_t, std::vector<uint32_t>>>,
     std::vector<std::tuple<uint32_t, uint64_t>>,
     std::vector<std::tuple<uint32_t, uint32_t>>,
-    std::vector<std::tuple<sdbusplus::message::object_path, std::string,
+    std::vector<std::tuple<sdbusplus::object_path, std::string,
                            std::string, std::string>>,
     std::vector<uint8_t>,
     std::vector<std::tuple<uint8_t, std::string>>,

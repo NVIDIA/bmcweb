@@ -585,7 +585,7 @@ inline void handleAssociatedChassisEndpoints(
     for (const std::string& assocEndpoint : associatedEndpoints)
     {
         // Extract chassis name from path (last segment)
-        sdbusplus::message::object_path objPath(assocEndpoint);
+        sdbusplus::object_path objPath(assocEndpoint);
         std::string chassisName = objPath.filename();
 
         if (!chassisName.empty())
@@ -1186,7 +1186,7 @@ inline void initiateImageCopy(
     std::vector<std::string> objectPaths =
         chassisObjectSoftwarePath.objectPaths;
 
-    std::vector<sdbusplus::message::object_path> objectPathsVector;
+    std::vector<sdbusplus::object_path> objectPathsVector;
     objectPathsVector.reserve(objectPaths.size());
     for (const auto& pathStr : objectPaths)
     {

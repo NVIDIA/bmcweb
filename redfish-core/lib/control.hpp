@@ -81,7 +81,7 @@ inline void getPowercontrolObjects(
                                          const std::vector<std::string>& resp) {
             for (const auto& object : resp)
             {
-                sdbusplus::message::object_path objPath(object);
+                sdbusplus::object_path objPath(object);
                 members.push_back(
                     {{"@odata.id", "/redfish/v1/Chassis/" + chassisID +
                                        "/Controls/" + objPath.filename()}});
@@ -275,7 +275,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 if (objPath.filename() != sensorName)
                 {
                     continue;
@@ -329,7 +329,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         relatedItemsArray = nlohmann::json::array();
                         for (const std::string& gpuPath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(gpuPath);
+                            sdbusplus::object_path objectPath(gpuPath);
                             std::string gpuName = objectPath.filename();
                             if (gpuName.empty())
                             {
@@ -469,8 +469,7 @@ inline void getControlSettings(
                         relatedItemsArray = nlohmann::json::array();
                         for (const std::string& chassisPath : resp)
                         {
-                            sdbusplus::message::object_path objectPath(
-                                chassisPath);
+                            sdbusplus::object_path objectPath(chassisPath);
                             std::string chassisName = objectPath.filename();
                             if (chassisName.empty())
                             {
@@ -503,7 +502,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             for (const auto& sensorPath : resp)
             {
-                sdbusplus::message::object_path objPath(sensorPath);
+                sdbusplus::object_path objPath(sensorPath);
                 std::string prefix = "/xyz/openbmc_project/sensors/power/" +
                                      chassisID + "_Power";
                 if (sensorPath.find(prefix) == std::string::npos)
@@ -553,9 +552,9 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                         {
                                             const auto value =
                                                 std::get<double>(val);
-                                            sdbusplus::message::object_path
+                                            sdbusplus::object_path
                                                 chassisObjectPath(chassisPath);
-                                            sdbusplus::message::object_path
+                                            sdbusplus::object_path
                                                 sensorObjectPath(sensorPath);
                                             asyncResp->res
                                                 .jsonValue["Sensor"]
@@ -938,7 +937,7 @@ inline void requestRoutesChassisControls(App& app)
                         auto validendpoint = false;
                         for (const auto& object : resp)
                         {
-                            sdbusplus::message::object_path objPath(object);
+                            sdbusplus::object_path objPath(object);
                             if (objPath.filename() == controlID)
                             {
                                 asyncResp->res.jsonValue["Name"] =
@@ -998,7 +997,7 @@ inline void requestRoutesChassisControls(App& app)
                         auto validendpoint = false;
                         for (const auto& object : resp)
                         {
-                            sdbusplus::message::object_path objPath(object);
+                            sdbusplus::object_path objPath(object);
                             if (objPath.filename() == controlID)
                             {
                                 if (controlID.find("_CPU_") !=
@@ -1201,7 +1200,7 @@ inline void requestRoutesChassisControls(App& app)
                         auto validendpoint = false;
                         for (const auto& object : resp)
                         {
-                            sdbusplus::message::object_path objPath(object);
+                            sdbusplus::object_path objPath(object);
                             if (objPath.filename() == controlID)
                             {
                                 validendpoint = true;
@@ -1288,7 +1287,7 @@ inline void requestRoutesChassisControls(App& app)
                         auto validendpoint = false;
                         for (const auto& object : resp)
                         {
-                            sdbusplus::message::object_path objPath(object);
+                            sdbusplus::object_path objPath(object);
                             if (objPath.filename() == controlID)
                             {
                                 validendpoint = true;
@@ -1558,7 +1557,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                         auto validendpoint = false;
                         for (const auto& object : resp)
                         {
-                            sdbusplus::message::object_path objPath(object);
+                            sdbusplus::object_path objPath(object);
                             if (objPath.filename() == controlId)
                             {
                                 redfish::nvidia_control_utils::

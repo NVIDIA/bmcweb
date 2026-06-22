@@ -168,7 +168,7 @@ inline void handleSecureBootDatabaseCollectionGet(
             std::vector<std::string> pathNames;
             for (const auto& object : objects)
             {
-                sdbusplus::message::object_path path(object);
+                sdbusplus::object_path path(object);
                 std::string leaf = path.filename();
                 if (leaf == "certs")
                 {
@@ -435,7 +435,7 @@ inline void handleCertificateCollectionPost(
                         return;
                     }
 
-                    sdbusplus::message::object_path path(objectPath);
+                    sdbusplus::object_path path(objectPath);
                     std::string certId = path.filename();
                     messages::created(aResp->res);
                     aResp->res.addHeader(
@@ -737,7 +737,7 @@ inline void handleSignatureCollectionPost(
                         return;
                     }
 
-                    sdbusplus::message::object_path path(objectPath);
+                    sdbusplus::object_path path(objectPath);
                     std::string sigId = path.filename();
                     messages::created(aResp->res);
                     aResp->res.addHeader(

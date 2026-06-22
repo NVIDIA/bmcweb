@@ -90,7 +90,7 @@ inline void afterGetManagedEntityProperties(
 
 inline void afterCreateMemberManagedEntityCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& dbusPath,
+    const sdbusplus::object_path& dbusPath,
     const std::optional<std::string>& newIPv4Address,
     const std::optional<std::string>& newIPv6Address,
     const std::optional<uint64_t>& newPort,
@@ -165,7 +165,7 @@ inline void handleManagedEntityGetRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= groupId;
     dbusPath /= "managed_entity";
@@ -204,7 +204,7 @@ inline void handleManagedEntityCollectionGetRequest(
     asyncResp->res.jsonValue["Name"] = "Managed Entities Collection";
 
     // Dynamically construct the D-Bus paths based on the powerPolicyId
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= groupId;
     dbusPath /= "managed_entity";
@@ -235,7 +235,7 @@ inline void handleManagedEntityPatchRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= entityGroupId;
     dbusPath /= "managed_entity";
@@ -336,13 +336,13 @@ inline void handleManagedEntityCollectionPostRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusGroupPath(
+    sdbusplus::object_path dbusGroupPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusGroupPath /= entityGroupId;
     dbusGroupPath /= "managed_entity";
 
     std::string entityId = *newId;
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusPath /= entityGroupId;
     dbusPath /= "managed_entity";
@@ -377,7 +377,7 @@ inline void handleManagedEntityDeleteRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusGroupPath(
+    sdbusplus::object_path dbusGroupPath(
         "/com/nvidia/state/power_compliance/managed_entity_group");
     dbusGroupPath /= entityGroupId;
     dbusGroupPath /= "managed_entity";

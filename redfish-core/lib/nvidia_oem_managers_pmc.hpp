@@ -184,10 +184,10 @@ inline void afterGetPowerComplianceProperties(
         return;
     }
 
-    sdbusplus::message::object_path managedEntityGroupsDbusPath;
-    sdbusplus::message::object_path powerDomainsDbusPath;
-    sdbusplus::message::object_path powerPoliciesDbusPath;
-    sdbusplus::message::object_path powerStateGroupDbusPath;
+    sdbusplus::object_path managedEntityGroupsDbusPath;
+    sdbusplus::object_path powerDomainsDbusPath;
+    sdbusplus::object_path powerPoliciesDbusPath;
+    sdbusplus::object_path powerStateGroupDbusPath;
 
     // clang-format off
         bool success = sdbusplus::unpackPropertiesNoThrow(

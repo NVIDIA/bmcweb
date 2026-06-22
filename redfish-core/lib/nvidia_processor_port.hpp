@@ -156,7 +156,7 @@ inline void getConnectedSwitchPorts(
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
             for (const std::string& portPath1 : data)
             {
-                sdbusplus::message::object_path objectPath(portPath1);
+                sdbusplus::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
                 if (portId.empty())
                 {
@@ -192,7 +192,7 @@ inline void getConnectedSwitches(
             }
             for (const std::string& fabricPath : data)
             {
-                sdbusplus::message::object_path objectPath(fabricPath);
+                sdbusplus::object_path objectPath(fabricPath);
                 std::string fabricId = objectPath.filename();
                 if (fabricId.empty())
                 {
@@ -247,7 +247,7 @@ inline void getConnectedProcessorPorts(
                             portPath);
                         break;
                     }
-                    sdbusplus::message::object_path connectedProcessorPath(
+                    sdbusplus::object_path connectedProcessorPath(
                         processorPath);
                     std::string processorName =
                         connectedProcessorPath.filename();
@@ -313,7 +313,7 @@ inline void getProcessorPortLinks(
             portlinksArray = nlohmann::json::array();
             for (const std::string& switchPath : data)
             {
-                sdbusplus::message::object_path objectPath(switchPath);
+                sdbusplus::object_path objectPath(switchPath);
                 std::string switchName = objectPath.filename();
                 if (switchName.empty())
                 {
@@ -345,8 +345,7 @@ inline void getProcessorPortLinks(
             std::vector<std::string> portNames;
             for (const std::string& connectedPort : data)
             {
-                sdbusplus::message::object_path connectedPortPath(
-                    connectedPort);
+                sdbusplus::object_path connectedPortPath(connectedPort);
                 std::string portName = connectedPortPath.filename();
                 if (portName.empty())
                 {
@@ -425,7 +424,7 @@ inline void afterGetCpuPortOemSubtree(
     for (const auto& [metricPath, services] : subtree)
     {
         const std::string metricLeaf =
-            sdbusplus::message::object_path(metricPath).filename();
+            sdbusplus::object_path(metricPath).filename();
 
         if (!metricLeaf.starts_with(portStem) ||
             !metricLeaf.ends_with(portIdxSuffix))
@@ -481,8 +480,8 @@ inline void getCpuPortOemMetrics(
         "xyz.openbmc_project.Metric.Value"};
 
     dbus::utility::getAssociatedSubTree(
-        sdbusplus::message::object_path(cpuInventoryPath + "/measured_by"),
-        sdbusplus::message::object_path("/xyz/openbmc_project/metric"), 0,
+        sdbusplus::object_path(cpuInventoryPath + "/measured_by"),
+        sdbusplus::object_path("/xyz/openbmc_project/metric"), 0,
         metricInterfaces,
         std::bind_front(afterGetCpuPortOemSubtree, asyncResp, mappings,
                         std::move(portStem), std::move(portIdxSuffix)));
@@ -529,7 +528,7 @@ inline void getProcessorPortData(
                             return;
                         }
 
-                        sdbusplus::message::object_path pathObj(sensorpath);
+                        sdbusplus::object_path pathObj(sensorpath);
                         if (pathObj.filename() != portId || object.size() != 1)
                         {
                             return;
@@ -585,7 +584,7 @@ inline void getProcessorAcceleratorPortData(
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
                                  sensorpath);
-                sdbusplus::message::object_path pathObj(sensorpath);
+                sdbusplus::object_path pathObj(sensorpath);
                 if (pathObj.filename() != portId)
                 {
                     continue;
@@ -610,7 +609,7 @@ inline void getProcessorAcceleratorPortData(
 
                         for (const auto& [portPath, object1] : subtree1)
                         {
-                            sdbusplus::message::object_path pPath(portPath);
+                            sdbusplus::object_path pPath(portPath);
                             if (pPath.filename() != portId)
                             {
                                 continue;
@@ -1418,7 +1417,7 @@ inline void afterGetPortObjectForMetrics(
         return;
     }
 
-    sdbusplus::message::object_path pathObj(sensorpath);
+    sdbusplus::object_path pathObj(sensorpath);
     if (pathObj.filename() != portId)
     {
         return;

@@ -384,7 +384,7 @@ inline void afterProcessorDiscoveryForRelatedItem(
         bool processorFound = false;
         for (const auto& [path, serviceMap] : subtree)
         {
-            sdbusplus::message::object_path objPath(path);
+            sdbusplus::object_path objPath(path);
             if (objPath.filename() == processorId)
             {
                 processorFound = true;

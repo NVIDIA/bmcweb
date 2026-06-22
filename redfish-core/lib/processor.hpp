@@ -1147,7 +1147,7 @@ inline void patchAppliedOperatingConfig(
     // the config URI to get the "filename", and append to the CPU's path.
     std::string configBaseName =
         appliedConfigUri.buffer().substr(expectedPrefix.buffer().size());
-    sdbusplus::message::object_path configPath(cpuObjectPath);
+    sdbusplus::object_path configPath(cpuObjectPath);
     configPath /= configBaseName;
 
     BMCWEB_LOG_INFO("Setting config to {}", configPath.str);

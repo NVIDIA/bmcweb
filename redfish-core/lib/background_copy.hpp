@@ -87,7 +87,7 @@ inline void populateBackgroundCopyPolicy(
 {
     constexpr std::string_view chassisDBusPath =
         "/xyz/openbmc_project/inventory/system/chassis/";
-    sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
+    sdbusplus::object_path objectPath{std::string(chassisDBusPath)};
     objectPath /= chassisId;
 
     dbus::utility::getDbusObject(
@@ -128,7 +128,7 @@ inline void updateBackgroundCopyPolicy(
 {
     constexpr std::string_view chassisDBusPath =
         "/xyz/openbmc_project/inventory/system/chassis/";
-    sdbusplus::message::object_path objectPath{std::string(chassisDBusPath)};
+    sdbusplus::object_path objectPath{std::string(chassisDBusPath)};
     objectPath /= chassisId;
 
     dbus::utility::getDbusObject(

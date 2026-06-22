@@ -295,7 +295,7 @@ inline void getPowerWattsBySensorName(
             // Check chassisId for endpoint
             for (const std::string& endpointPath : *data)
             {
-                sdbusplus::message::object_path objPath(endpointPath);
+                sdbusplus::object_path objPath(endpointPath);
                 const std::string& endpointId = objPath.filename();
                 if (endpointId != chassisID)
                 {
@@ -415,7 +415,7 @@ inline void getEnergyJoulesBySensorName(
             // Check chassisId for endpoint
             for (const std::string& endpointPath : *data)
             {
-                sdbusplus::message::object_path objPath(endpointPath);
+                sdbusplus::object_path objPath(endpointPath);
                 const std::string& endpointId = objPath.filename();
                 if (endpointId != chassisID)
                 {
@@ -518,13 +518,13 @@ inline void getPowerWattsEnergyJoules(
                      (endpoint.find(BMCWEB_PLATFORM_TOTAL_POWER_SENSOR_NAME) !=
                       std::string::npos)))
                 {
-                    sdbusplus::message::object_path endpointPath(endpoint);
+                    sdbusplus::object_path endpointPath(endpoint);
                     getPowerWattsBySensorName(asyncResp, chassisID,
                                               endpointPath.filename());
                 }
                 else if (endpoint.find("/energy/") != std::string::npos)
                 {
-                    sdbusplus::message::object_path endpointPath(endpoint);
+                    sdbusplus::object_path endpointPath(endpoint);
                     getEnergyJoulesBySensorName(asyncResp, chassisID,
                                                 endpointPath.filename());
                 }
@@ -540,7 +540,7 @@ inline void getTemperatureCelsiusBySensorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& sensorPath)
 {
-    sdbusplus::message::object_path objPath(sensorPath);
+    sdbusplus::object_path objPath(sensorPath);
     const std::string sensorName = objPath.filename();
 
     const std::array<const char*, 1> sensorInterfaces = {
@@ -644,8 +644,7 @@ inline void getTemperatureCelsius(
                             if (endpoint.find("/temperature/") !=
                                 std::string::npos)
                             {
-                                sdbusplus::message::object_path endpointPath(
-                                    endpoint);
+                                sdbusplus::object_path endpointPath(endpoint);
                                 getTemperatureCelsiusBySensorPath(
                                     asyncResp, chassisID, endpoint);
                                 return;
@@ -693,7 +692,7 @@ inline void getPowerReadings(
             // power control sensor
             for (const std::string& sensorPath : *data)
             {
-                sdbusplus::message::object_path objPath1(sensorPath);
+                sdbusplus::object_path objPath1(sensorPath);
                 const std::string& sensorName = objPath1.filename();
 
                 // Process sensor reading
@@ -1115,7 +1114,7 @@ inline void getPowerLimitDataSourceUri(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& ctrlPath)
 {
-    sdbusplus::message::object_path path(ctrlPath);
+    sdbusplus::object_path path(ctrlPath);
     const std::string name = path.filename();
     asyncResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] =
         "/redfish/v1/Chassis/" + chassisID + "/Controls/" + name;
@@ -1191,7 +1190,7 @@ inline void getPowerAndControlData(
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 if (objPath.filename() != resourceId)
                 {
                     continue;
@@ -1839,7 +1838,7 @@ inline void getEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -1881,7 +1880,7 @@ inline void getMemoryEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -1956,7 +1955,7 @@ inline void getCpuEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -2005,7 +2004,7 @@ inline void getCpuPowerCapData(
                 return;
             }
 
-            sdbusplus::message::object_path objectPath(objPath);
+            sdbusplus::object_path objectPath(objPath);
             std::string sensorName = objectPath.filename();
             if (sensorName.empty())
             {
@@ -2083,7 +2082,7 @@ inline void getCpuPowerCapByService(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
+            sdbusplus::object_path objectPath(chassisPath);
             std::string cpuName = objectPath.filename();
             if (cpuName.empty())
             {
@@ -2997,7 +2996,7 @@ inline void handleEnvironmentMetricsPatchBody(
                             std::pair<std::string, std::vector<std::string>>>&
                             connectionNames = object.second;
 
-                        sdbusplus::message::object_path objPath(path);
+                        sdbusplus::object_path objPath(path);
                         if (objPath.filename() != chassisId)
                         {
                             continue;

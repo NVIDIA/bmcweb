@@ -329,7 +329,7 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
                              object : subtree)
                     {
                         const std::string& path = object.first;
-                        sdbusplus::message::object_path objPath(path);
+                        sdbusplus::object_path objPath(path);
                         if (objPath.filename() != chassisId)
                         {
                             continue;

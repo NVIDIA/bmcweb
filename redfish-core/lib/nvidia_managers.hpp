@@ -610,7 +610,7 @@ inline void getLinkManagerForSwitches(
                 nlohmann::json::array();
             for (const std::string& fabric : resp)
             {
-                sdbusplus::message::object_path path(fabric);
+                sdbusplus::object_path path(fabric);
                 std::string fabricId = path.filename();
                 dbus::utility::getSubTree(
                     fabric, 0,
@@ -634,7 +634,7 @@ inline void getLinkManagerForSwitches(
                                  object : subtree)
                         {
                             const std::string& pathStr = object.first;
-                            sdbusplus::message::object_path switchPath(pathStr);
+                            sdbusplus::object_path switchPath(pathStr);
                             std::string switchId = switchPath.filename();
                             std::string managerUri = "/redfish/v1/Fabrics/";
                             managerUri += fabricId + "/Switches/";
@@ -1484,7 +1484,7 @@ inline void extendManagerGet(
                             // single entry will be present
                             for (const std::string& p : property)
                             {
-                                sdbusplus::message::object_path objPath(p);
+                                sdbusplus::object_path objPath(p);
                                 const std::string& chassisId =
                                     objPath.filename();
                                 asyncResp->res

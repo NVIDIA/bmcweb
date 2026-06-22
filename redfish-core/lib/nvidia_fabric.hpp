@@ -119,8 +119,8 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                                                                switchPath :
                                                            resp2)
                                                       {
-                                                          sdbusplus::message::
-                                                              object_path objPath(
+                                                          sdbusplus::object_path
+                                                              objPath(
                                                                   switchPath);
                                                           if (objPath
                                                                   .filename() !=
@@ -143,10 +143,8 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                                                                                         system::error_code
                                                                                             ec2,
                                                                                     const std::
-                                                                                        vector<
-                                                                                            std::
-                                                                                                string>&
-                                                                                            resp3) {
+                                                                                        vector<std::
+                                                                                                   string>& resp3) {
                                                                                     if (ec2)
                                                                                     {
                                                                                         BMCWEB_LOG_ERROR(
@@ -165,10 +163,9 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                                                                                                 histoPath :
                                                                                         resp3)
                                                                                     {
-                                                                                        sdbusplus::
-                                                                                            message::object_path
-                                                                                                histoObjPath(
-                                                                                                    histoPath);
+                                                                                        sdbusplus::object_path
+                                                                                            histoObjPath(
+                                                                                                histoPath);
                                                                                         if (histoObjPath
                                                                                                 .filename() !=
                                                                                             histogramId)
@@ -312,8 +309,8 @@ inline void requestRoutesSwitchHistogram(App& app)
                                 // Iterate over all retrieved ObjectPaths.
                                 for (const std::string& switchPath : resp)
                                 {
-                                    sdbusplus::message::object_path
-                                        switchObjPath(switchPath);
+                                    sdbusplus::object_path switchObjPath(
+                                        switchPath);
                                     if (switchObjPath.filename() != switchId)
                                     {
                                         continue;
@@ -424,8 +421,8 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                                 // Iterate over all retrieved ObjectPaths.
                                 for (const std::string& switchPath : resp)
                                 {
-                                    sdbusplus::message::object_path
-                                        switchObjPath(switchPath);
+                                    sdbusplus::object_path switchObjPath(
+                                        switchPath);
                                     if (switchObjPath.filename() != switchId)
                                     {
                                         continue;
@@ -516,26 +513,53 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                         {
                             continue;
                         }
-                        dbus::utility::getProperty<
-                            std::
-                                vector<std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                     fabricObject +
-                                                         "/all_switches",
+                        dbus::utility::getProperty<std::vector<std::string>>(
+                            "xyz.openbmc_project.ObjectMapper",
+                            fabricObject + "/all_switches",
+                            "xyz.openbmc_project.Association", "endpoints",
+                            [asyncResp, fabricId, switchId, portId,
+                             histogramId](
+                                const boost::system::error_code ec1,
+                                const std::vector<std::string>& resp3) {
+                                if (ec1)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec1.message());
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+
+                                // Iterate over all
+                                // retrieved
+                                // ObjectPaths.
+                                for (const std::string& switchPath : resp3)
+                                {
+                                    sdbusplus::object_path switchObjPath(
+                                        switchPath);
+                                    if (switchObjPath.filename() != switchId)
+                                    {
+                                        continue;
+                                    }
+                                    dbus::utility::getProperty<std::vector<
+                                        std::
+                                            string>>("xyz.openbmc_project.ObjectMapper",
+                                                     switchPath + "/all_states",
                                                      "xyz.openbmc_project.Association",
                                                      "endpoints",
                                                      [asyncResp, fabricId,
                                                       switchId, portId,
                                                       histogramId](
                                                          const boost::system::
-                                                             error_code ec1,
+                                                             error_code ec2,
                                                          const std::vector<
                                                              std::string>&
-                                                             resp3) {
-                                                         if (ec1)
+                                                             resp4) {
+                                                         if (ec2)
                                                          {
                                                              BMCWEB_LOG_ERROR(
-                                                                 "DBUS response error while getting switch on fabric: {}",
-                                                                 ec1.message());
+                                                                 "DBUS response error while getting port on switch: {}",
+                                                                 ec2.message());
                                                              messages::
                                                                  internalError(
                                                                      asyncResp
@@ -547,198 +571,143 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                                                          // retrieved
                                                          // ObjectPaths.
                                                          for (const std::string&
-                                                                  switchPath :
-                                                              resp3)
+                                                                  portPath :
+                                                              resp4)
                                                          {
-                                                             sdbusplus::message::object_path
-                                                                 switchObjPath(
-                                                                     switchPath);
-                                                             if (switchObjPath
+                                                             sdbusplus::object_path
+                                                                 switchPortObjPath(
+                                                                     portPath);
+                                                             if (switchPortObjPath
                                                                      .filename() !=
-                                                                 switchId)
+                                                                 portId)
                                                              {
                                                                  continue;
                                                              }
-                                                             dbus::utility::
-                                                                 getProperty<
-                                                                     std::
-                                                                         vector<
-                                                                             std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                                                           switchPath +
-                                                                                               "/all_states",
-                                                                                           "xyz.openbmc_project.Association",
-                                                                                           "endpoints",
-                                                                                           [asyncResp,
-                                                                                            fabricId,
-                                                                                            switchId,
-                                                                                            portId,
-                                                                                            histogramId](
-                                                                                               const boost::
-                                                                                                   system::error_code
-                                                                                                       ec2,
-                                                                                               const std::vector<
-                                                                                                   std::
-                                                                                                       string>&
-                                                                                                   resp4) {
-                                                                                               if (ec2)
-                                                                                               {
-                                                                                                   BMCWEB_LOG_ERROR(
-                                                                                                       "DBUS response error while getting port on switch: {}",
-                                                                                                       ec2.message());
-                                                                                                   messages::internalError(
-                                                                                                       asyncResp
-                                                                                                           ->res);
-                                                                                                   return;
-                                                                                               }
 
-                                                                                               // Iterate over all
-                                                                                               // retrieved ObjectPaths.
-                                                                                               for (
-                                                                                                   const std::
-                                                                                                       string&
-                                                                                                           portPath :
-                                                                                                   resp4)
-                                                                                               {
-                                                                                                   sdbusplus::
-                                                                                                       message::object_path
-                                                                                                           switchPortObjPath(
-                                                                                                               portPath);
-                                                                                                   if (switchPortObjPath
-                                                                                                           .filename() !=
-                                                                                                       portId)
-                                                                                                   {
-                                                                                                       continue;
-                                                                                                   }
+                                                             dbus::utility::getProperty<std::vector<
+                                                                 std::string>>("xyz.openbmc_project.ObjectMapper",
+                                                                               portPath +
+                                                                                   "/histograms",
+                                                                               "xyz.openbmc_project.Association",
+                                                                               "endpoints",
+                                                                               [asyncResp,
+                                                                                fabricId,
+                                                                                switchId,
+                                                                                portId,
+                                                                                histogramId](
+                                                                                   const boost::
+                                                                                       system::error_code
+                                                                                           ec3,
+                                                                                   const std::vector<
+                                                                                       std::
+                                                                                           string>&
+                                                                                       resp5) {
+                                                                                   if (ec3)
+                                                                                   {
+                                                                                       BMCWEB_LOG_ERROR(
+                                                                                           "DBUS response error while getting switch on fabric: {}",
+                                                                                           ec3.message());
+                                                                                       messages::internalError(
+                                                                                           asyncResp
+                                                                                               ->res);
+                                                                                       return;
+                                                                                   }
 
-                                                                                                   dbus::utility::getProperty<
-                                                                                                       std::vector<
-                                                                                                           std::
-                                                                                                               string>>(
-                                                                                                       "xyz.openbmc_project.ObjectMapper",
-                                                                                                       portPath +
-                                                                                                           "/histograms",
-                                                                                                       "xyz.openbmc_project.Association",
-                                                                                                       "endpoints",
-                                                                                                       [asyncResp,
-                                                                                                        fabricId,
-                                                                                                        switchId,
-                                                                                                        portId,
-                                                                                                        histogramId](
-                                                                                                           const boost::
-                                                                                                               system::error_code
-                                                                                                                   ec3,
-                                                                                                           const std::vector<
-                                                                                                               std::
-                                                                                                                   string>&
-                                                                                                               resp5) {
-                                                                                                           if (ec3)
-                                                                                                           {
-                                                                                                               BMCWEB_LOG_ERROR(
-                                                                                                                   "DBUS response error while getting switch on fabric: {}",
-                                                                                                                   ec3.message());
-                                                                                                               messages::internalError(
-                                                                                                                   asyncResp
-                                                                                                                       ->res);
-                                                                                                               return;
-                                                                                                           }
+                                                                                   // Iterate over all retrieved ObjectPaths.
+                                                                                   for (
+                                                                                       const std::
+                                                                                           string&
+                                                                                               histoPath :
+                                                                                       resp5)
+                                                                                   {
+                                                                                       sdbusplus::object_path
+                                                                                           histoObjPath(
+                                                                                               histoPath);
+                                                                                       if (histoObjPath
+                                                                                               .filename() !=
+                                                                                           histogramId)
+                                                                                       {
+                                                                                           continue;
+                                                                                       }
 
-                                                                                                           // Iterate over all retrieved ObjectPaths.
-                                                                                                           for (
-                                                                                                               const std::
-                                                                                                                   string&
-                                                                                                                       histoPath :
-                                                                                                               resp5)
-                                                                                                           {
-                                                                                                               sdbusplus::
-                                                                                                                   message::object_path
-                                                                                                                       histoObjPath(
-                                                                                                                           histoPath);
-                                                                                                               if (histoObjPath
-                                                                                                                       .filename() !=
-                                                                                                                   histogramId)
-                                                                                                               {
-                                                                                                                   continue;
-                                                                                                               }
+                                                                                       std::string
+                                                                                           bucketURI =
+                                                                                               "/redfish/v1/Fabrics/";
+                                                                                       bucketURI +=
+                                                                                           fabricId;
+                                                                                       bucketURI +=
+                                                                                           "/Switches/";
+                                                                                       bucketURI +=
+                                                                                           switchId;
+                                                                                       bucketURI +=
+                                                                                           "/Ports/";
+                                                                                       bucketURI +=
+                                                                                           portId;
+                                                                                       bucketURI +=
+                                                                                           "/Oem/Nvidia/Histograms/";
+                                                                                       bucketURI +=
+                                                                                           histogramId;
+                                                                                       bucketURI +=
+                                                                                           "/Buckets";
+                                                                                       asyncResp
+                                                                                           ->res
+                                                                                           .jsonValue
+                                                                                               ["@odata.type"] =
+                                                                                           "#NvidiaHistogramBuckets.v1_0_0.NvidiaHistogramBuckets";
+                                                                                       asyncResp
+                                                                                           ->res
+                                                                                           .jsonValue
+                                                                                               ["@odata.id"] =
+                                                                                           bucketURI;
+                                                                                       std::string
+                                                                                           name3 =
+                                                                                               switchId;
+                                                                                       name3 +=
+                                                                                           "_";
+                                                                                       name3 +=
+                                                                                           portId;
+                                                                                       name3 +=
+                                                                                           "_Histogram_";
+                                                                                       name3 +=
+                                                                                           histogramId;
+                                                                                       name3 +=
+                                                                                           "_Buckets";
+                                                                                       asyncResp
+                                                                                           ->res
+                                                                                           .jsonValue
+                                                                                               ["Name"] =
+                                                                                           name3;
+                                                                                       asyncResp
+                                                                                           ->res
+                                                                                           .jsonValue
+                                                                                               ["Id"] =
+                                                                                           "Buckets";
+                                                                                       asyncResp
+                                                                                           ->res
+                                                                                           .jsonValue
+                                                                                               ["Buckets"] =
+                                                                                           nlohmann::json::
+                                                                                               array();
 
-                                                                                                               std::string
-                                                                                                                   bucketURI =
-                                                                                                                       "/redfish/v1/Fabrics/";
-                                                                                                               bucketURI +=
-                                                                                                                   fabricId;
-                                                                                                               bucketURI +=
-                                                                                                                   "/Switches/";
-                                                                                                               bucketURI +=
-                                                                                                                   switchId;
-                                                                                                               bucketURI +=
-                                                                                                                   "/Ports/";
-                                                                                                               bucketURI +=
-                                                                                                                   portId;
-                                                                                                               bucketURI +=
-                                                                                                                   "/Oem/Nvidia/Histograms/";
-                                                                                                               bucketURI +=
-                                                                                                                   histogramId;
-                                                                                                               bucketURI +=
-                                                                                                                   "/Buckets";
-                                                                                                               asyncResp
-                                                                                                                   ->res
-                                                                                                                   .jsonValue
-                                                                                                                       ["@odata.type"] =
-                                                                                                                   "#NvidiaHistogramBuckets.v1_0_0.NvidiaHistogramBuckets";
-                                                                                                               asyncResp
-                                                                                                                   ->res
-                                                                                                                   .jsonValue
-                                                                                                                       ["@odata.id"] =
-                                                                                                                   bucketURI;
-                                                                                                               std::string
-                                                                                                                   name3 =
-                                                                                                                       switchId;
-                                                                                                               name3 +=
-                                                                                                                   "_";
-                                                                                                               name3 +=
-                                                                                                                   portId;
-                                                                                                               name3 +=
-                                                                                                                   "_Histogram_";
-                                                                                                               name3 +=
-                                                                                                                   histogramId;
-                                                                                                               name3 +=
-                                                                                                                   "_Buckets";
-                                                                                                               asyncResp
-                                                                                                                   ->res
-                                                                                                                   .jsonValue
-                                                                                                                       ["Name"] =
-                                                                                                                   name3;
-                                                                                                               asyncResp
-                                                                                                                   ->res
-                                                                                                                   .jsonValue
-                                                                                                                       ["Id"] =
-                                                                                                                   "Buckets";
-                                                                                                               asyncResp
-                                                                                                                   ->res
-                                                                                                                   .jsonValue
-                                                                                                                       ["Buckets"] =
-                                                                                                                   nlohmann::json::
-                                                                                                                       array();
-
-                                                                                                               redfish::nvidia_histogram_utils::
-                                                                                                                   updateHistogramBucketData(
-                                                                                                                       asyncResp,
-                                                                                                                       histoPath);
-                                                                                                           }
-                                                                                                       });
-                                                                                                   return;
-                                                                                               }
-                                                                                           });
+                                                                                       redfish::nvidia_histogram_utils::
+                                                                                           updateHistogramBucketData(
+                                                                                               asyncResp,
+                                                                                               histoPath);
+                                                                                   }
+                                                                               });
                                                              return;
                                                          }
-                                                         // Couldn't find an
-                                                         // object with that
-                                                         // name. Return an
-                                                         // error
-                                                         messages::resourceNotFound(
-                                                             asyncResp->res,
-                                                             "#Switch.v1_8_0.Switch",
-                                                             switchId);
                                                      });
+                                    return;
+                                }
+                                // Couldn't find an
+                                // object with that
+                                // name. Return an
+                                // error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
+                            });
                         return;
                     }
                     // Couldn't find an object with that name. Return an
@@ -755,214 +724,158 @@ inline void requestRoutesSwitchPortHistogram(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& portId, const std::string& histogramId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId,
+                            const std::string& portId,
+                            const std::string& histogramId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                dbus::
-                    utility::
-                        getSubTreePaths(
-                            "/xyz/openbmc_project/inventory", 0,
-                            std::array<std::string_view, 1>{
-                                "xyz.openbmc_project.Inventory.Item.Fabric"},
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
+                [asyncResp, fabricId, switchId, portId,
+                 histogramId](const boost::system::error_code ec,
+                              const std::vector<std::string>& objects) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DBUS response error while getting fabrics: {}",
+                            ec.message());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    for (const std::string& fabricObject : objects)
+                    {
+                        // Get the fabricId object
+                        if (!fabricObject.ends_with(fabricId))
+                        {
+                            continue;
+                        }
+                        dbus::utility::getProperty<std::vector<std::string>>(
+                            "xyz.openbmc_project.ObjectMapper",
+                            fabricObject + "/all_switches",
+                            "xyz.openbmc_project.Association", "endpoints",
                             [asyncResp, fabricId, switchId, portId,
                              histogramId](
-                                const boost::system::error_code ec,
-                                const std::vector<std::string>& objects) {
-                                if (ec)
+                                const boost::system::error_code ec2,
+                                const std::vector<std::string>& resp) {
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
-                                        "DBUS response error while getting fabrics: {}",
-                                        ec.message());
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec2.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
 
-                                for (const std::string& fabricObject : objects)
+                                // Iterate over all
+                                // retrieved ObjectPaths.
+                                for (const std::string& switchPath : resp)
                                 {
-                                    // Get the fabricId object
-                                    if (!fabricObject.ends_with(fabricId))
+                                    sdbusplus::object_path switchObjPath(
+                                        switchPath);
+                                    if (switchObjPath.filename() != switchId)
                                     {
                                         continue;
                                     }
-                                    dbus::
-                                        utility::
-                                            getProperty<
-                                                std::vector<std::string>>(
-                                                "xyz.openbmc_project.ObjectMapper",
-                                                fabricObject + "/all_switches",
-                                                "xyz.openbmc_project.Association",
-                                                "endpoints",
-                                                [asyncResp, fabricId, switchId,
-                                                 portId, histogramId](
-                                                    const boost::system::
-                                                        error_code ec2,
-                                                    const std::vector<
-                                                        std::string>& resp) {
-                                                    if (ec2)
-                                                    {
-                                                        BMCWEB_LOG_ERROR(
-                                                            "DBUS response error while getting switch on fabric: {}",
-                                                            ec2.message());
-                                                        messages::internalError(
-                                                            asyncResp->res);
-                                                        return;
-                                                    }
+                                    dbus::utility::getProperty<
+                                        std::vector<std::string>>(
+                                        "xyz.openbmc_project.ObjectMapper",
+                                        switchPath + "/all_states",
+                                        "xyz.openbmc_project.Association",
+                                        "endpoints",
+                                        [asyncResp, fabricId, switchId, portId,
+                                         histogramId](
+                                            const boost::system::error_code ec3,
+                                            const std::vector<std::string>&
+                                                portResp) {
+                                            if (ec3)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "DBUS response error while getting port on switch: {}",
+                                                    ec3.message());
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            // Iterate over all retrieved
+                                            // ObjectPaths.
+                                            for (const std::string& portPath :
+                                                 portResp)
+                                            {
+                                                sdbusplus::object_path
+                                                    switchPortObjPath(portPath);
+                                                if (switchPortObjPath
+                                                        .filename() != portId)
+                                                {
+                                                    continue;
+                                                }
 
-                                                    // Iterate over all
-                                                    // retrieved ObjectPaths.
-                                                    for (const std::string&
-                                                             switchPath : resp)
-                                                    {
-                                                        sdbusplus::message::
-                                                            object_path
-                                                                switchObjPath(
-                                                                    switchPath);
-                                                        if (switchObjPath
-                                                                .filename() !=
-                                                            switchId)
-                                                        {
-                                                            continue;
-                                                        }
-                                                        dbus::utility::getProperty<
-                                                            std::vector<
-                                                                std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                                              switchPath +
-                                                                                  "/all_states",
-                                                                              "xyz.openbmc_project.Association",
-                                                                              "endpoints",
-                                                                              [asyncResp,
-                                                                               fabricId,
-                                                                               switchId,
-                                                                               portId,
-                                                                               histogramId](
-                                                                                  const boost::
-                                                                                      system::error_code
-                                                                                          ec3,
-                                                                                  const std::
-                                                                                      vector<std::string>& portResp) {
-                                                                                  if (ec3)
-                                                                                  {
-                                                                                      BMCWEB_LOG_ERROR(
-                                                                                          "DBUS response error while getting port on switch: {}",
-                                                                                          ec3.message());
-                                                                                      messages::internalError(
-                                                                                          asyncResp
-                                                                                              ->res);
-                                                                                      return;
-                                                                                  }
-                                                                                  // Iterate over all retrieved
-                                                                                  // ObjectPaths.
-                                                                                  for (
-                                                                                      const std::
-                                                                                          string&
-                                                                                              portPath :
-                                                                                      portResp)
-                                                                                  {
-                                                                                      sdbusplus::
-                                                                                          message::object_path
-                                                                                              switchPortObjPath(
-                                                                                                  portPath);
-                                                                                      if (switchPortObjPath
-                                                                                              .filename() !=
-                                                                                          portId)
-                                                                                      {
-                                                                                          continue;
-                                                                                      }
+                                                std::string histogramURI =
+                                                    "/redfish/v1/Fabrics/";
+                                                histogramURI += fabricId;
+                                                histogramURI += "/Switches/";
+                                                histogramURI += switchId;
+                                                histogramURI += "/Ports/";
+                                                histogramURI += portId;
+                                                histogramURI +=
+                                                    "/Oem/Nvidia/Histograms/";
+                                                histogramURI += histogramId;
+                                                asyncResp->res
+                                                    .jsonValue["@odata.type"] =
+                                                    "#NvidiaHistogram.v1_1_0.NvidiaHistogram";
+                                                asyncResp->res
+                                                    .jsonValue["@odata.id"] =
+                                                    histogramURI;
+                                                asyncResp->res.jsonValue["Id"] =
+                                                    histogramId;
+                                                std::string name4 = switchId;
+                                                name4 += "_";
+                                                name4 += portId;
+                                                name4 += "_Histogram_";
+                                                name4 += histogramId;
+                                                asyncResp->res
+                                                    .jsonValue["Name"] = name4;
 
-                                                                                      std::string
-                                                                                          histogramURI =
-                                                                                              "/redfish/v1/Fabrics/";
-                                                                                      histogramURI +=
-                                                                                          fabricId;
-                                                                                      histogramURI +=
-                                                                                          "/Switches/";
-                                                                                      histogramURI +=
-                                                                                          switchId;
-                                                                                      histogramURI +=
-                                                                                          "/Ports/";
-                                                                                      histogramURI +=
-                                                                                          portId;
-                                                                                      histogramURI +=
-                                                                                          "/Oem/Nvidia/Histograms/";
-                                                                                      histogramURI +=
-                                                                                          histogramId;
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["@odata.type"] =
-                                                                                          "#NvidiaHistogram.v1_1_0.NvidiaHistogram";
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["@odata.id"] =
-                                                                                          histogramURI;
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["Id"] =
-                                                                                          histogramId;
-                                                                                      std::string
-                                                                                          name4 =
-                                                                                              switchId;
-                                                                                      name4 +=
-                                                                                          "_";
-                                                                                      name4 +=
-                                                                                          portId;
-                                                                                      name4 +=
-                                                                                          "_Histogram_";
-                                                                                      name4 +=
-                                                                                          histogramId;
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["Name"] =
-                                                                                          name4;
-
-                                                                                      std::string
-                                                                                          bucketURI =
-                                                                                              histogramURI;
-                                                                                      bucketURI +=
-                                                                                          "/Buckets";
-                                                                                      asyncResp
-                                                                                          ->res
-                                                                                          .jsonValue
-                                                                                              ["HistogramBuckets"]
-                                                                                              ["@odata.id"] =
-                                                                                          bucketURI;
-                                                                                      redfish::nvidia_histogram_utils::
-                                                                                          getHistogramDataByAssociation(
-                                                                                              asyncResp,
-                                                                                              histogramId,
-                                                                                              portPath);
-                                                                                      return;
-                                                                                  }
-                                                                              });
-                                                        return;
-                                                    }
-                                                    // Couldn't find an object
-                                                    // with that name. Return an
-                                                    // error
-                                                    messages::resourceNotFound(
-                                                        asyncResp->res,
-                                                        "#Switch.v1_8_0.Switch",
-                                                        switchId);
-                                                });
+                                                std::string bucketURI =
+                                                    histogramURI;
+                                                bucketURI += "/Buckets";
+                                                asyncResp->res.jsonValue
+                                                    ["HistogramBuckets"]
+                                                    ["@odata.id"] = bucketURI;
+                                                redfish::nvidia_histogram_utils::
+                                                    getHistogramDataByAssociation(
+                                                        asyncResp, histogramId,
+                                                        portPath);
+                                                return;
+                                            }
+                                        });
                                     return;
                                 }
-                                // Couldn't find an object with that name.
-                                // Return an error
+                                // Couldn't find an object
+                                // with that name. Return an
+                                // error
                                 messages::resourceNotFound(
-                                    asyncResp->res, "#Fabric.v1_2_0.Fabric",
-                                    fabricId);
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
                             });
-            });
+                        return;
+                    }
+                    // Couldn't find an object with that name.
+                    // Return an error
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
+                });
+        });
 }
 
 inline void requestRoutesSwitchPortHistogramCollection(App& app)
@@ -975,81 +888,84 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& portId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId,
+                            const std::string& portId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                dbus::utility::getSubTreePaths(
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<std::string_view, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Fabric"},
-                    [asyncResp, fabricId, switchId,
-                     portId](const boost::system::error_code ec,
-                             const std::vector<std::string>& objects) {
-                        if (ec)
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"},
+                [asyncResp, fabricId, switchId,
+                 portId](const boost::system::error_code ec,
+                         const std::vector<std::string>& objects) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DBUS response error while getting fabrics: {}",
+                            ec.message());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    for (const std::string& fabricObject : objects)
+                    {
+                        // Get the fabricId object
+                        if (!fabricObject.ends_with(fabricId))
                         {
-                            BMCWEB_LOG_ERROR(
-                                "DBUS response error while getting fabrics: {}",
-                                ec.message());
-                            messages::internalError(asyncResp->res);
-                            return;
+                            continue;
                         }
+                        dbus::utility::getProperty<
+                            std::
+                                vector<std::string>>("xyz.openbmc_project.ObjectMapper",
+                                                     fabricObject +
+                                                         "/all_switches",
+                                                     "xyz.openbmc_project.Association",
+                                                     "endpoints",
+                                                     [asyncResp, fabricId,
+                                                      switchId, portId](
+                                                         const boost::system::
+                                                             error_code ec2,
+                                                         const std::vector<
+                                                             std::string>&
+                                                             resp) {
+                                                         if (ec2)
+                                                         {
+                                                             BMCWEB_LOG_ERROR(
+                                                                 "DBUS response error while getting switch on fabric: {}",
+                                                                 ec2.message());
+                                                             messages::
+                                                                 internalError(
+                                                                     asyncResp
+                                                                         ->res);
+                                                             return;
+                                                         }
 
-                        for (const std::string& fabricObject : objects)
-                        {
-                            // Get the fabricId object
-                            if (!fabricObject.ends_with(fabricId))
-                            {
-                                continue;
-                            }
-                            dbus::utility::getProperty<
-                                std::vector<
-                                    std::
-                                        string>>("xyz.openbmc_project.ObjectMapper",
-                                                 fabricObject + "/all_switches",
-                                                 "xyz.openbmc_project.Association",
-                                                 "endpoints",
-                                                 [asyncResp, fabricId, switchId,
-                                                  portId](
-                                                     const boost::system::
-                                                         error_code ec2,
-                                                     const std::vector<
-                                                         std::string>& resp) {
-                                                     if (ec2)
-                                                     {
-                                                         BMCWEB_LOG_ERROR(
-                                                             "DBUS response error while getting switch on fabric: {}",
-                                                             ec2.message());
-                                                         messages::
-                                                             internalError(
-                                                                 asyncResp
-                                                                     ->res);
-                                                         return;
-                                                     }
-
-                                                     // Iterate over all
-                                                     // retrieved ObjectPaths.
-                                                     for (const std::string&
-                                                              switchPath : resp)
-                                                     {
-                                                         sdbusplus::message::
-                                                             object_path
+                                                         // Iterate over all
+                                                         // retrieved
+                                                         // ObjectPaths.
+                                                         for (const std::string&
+                                                                  switchPath :
+                                                              resp)
+                                                         {
+                                                             sdbusplus::object_path
                                                                  switchObjPath(
                                                                      switchPath);
-                                                         if (switchObjPath
-                                                                 .filename() !=
-                                                             switchId)
-                                                         {
-                                                             continue;
-                                                         }
-                                                         dbus::utility::getProperty<
-                                                             std::vector<
+                                                             if (switchObjPath
+                                                                     .filename() !=
+                                                                 switchId)
+                                                             {
+                                                                 continue;
+                                                             }
+                                                             dbus::utility::getProperty<std::vector<
                                                                  std::string>>("xyz.openbmc_project.ObjectMapper",
                                                                                switchPath +
                                                                                    "/all_states",
@@ -1062,10 +978,9 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                                                                    const boost::
                                                                                        system::error_code
                                                                                            ec3,
-                                                                                   const std::
-                                                                                       vector<
-                                                                                           std::
-                                                                                               string>& portResp) {
+                                                                                   const std::vector<
+                                                                                       std::
+                                                                                           string>& portResp) {
                                                                                    if (ec3)
                                                                                    {
                                                                                        BMCWEB_LOG_ERROR(
@@ -1085,10 +1000,9 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                                                                                portPath :
                                                                                        portResp)
                                                                                    {
-                                                                                       sdbusplus::
-                                                                                           message::object_path
-                                                                                               switchPortObjPath(
-                                                                                                   portPath);
+                                                                                       sdbusplus::object_path
+                                                                                           switchPortObjPath(
+                                                                                               portPath);
                                                                                        if (switchPortObjPath
                                                                                                .filename() !=
                                                                                            portId)
@@ -1159,24 +1073,25 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                                                                        return;
                                                                                    }
                                                                                });
-                                                         return;
-                                                     }
-                                                     // Couldn't find an object
-                                                     // with that name. Return
-                                                     // an error
-                                                     messages::resourceNotFound(
-                                                         asyncResp->res,
-                                                         "#Switch.v1_8_0.Switch",
-                                                         switchId);
-                                                 });
-                            return;
-                        }
-                        // Couldn't find an object with that name. Return an
-                        // error
-                        messages::resourceNotFound(
-                            asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                    });
-            });
+                                                             return;
+                                                         }
+                                                         // Couldn't find an
+                                                         // object with that
+                                                         // name. Return an
+                                                         // error
+                                                         messages::resourceNotFound(
+                                                             asyncResp->res,
+                                                             "#Switch.v1_8_0.Switch",
+                                                             switchId);
+                                                     });
+                        return;
+                    }
+                    // Couldn't find an object with that name. Return an
+                    // error
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
+                });
+        });
 }
 
 } // namespace redfish

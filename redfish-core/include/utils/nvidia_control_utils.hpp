@@ -48,7 +48,7 @@ inline void getClockLimitControlObjects(
                                          const std::vector<std::string>& resp) {
             for (const auto& object : resp)
             {
-                sdbusplus::message::object_path objPath(object);
+                sdbusplus::object_path objPath(object);
                 members.push_back(
                     {{"@odata.id", "/redfish/v1/Chassis/" + chassisID +
                                        "/Controls/" + objPath.filename()}});
@@ -232,7 +232,7 @@ inline void getClockLimitControl(
             auto validendpoint = false;
             for (const auto& object : resp)
             {
-                sdbusplus::message::object_path objPath(object);
+                sdbusplus::object_path objPath(object);
                 if (objPath.filename() == controlID)
                 {
                     std::string name = "Control for ";
@@ -394,7 +394,7 @@ inline void patchClockLimitControl(
             }
             for (const auto& object : resp)
             {
-                sdbusplus::message::object_path objPath(object);
+                sdbusplus::object_path objPath(object);
                 if (objPath.filename() == controlID)
                 {
                     if (settingMin && settingMax)
@@ -534,7 +534,7 @@ inline void postClockLimitControl(
 
 inline void getControlSettingRelatedItems(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& chassisPath)
+    const sdbusplus::object_path& chassisPath)
 {
     nlohmann::json& relatedItemsArray = asyncResp->res.jsonValue["RelatedItem"];
     relatedItemsArray.push_back(

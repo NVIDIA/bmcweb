@@ -79,7 +79,7 @@ inline void handleNvidiaBootstrapSelfDelete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username)
 {
-    sdbusplus::message::object_path userObjPath("/xyz/openbmc_project/user/");
+    sdbusplus::object_path userObjPath("/xyz/openbmc_project/user/");
     userObjPath /= username;
     const std::string userPath(userObjPath);
 

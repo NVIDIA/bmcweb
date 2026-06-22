@@ -184,10 +184,9 @@ inline void getValidLeakDetectorPath(
     const std::function<void(const std::string& leakDetectorPath,
                              const std::string& service)>& callback)
 {
-    sdbusplus::message::object_path inventoryPath(
+    sdbusplus::object_path inventoryPath(
         "/xyz/openbmc_project/inventory/leakdetectors/");
-    sdbusplus::message::object_path leakDetectorPath =
-        inventoryPath / leakDetectorId;
+    sdbusplus::object_path leakDetectorPath = inventoryPath / leakDetectorId;
 
     dbus::utility::getDbusObject(
         leakDetectorPath, leakDetectorInventoryInterfaces,
@@ -386,7 +385,7 @@ inline void getLeakDetectorState(
 {
     dbus::utility::getAssociatedSubTreePaths(
         leakDetectorPath + "/leak_detecting",
-        sdbusplus::message::object_path("/xyz/openbmc_project/state"), 0,
+        sdbusplus::object_path("/xyz/openbmc_project/state"), 0,
         leakDetectorStateInterfaces,
         [asyncResp, service](
             const boost::system::error_code& ec,
@@ -445,8 +444,7 @@ inline void getLeakDetectorItem(
             {
                 messages::resourceNotFound(
                     asyncResp->res, "LeakDetector",
-                    sdbusplus::message::object_path(leakDetectorPath)
-                        .filename());
+                    sdbusplus::object_path(leakDetectorPath).filename());
                 return;
             }
             if (ec)
@@ -732,7 +730,7 @@ inline void doLeakDetectorPolicyPatch(
     const std::string& leakDetectorConfigPath, const std::string& service,
     const std::string& configInterface)
 {
-    sdbusplus::message::object_path path(leakDetectorConfigPath);
+    sdbusplus::object_path path(leakDetectorConfigPath);
 
     if (policyProperties.criticalReactionType)
     {

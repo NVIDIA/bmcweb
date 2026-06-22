@@ -54,8 +54,8 @@ inline void afterGetPowerStateGroupProperties(
     uint64_t generatedWatts = 0;
     uint64_t numOfPscs = 0;
     uint64_t numOfPsus = 0;
-    sdbusplus::message::object_path pscsDbusPath;
-    sdbusplus::message::object_path psusDbusPath;
+    sdbusplus::object_path pscsDbusPath;
+    sdbusplus::object_path psusDbusPath;
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -119,7 +119,7 @@ inline void handlePowerStateGroupGetRequest(
         return;
     }
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_state_group");
 
     // Get all properties from D-Bus

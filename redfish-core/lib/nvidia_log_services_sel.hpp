@@ -570,7 +570,7 @@ inline void handleSelEntryDeletion(
 {
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Logging",
-        sdbusplus::message::object_path("/xyz/openbmc_project/logging"),
+        sdbusplus::object_path("/xyz/openbmc_project/logging"),
         [asyncResp, selRecordId](const boost::system::error_code ec,
                                  const dbus::utility::ManagedObjectType& resp) {
             std::string entryId;
@@ -620,7 +620,7 @@ inline void handleSelEntryRetrieval(
 {
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Logging",
-        sdbusplus::message::object_path("/xyz/openbmc_project/logging"),
+        sdbusplus::object_path("/xyz/openbmc_project/logging"),
         [asyncResp, selRecordId](const boost::system::error_code ec,
                                  const dbus::utility::ManagedObjectType& resp) {
             std::string entryId;

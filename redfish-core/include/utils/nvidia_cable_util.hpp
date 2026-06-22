@@ -229,7 +229,7 @@ inline void handleCableLocationContext(
 }
 
 inline void addChassisLink(nlohmann::json& links, const std::string& key,
-                           const sdbusplus::message::object_path& objPath)
+                           const sdbusplus::object_path& objPath)
 {
     nlohmann::json obj = nlohmann::json::object();
     nlohmann::json list = nlohmann::json::array();
@@ -253,10 +253,10 @@ inline void handleCableConnectingEndpoints(
     }
     std::vector<std::string> sortedData = resp;
     std::ranges::sort(sortedData, AlphanumLess<std::string>());
-    sdbusplus::message::object_path objPathUp(sortedData.front());
+    sdbusplus::object_path objPathUp(sortedData.front());
     addChassisLink(asyncResp->res.jsonValue["Links"], "UpstreamChassis",
                    objPathUp);
-    sdbusplus::message::object_path objPathDown(sortedData.back());
+    sdbusplus::object_path objPathDown(sortedData.back());
     addChassisLink(asyncResp->res.jsonValue["Links"], "DownstreamChassis",
                    objPathDown);
 }

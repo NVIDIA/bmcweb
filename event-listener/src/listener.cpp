@@ -186,7 +186,7 @@ class redfishEventMgr
         // create entry in redfish logging service
         eventMap.emplace(path,
                          std::make_shared<phosphor::logging::evtEntry>(
-                             static_cast<sdbusplus::bus::bus&>(*conn), path, id,
+                             static_cast<sdbusplus::bus_t&>(*conn), path, id,
                              timestamp, severity, std::move(msg),
                              std::move(resolution), std::move(additionalData)));
     }
@@ -524,7 +524,7 @@ int main(int argc, char* argv[])
 
     // create redfish logging service
     sdbusplus::server::manager::manager objManager(
-        static_cast<sdbusplus::bus::bus&>(*conn), entryName.c_str());
+        static_cast<sdbusplus::bus_t&>(*conn), entryName.c_str());
     conn->request_name("xyz.openbmc_project.logging.rfevtlistener");
 
     tcp::endpoint ep{address, port};

@@ -280,7 +280,7 @@ class CallAsyncMethodCall
             return;
         }
 
-        sdbusplus::message::object_path objectPath;
+        sdbusplus::object_path objectPath;
         msg.read(objectPath);
         statusInfo->object = objectPath;
 

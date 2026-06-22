@@ -102,7 +102,7 @@ inline void handlePscStateGetRequest(
     }
 
     // Dynamically construct the D-Bus paths based on the id
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_state_group/power_shelf_controller");
     dbusPath /= id;
 
@@ -146,7 +146,7 @@ inline void handlePscStateCollectionGetRequest(
         "#NvidiaPscStateCollection.NvidiaPscStateCollection";
     asyncResp->res.jsonValue["Name"] = "PowerShelf Controller State Collection";
 
-    sdbusplus::message::object_path dbusPath(
+    sdbusplus::object_path dbusPath(
         "/com/nvidia/state/power_compliance/power_state_group/power_shelf_controller");
 
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(

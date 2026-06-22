@@ -76,8 +76,8 @@ using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
 static void checkAssociationEndpointsForInstance(
     const std::string& requestPath,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::pair<sdbusplus::message::object_path,
-                    dbus::utility::DBusInterfacesMap>& object,
+    const std::pair<sdbusplus::object_path, dbus::utility::DBusInterfacesMap>&
+        object,
     const std::string& objectPath, const std::string& certificateID,
     const boost::system::error_code& ec, const std::vector<std::string>& data)
 {
@@ -239,7 +239,7 @@ static void getChassisCertificateInstance(
         const std::string& path = object.first;
         const auto& connectionNames = object.second;
 
-        sdbusplus::message::object_path objectPath(path);
+        sdbusplus::object_path objectPath(path);
         if (objectPath.filename() != chassisID)
         {
             continue;
@@ -252,8 +252,7 @@ static void getChassisCertificateInstance(
         }
 
         dbus::utility::getManagedObjects(
-            erot::spdmServiceName,
-            sdbusplus::message::object_path(erot::spdmObjectPath),
+            erot::spdmServiceName, sdbusplus::object_path(erot::spdmObjectPath),
             std::bind_front(getChassisCertificateInstanceHandler, requestPath,
                             asyncResp, objectPath, certificateID));
         break;
@@ -433,7 +432,7 @@ static void getChassisCertificateCollection(
         const std::string& path = object.first;
         const auto& connectionNames = object.second;
 
-        sdbusplus::message::object_path objectPath(path);
+        sdbusplus::object_path objectPath(path);
         if (objectPath.filename() != chassisID)
         {
             continue;
@@ -446,8 +445,7 @@ static void getChassisCertificateCollection(
         }
 
         dbus::utility::getManagedObjects(
-            erot::spdmServiceName,
-            sdbusplus::message::object_path(erot::spdmObjectPath),
+            erot::spdmServiceName, sdbusplus::object_path(erot::spdmObjectPath),
             std::bind_front(getChassisCertificateCollectionHandler, asyncResp,
                             objectPath, chassisID));
         break;
@@ -623,7 +621,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 if (objPath.filename() != chassisId)
                 {
                     continue;

@@ -80,7 +80,7 @@ void getChassisListForInBand(
             for (const auto& object : subtree)
             {
                 const std::string& path = object.first;
-                sdbusplus::message::object_path objectPath(path);
+                sdbusplus::object_path objectPath(path);
                 const std::string chassisName = objectPath.filename();
                 chassisList.push_back(chassisName);
             }
@@ -422,7 +422,7 @@ inline void getChassisLinksContains(
             boost::container::flat_set<std::string> chassisNames;
             for (const std::string& chassisPath : resp)
             {
-                sdbusplus::message::object_path objectPath(chassisPath);
+                sdbusplus::object_path objectPath(chassisPath);
                 std::string chassisName = objectPath.filename();
                 if (chassisName.empty())
                 {
@@ -468,7 +468,7 @@ inline void getChassisProcessorProtocolBridgeForDevices(
             boost::container::flat_set<std::string> chassisNames;
             for (const std::string& chassisPath : resp)
             {
-                sdbusplus::message::object_path objectPath(chassisPath);
+                sdbusplus::object_path objectPath(chassisPath);
                 std::string chassisName = objectPath.filename();
                 if (chassisName.empty())
                 {
@@ -533,7 +533,7 @@ inline void getChassisNetworkAdapterProtocolBridgeForDevices(
 
                         for (const std::string& networkAdapterPath : resp2)
                         {
-                            sdbusplus::message::object_path objectPath(
+                            sdbusplus::object_path objectPath(
                                 networkAdapterPath);
                             std::string networkAdapterId =
                                 objectPath.filename();
@@ -546,8 +546,7 @@ inline void getChassisNetworkAdapterProtocolBridgeForDevices(
                                 return;
                             }
 
-                            sdbusplus::message::object_path objpath(
-                                chassisPath);
+                            sdbusplus::object_path objpath(chassisPath);
                             std::string chassisId = objpath.filename();
                             if (chassisId.empty())
                             {
@@ -906,7 +905,7 @@ inline void getChassisProcessorLinks(
             linksArray = nlohmann::json::array();
             for (const std::string& processorPath : resp)
             {
-                sdbusplus::message::object_path objectPath(processorPath);
+                sdbusplus::object_path objectPath(processorPath);
                 std::string processorName = objectPath.filename();
                 if (processorName.empty())
                 {
@@ -949,7 +948,7 @@ inline void getChassisFabricSwitchesLinks(
                 return;
             }
             const std::string& fabricPath = resp.front();
-            sdbusplus::message::object_path objectPath(fabricPath);
+            sdbusplus::object_path objectPath(fabricPath);
             std::string fabricId = objectPath.filename();
             if (fabricId.empty())
             {
@@ -974,7 +973,7 @@ inline void getChassisFabricSwitchesLinks(
                     linksArray = nlohmann::json::array();
                     for (const std::string& switchPath : sortedData)
                     {
-                        sdbusplus::message::object_path objectPath1(switchPath);
+                        sdbusplus::object_path objectPath1(switchPath);
                         std::string switchId = objectPath1.filename();
                         if (switchId.empty())
                         {
@@ -2027,8 +2026,7 @@ inline void getChassisWriteProtectProtectEnable(
     }
     dbus::utility::getProperty<bool>(
         object[0].first,
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
+        sdbusplus::object_path("/xyz/openbmc_project/software") /= chassisId,
         "xyz.openbmc_project.Software.Settings", "WriteProtected",
         [asyncResp](const boost::system::error_code& ec2, bool property) {
             if (ec2.value() ==
@@ -2110,8 +2108,7 @@ inline void setChassisWriteProtectProtectEnable(
     }
     dbus::utility::setProperty(
         object[0].first,
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
+        sdbusplus::object_path("/xyz/openbmc_project/software") /= chassisId,
         "xyz.openbmc_project.Software.Settings", "WriteProtected", value,
         [asyncResp](const boost::system::error_code& ec2) {
             if (ec2.value() ==
@@ -2238,7 +2235,7 @@ inline void validLeakDetectionCallback(
     std::optional<std::string> chassisPath;
     for (const std::string& chassis : chassisPaths)
     {
-        sdbusplus::message::object_path path(chassis);
+        sdbusplus::object_path path(chassis);
         std::string chassisName = path.parent_path().filename();
         if (chassisName.empty())
         {
@@ -2593,7 +2590,7 @@ inline void handleChassisGetAllProperties(
         }
 
         dbus::utility::getDbusObject(
-            sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
+            sdbusplus::object_path("/xyz/openbmc_project/software") /=
             chassisId,
             std::array<std::string_view, 1>{
                 "xyz.openbmc_project.Software.Settings"},
@@ -2729,8 +2726,7 @@ inline void oemChassisHardwareWriteProtectEnable(
     const std::string& chassisId, const bool value)
 {
     dbus::utility::getDbusObject(
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
+        sdbusplus::object_path("/xyz/openbmc_project/software") /= chassisId,
         std::array<std::string_view, 1>{
             "xyz.openbmc_project.Software.Settings"},
         [asyncResp, chassisId,
@@ -2829,7 +2825,7 @@ inline void handleFruAssetInformation(
                     std::pair<std::string, std::vector<std::string>>>&
                     serviceMap = object.second;
 
-                sdbusplus::message::object_path objPath(path);
+                sdbusplus::object_path objPath(path);
                 // The path should end with chassisId (representing resource)
                 // and that path should implement Asset Interface
                 if (objPath.filename() != chassisId)
@@ -2976,8 +2972,8 @@ inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
 template <typename Handler>
 inline void getChassisRelatedItem(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::message::object_path& objectPath,
-    const std::string& chassisId, Handler&& handler)
+    const sdbusplus::object_path& objectPath, const std::string& chassisId,
+    Handler&& handler)
 {
     // Ensure to pick up the resource from Chassis interface
     size_t chassisNamePos = objectPath.str.rfind('/');
@@ -3000,7 +2996,7 @@ inline void getChassisRelatedItem(
             {
                 for (const auto& path : subtreePaths)
                 {
-                    sdbusplus::message::object_path chassisPath(path);
+                    sdbusplus::object_path chassisPath(path);
                     std::string chassisName = chassisPath.filename();
                     if (chassisId == chassisName)
                     {
@@ -3040,7 +3036,7 @@ inline void getOemBootStatus(
 
             for (const auto& obj : subtree)
             {
-                sdbusplus::message::object_path objPath(obj.first);
+                sdbusplus::object_path objPath(obj.first);
                 if (objPath.filename() != chassisObjPath)
                 {
                     continue;
@@ -3286,7 +3282,7 @@ inline void getBackgroundCopyStatusCallback(
 
 inline void getBackgroundCopyStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service, const sdbusplus::message::object_path& objPath)
+    const std::string& service, const sdbusplus::object_path& objPath)
 {
     dbus::utility::getProperty<std::string>(
         service, objPath.str, "com.nvidia.ImageCopyState", "Status",
@@ -3768,8 +3764,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
                         std::vector<std::pair<
                             std::string, std::vector<std::string>>>>& object) {
                     return chassisID ==
-                           sdbusplus::message::object_path(object.first)
-                               .filename();
+                           sdbusplus::object_path(object.first).filename();
                 });
             if (objIt == subtree.end())
             {

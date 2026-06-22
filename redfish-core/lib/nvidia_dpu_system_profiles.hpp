@@ -45,7 +45,7 @@ namespace profiles
 const std::string profileService = "xyz.openbmc_project.Profile.Manager";
 const std::string profilePath =
     "/xyz/openbmc_project/control/system/Card1/profile/";
-const sdbusplus::message::object_path profileManagerPath(
+const sdbusplus::object_path profileManagerPath(
     "/xyz/openbmc_project/control/system/Card1/profile/manager");
 const std::string statusIntrf = "xyz.openbmc_project.Profiles.Statuses";
 const std::string pendingListIntrf =
@@ -527,7 +527,7 @@ inline void handleGetProfilesCollection(
             members = nlohmann::json::array();
             for (const auto& object : objects)
             {
-                sdbusplus::message::object_path path(object);
+                sdbusplus::object_path path(object);
                 std::string profileNumber = path.filename();
                 if (profileNumber.empty())
                 {
@@ -1641,7 +1641,7 @@ inline void installCACerthandler(
         messages::internalError(asyncResp->res);
         return;
     }
-    sdbusplus::message::object_path path(objectPath);
+    sdbusplus::object_path path(objectPath);
     std::string certId = path.filename();
     const boost::urls::url certURL = boost::urls::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}",

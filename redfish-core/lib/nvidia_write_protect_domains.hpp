@@ -172,8 +172,8 @@ inline void afterSetWriteProtected(
 
 inline void setWriteProtected(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service,
-    const sdbusplus::message::object_path& objectPath, bool value)
+    const std::string& service, const sdbusplus::object_path& objectPath,
+    bool value)
 {
     dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
