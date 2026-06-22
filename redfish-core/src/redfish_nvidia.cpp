@@ -69,6 +69,7 @@
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
+#include "nvidia_system_processor_power_limits.hpp"
 #include "nvidia_systems_logservices_hostlogger.hpp"
 #include "nvidia_task.hpp"
 #include "nvidia_unified_debug_token.hpp"
@@ -245,6 +246,14 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesBMCDumpServiceActionInfo(app);
     }
 
+    // The SetProcessorPowerLimits OEM action is advertised on the
+    // ComputerSystem GET only when BMCWEB_NVIDIA_OEM_PROPERTIES is enabled
+    // (systems.hpp); gate the route registration to match, consistent with the
+    // other OEM route blocks above.
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesProcessorPowerLimits(app);
+    }
     requestRoutesProcessorMetrics(app);
     requestRoutesProcessorMemoryMetrics(app);
     requestRoutesProcessorSettings(app);
