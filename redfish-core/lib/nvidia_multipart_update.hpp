@@ -51,6 +51,9 @@ inline void handleStartUpdate(
     {
         BMCWEB_LOG_ERROR("error_code = {}", ec);
         BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+        // StartUpdate failed; release the guard (handleCreateTask() clears it
+        // on success).
+        redfish::fwUpdateInProgress = false;
         messages::internalError(asyncResp->res);
         onResponseReady();
         return;
@@ -71,6 +74,8 @@ inline void startSoftwareUpdate(
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
     sdbusplus::message::unix_fd fd(fileGetSocket.native_handle());
+
+    redfish::fwUpdateInProgress = true;
 
     dbus::utility::async_method_call(
         asyncResp,
@@ -168,6 +173,8 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
         memfd.rewind();
         sdbusplus::message::unix_fd fd(memfd.fd);
+
+        redfish::fwUpdateInProgress = true;
 
         dbus::utility::async_method_call(
             [asyncResp{asyncResp}, payload = std::move(payload),
@@ -1254,6 +1261,17 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
     {
         BMCWEB_LOG_ERROR("Failed to parse Content-Length: {}", ct);
         messages::headerInvalid(asyncResp->res, "Content-Length");
+        return;
+    }
+    // Only allow one firmware update at a time (the streaming flow no longer
+    // calls preCheckMultipartUpdateServiceReq()).
+    if (redfish::fwUpdateInProgress)
+    {
+        BMCWEB_LOG_ERROR("Update already in progress.");
+        redfish::messages::updateInProgressMsg(
+            asyncResp->res,
+            "Another update is in progress. Retry the update operation once "
+            "it is complete.");
         return;
     }
     // Register streaming callbacks for the multipart parser
