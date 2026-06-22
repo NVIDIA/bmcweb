@@ -80,7 +80,8 @@ TEST(SetHeaders, WithApplyTime)
 
     EXPECT_EQ(
         ctx->pendingWriteBuffer,
-        expectedSetHeadersOutput(boundary, R"({"ApplyTime":"Immediate"})"));
+        expectedSetHeadersOutput(
+            boundary, R"({"@Redfish.OperationApplyTime":"Immediate"})"));
 }
 
 TEST(SetHeaders, WithForceUpdateTrue)
@@ -105,13 +106,12 @@ TEST(SetHeaders, AllParams)
     ctx->setHeaders(
         {"http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"});
 
-    // nlohmann object_t (std::map) sorts keys alphabetically:
-    // ApplyTime < ForceUpdate < Targets
+    // nlohmann sorts keys by byte value: '@' (0x40) precedes 'F'/'T'.
     EXPECT_EQ(
         ctx->pendingWriteBuffer,
         expectedSetHeadersOutput(
             boundary,
-            R"({"ApplyTime":"OnReset","ForceUpdate":false,"Targets":["http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"]})"));
+            R"({"@Redfish.OperationApplyTime":"OnReset","ForceUpdate":false,"Targets":["http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"]})"));
 }
 
 TEST(ParseRfaUri, EmptyUriReturnsError)
@@ -224,7 +224,7 @@ TEST(SetHeaders, WithTargetsAndApplyTime)
     EXPECT_EQ(ctx->pendingWriteBuffer,
               expectedSetHeadersOutput(
                   boundary,
-                  R"({"ApplyTime":"OnReset","Targets":["target1"]})"));
+                  R"({"@Redfish.OperationApplyTime":"OnReset","Targets":["target1"]})"));
 }
 
 TEST(ErrorHandler, AlwaysReturnsSuccess)

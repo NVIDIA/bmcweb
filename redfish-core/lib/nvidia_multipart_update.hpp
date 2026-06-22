@@ -923,7 +923,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
         if (multiRet.params.applyTime)
         {
-            updateParametersJson["ApplyTime"] = *multiRet.params.applyTime;
+            // The receiver rejects unknown UpdateParameters keys, so use the
+            // exact Redfish key.
+            updateParametersJson["@Redfish.OperationApplyTime"] =
+                *multiRet.params.applyTime;
         }
         if (multiRet.params.forceUpdate)
         {
