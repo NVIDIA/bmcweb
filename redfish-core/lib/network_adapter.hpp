@@ -1010,7 +1010,7 @@ inline void getPortData(
         "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Metrics", chassisId,
         networkAdapterId, portId);
 
-    addPortResetTransceiverOemAction(asyncResp, objPath, chassisId,
+    addPortResetTransceiverOemAction(asyncResp, networkAdapterPath, chassisId,
                                      networkAdapterId, portId);
 
     // Get interface properties

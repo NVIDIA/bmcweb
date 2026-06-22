@@ -27,6 +27,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
 
+#include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
@@ -63,21 +64,46 @@ inline void populateChassisResetAllowableValues(
                                    ec.message());
                 return;
             }
+            // Static Redfish ResetType -> description text, mirroring the
+            // NvidiaChassis OEM schema / mockup. The allowable *set* stays
+            // device-agnostic (driven by the reset_controls leaves); only the
+            // human description per known type is looked up here. An unknown
+            // leaf yields an empty string so AllowableValueDescriptions stays
+            // index-aligned with AllowableValues.
+            static const boost::container::flat_map<std::string_view,
+                                                    std::string_view>
+                resetTypeDescriptions{
+                    {"FullReset", "Card Level Orchestrated Reset.  This takes "
+                                  "effect after the next PCIe reset."},
+                    {"ForceDpuReset", "DPU Level Immediate Reset"},
+                    {"DpuReset", "DPU Level Orchestrated Reset"},
+                    {"ArmReset", "ARM Only Reset"},
+                    {"ArmShutdown", "ARM Shutdown"}};
+
             nlohmann::json::array_t allowableValues;
+            nlohmann::json::array_t allowableValueDescriptions;
             for (const std::string& resetPath : resetPaths)
             {
                 std::string resetType =
                     sdbusplus::object_path(resetPath).filename();
-                if (!resetType.empty())
+                if (resetType.empty())
                 {
-                    allowableValues.emplace_back(std::move(resetType));
+                    continue;
                 }
+                auto descIt = resetTypeDescriptions.find(resetType);
+                allowableValueDescriptions.emplace_back(
+                    descIt != resetTypeDescriptions.end()
+                        ? std::string(descIt->second)
+                        : std::string());
+                allowableValues.emplace_back(std::move(resetType));
             }
             asyncResp->res.jsonValue["Parameters"] = nlohmann::json::array(
                 {{{"Name", "ResetType"},
                   {"Required", true},
                   {"DataType", "String"},
-                  {"AllowableValues", std::move(allowableValues)}}});
+                  {"AllowableValues", std::move(allowableValues)},
+                  {"AllowableValueDescriptions",
+                   std::move(allowableValueDescriptions)}}});
         });
 }
 
@@ -266,29 +292,58 @@ inline void requestRoutesDeviceReset(App& app)
             handleNvidiaChassisResetActionInfoGet, std::ref(app)));
 }
 
-// Add the NvidiaPort.ResetTransceiver OEM action onto a port GET response if
-// the port's D-Bus object carries the Control.ResetAsync interface. Called
-// from the Port resource handler.
+// Add the NvidiaPort.ResetTransceiver OEM action onto a port GET response when
+// the port actually supports it. Resolution mirrors the POST handler
+// (handlePortResetTransceiverPost): walk the network adapter's /all_states
+// association to the Inventory.Item.Port objects, match the requested port, and
+// advertise only if that object carries Control.ResetAsync. Resolving the same
+// way as the POST guarantees the action is advertised iff it is invokable —
+// the port's own inventory object (as returned by getPortData) does not carry
+// the reset interface, which is why advertising off that path silently
+// dropped the action. Called from the Port resource handler.
 inline void addPortResetTransceiverOemAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& portObjPath, const std::string& chassisId,
+    const std::string& networkAdapterPath, const std::string& chassisId,
     const std::string& networkAdapterId, const std::string& portId)
 {
-    dbus::utility::getDbusObject(
-        portObjPath, std::array<std::string_view, 1>{resetAsyncIface},
-        [asyncResp, chassisId, networkAdapterId,
-         portId](const boost::system::error_code& ec,
-                 const dbus::utility::MapperGetObject& obj) {
-            if (ec || obj.empty())
+    dbus::utility::getAssociatedSubTreePaths(
+        networkAdapterPath + "/all_states",
+        sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Port"},
+        [asyncResp, chassisId, networkAdapterId, portId](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& portPaths) {
+            if (ec)
             {
                 return;
             }
-            asyncResp->res.jsonValue["Actions"]["Oem"]
-                                    ["#NvidiaPort.ResetTransceiver"]["target"] =
-                boost::urls::format(
-                    "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}"
-                    "/Actions/Oem/NvidiaPort.ResetTransceiver",
-                    chassisId, networkAdapterId, portId);
+            for (const std::string& portPath : portPaths)
+            {
+                if (sdbusplus::object_path(portPath).filename() != portId)
+                {
+                    continue;
+                }
+                dbus::utility::getDbusObject(
+                    portPath, std::array<std::string_view, 1>{resetAsyncIface},
+                    [asyncResp, chassisId, networkAdapterId,
+                     portId](const boost::system::error_code& ec2,
+                             const dbus::utility::MapperGetObject& obj) {
+                        if (ec2 || obj.empty())
+                        {
+                            return;
+                        }
+                        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                                ["#NvidiaPort.ResetTransceiver"]
+                                                ["target"] =
+                            boost::urls::format(
+                                "/redfish/v1/Chassis/{}/NetworkAdapters/{}"
+                                "/Ports/{}/Actions/Oem/"
+                                "NvidiaPort.ResetTransceiver",
+                                chassisId, networkAdapterId, portId);
+                    });
+                return;
+            }
         });
 }
 
