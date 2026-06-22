@@ -74,7 +74,7 @@ inline void requestRoutesDebugToken(App& app)
                  {{"target",
                    "/redfish/v1/Systems/" +
                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                       "/LogServices/DebugTokenService/LogService.CollectDiagnosticData"}}}};
+                       "/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData"}}}};
         });
 }
 
@@ -224,7 +224,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData")
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

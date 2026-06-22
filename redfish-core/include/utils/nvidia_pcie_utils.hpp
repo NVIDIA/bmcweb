@@ -1625,7 +1625,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     pcieFunctionURI += "/PCIeFunctions";
                                     asyncResp->res.jsonValue = {
                                         {"@odata.type",
-                                         "#PCIeDevice.v1_14_0.PCIeDevice"},
+                                         "#PCIeDevice.v1_16_0.PCIeDevice"},
                                         {"@odata.id", pcieDeviceURI},
                                         {"Name", "PCIe Device"},
                                         {"Id", device},

@@ -1088,12 +1088,12 @@ inline void extendUpdateServiceGet(
          "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
     if constexpr (BMCWEB_SCP_UPDATE)
     {
-        asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
+        asyncResp->res.jsonValue["Actions"]["Oem"]
                                 ["#NvidiaUpdateService.PublicKeyExchange"] = {
             {"target",
              "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
         asyncResp->res.jsonValue
-            ["Actions"]["Oem"]["Nvidia"]
+            ["Actions"]["Oem"]
             ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
             {"target",
              "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};

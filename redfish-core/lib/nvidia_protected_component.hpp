@@ -306,7 +306,7 @@ inline void processImageSlotProperties(
                     fwTypeStr, slotNumStr);
     asyncResp->res.jsonValue["Id"] = slotNumStr;
     asyncResp->res.jsonValue["@odata.type"] =
-        "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
+        "#NvidiaRoTImageSlot.v1_1_0.NvidiaRoTImageSlot";
     asyncResp->res.jsonValue["@odata.id"] = std::format(
         "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots/{}",
         chassisId, fwTypeStr, slotNumStr);
