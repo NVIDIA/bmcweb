@@ -1463,8 +1463,8 @@ constexpr long long int maxFileSize()
 {
     if constexpr (BMCWEB_REDFISH_FDR_LOG)
     {
-        // "The maximum size of FDR dump is 1.5GB
-        return 1500 * 1024LL * 1024LL;
+        // The maximum size of FDR dump is 2 GB
+        return 2LL * 1024LL * 1024LL * 1024LL;
     }
     else
     {
