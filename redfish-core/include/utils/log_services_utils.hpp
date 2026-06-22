@@ -45,8 +45,8 @@ inline bool checkSizeLimit(int fd, crow::Response& res)
         return false;
     }
 
-    // Arbitrary max size of 30MB to accommodate BMC dumps
-    constexpr long long int maxFileSize = 30LL * 1024LL * 1024LL;
+    // Arbitrary max size of 2 GB to accommodate BMC dumps
+    constexpr long long int maxFileSize = 2LL * 1024LL * 1024LL * 1024LL;
     if (size > maxFileSize)
     {
         BMCWEB_LOG_ERROR("File size {} exceeds maximum allowed size of {}",

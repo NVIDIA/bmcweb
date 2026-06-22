@@ -635,6 +635,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         BMCWEB_LOG_DEBUG("{}, id: {}  restartConnection", host,
                          std::to_string(connId));
+        // Clear any stale bytes left in the buffer from a previous partial
+        // read (e.g. a large binary body that was aborted mid-transfer).
+        // Without this, the beast parser sees non-HTTP data on the next
+        // async_read and fails immediately with "bad version".
+        buffer.clear();
         initializeConnection(host.scheme() == "https");
         doResolve();
     }
