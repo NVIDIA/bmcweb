@@ -644,6 +644,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             {
                 redfish::messages::actionParameterValueConflict(asyncResp->res,
                                                                 "Targets", uri);
+                failClientResponse();
                 return;
             }
             if (targetType == TargetType::Local)
@@ -652,6 +653,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 {
                     redfish::messages::actionParameterValueConflict(
                         asyncResp->res, "Targets", uri);
+                    failClientResponse();
                     return;
                 }
                 localTargetsOut.emplace_back(uri);
@@ -662,6 +664,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 {
                     redfish::messages::actionParameterValueConflict(
                         asyncResp->res, "Targets", uri);
+                    failClientResponse();
                     return;
                 }
                 satelliteTargetsOut.emplace_back(uri);
@@ -672,6 +675,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 {
                     redfish::messages::actionParameterValueConflict(
                         asyncResp->res, "Targets", uri);
+                    failClientResponse();
                     return;
                 }
                 satelliteTargetsOut.emplace_back(uri);
@@ -740,7 +744,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             BMCWEB_LOG_ERROR("Multipart part missing Content-Disposition name");
             messages::unrecognizedRequestBody(asyncResp->res);
-            state = State::UPDATE_COMPLETE_ERROR;
+            failClientResponse();
             return;
         }
 
@@ -761,7 +765,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 BMCWEB_LOG_ERROR(
                     "UpdateParameters part missing or invalid Content-Type");
                 messages::headerMissing(asyncResp->res, "Content-Type");
-                state = State::UPDATE_COMPLETE_ERROR;
+                failClientResponse();
                 return;
             }
             state = State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
@@ -775,7 +779,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             {
                 BMCWEB_LOG_ERROR("Failed to parse Content-Disposition");
                 messages::unrecognizedRequestBody(asyncResp->res);
-                state = State::UPDATE_COMPLETE_ERROR;
+                failClientResponse();
                 return;
             }
 
@@ -794,7 +798,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         BMCWEB_LOG_ERROR("Unexpected multipart form field: {}", *formFieldName);
         messages::unrecognizedRequestBody(asyncResp->res);
-        state = State::UPDATE_COMPLETE_ERROR;
+        failClientResponse();
     }
 
     void onDataAvailable(const SelfPtr& /*self*/, std::string_view data)
@@ -858,7 +862,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 processUpdateParameters(asyncResp, updateParametersString);
             if (!params)
             {
-                state = State::UPDATE_COMPLETE_ERROR;
+                // processUpdateParameters() already set the error message.
                 failClientResponse();
                 return;
             }
@@ -1198,6 +1202,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                               dbusApplyTime))
         {
             BMCWEB_LOG_WARNING("Failed to convert apply time");
+            failClientResponse();
             return;
         }
         bool forceUpdate = multiRet.params.forceUpdate.value_or(false);
