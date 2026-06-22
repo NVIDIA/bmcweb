@@ -753,10 +753,20 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
+            // Validate apply time here so a bad value is rejected once; the
+            // local path re-derives it in localUpdate() after this gate.
+            if (!onUpdateParametersComplete(multiRet))
+            {
+                failClientResponse();
+                return;
+            }
+
+            // Throttle input while the update destination is set up.
             // startRequest() is responsible for the next state transition:
             // the satellite path moves to WAITING_FOR_SAT_CONTROLLER_INFO_
             // COMPLETE, the local path moves straight to
             // WAITING_FOR_UPDATE_FILE_DATA via beginLocalFileStreaming().
+            pauseReadCb();
             startRequest(remaingingBodyLength);
             return;
         }
@@ -826,8 +836,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             }
 
             multiRet.params = std::move(*params);
-            onUpdateParametersComplete(multiRet);
-            pauseReadCb();
+            updateParametersString.clear();
             state = State::WAITING_FOR_UPDATE_FILE_HEADERS;
             return;
         }
@@ -911,7 +920,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         endClientResponseIfReady();
     }
 
-    void onUpdateParametersComplete(MultiPartUpdate& multipart)
+    bool onUpdateParametersComplete(MultiPartUpdate& multipart)
     {
         std::string applyTime = "OnReset";
         if (multipart.params.applyTime)
@@ -920,10 +929,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         std::string dbusApplyTime;
-        if (!convertApplyTime(asyncResp->res, applyTime, dbusApplyTime))
-        {
-            return;
-        }
+        return convertApplyTime(asyncResp->res, applyTime, dbusApplyTime);
     }
 
     void setHeaders(const std::vector<std::string>& localTargetsOut)
