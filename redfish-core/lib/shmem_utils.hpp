@@ -190,6 +190,7 @@ constexpr const std::string_view ioSma = "IO_Board_SMA_";
 constexpr const std::string_view cxSma = "ConnectX_SMA_";
 constexpr const std::string_view gpuSma = "GPU_SMA_";
 constexpr const std::string_view pmSma = "ProcessorModule_SMA_";
+constexpr const std::string_view nvSwitchSma = "NVSwitch_SMA_";
 constexpr const std::string_view gpuTemp = "GPU_\\d+_TEMP_";
 constexpr const std::string_view hscc = "Chassis_0_HSCC_";
 constexpr const std::string_view dramTemp = "DramTemp_";
@@ -252,6 +253,8 @@ inline const MetricsReplacement gpuSmaPlatformEnvironmentMetrics(
     gpuSma, "{GSMAWild}", "GSMAWild");
 inline const MetricsReplacement pmSmaPlatformEnvironmentMetrics(
     pmSma, "{PSMAWild}", "PSMAWild");
+inline const MetricsReplacement nvSwitchSmaPlatformEnvironmentMetrics(
+    nvSwitchSma, "{NSMAWild}", "NSMAWild");
 inline const MetricsReplacement gpuTempPlatformEnvironmentMetrics(
     gpuTemp, "{GTWild}", "GTWild");
 inline const MetricsReplacement hsccPlatformEnvironmentMetrics(hscc, "{HCWild}",
@@ -1068,6 +1071,8 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(pmSmaPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(nvSwitchSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
             updateReplacementFlag(gpuTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
             updateReplacementFlag(hsccPlatformEnvironmentMetrics,
@@ -1132,6 +1137,8 @@ inline void getShmemMetricsDefinitionWildCard(
                                 inputMetricProperties);
             metricsReplacements(pmSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
+            metricsReplacements(nvSwitchSmaPlatformEnvironmentMetrics,
+                                wildCards, inputMetricProperties);
             metricsReplacements(gpuTempPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(hsccPlatformEnvironmentMetrics, wildCards,
