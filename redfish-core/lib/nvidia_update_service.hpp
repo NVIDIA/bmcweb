@@ -435,6 +435,8 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             std::string resolution;
             std::string severity;
             std::string messageNamespace;
+            std::string deviceName;
+            std::string errorId;
             std::vector<std::string> rfArgs;
             for (auto& propertyMap : interface.second)
             {
@@ -461,6 +463,14 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                         if (additional.contains("namespace"))
                         {
                             messageNamespace = additional["namespace"];
+                        }
+                        if (additional.contains("DEVICE_NAME"))
+                        {
+                            deviceName = additional["DEVICE_NAME"];
+                        }
+                        if (additional.contains("ERROR_ID"))
+                        {
+                            errorId = additional["ERROR_ID"];
                         }
                     }
                 }
@@ -501,6 +511,28 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                 if (!severity.empty())
                 {
                     msgObj["MessageSeverity"] = severity;
+                }
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    // Surface the same OEM identifiers (DEVICE_NAME, ERROR_ID)
+                    // that LogServices/EventService expose, on the FW update
+                    // task Message[]. Source is the AdditionalData written by
+                    // dbus-sensors / phm / pldm.
+                    if (!deviceName.empty() || !errorId.empty())
+                    {
+                        nlohmann::json::object_t nvidia;
+                        nvidia["@odata.type"] =
+                            "#NvidiaMessage.v1_0_0.NvidiaMessage";
+                        if (!deviceName.empty())
+                        {
+                            nvidia["Device"] = deviceName;
+                        }
+                        if (!errorId.empty())
+                        {
+                            nvidia["ErrorId"] = errorId;
+                        }
+                        msgObj["Oem"]["Nvidia"] = std::move(nvidia);
+                    }
                 }
                 messages.emplace_back(std::move(msgObj));
             }
