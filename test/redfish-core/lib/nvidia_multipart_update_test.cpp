@@ -343,6 +343,27 @@ TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE);
 }
 
+TEST(OnHeadersComplete, InvalidApplyTimeReturnsSingleError)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->multiRet.params.applyTime = "Invalid";
+
+    boost::beast::http::fields fileFields;
+    fileFields.set(boost::beast::http::field::content_disposition,
+                   "form-data; name=\"UpdateFile\"");
+
+    // The apply-time gate rejects the bad value once and stops; the flow must
+    // not fall through to startRequest()/localUpdate() and emit it a second
+    // time.
+    ctx->onHeadersComplete(ctx, fileFields, 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(
+        ctx->asyncResp->res.jsonValue["ApplyTime@Message.ExtendedInfo"].size(),
+        1U);
+}
+
 TEST(OnParseComplete, SetsParseCompleteFlag)
 {
     auto ctx = makeCtx();

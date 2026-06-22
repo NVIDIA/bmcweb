@@ -723,8 +723,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             return;
         }
+        if (!onUpdateParametersComplete(multiRet))
+        {
+            failClientResponse();
+            return;
+        }
+        if (pauseReadCb)
+        {
+            pauseReadCb();
+        }
         updateStarted = true;
-        onUpdateParametersComplete(multiRet);
         startRequest(remainingBodyLength);
     }
 
@@ -870,10 +878,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
             mergeUpdateParameters(multiRet.params, *params);
             updateParametersString.clear();
-            if (pauseReadCb)
-            {
-                pauseReadCb();
-            }
             state = State::WAITING_FOR_PART_HEADERS;
             return;
         }
@@ -966,7 +970,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         endClientResponseIfReady();
     }
 
-    void onUpdateParametersComplete(MultiPartUpdate& multipart)
+    bool onUpdateParametersComplete(MultiPartUpdate& multipart)
     {
         std::string applyTime = "OnReset";
         if (multipart.params.applyTime)
@@ -975,10 +979,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         std::string dbusApplyTime;
-        if (!convertApplyTime(asyncResp->res, applyTime, dbusApplyTime))
-        {
-            return;
-        }
+        return convertApplyTime(asyncResp->res, applyTime, dbusApplyTime);
     }
 
     void setHeaders(const std::vector<std::string>& localTargetsOut)
