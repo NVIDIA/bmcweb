@@ -23,6 +23,7 @@
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_refresh_inventory.hpp"
+#include "nvidia_system_processor_power_limits.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -4027,6 +4028,12 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         handleRefreshInventoryGet(asyncResp);
+
+        // Advertise the SetProcessorPowerLimits OEM action with its
+        // @Redfish.ActionInfo pointer. The NVIDIA-specific payload lives in
+        // nvidia_system_processor_power_limits.hpp; call only the helper here.
+        redfish::nvidia_aggregate_power::advertiseSetProcessorPowerLimits(
+            asyncResp, BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)

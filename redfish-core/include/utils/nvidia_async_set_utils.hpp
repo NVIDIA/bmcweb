@@ -39,6 +39,14 @@ namespace nvidia_async_operation_utils
 {
 static const std::string setAsyncInterfaceName = "com.nvidia.Async.Set";
 static const std::string setAsyncMethodName = "Set";
+
+// Canonical timeout for an async (com.nvidia.Async.Set) property set. This is
+// the single source of truth for the value the stock single-GPU setters pass to
+// doGenericSetAsyncAndGatherResult (std::chrono::seconds(60)) and for the bulk
+// fan-out timeout. Both the chrono duration AND any operator-facing "retry
+// after N seconds" message text must be derived from this constant so the two
+// never drift apart.
+static constexpr unsigned int asyncSetTimeoutSeconds = 60;
 static const std::string asyncStatusInterfaceName = "com.nvidia.Async.Status";
 static const std::string asyncStatusPropertyName = "Status";
 
@@ -378,6 +386,256 @@ void doGenericSetAsyncAndGatherResult(
         std::string{setAsyncInterfaceName}, setAsyncMethodName,
         asyncStatusInterfaceName, asyncStatusPropertyName,
         std::forward<Value>(value), std::forward<Callback>(callback));
+}
+
+// ----------------------------------------------------------------------------
+// Bulk-aware async setter
+//
+// doGenericSetAsyncForBulk is a sibling of doGenericSetAsyncAndGatherResult
+// whose ONLY behavioral difference is that the two terminal paths that the
+// stock setter writes directly to the shared asyncResp->res
+// (internal/unmapped D-Bus error, and per-set timeout) instead deliver a
+// status string to the supplied callback. The success and mapped-failure
+// paths are identical (they already route through the callback). This lets a
+// bulk fan-out aggregate N×2 outcomes without any per-set write corrupting the
+// single shared response — the bulk handler's assembleResponse remains the
+// sole writer of res.
+//
+// The stock doGenericSetAsyncAndGatherResult is intentionally left byte-for-
+// byte unchanged so existing single-property callers are unaffected.
+// ----------------------------------------------------------------------------
+
+// Routes the internal/unmapped-error terminal path to the callback as a status
+// string instead of messages::internalError(res).
+template <typename SetAsyncStatusInfo>
+void reportErrorToCallback(
+    const std::shared_ptr<SetAsyncStatusInfo>& statusInfo)
+{
+    statusInfo->completed = true;
+    statusInfo->callback(std::string(asyncStatusValueInternalFailure));
+    statusInfo->timeoutTimer.cancel();
+}
+
+template <typename SetAsyncStatusInfo>
+class BulkSetAsyncGetStatus
+{
+  public:
+    explicit BulkSetAsyncGetStatus(
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
+    {}
+
+    void operator()(const boost::system::error_code ec,
+                    const std::variant<std::string>& status)
+    {
+        auto statusInfo = weakStatusInfo.lock();
+        if (!statusInfo || statusInfo->completed)
+        {
+            return;
+        }
+
+        if (ec)
+        {
+            reportErrorToCallback(statusInfo);
+            return;
+        }
+
+        const std::string* statusString = std::get_if<std::string>(&status);
+        if (statusString == nullptr)
+        {
+            reportErrorToCallback(statusInfo);
+            return;
+        }
+
+        if (*statusString != asyncStatusValueInProgress)
+        {
+            statusInfo->completed = true;
+            statusInfo->callback(*statusString);
+            statusInfo->timeoutTimer.cancel();
+        }
+    }
+
+  private:
+    std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo;
+};
+
+template <typename SetAsyncStatusInfo>
+class BulkSetAsyncStatusChanged
+{
+  public:
+    explicit BulkSetAsyncStatusChanged(
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
+    {}
+
+    void operator()(sdbusplus::message::message& msg)
+    {
+        auto statusInfo = weakStatusInfo.lock();
+        if (!statusInfo || statusInfo->completed)
+        {
+            return;
+        }
+
+        std::string interface;
+        std::map<std::string, dbus::utility::DbusVariantType> properties;
+        msg.read(interface, properties);
+
+        if (interface != statusInfo->interface)
+        {
+            return;
+        }
+
+        for (const auto& [property, value] : properties)
+        {
+            if (property != statusInfo->property)
+            {
+                continue;
+            }
+
+            const std::string* status = std::get_if<std::string>(&value);
+            if (status == nullptr)
+            {
+                reportErrorToCallback(statusInfo);
+                return;
+            }
+
+            if (*status != asyncStatusValueInProgress)
+            {
+                statusInfo->completed = true;
+                statusInfo->callback(*status);
+                statusInfo->timeoutTimer.cancel();
+            }
+            return;
+        }
+    }
+
+  private:
+    std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo;
+};
+
+template <typename SetAsyncStatusInfo>
+class BulkSetAsyncMethodCall
+{
+  public:
+    explicit BulkSetAsyncMethodCall(
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
+    {}
+
+    void operator()(boost::system::error_code ec,
+                    sdbusplus::message::message& msg)
+    {
+        auto statusInfo = weakStatusInfo.lock();
+        if (!statusInfo || statusInfo->completed)
+        {
+            return;
+        }
+
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Bulk Set Async : Set failed with unexpected error {}", ec);
+
+            const sd_bus_error* dbusError = msg.get_error();
+            if (dbusError != nullptr && dbusError->name != nullptr)
+            {
+                std::optional<std::string> statusToSend =
+                    mapDbusErrorNameToAsyncStatus(dbusError->name);
+                if (statusToSend.has_value())
+                {
+                    statusInfo->completed = true;
+                    statusInfo->callback(*statusToSend);
+                    statusInfo->timeoutTimer.cancel();
+                    return;
+                }
+            }
+
+            reportErrorToCallback(statusInfo);
+            return;
+        }
+
+        sdbusplus::message::object_path objectPath;
+        msg.read(objectPath);
+        statusInfo->object = objectPath;
+
+        statusInfo->match = std::make_unique<sdbusplus::bus::match_t>(
+            *crow::connections::systemBus,
+            sdbusplus::bus::match::rules::propertiesChanged(
+                statusInfo->object, statusInfo->interface),
+            BulkSetAsyncStatusChanged<SetAsyncStatusInfo>{statusInfo});
+
+        dbus::utility::async_method_call(
+            BulkSetAsyncGetStatus<SetAsyncStatusInfo>{statusInfo},
+            statusInfo->service, statusInfo->object,
+            "org.freedesktop.DBus.Properties", "Get", statusInfo->interface,
+            statusInfo->property);
+    }
+
+  private:
+    std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo;
+};
+
+template <typename Callback, typename Value>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+void doSetAsyncForBulk(
+    std::shared_ptr<bmcweb::AsyncResp> resp,
+    const std::chrono::milliseconds timeout, const std::string& service,
+    const std::string& object, const std::string& interface,
+    const std::string& property, const std::string& setAsyncInterface,
+    const std::string& setAsyncMethod, const std::string& statusInterface,
+    const std::string& statusProperty, Value&& value, Callback&& callback)
+{
+    using SetAsyncStatusInfo =
+        SetAsyncStatusHandlerInfo<typename std::decay_t<Callback>>;
+
+    std::shared_ptr<SetAsyncStatusInfo> statusInfo(new SetAsyncStatusInfo{
+        .aresp{resp},
+        .callback{std::forward<Callback>(callback)},
+        .match{},
+        .service{service},
+        .object{},
+        .interface{statusInterface},
+        .property{statusProperty},
+        .timeoutTimer = boost::asio::steady_timer(
+            crow::connections::systemBus->get_io_context()),
+        .completed{}});
+
+    dbus::utility::async_method_call(
+        BulkSetAsyncMethodCall<SetAsyncStatusInfo>{statusInfo},
+        statusInfo->service, object, setAsyncInterface, setAsyncMethod,
+        interface, property, std::forward<Value>(value));
+
+    statusInfo->timeoutTimer.expires_after(timeout);
+    statusInfo->timeoutTimer.async_wait(
+        [statusInfo](boost::system::error_code ec) {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                return;
+            }
+            if (statusInfo->completed)
+            {
+                return;
+            }
+            BMCWEB_LOG_INFO("Bulk Set Async : Operation timed out.");
+            statusInfo->completed = true;
+            // Route timeout into the callback, never to asyncResp->res.
+            statusInfo->callback(std::string(asyncStatusValueTimeout));
+        });
+}
+
+template <typename Callback, typename Value>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+void doGenericSetAsyncForBulk(
+    std::shared_ptr<bmcweb::AsyncResp> resp,
+    const std::chrono::milliseconds timeout, const std::string& service,
+    const std::string& object, const std::string& interface,
+    const std::string& property, Value&& value, Callback&& callback)
+{
+    doSetAsyncForBulk(std::move(resp), timeout, service, object, interface,
+                      property, std::string{setAsyncInterfaceName},
+                      setAsyncMethodName, asyncStatusInterfaceName,
+                      asyncStatusPropertyName, std::forward<Value>(value),
+                      std::forward<Callback>(callback));
 }
 
 } // namespace nvidia_async_operation_utils

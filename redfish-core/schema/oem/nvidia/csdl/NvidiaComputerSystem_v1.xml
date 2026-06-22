@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.8.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.9.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2026 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -160,6 +160,23 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="SetProcessorPowerLimits" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the power limits for one or more processors in the system."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set the power limits for one or more processors in the system. Limits are applied as volatile (oneshot) and do not persist across resets."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ProcessorLimits" Type="Collection(NvidiaComputerSystem.v1_9_0.ProcessorPowerLimitEntry)" Nullable="false">
+          <Annotation Term="OData.Description" String="An array of per-processor power limit entries."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain an array of power limit entries, one per target processor."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -302,6 +319,28 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="ProcessorPowerLimitEntry">
+        <Annotation Term="OData.Description" String="A power limit entry for a single processor."/>
+        <Annotation Term="OData.LongDescription" String="This type shall specify power limits for a single processor. At least one of PowerLimitWatts or GPUBasePowerWatts shall be present. GPUBasePowerWatts is only applicable to GPU processors."/>
+        <Property Name="ProcessorId" Type="Edm.String" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="The value of the Id property of the subordinate Processor resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Id property of the subordinate Processor resource."/>
+        </Property>
+        <Property Name="PowerLimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Description" String="The desired power limit, in watts, for the subordinate processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the desired power limit, in watts, for the subordinate processor. The value shall be within the range specified by AllowableMin and AllowableMax in the PowerLimitWatts object in the processor's EnvironmentMetrics resource."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="GPUBasePowerWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Description" String="The desired GPU base power limit, in watts, for the subordinate GPU processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the desired GPU base power limit, in watts, for the subordinate GPU processor. The value shall be within the range specified by AllowableMin and AllowableMax in the GPUBasePowerWatts object in the processor's EnvironmentMetrics resource. This value shall not exceed PowerLimitWatts. This property is not applicable to CPU processors."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
