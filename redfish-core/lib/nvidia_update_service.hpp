@@ -993,7 +993,10 @@ inline static void getRelatedItemsOthers(
                             const std::vector<std::string>& resp) {
                         if (errCodeAssoc)
                         {
-                            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}",
+                            // The inventory association may be transiently
+                            // unavailable under load; non-fatal, so log at
+                            // debug to avoid flooding.
+                            BMCWEB_LOG_DEBUG("error_code = {}, error msg = {}",
                                              errCodeAssoc,
                                              errCodeAssoc.message());
                             return;

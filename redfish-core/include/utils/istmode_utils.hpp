@@ -29,7 +29,10 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("D-Bus response error on GetSubTree {}", ec);
+                // IST mode manager may be absent or the mapper transiently
+                // unavailable under load; treated as non-fatal, so log at
+                // debug level to avoid flooding.
+                BMCWEB_LOG_DEBUG("D-Bus response error on GetSubTree {}", ec);
                 // messages::internalError(aResp->res);
                 return;
             }

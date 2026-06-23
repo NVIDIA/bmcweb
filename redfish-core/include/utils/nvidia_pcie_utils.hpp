@@ -350,7 +350,10 @@ static inline void getPCIeLTssmState(
                              const std::vector<std::string>& resp) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("Failed to get connected_port");
+                // Absent connected_port association is expected for devices
+                // without a peer; not an error, so log at debug to avoid
+                // flooding under load.
+                BMCWEB_LOG_DEBUG("Failed to get connected_port: {}", ec);
                 return; // no ports = no failures
             }
 
