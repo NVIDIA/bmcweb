@@ -17,6 +17,8 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/nvidia_chassis.hpp"
@@ -1441,70 +1443,6 @@ inline void getOemAssemblyAssert(
                 "xyz.openbmc_project.ObjectMapper", "GetObject", fruPath,
                 std::array<std::string, 1>({"xyz.openbmc_project.FruDevice"}));
         });
-}
-
-/**
- * @brief Fill out chassis nvidia specific info by
- * requesting data from the given D-Bus object.
- *
- * @param[in,out]   aResp       Async HTTP response.
- * @param[in]       service     D-Bus service to query.
- * @param[in]       objPath     D-Bus object to query.
- */
-inline void getOemHdwWriteProtectInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get Baseboard Hardware write protect info");
-    dbus::utility::async_method_call(
-        [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string, bool, uint64_t>>>&
-                    propertiesList) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for "
-                                 "Baseboard Hardware write protect info");
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            for (const auto& property : propertiesList)
-            {
-                if (property.first == "WriteProtected")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for hardware write protected");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res
-                        .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtected"] =
-                        *value;
-                }
-
-                if (property.first == "WriteProtectedControl")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "Null value returned "
-                            "for hardware write protected control");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["HardwareWriteProtectedControl"] =
-                        *value;
-                }
-            }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Software.Settings");
 }
 
 /**
@@ -4472,6 +4410,77 @@ inline void getChassisOEMComponentProtected(
                     });
             }
         });
+}
+
+inline void afterGetHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool writeProtectedControl)
+{
+    // The object is looked up per request, so it can go away before the
+    // property read completes. The property is optional, so omit it rather
+    // than failing the whole chassis response.
+    if (ec == boost::system::linux_error::bad_request_descriptor ||
+        ec == boost::system::errc::host_unreachable)
+    {
+        BMCWEB_LOG_WARNING("HardwareWriteProtectedControl went away error={}",
+                           ec);
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed reading WriteProtectedControl error={}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
+        writeProtectedControl;
+}
+
+inline void getHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& chassisPath)
+{
+    dbus::utility::getProperty<bool>(
+        service, chassisPath, "com.nvidia.State.HardwareWriteProtectedControl",
+        "WriteProtectedControl",
+        std::bind_front(afterGetHardwareWriteProtectedControl, asyncResp));
+}
+
+inline void afterGetHardwareWriteProtectedControlObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objectMap)
+{
+    if (ec || objectMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("Chassis {} does not implement "
+                         "HardwareWriteProtectedControl error={}",
+                         chassisPath, ec);
+        return;
+    }
+
+    if (objectMap.size() > 1)
+    {
+        BMCWEB_LOG_WARNING("Multiple services implement "
+                           "HardwareWriteProtectedControl for {}",
+                           chassisPath);
+    }
+
+    getHardwareWriteProtectedControl(asyncResp, objectMap[0].first,
+                                     chassisPath);
+}
+
+inline void populateHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    static constexpr std::array<std::string_view, 1> interfaces{
+        "com.nvidia.State.HardwareWriteProtectedControl"};
+    dbus::utility::getDbusObject(
+        chassisPath, interfaces,
+        std::bind_front(afterGetHardwareWriteProtectedControlObject, asyncResp,
+                        chassisPath));
 }
 
 } // namespace nvidia_chassis_utils

@@ -738,6 +738,8 @@ inline void handleChassisGetSubTree(
         {
             // get debug token resource
             redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
+            redfish::nvidia_chassis_utils::
+                populateHardwareWriteProtectedControl(asyncResp, path);
         }
         redfish::nvidia_chassis_utils::populateDeviceHealthFromFile(
             asyncResp, chassisId);
