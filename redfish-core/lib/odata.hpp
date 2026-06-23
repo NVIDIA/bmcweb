@@ -35,7 +35,7 @@ inline void redfishOdataGet(const crow::Request& /*req*/,
     {
         nlohmann::json::object_t serviceObj;
         serviceObj["kind"] = "Singleton";
-        serviceObj["name"] = "$metadata";
+        serviceObj["name"] = service;
         boost::urls::url url = boost::urls::format("/redfish/v1/{}", service);
         if (service == "Service")
         {
