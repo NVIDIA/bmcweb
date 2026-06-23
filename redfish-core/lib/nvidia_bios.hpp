@@ -481,6 +481,12 @@ using PendingAttrItemType = std::pair<
     std::string,
     std::tuple<std::string, std::variant<int64_t, std::string, bool>>>;
 
+using BiosAttributeValue = std::variant<int64_t, std::string>;
+
+using BiosAttributes =
+    boost::container::flat_map<std::string,
+                               std::tuple<std::string, BiosAttributeValue>>;
+
 using AttrBoundType =
     std::tuple<std::string, std::variant<int64_t, std::string>, std::string>;
 
@@ -506,6 +512,12 @@ enum BiosPendingAttributesIndex
 {
     biosPendingAttrType = 0,
     biosPendingAttrValue
+};
+
+enum BiosAttributesIndex
+{
+    biosAttributesAttrType = 0,
+    biosAttributesCurrValue
 };
 
 /**
@@ -550,6 +562,76 @@ static std::string getBiosAttrType(const std::string& attrType)
         type = "UNKNOWN";
     }
     return type;
+}
+
+inline void populateBiosAttributeValue(
+    nlohmann::json& attributesJson, const std::string& attr,
+    const std::string& dbusAttrType, const BiosAttributeValue& attrCurrValue)
+{
+    std::string attrType = getBiosAttrType(dbusAttrType);
+    if ((attrType == "String") || (attrType == "Enumeration"))
+    {
+        const std::string* currValue = std::get_if<std::string>(&attrCurrValue);
+        attributesJson[attr] = (currValue != nullptr) ? *currValue : "";
+        return;
+    }
+
+    if (attrType == "Boolean")
+    {
+        const int64_t* currValue = std::get_if<int64_t>(&attrCurrValue);
+        attributesJson[attr] = (currValue != nullptr) && (*currValue != 0);
+        return;
+    }
+
+    if (attrType == "Integer")
+    {
+        const int64_t* currValue = std::get_if<int64_t>(&attrCurrValue);
+        attributesJson[attr] = (currValue != nullptr) ? *currValue : 0;
+        return;
+    }
+
+    BMCWEB_LOG_ERROR("Attribute type not supported");
+}
+
+inline void handleGetAllBiosAttributesResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const BiosAttributes& biosAttributes)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("GetAllAttributes DBus response error{}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    nlohmann::json& attributesJson = asyncResp->res.jsonValue["Attributes"];
+    for (const auto& [attr, details] : biosAttributes)
+    {
+        populateBiosAttributeValue(
+            attributesJson, attr,
+            std::get<BiosAttributesIndex::biosAttributesAttrType>(details),
+            std::get<BiosAttributesIndex::biosAttributesCurrValue>(details));
+    }
+}
+
+inline void handleBiosAttributesService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objType)
+{
+    if (ec || objType.empty())
+    {
+        BMCWEB_LOG_DEBUG("GetObject for path {}", biosConfigObj);
+        return;
+    }
+
+    dbus::utility::async_method_call(
+        [asyncResp](const boost::system::error_code& ec2,
+                    const BiosAttributes& biosAttributes) {
+            handleGetAllBiosAttributesResponse(asyncResp, ec2, biosAttributes);
+        },
+        objType.begin()->first, biosConfigObj, biosConfigIface,
+        "GetAllAttributes");
 }
 
 /**
@@ -737,8 +819,8 @@ inline void getResetBiosSettings(
 }
 
 /**
- *@brief Reads the BIOS Base Table DBUS property and update the Bios Attributes
- *response.
+ *@brief Reads the BIOS attribute values and updates the BIOS Attributes
+ * response.
  *
  * @param[in,out]   asyncResp   Async HTTP response.
  *
@@ -751,99 +833,7 @@ inline void getBiosAttributes(
         biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
-            if (ec || objType.empty())
-            {
-                BMCWEB_LOG_DEBUG("GetObject for path {}", biosConfigObj);
-                return;
-            }
-
-            const std::string& biosService = objType.begin()->first;
-            dbus::utility::getProperty<BaseBIOSTable>(
-                biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
-                [asyncResp](const boost::system::error_code& ec2,
-                            const BaseBIOSTable& baseBiosTable) {
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Get BaseBIOSTable DBus response error{}", ec2);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    nlohmann::json& attributesJson =
-                        asyncResp->res.jsonValue["Attributes"];
-                    for (const BaseBIOSTableItem& attrIt : baseBiosTable)
-                    {
-                        const std::string& attr = attrIt.first;
-
-                        // read the attribute type at 0th field and convert from
-                        // dbus to string format
-                        std::string attrType = getBiosAttrType(std::string(
-                            std::get<BaseBiosTableIndex::baseBiosAttrType>(
-                                attrIt.second)));
-                        if ((attrType == "String") ||
-                            (attrType == "Enumeration"))
-                        {
-                            // read the current value of attribute at 5th field
-                            const std::string* attrCurrValue =
-                                std::get_if<std::string>(
-                                    &std::get<
-                                        BaseBiosTableIndex::baseBiosCurrValue>(
-                                        attrIt.second));
-                            if (attrCurrValue != nullptr)
-                            {
-                                attributesJson.emplace(attr, *attrCurrValue);
-                            }
-                            else
-                            {
-                                attributesJson.emplace(attr, std::string(""));
-                            }
-                        }
-                        else if ((attrType == "Integer") ||
-                                 (attrType == "Boolean"))
-                        {
-                            // read the current value of attribute at 5th field
-                            const int64_t* attrCurrValue = std::get_if<int64_t>(
-                                &std::get<
-                                    BaseBiosTableIndex::baseBiosCurrValue>(
-                                    attrIt.second));
-                            if (attrCurrValue != nullptr)
-                            {
-                                if (attrType == "Boolean")
-                                {
-                                    if (*attrCurrValue != 0)
-                                    {
-                                        attributesJson.emplace(attr, true);
-                                    }
-                                    else
-                                    {
-                                        attributesJson.emplace(attr, false);
-                                    }
-                                }
-                                else
-                                {
-                                    attributesJson.emplace(attr,
-                                                           *attrCurrValue);
-                                }
-                            }
-                            else
-                            {
-                                if (attrType == "Boolean")
-                                {
-                                    attributesJson.emplace(attr, false);
-                                }
-                                else
-                                {
-                                    attributesJson.emplace(attr, 0);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            BMCWEB_LOG_ERROR("Attribute type not supported");
-                        }
-                    }
-                });
+            handleBiosAttributesService(asyncResp, ec, objType);
         });
 }
 
