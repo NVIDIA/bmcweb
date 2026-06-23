@@ -1931,8 +1931,7 @@ inline void applyChassisPowerSmoothingPatches(
 
 /**
  * @brief PATCH chassis PowerSmoothing EnergyStorageFeatures.
- * Parses EnergyStorageFeatures in body (StateOfChargeFeatures accepted as
- * deprecated alias) and calls D-Bus patch per property.
+ * Parses EnergyStorageFeatures in body and calls D-Bus patch per property.
  */
 inline void patchChassisPowerSmoothingData(
     App& app, const crow::Request& req,
@@ -1954,29 +1953,27 @@ inline void patchChassisPowerSmoothingData(
         return;
     }
     std::optional<nlohmann::json> energyStorageFeatures;
-    std::optional<nlohmann::json> stateOfChargeFeatures;
-    if (!redfish::json_util::readJson(
-            reqJson, asyncResp->res, "EnergyStorageFeatures",
-            energyStorageFeatures, "StateOfChargeFeatures",
-            stateOfChargeFeatures))
+    if (!redfish::json_util::readJson(reqJson, asyncResp->res,
+                                      "EnergyStorageFeatures",
+                                      energyStorageFeatures))
     {
         BMCWEB_LOG_ERROR(
             "Failed to read EnergyStorageFeatures from chassis PowerSmoothing PATCH");
         return;
     }
-    nlohmann::json* featuresJson = nullptr;
-    if (energyStorageFeatures && energyStorageFeatures->is_object())
-    {
-        featuresJson = &*energyStorageFeatures;
-    }
-    else if (stateOfChargeFeatures && stateOfChargeFeatures->is_object())
-    {
-        featuresJson = &*stateOfChargeFeatures;
-    }
-    if (featuresJson == nullptr)
+    if (!energyStorageFeatures)
     {
         BMCWEB_LOG_ERROR(
-            "EnergyStorageFeatures is missing or not an object in chassis PowerSmoothing PATCH");
+            "EnergyStorageFeatures is missing in chassis PowerSmoothing PATCH");
+        messages::propertyMissing(asyncResp->res, "EnergyStorageFeatures");
+        return;
+    }
+    if (!energyStorageFeatures->is_object())
+    {
+        BMCWEB_LOG_ERROR(
+            "EnergyStorageFeatures is not an object in chassis PowerSmoothing PATCH");
+        messages::propertyValueTypeError(asyncResp->res, *energyStorageFeatures,
+                                         "EnergyStorageFeatures");
         return;
     }
     std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
@@ -1984,7 +1981,8 @@ inline void patchChassisPowerSmoothingData(
     std::optional<std::string> profileName;
     std::optional<bool> powerBrakeEnabled;
     if (!redfish::json_util::readJson(
-            *featuresJson, asyncResp->res, "MaxACPowerRampRateWattsPerSecond",
+            *energyStorageFeatures, asyncResp->res,
+            "MaxACPowerRampRateWattsPerSecond",
             maxAcPowerRampRateWattsPerSecond, "PowerSmoothingEnabled",
             powerSmoothingEnabled, "ProfileName", profileName,
             "PowerBrakeEnabled", powerBrakeEnabled))
@@ -2086,12 +2084,10 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             std::optional<bool> pwrSmoothingFeature;
             std::optional<bool> immediateRampDownFeature;
             std::optional<nlohmann::json> energyStorageFeatures;
-            std::optional<nlohmann::json> stateOfChargeFeatures;
             if (!redfish::json_util::readJsonAction(
                     req, asyncResp->res, "Enabled", pwrSmoothingFeature,
                     "ImmediateRampDown", immediateRampDownFeature,
-                    "EnergyStorageFeatures", energyStorageFeatures,
-                    "StateOfChargeFeatures", stateOfChargeFeatures))
+                    "EnergyStorageFeatures", energyStorageFeatures))
             {
                 return;
             }
@@ -2107,22 +2103,21 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
                                            "ImmediateRampDownEnabled",
                                            *immediateRampDownFeature);
             }
-            nlohmann::json* featuresJson = nullptr;
-            if (energyStorageFeatures && energyStorageFeatures->is_object())
+            if (energyStorageFeatures)
             {
-                featuresJson = &*energyStorageFeatures;
-            }
-            else if (stateOfChargeFeatures &&
-                     stateOfChargeFeatures->is_object())
-            {
-                featuresJson = &*stateOfChargeFeatures;
-            }
-            if (featuresJson != nullptr)
-            {
+                if (!energyStorageFeatures->is_object())
+                {
+                    BMCWEB_LOG_ERROR(
+                        "EnergyStorageFeatures is not an object in processor PowerSmoothing PATCH");
+                    messages::propertyValueTypeError(asyncResp->res,
+                                                     *energyStorageFeatures,
+                                                     "EnergyStorageFeatures");
+                    return;
+                }
                 std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
                 std::optional<bool> energyStoragePowerSmoothingEnabled;
                 if (!redfish::json_util::readJson(
-                        *featuresJson, asyncResp->res,
+                        *energyStorageFeatures, asyncResp->res,
                         "MaxACPowerRampRateWattsPerSecond",
                         maxAcPowerRampRateWattsPerSecond,
                         "PowerSmoothingEnabled",
