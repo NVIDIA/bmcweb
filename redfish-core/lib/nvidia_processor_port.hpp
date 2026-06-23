@@ -512,57 +512,62 @@ inline void getProcessorPortData(
                 return;
             }
 
-            for (const std::string& sensorpath : data)
+            std::string sensorpath =
+                redfish::port_utils::getPortPathByPortId(data, portId);
+
+            if (sensorpath.empty())
             {
-                // Check Interface in Object or not
-                BMCWEB_LOG_DEBUG("processor state sensor object path {}",
-                                 sensorpath);
-                dbus::utility::getDbusObject(
-                    sensorpath,
-                    std::array<std::string_view, 1>(
-                        {"xyz.openbmc_project.Inventory.Item.Port"}),
-                    [aResp, sensorpath, processorId, portId, cpuInventoryPath](
-                        const boost::system::error_code& ec,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
-                        if (ec)
-                        {
-                            // the path does not implement port interfaces
-                            BMCWEB_LOG_DEBUG(
-                                "no port interface on object path {}",
-                                sensorpath);
-                            return;
-                        }
-
-                        sdbusplus::object_path pathObj(sensorpath);
-                        if (pathObj.filename() != portId || object.size() != 1)
-                        {
-                            return;
-                        }
-
-                        std::string portUri =
-                            "/redfish/v1/Systems/" +
-                            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                            "/Processors/";
-                        portUri += processorId;
-                        portUri += "/Ports/";
-                        portUri += portId;
-                        aResp->res.jsonValue["@odata.id"] = portUri;
-                        aResp->res.jsonValue["@odata.type"] =
-                            "#Port.v1_4_0.Port";
-                        std::string portName = processorId + " ";
-                        portName += portId + " Port";
-                        aResp->res.jsonValue["Name"] = portName;
-                        aResp->res.jsonValue["Id"] = portId;
-                        aResp->res.jsonValue["Metrics"]["@odata.id"] =
-                            portUri + "/Metrics";
-
-                        redfish::port_utils::getCpuPortData(
-                            aResp, object.front().first, sensorpath);
-                        getProcessorPortLinks(aResp, sensorpath, processorId,
-                                              portId);
-                    });
+                messages::resourceNotFound(aResp->res, "Port", portId);
+                return;
             }
+
+            // Check Interface in Object or not
+            BMCWEB_LOG_DEBUG("processor state sensor object path {}",
+                             sensorpath);
+            dbus::utility::getDbusObject(
+                sensorpath,
+                std::array<std::string_view, 1>(
+                    {"xyz.openbmc_project.Inventory.Item.Port"}),
+                [aResp, sensorpath, processorId, portId, cpuInventoryPath](
+                    const boost::system::error_code& ec,
+                    const std::vector<std::pair<
+                        std::string, std::vector<std::string>>>& object) {
+                    if (ec)
+                    {
+                        // the path does not implement port interfaces
+                        BMCWEB_LOG_DEBUG("no port interface on object path {}",
+                                         sensorpath);
+                        messages::resourceNotFound(aResp->res, "Port", portId);
+                        return;
+                    }
+
+                    if (object.empty())
+                    {
+                        messages::resourceNotFound(aResp->res, "Port", portId);
+                        return;
+                    }
+
+                    std::string portUri =
+                        "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/Processors/";
+                    portUri += processorId;
+                    portUri += "/Ports/";
+                    portUri += portId;
+                    aResp->res.jsonValue["@odata.id"] = portUri;
+                    aResp->res.jsonValue["@odata.type"] = "#Port.v1_4_0.Port";
+                    std::string portName = processorId + " ";
+                    portName += portId + " Port";
+                    aResp->res.jsonValue["Name"] = portName;
+                    aResp->res.jsonValue["Id"] = portId;
+                    aResp->res.jsonValue["Metrics"]["@odata.id"] =
+                        portUri + "/Metrics";
+
+                    redfish::port_utils::getCpuPortData(
+                        aResp, object.front().first, sensorpath);
+                    getProcessorPortLinks(aResp, sensorpath, processorId,
+                                          portId);
+                });
         });
 }
 
@@ -585,90 +590,77 @@ inline void getProcessorAcceleratorPortData(
                 return;
             }
 
-            for (const std::string& sensorpath : data)
+            std::string sensorpath =
+                redfish::port_utils::getPortPathByPortId(data, portId);
+
+            if (sensorpath.empty())
             {
-                // Check Interface in Object or not
-                BMCWEB_LOG_DEBUG("processor state sensor object path {}",
-                                 sensorpath);
-                sdbusplus::object_path pathObj(sensorpath);
-                if (pathObj.filename() != portId)
-                {
-                    continue;
-                }
-
-                std::array<std::string_view, 1> interfacesList = {
-                    "xyz.openbmc_project.Inventory.Item.Port"};
-
-                dbus::utility::getSubTree(
-                    objPath, 0, interfacesList,
-                    [aResp, sensorpath, processorId,
-                     portId](const boost::system::error_code& ec,
-                             const dbus::utility::GetSubTreeType& subtree1) {
-                        if (ec)
-                        {
-                            // the path does not implement port interfaces
-                            BMCWEB_LOG_DEBUG(
-                                "no port interface on object path {}",
-                                sensorpath);
-                            return;
-                        }
-
-                        for (const auto& [portPath, object1] : subtree1)
-                        {
-                            sdbusplus::object_path pPath(portPath);
-                            if (pPath.filename() != portId)
-                            {
-                                continue;
-                            }
-
-                            std::string portUri =
-                                "/redfish/v1/Systems/" +
-                                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                "/Processors/";
-                            portUri += processorId;
-                            portUri += "/Ports/";
-                            portUri += portId;
-                            aResp->res.jsonValue["@odata.id"] = portUri;
-                            aResp->res.jsonValue["@odata.type"] =
-                                "#Port.v1_4_0.Port";
-                            aResp->res.jsonValue["Name"] = portId + " Resource";
-                            aResp->res.jsonValue["Id"] = portId;
-                            std::string metricsURI = portUri + "/Metrics";
-                            aResp->res.jsonValue["Metrics"]["@odata.id"] =
-                                metricsURI;
-
-                            std::string portSettingURI = portUri + "/Settings";
-                            aResp->res
-                                .jsonValue["@Redfish.Settings"]["@odata.type"] =
-                                "#Settings.v1_3_3.Settings";
-                            aResp->res
-                                .jsonValue["@Redfish.Settings"]
-                                          ["SettingsObject"]["@odata.id"] =
-                                portSettingURI;
-                            if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-                            {
-                                aResp->res.jsonValue["Status"]["Conditions"] =
-                                    nlohmann::json::array();
-                            }
-                            for (const auto& [service, interfacesInner] :
-                                 object1)
-                            {
-                                redfish::port_utils::getPortData(aResp, service,
-                                                                 sensorpath);
-                                getProcessorPortLinks(aResp, sensorpath,
-                                                      processorId, portId);
-                            }
-                            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                            {
-                                redfish::nvidia_histogram_utils::
-                                    getHistogramLink(
-                                        aResp, portUri, portPath,
-                                        "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
-                            }
-                            return;
-                        }
-                    });
+                messages::resourceNotFound(aResp->res, "Port", portId);
+                return;
             }
+
+            // Check Interface in Object or not
+            BMCWEB_LOG_DEBUG("processor state sensor object path {}",
+                             sensorpath);
+            dbus::utility::getDbusObject(
+                sensorpath,
+                std::array<std::string_view, 1>(
+                    {"xyz.openbmc_project.Inventory.Item.Port"}),
+                [aResp, sensorpath, processorId,
+                 portId](const boost::system::error_code& ec,
+                         const std::vector<std::pair<
+                             std::string, std::vector<std::string>>>& object) {
+                    if (ec)
+                    {
+                        // the path does not implement port interfaces
+                        BMCWEB_LOG_DEBUG("no port interface on object path {}",
+                                         sensorpath);
+                        messages::resourceNotFound(aResp->res, "Port", portId);
+                        return;
+                    }
+
+                    if (object.empty())
+                    {
+                        messages::resourceNotFound(aResp->res, "Port", portId);
+                        return;
+                    }
+
+                    std::string portUri =
+                        "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/Processors/";
+                    portUri += processorId;
+                    portUri += "/Ports/";
+                    portUri += portId;
+                    aResp->res.jsonValue["@odata.id"] = portUri;
+                    aResp->res.jsonValue["@odata.type"] = "#Port.v1_4_0.Port";
+                    aResp->res.jsonValue["Name"] = portId + " Resource";
+                    aResp->res.jsonValue["Id"] = portId;
+                    std::string metricsURI = portUri + "/Metrics";
+                    aResp->res.jsonValue["Metrics"]["@odata.id"] = metricsURI;
+
+                    std::string portSettingURI = portUri + "/Settings";
+                    aResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+                        "#Settings.v1_3_3.Settings";
+                    aResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"]
+                                        ["@odata.id"] = portSettingURI;
+                    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                    {
+                        aResp->res.jsonValue["Status"]["Conditions"] =
+                            nlohmann::json::array();
+                    }
+
+                    redfish::port_utils::getPortData(
+                        aResp, object.front().first, sensorpath);
+                    getProcessorPortLinks(aResp, sensorpath, processorId,
+                                          portId);
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        redfish::nvidia_histogram_utils::getHistogramLink(
+                            aResp, portUri, sensorpath,
+                            "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                    }
+                });
         });
 }
 
@@ -1426,12 +1418,13 @@ inline void afterGetPortObjectForMetrics(
     {
         // the path does not implement port interfaces
         BMCWEB_LOG_DEBUG("no port interface on object path {}", sensorpath);
+        messages::resourceNotFound(asyncResp->res, "Port", portId);
         return;
     }
 
-    sdbusplus::object_path pathObj(sensorpath);
-    if (pathObj.filename() != portId)
+    if (objectData.empty())
     {
+        messages::resourceNotFound(asyncResp->res, "Port", portId);
         return;
     }
 
@@ -1495,14 +1488,20 @@ inline void afterGetAllStatesForMetrics(
     constexpr std::array<std::string_view, 1> portIfaces = {
         "xyz.openbmc_project.Inventory.Item.Port"};
 
-    for (const std::string& sensorpath : sensorpaths)
+    std::string sensorpath =
+        redfish::port_utils::getPortPathByPortId(sensorpaths, portId);
+
+    if (sensorpath.empty())
     {
-        BMCWEB_LOG_DEBUG("processor state sensor object path {}", sensorpath);
-        dbus::utility::getDbusObject(
-            sensorpath, portIfaces,
-            std::bind_front(afterGetPortObjectForMetrics, asyncResp,
-                            processorId, portId, inventoryPath, sensorpath));
+        messages::resourceNotFound(asyncResp->res, "Port", portId);
+        return;
     }
+
+    BMCWEB_LOG_DEBUG("processor state sensor object path {}", sensorpath);
+    dbus::utility::getDbusObject(
+        sensorpath, portIfaces,
+        std::bind_front(afterGetPortObjectForMetrics, asyncResp, processorId,
+                        portId, inventoryPath, sensorpath));
 }
 
 inline void afterGetProcessorSubtreeForMetrics(

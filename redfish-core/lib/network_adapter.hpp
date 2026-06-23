@@ -1333,71 +1333,71 @@ inline void getPortDataByAssociation(
                 return;
             }
 
-            for (const std::string& sensorPath : resp)
+            std::string sensorPath =
+                redfish::port_utils::getPortPathByPortId(resp, portId);
+
+            if (sensorPath.empty())
             {
-                sdbusplus::object_path pPath(sensorPath);
-                if (pPath.filename() != portId)
-                {
-                    continue;
-                }
-
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper",
-                    sensorPath + "/associated_port",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, chassisId, networkAdapterId, portId, sensorPath,
-                     networkAdapterPath](
-                        const boost::system::error_code& ec1,
-                        const std::vector<std::string>& response) {
-                        std::string objectPathToGetPortData = sensorPath;
-                        if (!ec1)
-                        {
-                            for (const std::string& associatedPortPath :
-                                 response)
-                            {
-                                objectPathToGetPortData = associatedPortPath;
-                            }
-                        }
-                        // Check Interface in Object or not
-                        dbus::utility::getDbusObject(
-                            objectPathToGetPortData,
-                            std::array<std::string_view, 1>{
-                                "xyz.openbmc_project.Inventory.Item.Port"},
-                            [asyncResp, objectPathToGetPortData, chassisId,
-                             networkAdapterId, portId, networkAdapterPath](
-                                const boost::system::error_code ec2,
-                                const std::vector<std::pair<
-                                    std::string, std::vector<std::string>>>&
-                                    object) {
-                                if (ec2)
-                                {
-                                    // the path does not implement item port
-                                    // interfaces
-                                    BMCWEB_LOG_DEBUG(
-                                        "no port interface on object path {}",
-                                        objectPathToGetPortData);
-                                    return;
-                                }
-
-                                sdbusplus::object_path path(
-                                    objectPathToGetPortData);
-                                if (path.filename() != portId ||
-                                    object.size() != 1)
-                                {
-                                    return;
-                                }
-
-                                getPortData(asyncResp, object.front().first,
-                                            objectPathToGetPortData, chassisId,
-                                            networkAdapterId, portId,
-                                            networkAdapterPath);
-                            });
-                    });
-
-                updatePortLink(asyncResp, sensorPath, chassisId,
-                               networkAdapterId, portId);
+                messages::resourceNotFound(asyncResp->res, "Port", portId);
                 return;
             }
+
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper",
+                sensorPath + "/associated_port",
+                "xyz.openbmc_project.Association", "endpoints",
+                [asyncResp, chassisId, networkAdapterId, portId, sensorPath,
+                 networkAdapterPath](const boost::system::error_code& ec1,
+                                     const std::vector<std::string>& response) {
+                    std::string objectPathToGetPortData = sensorPath;
+                    if (!ec1)
+                    {
+                        for (const std::string& associatedPortPath : response)
+                        {
+                            objectPathToGetPortData = associatedPortPath;
+                        }
+                    }
+                    // Check Interface in Object or not
+                    dbus::utility::getDbusObject(
+                        objectPathToGetPortData,
+                        std::array<std::string_view, 1>{
+                            "xyz.openbmc_project.Inventory.Item.Port"},
+                        [asyncResp, objectPathToGetPortData, chassisId,
+                         networkAdapterId, portId, networkAdapterPath](
+                            const boost::system::error_code ec2,
+                            const std::vector<std::pair<
+                                std::string, std::vector<std::string>>>&
+                                object) {
+                            if (ec2)
+                            {
+                                // the path does not implement item port
+                                // interfaces
+                                BMCWEB_LOG_DEBUG(
+                                    "no port interface on object path {}",
+                                    objectPathToGetPortData);
+                                messages::resourceNotFound(asyncResp->res,
+                                                           "Port", portId);
+                                return;
+                            }
+
+                            sdbusplus::object_path path(
+                                objectPathToGetPortData);
+                            if (path.filename() != portId || object.size() != 1)
+                            {
+                                messages::resourceNotFound(asyncResp->res,
+                                                           "Port", portId);
+                                return;
+                            }
+
+                            getPortData(asyncResp, object.front().first,
+                                        objectPathToGetPortData, chassisId,
+                                        networkAdapterId, portId,
+                                        networkAdapterPath);
+                        });
+                });
+
+            updatePortLink(asyncResp, sensorPath, chassisId, networkAdapterId,
+                           portId);
         });
 }
 
@@ -1948,47 +1948,53 @@ inline void getPortMetricsDataByAssociation(
                 return;
             }
 
-            for (const std::string& sensorPath : resp)
+            std::string sensorPath =
+                redfish::port_utils::getPortPathByPortId(resp, portId);
+
+            if (sensorPath.empty())
             {
-                // Check Interface in Object or not
-                dbus::utility::getDbusObject(
-                    sensorPath,
-                    std::array<std::string_view, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Port"},
-                    [asyncResp, sensorPath, chassisId, networkAdapterId,
-                     portId](
-                        const boost::system::error_code ec1,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
-                        if (ec1)
-                        {
-                            // the path does not implement item port metric
-                            // interfaces
-                            BMCWEB_LOG_DEBUG(
-                                "Port interface not present on object path {}",
-                                sensorPath);
-                            return;
-                        }
-
-                        sdbusplus::object_path path(sensorPath);
-                        if (path.filename() != portId || object.size() != 1)
-                        {
-                            return;
-                        }
-                        asyncResp->res.jsonValue["@odata.type"] =
-                            "#PortMetrics.v1_6_1.PortMetrics";
-                        asyncResp->res.jsonValue["Id"] = portId;
-                        asyncResp->res.jsonValue["Name"] =
-                            portId + " Port Metrics";
-                        asyncResp->res
-                            .jsonValue["@odata.id"] = boost::urls::format(
-                            "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Metrics",
-                            chassisId, networkAdapterId, portId);
-
-                        getPortMetricsData(asyncResp, object.front().first,
-                                           sensorPath);
-                    });
+                messages::resourceNotFound(asyncResp->res, "Port", portId);
+                return;
             }
+
+            // Check Interface in Object or not
+            dbus::utility::getDbusObject(
+                sensorPath,
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Port"},
+                [asyncResp, sensorPath, chassisId, networkAdapterId,
+                 portId](const boost::system::error_code ec1,
+                         const std::vector<std::pair<
+                             std::string, std::vector<std::string>>>& object) {
+                    if (ec1)
+                    {
+                        // the path does not implement item port metric
+                        // interfaces
+                        BMCWEB_LOG_DEBUG(
+                            "Port interface not present on object path {}",
+                            sensorPath);
+                        messages::resourceNotFound(asyncResp->res, "Port",
+                                                   portId);
+                        return;
+                    }
+
+                    if (object.size() != 1)
+                    {
+                        messages::resourceNotFound(asyncResp->res, "Port",
+                                                   portId);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#PortMetrics.v1_6_1.PortMetrics";
+                    asyncResp->res.jsonValue["Id"] = portId;
+                    asyncResp->res.jsonValue["Name"] = portId + " Port Metrics";
+                    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                        "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Metrics",
+                        chassisId, networkAdapterId, portId);
+
+                    getPortMetricsData(asyncResp, object.front().first,
+                                       sensorPath);
+                });
         });
 }
 
