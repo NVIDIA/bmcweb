@@ -832,8 +832,8 @@ inline void getFWSlotInformation(
                             const std::vector<std::string>& innerObjPaths) {
                     if (ec2)
                     {
-                        BMCWEB_LOG_ERROR("error_code = {}", ec2);
-                        BMCWEB_LOG_ERROR("error msg = {}", ec2.message());
+                        BMCWEB_LOG_DEBUG("error_code = {}", ec2);
+                        BMCWEB_LOG_DEBUG("error msg = {}", ec2.message());
                         return;
                     }
 

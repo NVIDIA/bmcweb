@@ -960,7 +960,7 @@ inline static void getRelatedItemsOthers(
                             const std::vector<std::string>& resp) {
                         if (errCodeAssoc)
                         {
-                            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}",
+                            BMCWEB_LOG_DEBUG("error_code = {}, error msg = {}",
                                              errCodeAssoc,
                                              errCodeAssoc.message());
                             return;

@@ -374,12 +374,14 @@ struct Response
         response.body().compressionType = comp;
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Failed to open file {}, ec={}", path.c_str(),
-                             ec.value());
             if (ec.value() == boost::system::errc::no_such_file_or_directory)
             {
+                BMCWEB_LOG_DEBUG("File does not exist {}, ec={}", path.c_str(),
+                                 ec.value());
                 return OpenCode::FileDoesNotExist;
             }
+            BMCWEB_LOG_ERROR("Failed to open file {}, ec={}", path.c_str(),
+                             ec.value());
             return OpenCode::InternalError;
         }
         return OpenCode::Success;

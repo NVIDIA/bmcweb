@@ -168,7 +168,7 @@ inline void getProcessorSummary(
                                            const bool cpuPresenceCheck) {
         if (ec3)
         {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec3);
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec3);
             return;
         }
         modifyCpuPresenceState(asyncResp, cpuPresenceCheck);

@@ -845,7 +845,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                                     for (const auto& [pathInner, objectInner] :
                                          subbTree)
                                     {
-                                        BMCWEB_LOG_ERROR("DBUS path {}",
+                                        BMCWEB_LOG_DEBUG("DBUS path {}",
                                                          profilePath);
                                         if (pathInner != profilePath)
                                         {
