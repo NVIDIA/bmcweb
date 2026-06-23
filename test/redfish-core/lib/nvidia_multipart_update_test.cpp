@@ -285,15 +285,16 @@ TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
 TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
 {
     auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
     ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
 
     // Just under the 8192-byte limit.
     ctx->onDataAvailable(ctx, std::string(8000, 'x'));
     EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
 
-    // One more chunk that pushes past the limit.
+    // One more chunk that pushes past the limit fails the request.
     ctx->onDataAvailable(ctx, std::string(200, 'y'));
-    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
 }
 
 TEST(OnDataAvailable, BuffersPendingFileDataWhileWaitingForSatInfo)
@@ -364,9 +365,21 @@ TEST(OnHeadersComplete, InvalidApplyTimeReturnsSingleError)
         1U);
 }
 
+TEST(OnParseComplete, MissingUpdateFileReturnsErrorNotHang)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_PART_HEADERS;
+
+    ctx->onParseComplete(ctx);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
 TEST(OnParseComplete, SetsParseCompleteFlag)
 {
     auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
     EXPECT_FALSE(ctx->parseComplete);
 
     ctx->onParseComplete(ctx);
