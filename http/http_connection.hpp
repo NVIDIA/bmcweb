@@ -668,9 +668,12 @@ class Connection :
 
         if (authenticationEnabled)
         {
-            boost::beast::http::verb method = value.method();
-            userSession = crow::authentication::authenticate(
-                ip, res, method, value.base(), mtlsSession);
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+            {
+                boost::beast::http::verb method = value.method();
+                userSession = crow::authentication::authenticate(
+                    ip, res, method, value.base(), mtlsSession);
+            }
         }
 
         if (!handleContentLengthError())
