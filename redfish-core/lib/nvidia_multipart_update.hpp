@@ -748,7 +748,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             return;
         }
 
-        std::optional<std::string> formFieldName = parseFormPartName(dispositionIt);
+        std::optional<std::string> formFieldName =
+            parseFormPartName(dispositionIt);
         if (!formFieldName)
         {
             BMCWEB_LOG_ERROR("Multipart part missing Content-Disposition name");

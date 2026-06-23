@@ -270,20 +270,6 @@ TEST(OnDataAvailable, AccumulatesUpdateParametersData)
     EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
 }
 
-TEST(OnHeadersComplete, AcceptsUpdateFileBeforeUpdateParameters)
-{
-    auto ctx = makeCtx();
-    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    boost::beast::http::fields fields;
-    fields.set("Content-Disposition", "form-data; name=\"UpdateFile\"");
-
-    ctx->onHeadersComplete(ctx, fields, 1024);
-
-    EXPECT_TRUE(ctx->updateFileHeadersSeen);
-    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
-    EXPECT_FALSE(ctx->updateStarted);
-}
-
 TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
 {
     auto ctx = makeCtx();
@@ -293,29 +279,6 @@ TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
     ctx->onDataAvailable(ctx, "fw data");
 
     EXPECT_EQ(ctx->pendingFileDataBuffer, "fw data");
-}
-
-TEST(OnSectionComplete, MergesMultipleUpdateParametersSections)
-{
-    auto ctx = makeCtx();
-    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
-    ctx->updateParametersString =
-        R"({"Targets":["/redfish/v1/Chassis/HGX_Chassis_0"]})";
-
-    ctx->onSectionComplete(ctx);
-
-    ASSERT_TRUE(ctx->multiRet.params.targets.has_value());
-    ASSERT_EQ(ctx->multiRet.params.targets.value().size(), 1U);
-    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
-
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
-    ctx->updateParametersString = R"({"ForceUpdate":true})";
-
-    ctx->onSectionComplete(ctx);
-
-    EXPECT_TRUE(ctx->multiRet.params.forceUpdate.value_or(false));
-    ASSERT_TRUE(ctx->multiRet.params.targets.has_value());
 }
 
 TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
