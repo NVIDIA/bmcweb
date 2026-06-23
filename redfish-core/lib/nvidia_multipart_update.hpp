@@ -18,6 +18,8 @@
 
 #include <format>
 
+// Nvidia code starts here
+
 namespace redfish::nvidia
 {
 
@@ -64,8 +66,7 @@ inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
-    const sdbusplus::object_path& target,
-    std::function<void()> onResponseReady)
+    const sdbusplus::object_path& target, std::function<void()> onResponseReady)
 {
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
@@ -408,9 +409,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     using SelfPtr = std::shared_ptr<UpdateCtx>;
     enum class State
     {
-        WAITING_FOR_UPDATE_PARAMETERS_HEADERS,
+        WAITING_FOR_PART_HEADERS,
         WAITING_FOR_UPDATE_PARAMETERS_DATA,
-        WAITING_FOR_UPDATE_FILE_HEADERS,
         WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE,
         WAITING_FOR_UPDATE_FILE_DATA,
         WAITING_FOR_HTTP_CLIENT_DATA_SEND,
@@ -418,10 +418,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         UPDATE_COMPLETE_ERROR
     };
 
-    State state = State::WAITING_FOR_UPDATE_PARAMETERS_HEADERS;
+    State state = State::WAITING_FOR_PART_HEADERS;
     // TODO, replace this with bmcweb sax json parser
     std::string updateParametersString;
-    std::optional<MultiPartUpdate::UpdateParameters> updateParameters;
+    bool updateFileHeadersSeen = false;
+    size_t updateFileRemainingBodyLength = 0;
+    bool updateStarted = false;
 
     // Socket for sending data to the http client
     boost::asio::local::stream_protocol::socket fileSendSocket;
@@ -704,22 +706,49 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         localUpdate(localTargetsOut);
     }
 
+    void beginUpdateFile(size_t remainingBodyLength)
+    {
+        if (updateStarted)
+        {
+            return;
+        }
+        updateStarted = true;
+        onUpdateParametersComplete(multiRet);
+        startRequest(remainingBodyLength);
+    }
+
     void onHeadersComplete(const SelfPtr& /*self*/,
                            const boost::beast::http::fields& fields,
                            size_t remaingingBodyLength)
     {
-        if (state == State::WAITING_FOR_UPDATE_PARAMETERS_HEADERS)
+        if (state != State::WAITING_FOR_PART_HEADERS)
+        {
+            BMCWEB_LOG_CRITICAL("Unexpected state: {}",
+                                static_cast<int>(state));
+            return;
+        }
+
+        auto dispositionIt = fields.find("Content-Disposition");
+        if (dispositionIt == fields.end())
+        {
+            BMCWEB_LOG_ERROR("Multipart part missing Content-Disposition name");
+            messages::unrecognizedRequestBody(asyncResp->res);
+            state = State::UPDATE_COMPLETE_ERROR;
+            return;
+        }
+
+        std::optional<std::string> formFieldName = parseFormPartName(dispositionIt);
+        if (!formFieldName)
+        {
+            BMCWEB_LOG_ERROR("Multipart part missing Content-Disposition name");
+            messages::unrecognizedRequestBody(asyncResp->res);
+            failClientResponse();
+            return;
+        }
+
+        if (*formFieldName == "UpdateParameters")
         {
             BMCWEB_LOG_DEBUG("Update Parameters headers complete");
-
-            if (!parseContentDisposition(fields, "UpdateParameters"))
-            {
-                BMCWEB_LOG_ERROR(
-                    "UpdateParameters part has invalid Content-Disposition");
-                messages::unrecognizedRequestBody(asyncResp->res);
-                state = State::UPDATE_COMPLETE_ERROR;
-                return;
-            }
             if (!parseContentType(fields))
             {
                 BMCWEB_LOG_ERROR(
@@ -731,7 +760,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             state = State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
             return;
         }
-        if (state == State::WAITING_FOR_UPDATE_FILE_HEADERS)
+
+        if (*formFieldName == "UpdateFile")
         {
             BMCWEB_LOG_DEBUG("Update File headers complete");
             if (!parseContentDisposition(fields, "UpdateFile"))
@@ -742,15 +772,22 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
-            // startRequest() is responsible for the next state transition:
-            // the satellite path moves to WAITING_FOR_SAT_CONTROLLER_INFO_
-            // COMPLETE, the local path moves straight to
-            // WAITING_FOR_UPDATE_FILE_DATA via beginLocalFileStreaming().
-            startRequest(remaingingBodyLength);
+            updateFileHeadersSeen = true;
+            updateFileRemainingBodyLength = remaingingBodyLength;
+            state = State::WAITING_FOR_UPDATE_FILE_DATA;
+            if (multiRet.params.applyTime || multiRet.params.targets ||
+                multiRet.params.forceUpdate)
+            {
+                // UpdateParameters preceded UpdateFile; start relay
+                // immediately.
+                beginUpdateFile(remaingingBodyLength);
+            }
             return;
         }
 
-        BMCWEB_LOG_CRITICAL("Unexpected state: {}", static_cast<int>(state));
+        BMCWEB_LOG_ERROR("Unexpected multipart form field: {}", *formFieldName);
+        messages::unrecognizedRequestBody(asyncResp->res);
+        state = State::UPDATE_COMPLETE_ERROR;
     }
 
     void onDataAvailable(const SelfPtr& /*self*/, std::string_view data)
@@ -771,6 +808,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             // BMCWEB_LOG_DEBUG("Update file data available: {}", data);
+            if (!updateStarted)
+            {
+                pendingFileDataBuffer.append(data);
+                return;
+            }
             if (isLocal)
             {
                 putBytesToHttpClient(data);
@@ -809,21 +851,28 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 processUpdateParameters(asyncResp, updateParametersString);
             if (!params)
             {
+                state = State::UPDATE_COMPLETE_ERROR;
+                failClientResponse();
                 return;
             }
 
-            multiRet.params = std::move(*params);
-            onUpdateParametersComplete(multiRet);
+            mergeUpdateParameters(multiRet.params, *params);
+            updateParametersString.clear();
             if (pauseReadCb)
             {
                 pauseReadCb();
             }
-            state = State::WAITING_FOR_UPDATE_FILE_HEADERS;
+            state = State::WAITING_FOR_PART_HEADERS;
             return;
         }
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             BMCWEB_LOG_DEBUG("Update file complete");
+            if (!updateStarted)
+            {
+                fileSectionComplete = true;
+                return;
+            }
             if (!isLocal)
             {
                 // Only the satellite path needs the trailing multipart
@@ -858,6 +907,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     {
         BMCWEB_LOG_DEBUG("Parse complete");
         parseComplete = true;
+        if (updateFileHeadersSeen && !updateStarted)
+        {
+            beginUpdateFile(updateFileRemainingBodyLength);
+        }
         closeSendSocketIfReady();
         endClientResponseIfReady();
     }
@@ -1234,3 +1287,4 @@ inline void requestRoutesNvUpdateServiceMultipartUpdate(App& app)
             handleUpdateServiceMultipartUpdatePostHeaders);
 }
 } // namespace redfish::nvidia
+// Nvidia code ends here

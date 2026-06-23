@@ -267,16 +267,19 @@ class Router
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        Adaptor&& adaptor)
     {
+        // Nvidia code starts here
         using Decayed = std::decay_t<Adaptor>;
         constexpr bool upgradable =
             std::is_same_v<Decayed, boost::asio::ip::tcp::socket> ||
             std::is_same_v<Decayed, boost::asio::ssl::stream<
                                         boost::asio::ip::tcp::socket>>;
         if constexpr (!upgradable)
+        // Nvidia code ends here
         {
             asyncResp->res.result(boost::beast::http::status::not_found);
             return;
         }
+        // Nvidia code starts here
         else
         {
             PerMethod& perMethod = upgradeRoutes;
@@ -332,18 +335,23 @@ class Router
             return;
         }
         BaseRule& rule = *foundRoute.route.rule;
+        // Nvidia code ends here
 
         if (req->session == nullptr)
         {
+            // Nvidia code starts here
             rule.handle(*req, asyncResp, {});
             asyncResp->res.end();
+            // Nvidia code ends here
             return;
         }
+        // Nvidia code starts here
         validatePrivilege(req, asyncResp, rule,
                           [req, &rule, asyncResp]() mutable {
                               rule.handle(*req, asyncResp, {});
                               asyncResp->res.end();
                           });
+        // Nvidia code ends here
     }
 
     void handle(const std::shared_ptr<Request>& req,
@@ -391,11 +399,13 @@ class Router
             return;
         }
 
+        // Nvidia code starts here
         if (foundRoute.route.rule->isStreamInput)
         {
             return;
         }
 
+        // Nvidia code ends here
         BaseRule& rule = *foundRoute.route.rule;
         std::vector<std::string> params = std::move(foundRoute.route.params);
 

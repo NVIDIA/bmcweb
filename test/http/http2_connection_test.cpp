@@ -59,10 +59,12 @@ struct FakeHandler
         asyncResp->res.write("StringOutput");
     }
 
+    // Nvidia code starts here
     void handleHeaders(const std::shared_ptr<Request>& /*req*/,
                        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
     {}
 
+    // Nvidia code ends here
     bool handleAuthFailed(const std::shared_ptr<Request>& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {

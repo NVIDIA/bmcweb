@@ -37,12 +37,16 @@ class TaggedRule :
     void operator()(Func&& f)
     {
         static_assert(
+            // Nvidia code starts here
             std::is_invocable_v<Func, Request&,
+                                // Nvidia code ends here
                                 std::shared_ptr<bmcweb::AsyncResp>&, Args...>,
             "Handler type is mismatched with URL parameters");
         static_assert(
             std::is_same_v<
+                // Nvidia code starts here
                 void, std::invoke_result_t<Func, Request&,
+                                           // Nvidia code ends here
                                            std::shared_ptr<bmcweb::AsyncResp>&,
                                            Args...>>,
             "Handler function with response argument should have void return type");
@@ -83,8 +87,10 @@ class TaggedRule :
     }
 
   private:
+    // Nvidia code starts here
     std::function<void(Request&, const std::shared_ptr<bmcweb::AsyncResp>&,
                        Args...)>
+        // Nvidia code ends here
         handler;
 };
 } // namespace crow

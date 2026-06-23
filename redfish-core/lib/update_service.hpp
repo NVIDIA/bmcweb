@@ -55,7 +55,9 @@
 
 #include <algorithm>
 #include <array>
+// Nvidia code starts here
 #include <cerrno>
+// Nvidia code ends here
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -66,7 +68,9 @@
 #include <functional>
 #include <memory>
 #include <optional>
+// Nvidia code starts here
 #include <span>
+// Nvidia code ends here
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -879,20 +883,43 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     return multiRet;
 }
 
+inline void mergeUpdateParameters(MultiPartUpdate::UpdateParameters& dest,
+                                  const MultiPartUpdate::UpdateParameters& src)
+{
+    if (src.applyTime)
+    {
+        dest.applyTime = src.applyTime;
+    }
+    if (src.targets)
+    {
+        dest.targets = src.targets;
+    }
+    if (src.forceUpdate)
+    {
+        dest.forceUpdate = src.forceUpdate;
+    }
+}
+
 inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
+    // Nvidia code starts here
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Request& req)
+// Nvidia code ends here
 {
     MultiPartUpdate multiRet;
+    // Nvidia code starts here
     for (FormPart& formpart : req.multipart())
+    // Nvidia code ends here
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
         if (it == formpart.fields.end())
         {
             BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
+            // Nvidia code starts here
             return std::nullopt;
         }
         BMCWEB_LOG_INFO("Parsing value {}", it->value());
+        // Nvidia code ends here
 
         auto formFieldNameOpt = parseFormPartName(it);
         if (!formFieldNameOpt.has_value())
@@ -910,17 +937,23 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             {
                 return std::nullopt;
             }
-            multiRet.params = std::move(*params);
+            // Nvidia code starts here
+            mergeUpdateParameters(multiRet.params, *params);
+            // Nvidia code ends here
         }
         else if (formFieldName == "UpdateFile")
         {
+            // Nvidia code starts here
             multiRet.uploadData = std::move(formpart.content);
+            // Nvidia code ends here
         }
     }
 
+    // Nvidia code starts here
     if (multiRet.uploadData.empty())
     {
         BMCWEB_LOG_ERROR("Upload data is NULL");
+        // Nvidia code ends here
         messages::propertyMissing(asyncResp->res, "UpdateFile");
         return std::nullopt;
     }
@@ -1047,7 +1080,9 @@ inline void handleBMCUpdate(
 // un used upstream code starts here
 inline void processUpdateRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    // Nvidia code starts here
     task::Payload&& payload, crow::Request& req,
+    // Nvidia code ends here
     const std::string& dbusApplyTime, bool forceUpdate,
     const std::vector<std::string>& uriTargets)
 {
@@ -1214,6 +1249,7 @@ inline void processUpdateRequest(
     // Nvidia code ends here
 }
 
+// Nvidia code starts here
 inline bool parseContentDisposition(const boost::beast::http::fields& fields,
                                     std::string_view formFieldName)
 {
@@ -1221,8 +1257,10 @@ inline bool parseContentDisposition(const boost::beast::http::fields& fields,
     if (dispositionIt == fields.end())
     {
         return false;
+        // Nvidia code ends here
     }
 
+    // Nvidia code starts here
     auto formFieldNameOpt = parseFormPartName(dispositionIt);
     if (!formFieldNameOpt.has_value())
     {
@@ -1241,8 +1279,10 @@ inline bool parseContentType(const boost::beast::http::fields& fields)
     if (dispositionIt == fields.end())
     {
         return false;
+        // Nvidia code ends here
     }
 
+    // Nvidia code starts here
     if (!isJsonContentType(dispositionIt->value()))
     {
         return false;
@@ -1250,9 +1290,12 @@ inline bool parseContentType(const boost::beast::http::fields& fields)
     return true;
 }
 
+// Nvidia code ends here
 // Upstream unused code
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         // Nvidia code starts here
                          crow::Request& req)
+// Nvidia code ends here
 {
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {
@@ -1751,7 +1794,9 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                 });
         }
 
+        // Nvidia code starts here
         asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+        // Nvidia code ends here
         if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
         {
             asyncResp->res.jsonValue["Status"]["Conditions"] =
@@ -1768,7 +1813,9 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
         }
         else
         {
+            // Nvidia code starts here
             asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+            // Nvidia code ends here
         }
         // Nvidia FirmwareInventoryGet end
     }
@@ -1861,13 +1908,17 @@ inline void requestRoutesUpdateService(App& app)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(handleUpdateServicePost, std::ref(app)));
     }
+    // Nvidia code starts here
     /* Nvidia removed
+// Nvidia code ends here
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update-multipart/")
         .privileges(redfish::privileges::postUpdateService)
+// Nvidia code starts here
         .streamInput()
         .methods(boost::beast::http::verb::post)(
             handleUpdateServiceMultipartUpdatePostHeaders);
     */
+    // Nvidia code ends here
 
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/")
         .privileges(redfish::privileges::getSoftwareInventoryCollection)

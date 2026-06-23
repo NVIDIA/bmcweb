@@ -25,7 +25,9 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
+// Nvidia code starts here
 #include "generated/enums/resource.hpp"
+// Nvidia code ends here
 #include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
@@ -2485,8 +2487,10 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                 }
 
                 asyncResp->res.jsonValue["Id"] = *swId;
+                // Nvidia code starts here
                 asyncResp->res.jsonValue["Status"]["Health"] =
                     resource::Health::OK;
+                // Nvidia code ends here
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =

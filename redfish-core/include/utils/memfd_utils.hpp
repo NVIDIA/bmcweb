@@ -68,7 +68,9 @@ struct MemoryFD
         return true;
     }
 
+    // Nvidia code starts here
     void write(const std::span<const uint8_t>& data) const
+    // Nvidia code ends here
     {
         if (!rewind())
         {
@@ -85,6 +87,7 @@ struct MemoryFD
                 "MemoryFD - Fewer bytes written than expected");
         }
     }
+    // Nvidia code starts here
 
     void writeString(std::string_view data) const
     {
@@ -104,6 +107,7 @@ struct MemoryFD
         }
     }
 
+    // Nvidia code ends here
     void read(std::vector<uint8_t>& data) const
     {
         if (!rewind())

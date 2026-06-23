@@ -381,11 +381,13 @@ inline void handleUnifiedGenerateTokenRequest(
  * @param parser Multipart parser containing the parsed form data
  * @return true if TokenFile was found, false otherwise
  */
+// Nvidia code starts here
 inline std::string extractTokenFile(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::span<const FormPart> multipart)
 {
     for (const FormPart& formpart : multipart)
+    // Nvidia code ends here
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -400,19 +402,25 @@ inline std::string extractTokenFile(
             continue;
         }
 
+        // Nvidia code starts here
         if (formFieldNameOpt.value() != "TokenFile")
         {
             continue;
         }
         return formpart.content;
+        // Nvidia code ends here
     }
     BMCWEB_LOG_ERROR("TokenFile form part is missing");
     messages::propertyMissing(asyncResp->res, "TokenFile");
+    // Nvidia code starts here
     return "";
+    // Nvidia code ends here
 }
 
+// Nvidia code starts here
 inline void installTokenRedfishURLCallback(
     crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    // Nvidia code ends here
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
     [[maybe_unused]] const std::string& redfishURL)
@@ -431,12 +439,15 @@ inline void installTokenRedfishURLCallback(
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
+    // Nvidia code starts here
     std::string tokenFile = extractTokenFile(asyncResp, req.multipart());
 
     auto tlvMemFd = std::make_shared<MemoryFD>();
     try
     {
+        // Nvidia code starts here
         tlvMemFd->writeString(tokenFile);
+        // Nvidia code ends here
     }
     catch (const std::exception& e)
     {
@@ -451,8 +462,10 @@ inline void installTokenRedfishURLCallback(
                         componentId));
 }
 
+// Nvidia code starts here
 inline void installAssociationEndpointCallback(
     crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    // Nvidia code ends here
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
     const std::string& associationEndpoint)
@@ -467,7 +480,9 @@ inline void installAssociationEndpointCallback(
     chassis_utils::getRedfishURL(
         associationEndpoint,
         [&req, asyncResp, chassisId, componentId,
+         // Nvidia code starts here
          targetChassisId](bool valid2, const std::string& redfishURL) {
+            // Nvidia code ends here
             installTokenRedfishURLCallback(req, asyncResp, chassisId,
                                            componentId, targetChassisId, valid2,
                                            redfishURL);
@@ -475,7 +490,9 @@ inline void installAssociationEndpointCallback(
 }
 
 inline void handleUnifiedInstallToken(
+    // Nvidia code starts here
     App& app, crow::Request& req,
+    // Nvidia code ends here
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId)
 {
@@ -490,7 +507,9 @@ inline void handleUnifiedInstallToken(
         targetChassisId);
     chassis_utils::getAssociationEndpoint(
         inventoryPath,
+        // Nvidia code starts here
         std::bind_front(&installAssociationEndpointCallback, std::ref(req),
+                        // Nvidia code ends here
                         asyncResp, chassisId, componentId, targetChassisId));
 }
 

@@ -110,6 +110,7 @@ struct RuleParameterTraits
         }
         return *self;
     }
+    // Nvidia code starts here
 
     self_t& streamInput()
     {
@@ -117,5 +118,6 @@ struct RuleParameterTraits
         self->isStreamInput = true;
         return *self;
     }
+    // Nvidia code ends here
 };
 } // namespace crow

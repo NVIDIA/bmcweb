@@ -219,7 +219,9 @@ inline JsonParseResult parseRequestAsJson(const crow::Request& req,
         req.getHeaderValue(boost::beast::http::field::content_type);
     if (!isJsonContentType(contentType))
     {
+        // Nvidia code starts here
         BMCWEB_LOG_WARNING("Content was not JSON");
+        // Nvidia code ends here
         if constexpr (!BMCWEB_INSECURE_IGNORE_CONTENT_TYPE)
         {
             return JsonParseResult::BadContentType;

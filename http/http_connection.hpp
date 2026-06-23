@@ -291,9 +291,11 @@ class Connection :
         // Initially set no body limit. We don't yet know if the user is
         // authenticated.
         instance.body_limit(boost::none);
+        // Nvidia code starts here
 
         pendingContinue = false;
         headersComplete = false;
+        // Nvidia code ends here
     }
 
     void upgradeToHttp2()
@@ -452,16 +454,19 @@ class Connection :
                             req->getHeaderValue("X-Requested-With"),
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
+                    // Nvidia code starts here
                     if (requestAsyncResp)
                     {
                         requestAsyncResp->res.releaseCompleteRequestHandler();
                         requestAsyncResp.reset();
                     }
+                    // Nvidia code ends here
                     return;
                 }
             }
         }
 
+        // Nvidia code starts here
         std::shared_ptr<bmcweb::AsyncResp> asyncResp = requestAsyncResp;
         if (!asyncResp)
         {
@@ -471,6 +476,7 @@ class Connection :
                     self->completeRequest(thisRes);
                 });
         }
+        // Nvidia code ends here
         BMCWEB_LOG_DEBUG("Setting completion handler");
         if (doUpgrade(asyncResp))
         {
@@ -483,12 +489,14 @@ class Connection :
             asyncResp->res.setExpectedEtag(expectedEtag);
         }
 
+        // Nvidia code starts here
         requestAsyncResp.reset();
         handler->handle(req, asyncResp);
         if (req)
         {
             req->req.body().multipartParserCallbacks.reset();
         }
+        // Nvidia code ends here
     }
 
     void hardClose()
@@ -568,6 +576,7 @@ class Connection :
             }
         }
 
+        // Nvidia code starts here
         if (parser &&
             parser->get()[boost::beast::http::field::content_type].starts_with(
                 "multipart/form-data"))
@@ -578,6 +587,7 @@ class Connection :
             return 4ULL * 1024ULL * 1024ULL * 1024ULL;
         }
 
+        // Nvidia code ends here
         return httpReqBodyLimit;
     }
 
@@ -687,6 +697,7 @@ class Connection :
         parse.body_limit(getContentLengthLimit());
 
         std::string_view expect = value[boost::beast::http::field::expect];
+        // Nvidia code starts here
         bool expectsContinue = bmcweb::asciiIEquals(expect, "100-continue");
 
         std::error_code reqEc;
@@ -723,11 +734,13 @@ class Connection :
         // 100 Continue so the client starts uploading the body.
 
         if (expectsContinue)
+        // Nvidia code ends here
         {
             res.result(boost::beast::http::status::continue_);
             doWrite();
             return;
         }
+        // Nvidia code starts here
     }
 
     void afterHeadersComplete()
@@ -748,11 +761,13 @@ class Connection :
         }
 
         if (parser->is_done())
+        // Nvidia code ends here
         {
             handle();
             return;
         }
 
+        // Nvidia code starts here
         if (!req)
         {
             return;
@@ -767,6 +782,7 @@ class Connection :
 
         headersComplete = true;
         tryStartBodyRead();
+        // Nvidia code ends here
     }
 
     void doReadHeaders()
@@ -849,6 +865,7 @@ class Connection :
         }
         if (!parser->is_done())
         {
+            // Nvidia code starts here
             if (parser->get().body().isReadPaused())
             {
                 BMCWEB_LOG_DEBUG(
@@ -858,6 +875,7 @@ class Connection :
                     [self(shared_from_this())] { self->doRead(); });
                 return;
             }
+            // Nvidia code ends here
             doRead();
             return;
         }
@@ -932,8 +950,10 @@ class Connection :
         {
             // Reset the result to ok
             res.result(boost::beast::http::status::ok);
+            // Nvidia code starts here
             pendingContinue = false;
             tryStartBodyRead();
+            // Nvidia code ends here
             return;
         }
 
@@ -951,7 +971,9 @@ class Connection :
         initParser();
 
         userSession = nullptr;
+        // Nvidia code starts here
         requestAsyncResp.reset();
+        // Nvidia code ends here
 
         req->clear();
         doReadHeaders();
@@ -1063,6 +1085,7 @@ class Connection :
             // allow up to 15 minutes of delay
             timeoutDurationSeconds = 15 * 60;
         }
+        // Nvidia code starts here
         else if (req && req->req.body().multipartParserCallbacks)
         {
             // If we're streaming multipart data, and the system has already
@@ -1070,6 +1093,7 @@ class Connection :
             // attack.  Allow up to an hour for upload.
             timeoutDurationSeconds = 60 * 60;
         }
+        // Nvidia code ends here
 
         std::chrono::seconds timeout(timeoutDurationSeconds);
 
@@ -1096,7 +1120,9 @@ class Connection :
     boost::beast::flat_static_buffer<8192> buffer;
 
     std::shared_ptr<Request> req;
+    // Nvidia code starts here
     std::shared_ptr<bmcweb::AsyncResp> requestAsyncResp;
+    // Nvidia code ends here
     std::string accept;
     std::string http2settings;
     std::string acceptEncoding;
@@ -1112,6 +1138,7 @@ class Connection :
 
     bool timerStarted = false;
 
+    // Nvidia code starts here
     // Set while a 100 Continue response is in flight (not yet written).
     // afterHeadersComplete() and afterDoWrite() coordinate via these flags
     // so that doRead() is called exactly once, after BOTH the 100 Continue
@@ -1131,6 +1158,7 @@ class Connection :
         doRead();
     }
 
+    // Nvidia code ends here
     std::function<std::string()>& getCachedDateStr;
 
     using std::enable_shared_from_this<

@@ -16,7 +16,9 @@
 #include <boost/url/url_view.hpp>
 
 #include <memory>
+// Nvidia code starts here
 #include <optional>
+// Nvidia code ends here
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -149,6 +151,7 @@ struct Request
         req.body().clear();
     }
 
+    // Nvidia code starts here
     std::span<FormPart> multipart()
     {
         return req.body().multipart();
@@ -159,6 +162,7 @@ struct Request
         return req.body().multipart();
     }
 
+    // Nvidia code ends here
     bool target(std::string_view target)
     {
         req.target(target);
@@ -181,12 +185,14 @@ struct Request
         return req.keep_alive();
     }
 
+    // Nvidia code starts here
     void setMultipartParserCallbacks(
         MultipartParserStreamingCallbacks&& callbacks)
     {
         req.body().setMultipartParserCallbacks(std::move(callbacks));
     }
 
+    // Nvidia code ends here
   private:
     bool setUrlInfo()
     {

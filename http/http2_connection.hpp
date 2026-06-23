@@ -60,6 +60,7 @@ struct Http2StreamData
     Response res;
     std::optional<bmcweb::HttpBody::writer> writer;
     bool valid = true;
+    // Nvidia code starts here
     std::shared_ptr<bmcweb::AsyncResp> headersAsyncResp;
     // Defer body reads until handleHeaders() completes (mirrors HTTP/1.1
     // afterHeadersComplete).  Only data that arrives during the async
@@ -68,6 +69,7 @@ struct Http2StreamData
     bool isStreamInput = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
+    // Nvidia code ends here
 };
 
 template <typename Adaptor, typename Handler>
@@ -290,9 +292,11 @@ class HTTP2Connection :
         return session;
     }
 
+    // Nvidia code starts here
     int onHeadersFrameComplete(int32_t streamId)
     {
         BMCWEB_LOG_DEBUG("onHeadersFrameComplete streamId:{}", streamId);
+        // Nvidia code ends here
 
         auto it = streams.find(streamId);
         if (it == streams.end())
@@ -300,6 +304,7 @@ class HTTP2Connection :
             close();
             return -1;
         }
+        // Nvidia code starts here
         Http2StreamData& stream = it->second;
 
         if (!stream.valid)
@@ -368,8 +373,10 @@ class HTTP2Connection :
         {
             if (processBodyData(streamId, stream.pendingBodyData.data(),
                                 stream.pendingBodyData.size()) != 0)
+            // Nvidia code ends here
             {
                 close();
+                // Nvidia code starts here
                 return;
             }
             stream.pendingBodyData.clear();
@@ -410,6 +417,7 @@ class HTTP2Connection :
             return 0;
         }
 
+        // Nvidia code ends here
         Request& thisReq = *it->second.req;
         using boost::beast::http::field;
         it->second.accept = thisReq.getHeaderValue(field::accept);
@@ -482,6 +490,7 @@ class HTTP2Connection :
             return -1;
         }
 
+        // Nvidia code starts here
         if (thisStream->second.bodyReadPending)
         {
             std::vector<uint8_t>& pending = thisStream->second.pendingBodyData;
@@ -502,6 +511,7 @@ class HTTP2Connection :
             return -1;
         }
 
+        // Nvidia code ends here
         std::optional<bmcweb::HttpBody::reader>& reqReader =
             thisStream->second.reqReader;
         if (!reqReader)
@@ -526,6 +536,7 @@ class HTTP2Connection :
         return 0;
     }
 
+    // Nvidia code starts here
     int finishStreamBody(int32_t streamId)
     {
         auto it = streams.find(streamId);
@@ -551,6 +562,7 @@ class HTTP2Connection :
         return 0;
     }
 
+    // Nvidia code ends here
     static int onDataChunkRecvStatic(
         nghttp2_session* /* session */, uint8_t flags, int32_t streamId,
         const uint8_t* data, size_t len, void* userData)
@@ -576,12 +588,14 @@ class HTTP2Connection :
                     return onRequestRecv(frame.hd.stream_id);
                 }
                 break;
+                // Nvidia code starts here
             case NGHTTP2_HEADERS:
                 if ((frame.hd.flags & NGHTTP2_FLAG_END_STREAM) != 0)
                 {
                     return onRequestRecv(frame.hd.stream_id);
                 }
                 return onHeadersFrameComplete(frame.hd.stream_id);
+                // Nvidia code ends here
             default:
                 break;
         }

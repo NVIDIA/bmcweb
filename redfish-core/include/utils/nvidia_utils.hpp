@@ -32,6 +32,7 @@
 #include <unordered_map>
 #include <vector>
 
+// Nvidia code starts here
 // This is defined in nlohmann master, but not for subprojects.
 #if NLOHMANN_JSON_VERSION_MAJOR >= 3 && NLOHMANN_JSON_VERSION_MINOR >= 11
 namespace nlohmann
@@ -66,6 +67,7 @@ struct adl_serializer<std::optional<T>>
 } // namespace nlohmann
 #endif
 
+// Nvidia code ends here
 namespace nvidia
 {
 namespace nsm_utils

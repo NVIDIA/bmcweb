@@ -53,6 +53,7 @@ class App
         router.handleUpgrade(req, asyncResp, std::forward<Adaptor>(adaptor));
     }
 
+    // Nvidia code starts here
     void handleHeaders(
         const std::shared_ptr<Request>& req,
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
@@ -60,6 +61,7 @@ class App
         router.handleHeaders(req, asyncResp);
     }
 
+    // Nvidia code ends here
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {

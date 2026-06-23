@@ -66,7 +66,9 @@ class Resolver
     Resolver& operator=(const Resolver&) = delete;
     Resolver& operator=(Resolver&&) = delete;
 
+    // Nvidia code starts here
     using results_type = boost::asio::ip::tcp::resolver::results_type;
+    // Nvidia code ends here
 
     template <typename ResolveHandler>
     // This function is kept using snake case so that it is interoperable with
@@ -97,6 +99,7 @@ class Resolver
                 const std::vector<
                     std::tuple<int32_t, int32_t, std::vector<uint8_t>>>& resp,
                 const std::string& hostName, const uint64_t flagNum) {
+                // Nvidia code starts here
                 boost::system::error_code ecRet = ec;
                 std::vector<boost::asio::ip::tcp::endpoint> endpointList;
                 if (ecRet)
@@ -107,6 +110,7 @@ class Resolver
                 {
                     BMCWEB_LOG_DEBUG("ResolveHostname returned: {}:{}",
                                      hostName, flagNum);
+                    // Nvidia code ends here
                 }
                 // Extract the IP address from the response
                 for (const std::tuple<int32_t, int32_t, std::vector<uint8_t>>&
@@ -117,19 +121,23 @@ class Resolver
                     if (!endpointFromResolveTuple(std::get<2>(resolveList),
                                                   endpoint))
                     {
+                        // Nvidia code starts here
                         ecRet = make_error_code(
                             boost::system::errc::address_not_available);
                         break;
+                        // Nvidia code ends here
                     }
                     BMCWEB_LOG_DEBUG("resolved endpoint is : {}",
                                      endpoint.address().to_string());
                     endpointList.push_back(endpoint);
                 }
+                // Nvidia code starts here
 
                 // All the resolved data is filled in the endpointList
                 handler(ecRet, results_type::create(endpointList.begin(),
                                                     endpointList.end(), host,
                                                     std::to_string(portNum)));
+                // Nvidia code ends here
             },
             "org.freedesktop.resolve1", "/org/freedesktop/resolve1",
             "org.freedesktop.resolve1.Manager", "ResolveHostname", 0, host,

@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "multipart_parser.hpp"
 
+// Nvidia code starts here
 #include <cstddef>
 #include <iterator>
 #include <string>
 #include <string_view>
 #include <utility>
+// Nvidia code ends here
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -18,9 +20,12 @@ using ::testing::Test;
 class MultipartTest : public Test
 {
   public:
+    // Nvidia code starts here
     MultipartParser parser{0};
+    // Nvidia code ends here
 };
 
+// Nvidia code starts here
 constexpr std::string_view goodMultipartParserBody =
     "-----------------------------d74496d66958873e\r\n"
     "Content-Disposition: form-data; name=\"Test1\"\r\n\r\n"
@@ -33,12 +38,15 @@ constexpr std::string_view goodMultipartParserBody =
     "{\r\n--------d74496d6695887}\r\n"
     "-----------------------------d74496d66958873e--\r\n";
 
+// Nvidia code ends here
 TEST_F(MultipartTest, TestGoodMultipartParser)
 {
     ParserError rc =
         parser.parse("multipart/form-data; "
                      "boundary=---------------------------d74496d66958873e",
+                     // Nvidia code starts here
                      goodMultipartParserBody);
+    // Nvidia code ends here
     ASSERT_EQ(rc, ParserError::PARSER_SUCCESS);
 
     EXPECT_EQ(parser.boundary,
@@ -59,6 +67,7 @@ TEST_F(MultipartTest, TestGoodMultipartParser)
     EXPECT_EQ(parser.mime_fields[2].content, "{\r\n--------d74496d6695887}");
 }
 
+// Nvidia code starts here
 TEST(MultipartTestChunked, TestGoodMultipartParserChunked)
 {
     for (size_t chunkSize : {1UZ, 2UZ, 4UZ, goodMultipartParserBody.size()})
@@ -102,6 +111,7 @@ TEST(MultipartTestChunked, TestGoodMultipartParserChunked)
     }
 }
 
+// Nvidia code ends here
 TEST_F(MultipartTest, TestBadMultipartParser1)
 {
     std::string_view body =
@@ -167,7 +177,9 @@ TEST_F(MultipartTest, TestErrorBoundaryCR)
         parser.parse("multipart/form-data; "
                      "boundary=---------------------------d74496d66958873e",
                      body),
+        // Nvidia code starts here
         ParserError::ERROR_BOUNDARY_FORMAT);
+    // Nvidia code ends here
 }
 
 TEST_F(MultipartTest, TestErrorBoundaryLF)
@@ -185,7 +197,9 @@ TEST_F(MultipartTest, TestErrorBoundaryLF)
         parser.parse("multipart/form-data; "
                      "boundary=---------------------------d74496d66958873e",
                      body),
+        // Nvidia code starts here
         ParserError::ERROR_BOUNDARY_FORMAT);
+    // Nvidia code ends here
 }
 
 TEST_F(MultipartTest, TestErrorBoundaryData)
@@ -203,7 +217,9 @@ TEST_F(MultipartTest, TestErrorBoundaryData)
         parser.parse("multipart/form-data; "
                      "boundary=---------------------------d7449sd6d66958873e",
                      body),
+        // Nvidia code starts here
         ParserError::ERROR_BOUNDARY_FORMAT);
+    // Nvidia code ends here
 }
 
 TEST_F(MultipartTest, TestErrorEmptyHeader)
@@ -439,6 +455,7 @@ TEST_F(MultipartTest, TestFinalBoundaryIsCorrectlyRecognized)
               "StillData1");
 }
 
+// Nvidia code starts here
 TEST_F(MultipartTest, callbacksAreCalledCorrectly)
 {
     std::string_view body =
@@ -491,4 +508,5 @@ TEST_F(MultipartTest, callbacksAreCalledCorrectly)
     EXPECT_EQ(parser.mime_fields[0].content, "");
 }
 
+// Nvidia code ends here
 } // namespace

@@ -14,6 +14,8 @@
 #include <string_view>
 #include <utility>
 
+// Nvidia code starts here
+
 class MultipartSerializer
 {
   public:
@@ -86,3 +88,4 @@ class MultipartSerializer
     std::string boundary;
     std::move_only_function<void(std::string_view)> putBytes;
 };
+// Nvidia code ends here

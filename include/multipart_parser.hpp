@@ -2,18 +2,24 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+// Nvidia code starts here
 #include "logging.hpp"
+// Nvidia code ends here
 
 #include <boost/beast/http/fields.hpp>
 
+// Nvidia code starts here
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <optional>
+// Nvidia code ends here
 #include <ranges>
 #include <string>
 #include <string_view>
+// Nvidia code starts here
 #include <variant>
+// Nvidia code ends here
 #include <vector>
 
 enum class ParserError
@@ -22,26 +28,34 @@ enum class ParserError
     ERROR_BOUNDARY_FORMAT,
     ERROR_EMPTY_HEADER,
     ERROR_HEADER_NAME,
+    // Nvidia code starts here
     ERROR_HEADER_NAME_TOO_LONG,
     ERROR_HEADER_VALUE,
     ERROR_HEADER_VALUE_TOO_LONG,
+    // Nvidia code ends here
     ERROR_HEADER_ENDING,
     ERROR_UNEXPECTED_END_OF_HEADER,
+    // Nvidia code starts here
     ERROR_UNEXPECTED_CHARACTER,
+    // Nvidia code ends here
     ERROR_UNEXPECTED_END_OF_INPUT,
     ERROR_OUT_OF_RANGE,
+    // Nvidia code starts here
     ERROR_DATA_AFTER_FINAL_BOUNDARY,
     ERROR_DATA_AFTER_ERROR
+    // Nvidia code ends here
 };
 
 enum class State
 {
     START,
     START_BOUNDARY,
+    // Nvidia code starts here
     BOUNDARY,
     FIRST_BOUNDARY_CHAR,       // 3
     SECOND_BOUNDARY_CHAR_LF,
     SECOND_BOUNDARY_CHAR_DASH, // 5
+                               // Nvidia code ends here
     HEADER_FIELD_START,
     HEADER_FIELD,
     HEADER_VALUE_START,
@@ -50,14 +64,17 @@ enum class State
     HEADERS_ALMOST_DONE,
     PART_DATA_START,
     PART_DATA,
+    // Nvidia code starts here
     END, // 14
     ERROR
+    // Nvidia code ends here
 };
 
 struct FormPart
 {
     boost::beast::http::fields fields;
     std::string content;
+    // Nvidia code starts here
 };
 
 struct MultipartParserStreamingCallbacks
@@ -71,11 +88,13 @@ struct MultipartParserStreamingCallbacks
     std::function<void(std::string_view)> onDataAvailable;
     std::function<void()> onSectionComplete;
     std::function<void()> onParseComplete;
+    // Nvidia code ends here
 };
 
 class MultipartParser
 {
   public:
+    // Nvidia code starts here
     std::optional<MultipartParserStreamingCallbacks> callbacks;
 
     MultipartParser(size_t contentLengthIn) : contentLength(contentLengthIn) {}
@@ -96,11 +115,14 @@ class MultipartParser
         state = State::START;
         return ParserError::PARSER_SUCCESS;
     }
+    // Nvidia code ends here
 
     [[nodiscard]] ParserError parse(std::string_view contentType,
                                     std::string_view body)
     {
+        // Nvidia code starts here
         contentLength = body.size();
+        // Nvidia code ends here
         ParserError ret = start(contentType);
         if (ret != ParserError::PARSER_SUCCESS)
         {
@@ -117,11 +139,13 @@ class MultipartParser
 
     ParserError parsePart(std::string_view buffer)
     {
+        // Nvidia code starts here
         // BMCWEB_LOG_DEBUG("Parsing {} bytes", buffer.size());
         for (const char c : buffer)
         {
             parsedCount++;
             // BMCWEB_LOG_DEBUG("State: {}", static_cast<int>(state));
+            // Nvidia code ends here
             switch (state)
             {
                 case State::START:
@@ -129,71 +153,86 @@ class MultipartParser
                     state = State::START_BOUNDARY;
                     [[fallthrough]];
                 case State::START_BOUNDARY:
-                {
-                    if (index < boundary_first.size())
+                    // Nvidia code starts here
                     {
-                        if (c != boundary_first[index])
+                        if (index < boundary_first.size())
                         {
-                            state = State::ERROR;
-                            return ParserError::ERROR_BOUNDARY_FORMAT;
+                            if (c != boundary_first[index])
+                            {
+                                state = State::ERROR;
+                                return ParserError::ERROR_BOUNDARY_FORMAT;
+                                // Nvidia code ends here
+                            }
                         }
-                    }
-                    index++;
-                    if (index == boundary_first.size())
-                    {
-                        mime_fields.emplace_back();
-                        state = State::HEADER_FIELD_START;
-                        index = 0;
-                    }
+                        // Nvidia code starts here
+                        index++;
+                        if (index == boundary_first.size())
+                        // Nvidia code ends here
+                        {
+                            mime_fields.emplace_back();
+                            state = State::HEADER_FIELD_START;
+                            // Nvidia code starts here
+                            index = 0;
+                        }
 
-                    break;
-                }
+                        break;
+                    }
+                    // Nvidia code ends here
                 case State::HEADER_FIELD_START:
                     state = State::HEADER_FIELD;
                     index = 0;
                     [[fallthrough]];
                 case State::HEADER_FIELD:
-                {
-                    if (currentHeaderName.size() > 400)
+                    // Nvidia code starts here
                     {
-                        state = State::ERROR;
-                        return ParserError::ERROR_HEADER_NAME_TOO_LONG;
-                    }
-                    if (c == '\r')
-                    {
-                        state = State::HEADERS_ALMOST_DONE;
-                        break;
-                    }
-
-                    index++;
-
-                    if (c == ':')
-                    {
-                        if (currentHeaderName.empty())
+                        if (currentHeaderName.size() > 400)
                         {
                             state = State::ERROR;
-                            return ParserError::ERROR_EMPTY_HEADER;
+                            return ParserError::ERROR_HEADER_NAME_TOO_LONG;
+                        }
+                        if (c == '\r')
+                        // Nvidia code ends here
+                        {
+                            state = State::HEADERS_ALMOST_DONE;
+                            break;
                         }
 
-                        state = State::HEADER_VALUE_START;
+                        index++;
+
+                        // Nvidia code starts here
+                        if (c == ':')
+                        {
+                            if (currentHeaderName.empty())
+                            {
+                                state = State::ERROR;
+                                // Nvidia code ends here
+                                return ParserError::ERROR_EMPTY_HEADER;
+                            }
+
+                            state = State::HEADER_VALUE_START;
+                            break;
+                        }
+                        // Nvidia code starts here
+                        char cl = lower(c);
+                        if ((cl < 'a' || cl > 'z') && cl != '-')
+                        {
+                            state = State::ERROR;
+                            // Nvidia code ends here
+                            return ParserError::ERROR_HEADER_NAME;
+                        }
+                        // Nvidia code starts here
+                        currentHeaderName.push_back(cl);
                         break;
                     }
-                    char cl = lower(c);
-                    if ((cl < 'a' || cl > 'z') && cl != '-')
-                    {
-                        state = State::ERROR;
-                        return ParserError::ERROR_HEADER_NAME;
-                    }
-                    currentHeaderName.push_back(cl);
-                    break;
-                }
                 case State::HEADER_VALUE_START:
                     if (c == ' ')
+                    // Nvidia code ends here
                     {
                         break;
                     }
                     state = State::HEADER_VALUE;
                     [[fallthrough]];
+                    // Nvidia code starts here
 
                 case State::HEADER_VALUE:
                 {
@@ -227,23 +266,29 @@ class MultipartParser
                     if (c != '\n')
                     {
                         state = State::ERROR;
+                        // Nvidia code ends here
                         return ParserError::ERROR_HEADER_VALUE;
                     }
                     state = State::HEADER_FIELD_START;
                     break;
+                    // Nvidia code starts here
                 }
                 case State::HEADERS_ALMOST_DONE:
                 {
                     if (c != '\n')
                     {
                         state = State::ERROR;
+                        // Nvidia code ends here
                         return ParserError::ERROR_HEADER_ENDING;
                     }
                     if (index > 0)
                     {
+                        // Nvidia code starts here
                         state = State::ERROR;
+                        // Nvidia code ends here
                         return ParserError::ERROR_UNEXPECTED_END_OF_HEADER;
                     }
+                    // Nvidia code starts here
 
                     if (callbacks)
                     {
@@ -262,16 +307,22 @@ class MultipartParser
                         }
                     }
 
+                    // Nvidia code ends here
                     state = State::PART_DATA_START;
                     break;
+                    // Nvidia code starts here
                 }
+                    // Nvidia code ends here
                 case State::PART_DATA_START:
                     state = State::PART_DATA;
+                    // Nvidia code starts here
                     index = 0;
                     [[fallthrough]];
 
+                    // Nvidia code ends here
                 case State::PART_DATA:
                 {
+                    // Nvidia code starts here
                     std::string& content = mime_fields.back().content;
                     content += c;
                     if (content.ends_with(boundary))
@@ -295,9 +346,11 @@ class MultipartParser
                                 }
                             }
                         }
+                        // Nvidia code ends here
                     }
                     break;
                 }
+                    // Nvidia code starts here
                 case State::FIRST_BOUNDARY_CHAR:
                 {
                     std::string& content = mime_fields.back().content;
@@ -392,10 +445,13 @@ class MultipartParser
                 }
                 case State::END:
                 {
+                    // Nvidia code ends here
                     switch (index)
                     {
                         case 0:
+                            // Nvidia code starts here
                             if (c != '\r')
+                            // Nvidia code ends here
                             {
                                 return ParserError::
                                     ERROR_DATA_AFTER_FINAL_BOUNDARY;
@@ -403,7 +459,9 @@ class MultipartParser
                             index++;
                             break;
                         case 1:
+                            // Nvidia code starts here
                             if (c != '\n')
+                            // Nvidia code ends here
                             {
                                 return ParserError::
                                     ERROR_DATA_AFTER_FINAL_BOUNDARY;
@@ -414,6 +472,7 @@ class MultipartParser
                             return ParserError::ERROR_DATA_AFTER_FINAL_BOUNDARY;
                     }
                     break;
+                    // Nvidia code starts here
                 }
                 case State::ERROR:
                 {
@@ -425,6 +484,7 @@ class MultipartParser
                     state = State::ERROR;
                     return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
                 }
+                    // Nvidia code ends here
             }
         }
 
@@ -435,11 +495,14 @@ class MultipartParser
     {
         if (state != State::END)
         {
+            // Nvidia code starts here
             state = State::ERROR;
             BMCWEB_LOG_WARNING("Bad multipart data");
+            // Nvidia code ends here
             return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
         }
 
+        // Nvidia code starts here
         BMCWEB_LOG_DEBUG("Calling On Parse Complete callback");
         if (callbacks)
         {
@@ -448,22 +511,30 @@ class MultipartParser
             {
                 BMCWEB_LOG_DEBUG("onParseComplete was valid");
                 callbacks->onParseComplete();
+                // Nvidia code ends here
             }
             else
             {
+                // Nvidia code starts here
                 BMCWEB_LOG_DEBUG("onParseComplete was not valid");
             }
             callbacks.reset();
+            // Nvidia code ends here
         }
         else
         {
+            // Nvidia code starts here
             BMCWEB_LOG_DEBUG("callbacks was not valid");
+            // Nvidia code ends here
         }
 
+        // Nvidia code starts here
         BMCWEB_LOG_DEBUG("Multipart parser finished");
+        // Nvidia code ends here
         return ParserError::PARSER_SUCCESS;
     }
 
+    // Nvidia code starts here
     // Assuming this multipart field is the last one, returns the expected
     // remaining length.  Returns nullopt if parser has received more bytes than
     // expected.
@@ -489,8 +560,10 @@ class MultipartParser
         BMCWEB_LOG_DEBUG("Content length was: {}", contentLength);
         BMCWEB_LOG_DEBUG("Boundary was: {}", boundary);
         return remaining;
+        // Nvidia code ends here
     }
 
+    // Nvidia code starts here
     std::vector<FormPart> mime_fields;
     std::string boundary;
     std::string boundary_first;
@@ -508,4 +581,5 @@ class MultipartParser
     size_t index = 0;
     size_t parsedCount = 0;
     size_t contentLength;
+    // Nvidia code ends here
 };

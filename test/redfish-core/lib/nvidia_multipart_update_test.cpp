@@ -21,6 +21,8 @@
 
 #include "gtest/gtest.h"
 
+// Nvidia code starts here
+
 namespace redfish::nvidia
 {
 namespace
@@ -237,8 +239,7 @@ TEST(ErrorHandler, AlwaysReturnsSuccess)
 TEST(PutBytesToHttpClient, BuffersBeforeFileDataState)
 {
     auto ctx = makeCtx();
-    // Default state is WAITING_FOR_UPDATE_PARAMETERS_HEADERS — not yet ready
-    // to stream, so data must land in pendingWriteBuffer.
+    // Default state is WAITING_FOR_PART_HEADERS — not yet ready to stream.
     ctx->putBytesToHttpClient("hello");
     EXPECT_EQ(ctx->pendingWriteBuffer, "hello");
     ctx->putBytesToHttpClient(" world");
@@ -267,6 +268,54 @@ TEST(OnDataAvailable, AccumulatesUpdateParametersData)
 
     EXPECT_EQ(ctx->updateParametersString, "part1part2");
     EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
+}
+
+TEST(OnHeadersComplete, AcceptsUpdateFileBeforeUpdateParameters)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set("Content-Disposition", "form-data; name=\"UpdateFile\"");
+
+    ctx->onHeadersComplete(ctx, fields, 1024);
+
+    EXPECT_TRUE(ctx->updateFileHeadersSeen);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
+    EXPECT_FALSE(ctx->updateStarted);
+}
+
+TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->updateStarted = false;
+
+    ctx->onDataAvailable(ctx, "fw data");
+
+    EXPECT_EQ(ctx->pendingFileDataBuffer, "fw data");
+}
+
+TEST(OnSectionComplete, MergesMultipleUpdateParametersSections)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
+    ctx->updateParametersString =
+        R"({"Targets":["/redfish/v1/Chassis/HGX_Chassis_0"]})";
+
+    ctx->onSectionComplete(ctx);
+
+    ASSERT_TRUE(ctx->multiRet.params.targets.has_value());
+    ASSERT_EQ(ctx->multiRet.params.targets.value().size(), 1U);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
+    ctx->updateParametersString = R"({"ForceUpdate":true})";
+
+    ctx->onSectionComplete(ctx);
+
+    EXPECT_TRUE(ctx->multiRet.params.forceUpdate.value_or(false));
+    ASSERT_TRUE(ctx->multiRet.params.targets.has_value());
 }
 
 TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
@@ -307,10 +356,23 @@ TEST(OnSectionComplete, SetsFileSectionCompleteWhenWaitingForSatInfo)
               UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE);
 }
 
+TEST(OnSectionComplete, SetsFileSectionCompleteWhenUpdateNotStarted)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    EXPECT_FALSE(ctx->fileSectionComplete);
+
+    ctx->onSectionComplete(ctx);
+
+    EXPECT_TRUE(ctx->fileSectionComplete);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
+}
+
 TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
 {
     auto ctx = makeCtx();
     ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->updateStarted = true;
 
     ctx->onSectionComplete(ctx);
 
@@ -472,3 +534,4 @@ TEST(AfterWritePartialData, ErrorDiscardsBodyAndResumesReads)
 
 } // namespace
 } // namespace redfish::nvidia
+// Nvidia code ends here

@@ -323,7 +323,9 @@ inline void handleAddConfigFileError(
  * and std::nullopt is returned.  On success the raw file bytes are returned.
  */
 inline std::optional<std::string> scanMimePartsForImportFile(
+    // Nvidia code starts here
     const std::span<const FormPart> mimeParts,
+    // Nvidia code ends here
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId, const std::string& uploadUri)
 {
@@ -780,7 +782,9 @@ inline void onFabricFoundForDelete(
  * Returns HTTP 204 on success.
  */
 inline void handleConfigFilePost(
+    // Nvidia code starts here
     App& app, crow::Request& req,
+    // Nvidia code ends here
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& fabricId)
 {
@@ -806,8 +810,10 @@ inline void handleConfigFilePost(
     const std::string uploadUri =
         "/redfish/v1/Fabrics/" + fabricId + "/upload-switch-config";
 
+    // Nvidia code starts here
     auto importFileContent = scanMimePartsForImportFile(
         req.multipart(), asyncResp, fabricId, uploadUri);
+    // Nvidia code ends here
     if (!importFileContent)
     {
         return;

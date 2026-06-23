@@ -25,7 +25,9 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/asio/steady_timer.hpp>
+// Nvidia code starts here
 #include <boost/asio/write.hpp>
+// Nvidia code ends here
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
 #include <boost/beast/http/field.hpp>
@@ -148,24 +150,30 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     ensuressl::VerifyCertificate verifyCert;
     uint32_t connId;
     // Data buffers
+    // Nvidia code starts here
   public:
     http::request<bmcweb::HttpBody> req;
 
   private:
     std::optional<http::serializer<true, bmcweb::HttpBody>> serializer;
 
+    // Nvidia code ends here
     using parser_type = http::response_parser<bmcweb::HttpBody>;
     std::optional<parser_type> parser;
     boost::beast::flat_static_buffer<httpReadBufferSize> buffer;
     Response res;
 
     // Async callables
+    // Nvidia code starts here
   public:
+    // Nvidia code ends here
     std::function<void(bool, uint32_t, Response&)> callback;
 
+    // Nvidia code starts here
   private:
     std::move_only_function<void()> afterHeadersCallback;
 
+    // Nvidia code ends here
     boost::asio::io_context& ioc;
 
     using Resolver = std::conditional_t<BMCWEB_DNS_RESOLVER == "systemd-dbus",
@@ -181,7 +189,9 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     friend class ConnectionPool;
 
+    // Nvidia code starts here
   public:
+    // Nvidia code ends here
     void doResolve()
     {
         state = ConnState::resolveInProgress;
@@ -209,8 +219,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
         boost::asio::ip::tcp::endpoint end(addr, host.port_number());
+        // Nvidia code starts here
         Resolver::results_type ip = Resolver::results_type::create(
             end, host.host_address(), host.port());
+        // Nvidia code ends here
         afterResolve(shared_from_this(), boost::system::error_code(), ip);
     }
 
@@ -313,10 +325,13 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         sendMessage();
     }
 
+    // Nvidia code starts here
     void sendMessage(const std::shared_ptr<ConnectionInfo>& /*self*/ = nullptr)
+    // Nvidia code ends here
     {
         state = ConnState::sendInProgress;
 
+        // Nvidia code starts here
         if (!serializer)
         {
             serializer.emplace(req);
@@ -329,8 +344,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
   private:
     void armSendTimer()
     {
+        // Nvidia code ends here
         timer.expires_after(std::chrono::seconds(60));
         timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
+        // Nvidia code starts here
     }
 
     void writeSome()
@@ -340,22 +357,28 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
         auto& ser = *serializer;
+        // Nvidia code ends here
         if (sslConn)
         {
+            // Nvidia code starts here
             boost::beast::http::async_write_some(
                 *sslConn, ser,
+                // Nvidia code ends here
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
         else
         {
+            // Nvidia code starts here
             boost::beast::http::async_write_some(
                 conn, ser,
+                // Nvidia code ends here
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
     }
 
+    // Nvidia code starts here
     void afterWriteHeaders(const std::shared_ptr<ConnectionInfo>& /*self*/,
                            const boost::beast::error_code& ec,
                            size_t /*bytesTransferred*/)
@@ -368,17 +391,23 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         afterHeadersCallback();
     }
 
+    // Nvidia code ends here
     void afterWrite(const std::shared_ptr<ConnectionInfo>& /*self*/,
                     const boost::beast::error_code& ec, size_t bytesTransferred)
     {
+        // Nvidia code starts here
         BMCWEB_LOG_DEBUG("afterWrite() called: {}", ec.message());
+        // Nvidia code ends here
         // The operation already timed out.  We don't want do continue down
         // this branch
+        // Nvidia code starts here
         if (ec == boost::asio::error::operation_aborted)
+        // Nvidia code ends here
         {
             return;
         }
 
+        // Nvidia code starts here
         // We would've blocked.  Requeue so that other handlers can run
         if (ec == boost::system::errc::operation_would_block ||
             ec == boost::system::errc::resource_unavailable_try_again)
@@ -387,10 +416,13 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                                                    this, shared_from_this()));
             return;
         }
+        // Nvidia code ends here
         if (ec)
         {
+            // Nvidia code starts here
             serializer.reset();
             timer.cancel();
+            // Nvidia code ends here
             BMCWEB_LOG_ERROR("sendMessage() failed: {} {}", ec.message(), host);
             state = ConnState::sendFailed;
             waitAndRetry();
@@ -399,6 +431,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         BMCWEB_LOG_DEBUG("sendMessage() bytes transferred: {}",
                          bytesTransferred);
 
+        // Nvidia code starts here
         // More body remains: re-arm the idle timeout and keep writing.
         if (serializer && !serializer->is_done())
         {
@@ -410,6 +443,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         serializer.reset();
         timer.cancel();
 
+        // Nvidia code ends here
         recvMessage();
     }
 

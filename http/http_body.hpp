@@ -4,7 +4,9 @@
 
 #include "duplicatable_file_handle.hpp"
 #include "logging.hpp"
+// Nvidia code starts here
 #include "multipart_parser.hpp"
+// Nvidia code ends here
 #include "utility.hpp"
 #include "zstd_compressor.hpp"
 #include "zstd_decompressor.hpp"
@@ -27,14 +29,18 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+// Nvidia code starts here
 #include <functional>
 #include <limits>
 #include <memory>
+// Nvidia code ends here
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+// Nvidia code starts here
 #include <variant>
+// Nvidia code ends here
 
 namespace bmcweb
 {
@@ -81,9 +87,12 @@ enum class CompressionType
     Zstd,
 };
 
+// Nvidia code starts here
 struct FileBody
+// Nvidia code ends here
 {
     std::optional<size_t> fileSize;
+    // Nvidia code starts here
     DuplicatableFileHandle fileHandle;
 };
 
@@ -122,10 +131,13 @@ class HttpBody::value_type
         }
         return {};
     }
+    // Nvidia code ends here
 
   public:
     value_type() = default;
+    // Nvidia code starts here
     explicit value_type(std::string_view s) : bodyData(std::string(s)) {}
+    // Nvidia code ends here
     explicit value_type(EncodingType e) : encodingType(e) {}
     EncodingType encodingType = EncodingType::Raw;
     CompressionType compressionType = CompressionType::Raw;
@@ -144,25 +156,30 @@ class HttpBody::value_type
 
     const boost::beast::file_posix& file() const
     {
+        // Nvidia code starts here
         if (const auto* fileBody = std::get_if<FileBody>(&bodyData))
         {
             return fileBody->fileHandle.fileHandle;
         }
         static boost::beast::file_posix emptyFile;
         return emptyFile;
+        // Nvidia code ends here
     }
 
     std::string& str()
     {
+        // Nvidia code starts here
         if (auto* s = std::get_if<std::string>(&bodyData))
         {
             return *s;
         }
         return bodyData.emplace<std::string>();
+        // Nvidia code ends here
     }
 
     const std::string& str() const
     {
+        // Nvidia code starts here
         if (const auto* s = std::get_if<std::string>(&bodyData))
         {
             return *s;
@@ -178,6 +195,7 @@ class HttpBody::value_type
             return {multiPartBody->parts};
         }
         return {};
+        // Nvidia code ends here
     }
 
     std::span<const FormPart> multipart() const
@@ -187,6 +205,7 @@ class HttpBody::value_type
 
     std::optional<size_t> payloadSize() const
     {
+        // Nvidia code starts here
         if (const auto* s = std::get_if<std::string>(&bodyData))
         {
             return s->size();
@@ -204,62 +223,82 @@ class HttpBody::value_type
             return fileBody->fileSize;
         }
         return std::nullopt;
+        // Nvidia code ends here
     }
 
     void clear()
     {
+        // Nvidia code starts here
         bodyData = std::string{};
+        // Nvidia code ends here
         encodingType = EncodingType::Raw;
     }
 
     void open(const char* path, boost::beast::file_mode mode,
               boost::system::error_code& ec)
     {
+        // Nvidia code starts here
         FileBody fileBody;
         fileBody.fileHandle.fileHandle.open(path, mode, ec);
+        // Nvidia code ends here
         if (ec)
         {
             return;
         }
         boost::system::error_code ec2;
+        // Nvidia code starts here
         uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
+        // Nvidia code ends here
         if (!ec2)
         {
             BMCWEB_LOG_INFO("File size was {} bytes", size);
+            // Nvidia code starts here
             fileBody.fileSize = static_cast<size_t>(size);
+            // Nvidia code ends here
         }
         else
         {
             BMCWEB_LOG_WARNING("Failed to read file size on {}", path);
         }
 
+        // Nvidia code starts here
         int fadvise =
             posix_fadvise(fileBody.fileHandle.fileHandle.native_handle(), 0, 0,
                           POSIX_FADV_SEQUENTIAL);
+        // Nvidia code ends here
         if (fadvise != 0)
         {
+            // Nvidia code starts here
             BMCWEB_LOG_WARNING("Fadvise returned {} ignoring", fadvise);
         }
         bodyData = std::move(fileBody);
+        // Nvidia code ends here
         ec = {};
     }
 
     void setFd(int fd, boost::system::error_code& ec)
     {
+        // Nvidia code starts here
         FileBody& fileBody = bodyData.emplace<FileBody>();
         fileBody.fileHandle.fileHandle.native_handle(fd);
+        // Nvidia code ends here
 
         boost::system::error_code ec2;
+        // Nvidia code starts here
         uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
+        // Nvidia code ends here
         if (!ec2)
         {
             if (size != 0 && size < std::numeric_limits<size_t>::max())
             {
+                // Nvidia code starts here
                 fileBody.fileSize = static_cast<size_t>(size);
+                // Nvidia code ends here
             }
         }
         ec = {};
     }
+    // Nvidia code starts here
 
     void setMultipartParserCallbacks(
         MultipartParserStreamingCallbacks&& callbacks)
@@ -306,6 +345,7 @@ class HttpBody::value_type
     std::optional<MultipartParserStreamingCallbacks> multipartParserCallbacks;
     std::shared_ptr<BackpressureState> backpressureState =
         std::make_shared<BackpressureState>();
+    // Nvidia code ends here
 };
 
 class HttpBody::writer
@@ -386,6 +426,8 @@ class HttpBody::writer
         else
         {
             size_t readReq = std::min(fileReadBuf.size(), maxSize);
+            // Nvidia modified: keep per-chunk file reads at DEBUG to avoid
+            // journal flooding during large satellite firmware relays.
             BMCWEB_LOG_DEBUG("Reading {}", readReq);
             boost::system::error_code readEc;
             size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
@@ -400,17 +442,21 @@ class HttpBody::writer
                     ec = readEc;
                     return boost::none;
                 }
+                // Nvidia code starts here
                 if (read == 0)
                 {
                     ec = readEc;
                     return boost::none;
                 }
+                // Nvidia code ends here
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
+            // Nvidia code starts here
             BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
 
             ret.second = read != 0;
+            // Nvidia code ends here
             if (body.encodingType == EncodingType::Base64)
             {
                 buf.clear();
@@ -454,8 +500,10 @@ class HttpBody::writer
             }
             ret.first = *compressed;
         }
+        // Nvidia code starts here
         BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
-                        ret.second);
+                         // Nvidia code ends here
+                         ret.second);
         return ret;
     }
 };
@@ -463,18 +511,23 @@ class HttpBody::writer
 class HttpBody::reader
 {
     value_type& value;
+    // Nvidia code starts here
     std::optional<MultipartParser> multipartParser;
     const boost::beast::http::fields& hdr;
+    // Nvidia code ends here
 
   public:
     template <bool IsRequest, class Fields>
+    // Nvidia code starts here
     reader(boost::beast::http::header<IsRequest, Fields>& headers,
            value_type& body) : value(body), hdr(headers)
+    // Nvidia code ends here
     {}
 
     void init(const boost::optional<std::uint64_t>& contentLength,
               boost::beast::error_code& ec)
     {
+        // Nvidia code starts here
         std::string_view contentType =
             hdr[boost::beast::http::field::content_type];
 
@@ -535,6 +588,7 @@ class HttpBody::reader
             return;
         }
 
+        // Nvidia code ends here
         if (contentLength)
         {
             constexpr size_t maxReserveSize =
@@ -562,10 +616,13 @@ class HttpBody::reader
                     boost::system::error_code& ec)
     {
         size_t extra = boost::beast::buffer_bytes(buffers);
+        // Nvidia code starts here
         // BMCWEB_LOG_DEBUG("http body put called with {} bytes", extra);
+        // Nvidia code ends here
         for (const auto b : boost::beast::buffers_range_ref(buffers))
         {
             const char* ptr = static_cast<const char*>(b.data());
+            // Nvidia code starts here
             if (multipartParser)
             {
                 std::string_view buf(ptr, b.size());
@@ -583,11 +640,13 @@ class HttpBody::reader
             {
                 value.str().append(ptr, b.size());
             }
+            // Nvidia code ends here
         }
         ec = {};
         return extra;
     }
 
+    // Nvidia code starts here
     void finish(boost::beast::error_code& ec)
     {
         if (multipartParser)
@@ -604,6 +663,7 @@ class HttpBody::reader
             value.bodyData =
                 MultiPartBody{std::move(multipartParser->mime_fields)};
         }
+        // Nvidia code ends here
         ec = {};
     }
 };

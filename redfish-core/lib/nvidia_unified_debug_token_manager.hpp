@@ -811,11 +811,13 @@ struct InstallTokenAggregator
  *
  * @return True if TokenFile exists, false otherwise (and responds with error).
  */
+// Nvidia code starts here
 inline std::optional<std::string> extractTokenFile(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::span<FormPart> multipart)
 {
     for (const FormPart& formpart : multipart)
+    // Nvidia code ends here
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -828,13 +830,17 @@ inline std::optional<std::string> extractTokenFile(
         std::string contentDisposition(it->value());
         if (contentDisposition.find("name=\"TokenFile\"") != std::string::npos)
         {
+            // Nvidia code starts here
             return formpart.content;
+            // Nvidia code ends here
         }
     }
 
     BMCWEB_LOG_ERROR("TokenFile form part is missing");
     messages::propertyMissing(asyncResp->res, "TokenFile");
+    // Nvidia code starts here
     return std::nullopt;
+    // Nvidia code ends here
 }
 
 /**
@@ -923,12 +929,14 @@ inline void handleInstallTokenSubtreeResponse(
  * @param[in] memFd Shared pointer to MemoryFD holding the token file.
  */
 inline void startAggregatedInstallToken(
+    // Nvidia code starts here
     const std::shared_ptr<task::TaskData>& task, std::string_view tokenFile)
 {
     std::vector<uint8_t> fileData(tokenFile.begin(), tokenFile.end());
     auto memFd = std::make_shared<MemoryFD>();
     memFd->write(fileData);
     memFd->rewind();
+    // Nvidia code ends here
     auto aggregator = std::make_shared<InstallTokenAggregator>(task);
     constexpr std::array<std::string_view, 1> interfaces = {
         debugTokenAggregationInterface};
@@ -947,7 +955,9 @@ inline void startAggregatedInstallToken(
  * @param[in] managerId The route manager identifier.
  */
 inline void debugTokenManagementInstallTokenHandler(
+    // Nvidia code starts here
     App& app, crow::Request& req,
+    // Nvidia code ends here
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
@@ -961,15 +971,19 @@ inline void debugTokenManagementInstallTokenHandler(
                                    managerId);
         return;
     }
+    // Nvidia code starts here
     std::optional<std::string> tokenFile =
         extractTokenFile(asyncResp, req.multipart());
     if (!tokenFile)
+    // Nvidia code ends here
     {
         return;
     }
 
     // Check if the token file is empty
+    // Nvidia code starts here
     if (tokenFile->empty())
+    // Nvidia code ends here
     {
         return;
     }
@@ -985,7 +999,9 @@ inline void debugTokenManagementInstallTokenHandler(
         return;
     }
 
+    // Nvidia code starts here
     startAggregatedInstallToken(task, std::move(*tokenFile));
+    // Nvidia code ends here
 }
 
 /**

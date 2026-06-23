@@ -15,14 +15,18 @@
 
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
+// Nvidia code starts here
 #include "http_body.hpp"
+// Nvidia code ends here
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_fabric_config_update.hpp"
 
 #include <boost/asio/error.hpp>
+// Nvidia code starts here
 #include <boost/beast/http/message.hpp>
+// Nvidia code ends here
 #include <boost/beast/http/status.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -267,7 +271,9 @@ TEST(ScanMimeParts, EmptyImportFileContent_ReturnsNullopt)
 // parseImportFilePart
 // ---------------------------------------------------------------------------
 
+// Nvidia code starts here
 TEST(ScanMimePartsForImportFile, WrongContentType_ReturnsNullopt)
+// Nvidia code ends here
 {
     std::error_code ec;
     std::string body = "body content";
@@ -275,13 +281,17 @@ TEST(ScanMimePartsForImportFile, WrongContentType_ReturnsNullopt)
     req.addHeader("Content-Type", "application/octet-stream");
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    // Nvidia code starts here
     auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
                                              "fabric1", "/test/uri");
+    // Nvidia code ends here
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 
+// Nvidia code starts here
 TEST(ScanMimePartsForImportFile, MissingContentType_ReturnsNullopt)
+// Nvidia code ends here
 {
     std::error_code ec;
     std::string body = "body content";
@@ -289,13 +299,17 @@ TEST(ScanMimePartsForImportFile, MissingContentType_ReturnsNullopt)
     // No Content-Type header → empty string → not multipart/form-data
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    // Nvidia code starts here
     auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
                                              "fabric1", "/test/uri");
+    // Nvidia code ends here
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 
+// Nvidia code starts here
 TEST(ScanMimePartsForImportFile, ValidMultipartRequest_ReturnsContent)
+// Nvidia code ends here
 {
     // boundary= "testboundary123"; body uses "--testboundary123" as delimiter
     std::string body =
@@ -306,6 +320,7 @@ TEST(ScanMimePartsForImportFile, ValidMultipartRequest_ReturnsContent)
         "binarydata\r\n"
         "--testboundary123--\r\n";
 
+    // Nvidia code starts here
     boost::system::error_code ec;
     boost::beast::http::header<false, boost::beast::http::fields> headers;
     headers.set("Content-Type",
@@ -321,6 +336,7 @@ TEST(ScanMimePartsForImportFile, ValidMultipartRequest_ReturnsContent)
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     auto result = scanMimePartsForImportFile(req.multipart(), asyncResp,
                                              "fabric1", "/test/uri");
+    // Nvidia code ends here
     EXPECT_EQ(result, std::make_optional<std::string>("binarydata"));
 }
 

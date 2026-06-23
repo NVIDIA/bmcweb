@@ -95,7 +95,9 @@ class BaseRule
     bool isMethodNotAllowed = false;
     bool isAuthFailed = false;
     bool isUpgrade = false;
+    // Nvidia code starts here
     bool isStreamInput = false;
+    // Nvidia code ends here
 
     std::vector<redfish::Privileges> privilegesSet;
 

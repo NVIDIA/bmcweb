@@ -38,6 +38,7 @@ struct FakeHandler
         EXPECT_FALSE(true);
     }
 
+    // Nvidia code starts here
     void handleHeaders(const std::shared_ptr<Request>& /*req*/,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
@@ -45,6 +46,7 @@ struct FakeHandler
         asyncResp->res.end();
     }
 
+    // Nvidia code ends here
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
     {
@@ -54,7 +56,9 @@ struct FakeHandler
                   "openbmc_project.xyz");
         EXPECT_FALSE(req->keepAlive());
         EXPECT_EQ(req->version(), 11);
+        // Nvidia code starts here
         EXPECT_EQ(req->body(), "Hello, World!");
+        // Nvidia code ends here
 
         called = true;
     }
@@ -73,7 +77,9 @@ struct FakeHandler
 
     bool called = false;
     bool authFailedCalled = false;
+    // Nvidia code starts here
     bool handleHeadersCalled = false;
+    // Nvidia code ends here
 };
 
 struct ClockFake
@@ -95,11 +101,13 @@ TEST(http_connection, RequestPropogates)
     stream.connect(out);
 
     out.write_some(boost::asio::buffer(
+        // Nvidia code starts here
         "GET / HTTP/1.1\r\n"
         "Host: openbmc_project.xyz\r\n"
         "Connection: close\r\n"
         "Content-Length: 13\r\n\r\n"
         "Hello, World!"));
+    // Nvidia code ends here
     FakeHandler handler;
     boost::asio::steady_timer timer(io);
     std::function<std::string()> date(
@@ -131,7 +139,9 @@ TEST(http_connection, RequestPropogates)
         outStr = out.str();
     }
     EXPECT_TRUE(handler.called);
+    // Nvidia code starts here
     EXPECT_TRUE(handler.handleHeadersCalled);
+    // Nvidia code ends here
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }

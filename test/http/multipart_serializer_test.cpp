@@ -12,6 +12,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+// Nvidia code starts here
+
 namespace
 {
 
@@ -260,3 +262,4 @@ TEST_F(MultipartSerializerTest, PutJsonObjectEmptyObject)
 }
 
 } // namespace
+// Nvidia code ends here
