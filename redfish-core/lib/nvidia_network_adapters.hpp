@@ -49,6 +49,9 @@ inline void getNetworkAdapterCollectionMembersLegacy(
             std::string dpuString = "host0";
             if (ec == boost::system::errc::io_error)
             {
+                BMCWEB_LOG_DEBUG(
+                    "getNetworkAdapterCollectionMembersLegacy: no objects found (io_error): {}",
+                    ec.message());
                 aResp->res.jsonValue["Members"] = nlohmann::json::array();
                 aResp->res.jsonValue["Members@odata.count"] = 0;
                 return;
@@ -114,6 +117,8 @@ inline void doNetworkAdaptersCollectionLegacy(
     asyncResp->res.jsonValue["Name"] = "Network Adapter Collection";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters", chassisId);
+    asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/network/", 0,
@@ -124,8 +129,9 @@ inline void doNetworkAdaptersCollectionLegacy(
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
             {
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                BMCWEB_LOG_DEBUG(
+                    "doNetworkAdaptersCollectionLegacy: no EthernetInterface objects found (io_error): {}",
+                    ec.message());
                 return;
             }
 

@@ -166,6 +166,8 @@ inline void doNetworkAdaptersCollection(
     asyncResp->res.jsonValue["Name"] = "Network Adapter Collection";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters", chassisId);
+    asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
@@ -184,9 +186,9 @@ inline void doNetworkAdaptersCollection(
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
                 if (ec == boost::system::errc::io_error)
                 {
-                    asyncResp->res.jsonValue["Members"] =
-                        nlohmann::json::array();
-                    asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                    BMCWEB_LOG_DEBUG(
+                        "No NetworkInterface objects found (io_error): {}",
+                        ec.message());
                     return;
                 }
 
@@ -229,13 +231,17 @@ inline void doNetworkAdaptersCollection(
                                const std::vector<std::string>& resp) {
             if (ec == boost::system::errc::io_error)
             {
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                BMCWEB_LOG_DEBUG(
+                    "No network_adapters association found (io_error) for chassis {}: {}",
+                    chassisId, ec.message());
                 return;
             }
 
             if (ec)
             {
+                BMCWEB_LOG_DEBUG(
+                    "No network_adapters association for chassis {}: {}",
+                    chassisId, ec.message());
                 return;
             }
             nlohmann::json& members = asyncResp->res.jsonValue["Members"];
