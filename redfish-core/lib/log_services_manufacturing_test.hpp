@@ -176,9 +176,15 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::string diagnosticDataType;
@@ -287,11 +293,17 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
         "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<str>/attachment")
         .privileges(redfish::privileges::getLogEntry)
         .methods(
-            boost::beast::http::verb::
-                get)([](const crow::Request&,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        [[maybe_unused]] const std::string& systemName,
-                        const std::string& idParam) {
+            boost::beast::http::verb::get)([](const crow::Request&,
+                                              const std::shared_ptr<
+                                                  bmcweb::AsyncResp>& asyncResp,
+                                              const std::string& systemName,
+                                              const std::string& idParam) {
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
+                return;
+            }
             uint32_t id = 0;
             std::string_view paramSV(idParam);
             auto it = std::from_chars(paramSV.begin(), paramSV.end(), id);

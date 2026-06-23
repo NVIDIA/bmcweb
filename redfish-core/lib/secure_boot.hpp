@@ -36,10 +36,15 @@ namespace secure_boot
 
 inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
                                 const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                [[maybe_unused]] const std::string& systemName)
+                                const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     aResp->res.jsonValue["@odata.id"] =
@@ -140,10 +145,15 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
 inline void handleSecureBootPatch(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     std::optional<std::string> secureBootCurrentBoot;

@@ -798,6 +798,11 @@ inline void handleSystemDriveSanitizetActionInfoGet(
     {
         return;
     }
+    if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem", systemId);
+        return;
+    }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + systemId + "/Drives/" + driveId +
         "/SanitizeActionInfo";

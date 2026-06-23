@@ -3674,11 +3674,26 @@ inline void handleComputerSystemResetActionPost(
 inline void handleComputerSystemHead(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*systemName*/)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
+    }
+
+    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        bool validSystem = (systemName == BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+        {
+            validSystem = validSystem || (systemName == "hypervisor");
+        }
+        if (!validSystem)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
     }
 
     asyncResp->res.addHeader(
@@ -3691,10 +3706,16 @@ inline void handleComputerSystemHead(
 inline void handleComputerSystemSettingsGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.type"] =
@@ -3719,10 +3740,16 @@ inline void handleComputerSystemSettingsGet(
 inline void handleComputerSystemSettingsPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
 
@@ -4646,11 +4673,26 @@ inline void handleComputerSystemPatch(
 inline void handleSystemCollectionResetActionHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*systemName*/)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
+    }
+
+    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        bool validSystem = (systemName == BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+        {
+            validSystem = validSystem || (systemName == "hypervisor");
+        }
+        if (!validSystem)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
     }
     asyncResp->res.addHeader(
         boost::beast::http::field::link,

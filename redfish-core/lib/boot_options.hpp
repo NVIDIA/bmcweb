@@ -203,10 +203,15 @@ inline void handleCollectionPendingBootOptionMembers(
 inline void handleBootOptionCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
 
@@ -229,10 +234,15 @@ inline void handleBootOptionCollectionGet(
 inline void handleBootOptionCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     std::string newBootOptionReference;
@@ -322,11 +332,16 @@ inline void handleBootOptionCollectionPost(
 
 inline void handleBootOptionGet(crow::App& app, const crow::Request& req,
                                 const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                [[maybe_unused]] const std::string& systemName,
+                                const std::string& systemName,
                                 const std::string& bootOptionName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     getBootOption(
@@ -429,11 +444,15 @@ inline void getBootPendingEnable(
 inline void handleBootOptionPatch(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& bootOptionName)
+    const std::string& systemName, const std::string& bootOptionName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     bool newBootOptionEnabled = true;
@@ -465,11 +484,15 @@ inline void handleBootOptionPatch(
 inline void handleBootOptionDelete(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& bootOptionName)
+    const std::string& systemName, const std::string& bootOptionName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
 
@@ -505,11 +528,16 @@ inline void handleBootOptionDelete(
 inline void handleComputerSystemSettingsBootOptionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& bootOptionName)
+    const std::string& systemName, const std::string& bootOptionName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.type"] = "#BootOption.v1_0_4.BootOption";
@@ -525,10 +553,16 @@ inline void handleComputerSystemSettingsBootOptionGet(
 inline void handleComputerSystemSettingsBootOptionsCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     BMCWEB_LOG_DEBUG("Start getting system settings boot options");
@@ -552,11 +586,16 @@ inline void handleComputerSystemSettingsBootOptionsCollectionGet(
 inline void handleComputerSystemSettingsBootOptionPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& bootOptionName)
+    const std::string& systemName, const std::string& bootOptionName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
 

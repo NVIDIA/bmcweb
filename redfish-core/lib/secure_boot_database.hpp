@@ -133,10 +133,15 @@ inline void createPendingRequest(
 inline void handleSecureBootDatabaseCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     aResp->res.jsonValue["@odata.id"] =
@@ -203,11 +208,15 @@ inline void handleSecureBootDatabaseCollectionGet(
 inline void handleSecureBootDatabaseGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     aResp->res.jsonValue["@odata.id"] =
@@ -272,11 +281,15 @@ inline void handleSecureBootDatabaseGet(
 inline void handleSecureBootDatabaseResetKeys(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
 
@@ -333,11 +346,15 @@ inline void handleSecureBootDatabaseResetKeys(
 inline void handleCertificateCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     aResp->res.jsonValue["@odata.id"] =
@@ -361,11 +378,15 @@ inline void handleCertificateCollectionGet(
 inline void handleCertificateCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
 
@@ -470,11 +491,16 @@ inline void handleCertificateCollectionPost(
 inline void handleCertificateGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId, const std::string& certId)
+    const std::string& systemName, const std::string& databaseId,
+    const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     aResp->res.jsonValue["@odata.id"] =
@@ -565,11 +591,16 @@ inline void handleCertificateGet(
 inline void handleCertificateDelete(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId, const std::string& certId)
+    const std::string& systemName, const std::string& databaseId,
+    const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
 
@@ -618,11 +649,15 @@ inline void handleCertificateDelete(
 inline void handleSignatureCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     if (!hasSignature(databaseId))
@@ -652,11 +687,15 @@ inline void handleSignatureCollectionGet(
 inline void handleSignatureCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId)
+    const std::string& systemName, const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     if (!hasSignature(databaseId))
@@ -771,12 +810,17 @@ inline void handleSignatureCollectionPost(
 
 inline void handleSignatureGet(crow::App& app, const crow::Request& req,
                                const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                               [[maybe_unused]] const std::string& systemName,
+                               const std::string& systemName,
                                const std::string& databaseId,
                                const std::string& sigId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     if (!hasSignature(databaseId))
@@ -843,11 +887,16 @@ inline void handleSignatureGet(crow::App& app, const crow::Request& req,
 inline void handleSignatureDelete(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName,
-    const std::string& databaseId, const std::string& sigId)
+    const std::string& systemName, const std::string& databaseId,
+    const std::string& sigId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     if (!hasSignature(databaseId))

@@ -77,10 +77,16 @@ inline void requestRoutesProcessorPortCollection(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
@@ -678,11 +684,17 @@ inline void requestRoutesProcessorPort(App& app)
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            [[maybe_unused]] const std::string& systemName,
+                            const std::string& systemName,
                             const std::string& processorId,
                             const std::string& port) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
@@ -1532,10 +1544,16 @@ inline void requestRoutesProcessorPortMetrics(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId, const std::string& portId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
@@ -1564,10 +1582,16 @@ inline void requestRoutesClearPCIeCountersActionInfo(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemId,
-                   const std::string& processorId, const std::string& portId) {
+                   const std::string& systemId, const std::string& processorId,
+                   const std::string& portId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemId);
                     return;
                 }
 
@@ -1589,10 +1613,16 @@ inline void requestRoutesPCIeClearCounter(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemId,
-                   const std::string& processorId, const std::string& portId) {
+                   const std::string& systemId, const std::string& processorId,
+                   const std::string& portId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemId);
                     return;
                 }
                 std::optional<std::string> counterType;
@@ -1626,10 +1656,16 @@ inline void requestRoutesProcessorPortSettings(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemId,
-                   const std::string& processorId, const std::string& portId) {
+                   const std::string& systemId, const std::string& processorId,
+                   const std::string& portId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemId);
                     return;
                 }
 
@@ -1675,10 +1711,16 @@ inline void requestRoutesProcessorPortSettings(App& app)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemId,
-                   const std::string& processorId, const std::string& portId) {
+                   const std::string& systemId, const std::string& processorId,
+                   const std::string& portId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemId);
                     return;
                 }
 

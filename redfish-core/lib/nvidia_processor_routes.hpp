@@ -41,10 +41,16 @@ inline void requestRoutesProcessorMetrics(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorIdOuter) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncRespOuter->res,
+                                               "ComputerSystem", systemName);
                     return;
                 }
                 redfish::nvidia_processor::getProcessorMetricsData(
@@ -64,10 +70,16 @@ inline void requestRoutesProcessorMemoryMetrics(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorIdOuter) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncRespOuter->res,
+                                               "ComputerSystem", systemName);
                     return;
                 }
                 redfish::nvidia_processor::getProcessorMemoryMetricsData(
@@ -86,10 +98,16 @@ inline void requestRoutesProcessorSettings(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 redfish::nvidia_processor::getProcessorSettingsData(
@@ -104,10 +122,16 @@ inline void requestRoutesProcessorSettings(App& app)
                 patch)([&app](
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           [[maybe_unused]] const std::string& systemName,
+                           const std::string& systemName,
                            const std::string& processorId) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::optional<nlohmann::json> memSummary;
@@ -235,10 +259,16 @@ inline void requestRoutesProcessorReset(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<std::string> resetType;

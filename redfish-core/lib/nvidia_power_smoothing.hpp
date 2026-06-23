@@ -2032,10 +2032,16 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getProcessorPowerSmoothingData(asyncResp, processorId);
@@ -2050,10 +2056,16 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
                 patch)([&app](
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           [[maybe_unused]] const std::string& systemName,
+                           const std::string& systemName,
                            const std::string& processorId) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::optional<bool> pwrSmoothingFeature;
@@ -2106,10 +2118,16 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
 
@@ -2123,10 +2141,16 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<uint16_t> profileId;
@@ -2151,10 +2175,16 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            [[maybe_unused]] const std::string& systemName,
+                            const std::string& systemName,
                             const std::string& processorId) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::string actionInfoURI =
@@ -2187,10 +2217,16 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getProcessorPowerSmoothingAdminOverrideData(asyncResp,
@@ -2204,10 +2240,16 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<double> tmpFloorPercent;
@@ -2298,10 +2340,16 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfileCollection(
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getProcessorPowerSmoothingPresetProfileCollectionData(
@@ -2321,11 +2369,17 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfile(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId,
                    const std::string& profileId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getProcessorPowerSmoothingPresetProfileData(
@@ -2339,11 +2393,17 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfile(App& app)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& systemName,
                    const std::string& processorId,
                    const std::string& profileId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<double> tmpFloorPercent;

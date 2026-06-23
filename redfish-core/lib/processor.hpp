@@ -1327,7 +1327,7 @@ inline void handleProcessorPatch(
 inline void handleOperatingConfigGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName, const std::string& cpuName,
+    const std::string& systemName, const std::string& cpuName,
     const std::string& configName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))

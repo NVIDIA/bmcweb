@@ -677,8 +677,7 @@ inline void requestRoutesDBusSELLogEntry(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& param)
+                   const std::string& systemName, const std::string& param)
 
             {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -687,6 +686,12 @@ inline void requestRoutesDBusSELLogEntry(App& app)
                 }
                 if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::string entryID = param;
@@ -735,10 +740,15 @@ inline void requestRoutesDBusSELLogEntry(App& app)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& param) {
+                   const std::string& systemName, const std::string& param) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::string entryID = param;
