@@ -5,15 +5,19 @@
 #include "logging.hpp"
 
 #include <array>
+#include <charconv>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <format>
 #include <iomanip>
+#include <optional>
 #include <regex>
 #include <span>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <vector>
 
 constexpr std::array<char, 16> digitsArray = {
@@ -83,4 +87,35 @@ inline std::vector<uint8_t> hexStringToBytes(const std::string& str)
         rc[i / 2] = static_cast<uint8_t>(hi << 4) | lo;
     }
     return rc;
+}
+
+// Parse a signed integer from sv without throwing.  Returns std::nullopt if
+// the input is empty, contains trailing non-numeric characters, or overflows
+// int64_t.  base must be in [2, 36].  Use this instead of std::stoi/stol on
+// any value sourced from HTTP input or D-Bus properties.
+inline std::optional<int64_t> stringToInt64(std::string_view sv, int base = 10)
+{
+    int64_t value{};
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, base);
+    if (ec != std::errc{} || ptr != sv.end())
+    {
+        return std::nullopt;
+    }
+    return value;
+}
+
+// Parse an unsigned integer from sv without throwing.  Returns std::nullopt if
+// the input is empty, contains trailing non-numeric characters, or overflows
+// uint64_t.  base must be in [2, 36].  Use this instead of std::stoul/stoull
+// on any value sourced from HTTP input or D-Bus properties.
+inline std::optional<uint64_t> stringToUint64(std::string_view sv,
+                                              int base = 10)
+{
+    uint64_t value{};
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, base);
+    if (ec != std::errc{} || ptr != sv.end())
+    {
+        return std::nullopt;
+    }
+    return value;
 }

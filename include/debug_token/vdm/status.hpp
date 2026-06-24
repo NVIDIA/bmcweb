@@ -50,7 +50,7 @@ constexpr const int vdmTokenStatusQueryTimeout = 3;
 constexpr const size_t vdmTokenStatusQueryOutputSize = 256;
 
 using Output = std::variant<std::monostate, VdmTokenStatus>;
-using Eid = int;
+using Eid = int64_t;
 using Result = std::tuple<Eid, EndpointState, Output>;
 using ResultCallback = std::function<void(const std::vector<Result>&)>;
 
@@ -224,7 +224,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             }
             return;
         }
-        std::map<int, VdmTokenStatus> outputMap =
+        std::map<int64_t, VdmTokenStatus> outputMap =
             parseVdmUtilWrapperOutput(buf);
         for (const auto& eid : eids)
         {

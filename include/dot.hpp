@@ -219,7 +219,7 @@ class DotCommandHandler
         }
     }
 
-    void runCommand(const int eid, const DotMctpVdmUtilCommand command,
+    void runCommand(const int64_t eid, const DotMctpVdmUtilCommand command,
                     const std::vector<uint8_t>& data)
     {
         const std::string desc = "mctp-vdm-util execution";
@@ -288,9 +288,9 @@ inline std::string getCommandDescription(DotMctpVdmUtilCommand command)
     }
 }
 
-inline std::string getMctpStatusCodeDescription(int code)
+inline std::string getMctpStatusCodeDescription(int64_t code)
 {
-    static const std::map<const int, const std::string> status{
+    static const std::map<const int64_t, const std::string> status{
         {0x01, "General error"},       {0x02, "Invalid data"},
         {0x03, "Invalid length"},      {0x04, "Not ready"},
         {0x05, "Unsupported command"}, {0x06, "Update not done"},
@@ -308,9 +308,9 @@ inline std::string getMctpStatusCodeDescription(int code)
     }
 }
 
-inline std::string getCompletionCodeDescription(int code)
+inline std::string getCompletionCodeDescription(int64_t code)
 {
-    static const std::map<const int, const std::string> cc{
+    static const std::map<const int64_t, const std::string> cc{
         {1, "DOT disabled"},
         {2, "DOT already enabled"},
         {3, "DOT CAK already installed"},
@@ -429,8 +429,8 @@ static inline void executeDotCommand(
         }
         std::string mctpStatusCodeHexStr;
         std::string dotCompletionCodeHexStr;
-        int mctpStatusCode = -1;
-        int dotCompletionCode = -1;
+        int64_t mctpStatusCode = -1;
+        int64_t dotCompletionCode = -1;
         if (tokens.size() == mctpVdmUtilResponseSize + mctpVdmUtilDotDataSize)
         {
             mctpStatusCodeHexStr = tokens[tokens.size() - 2];

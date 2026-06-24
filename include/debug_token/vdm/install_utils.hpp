@@ -34,7 +34,7 @@ enum VdmDebugTokenInstallErrorCode
     InternalError = 7
 };
 
-inline std::string getVdmDebugTokenInstallErrorDescription(int code)
+inline std::string getVdmDebugTokenInstallErrorDescription(int64_t code)
 {
     static std::map<VdmDebugTokenInstallErrorCode, std::string>
         debugTokenInstallErrorMap{

@@ -22,6 +22,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_log_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -197,20 +198,45 @@ inline void populateRedfishSELEntry(
                 {
                     if (additional.contains("EVENT_DIR"))
                     {
-                        hexCodeEventDir
-                            << "0x" << std::setfill('0') << std::setw(2)
-                            << std::hex << std::stoi(additional["EVENT_DIR"]);
+                        const std::string& eventDirStr =
+                            additional["EVENT_DIR"];
+                        std::optional<int64_t> eventDirInt =
+                            stringToInt64(eventDirStr);
+                        if (eventDirInt)
+                        {
+                            hexCodeEventDir
+                                << "0x" << std::setfill('0') << std::setw(2)
+                                << std::hex << *eventDirInt;
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_WARNING(
+                                "SEL EVENT_DIR is not a valid integer: '{}'",
+                                eventDirStr);
+                        }
                     }
                     if (additional.contains("GENERATOR_ID"))
                     {
                         std::ostringstream hexCodeGeneratorId;
-                        if (!additional["GENERATOR_ID"].empty())
+                        const std::string& generatorIdStr =
+                            additional["GENERATOR_ID"];
+                        if (!generatorIdStr.empty())
                         {
-                            hexCodeGeneratorId
-                                << "0x" << std::setfill('0') << std::setw(4)
-                                << std::hex
-                                << std::stoi(additional["GENERATOR_ID"]);
-                            generatorId = hexCodeGeneratorId.str();
+                            std::optional<int64_t> generatorIdInt =
+                                stringToInt64(generatorIdStr);
+                            if (generatorIdInt)
+                            {
+                                hexCodeGeneratorId
+                                    << "0x" << std::setfill('0') << std::setw(4)
+                                    << std::hex << *generatorIdInt;
+                                generatorId = hexCodeGeneratorId.str();
+                            }
+                            else
+                            {
+                                BMCWEB_LOG_WARNING(
+                                    "SEL GENERATOR_ID is not a valid integer: '{}'",
+                                    generatorIdStr);
+                            }
                         }
                     }
                     if (additional.contains("RECORD_TYPE"))
@@ -581,6 +607,14 @@ inline void handleSelEntryDeletion(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            std::optional<uint64_t> parsedSelRecordId =
+                stringToUint64(selRecordId);
+            if (!parsedSelRecordId)
+            {
+                messages::resourceNotFound(asyncResp->res, "SELLogEntry",
+                                           selRecordId);
+                return;
+            }
             for (const auto& objectPath : resp)
             {
                 for (const auto& interfaceMap : objectPath.second)
@@ -592,7 +626,7 @@ inline void handleSelEntryDeletion(
                         {
                             entryId = getEntryIdFromSelId(
                                 interfaceMap.second,
-                                static_cast<uint32_t>(std::stoul(selRecordId)));
+                                static_cast<uint32_t>(*parsedSelRecordId));
                             if (!entryId.empty())
                             {
                                 deleteDbusSELEntry(entryId, asyncResp);
@@ -610,6 +644,11 @@ inline void handleSelEntryDeletion(
                 {
                     break;
                 }
+            }
+            if (entryId.empty())
+            {
+                messages::resourceNotFound(asyncResp->res, "SELLogEntry",
+                                           selRecordId);
             }
         });
 }
@@ -631,6 +670,14 @@ inline void handleSelEntryRetrieval(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            std::optional<uint64_t> parsedSelRecordId =
+                stringToUint64(selRecordId);
+            if (!parsedSelRecordId)
+            {
+                messages::resourceNotFound(asyncResp->res, "SELLogEntry",
+                                           selRecordId);
+                return;
+            }
             nlohmann::json& thisEntry = asyncResp->res.jsonValue;
             for (const auto& objectPath : resp)
             {
@@ -644,7 +691,7 @@ inline void handleSelEntryRetrieval(
                         {
                             entryId = getEntryIdFromSelId(
                                 interfaceMap.second,
-                                static_cast<uint32_t>(std::stoul(selRecordId)));
+                                static_cast<uint32_t>(*parsedSelRecordId));
                             if (entryId.empty())
                             {
                                 continue;
@@ -665,6 +712,11 @@ inline void handleSelEntryRetrieval(
                 {
                     break;
                 }
+            }
+            if (entryId.empty())
+            {
+                messages::resourceNotFound(asyncResp->res, "SELLogEntry",
+                                           selRecordId);
             }
         });
 }

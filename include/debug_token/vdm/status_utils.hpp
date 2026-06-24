@@ -22,6 +22,7 @@
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <logging.hpp>
 #include <nlohmann/json.hpp>
+#include <utils/hex_utils.hpp>
 
 #include <array>
 #include <cstring>
@@ -694,7 +695,7 @@ struct VdmTokenStatus
      * @param vdmResponse VDM status query response
      * @param version VDM status query version
      */
-    VdmTokenStatus(std::string& vdmResponse, int version)
+    VdmTokenStatus(std::string& vdmResponse, int64_t version)
     {
         if (vdmResponse.empty())
         {
@@ -859,10 +860,10 @@ struct VdmTokenStatus
  * @param output VDM utility wrapper output
  * @return Map of EID to VDM token status
  */
-inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
+inline std::map<int64_t, VdmTokenStatus> parseVdmUtilWrapperOutput(
     boost::asio::streambuf& output)
 {
-    std::map<int, VdmTokenStatus> outputMap;
+    std::map<int64_t, VdmTokenStatus> outputMap;
     std::string line;
     std::istream is(&output);
     while (std::getline(is, line))
@@ -880,23 +881,22 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
         {
             lineElements.push_back(elem);
         }
-        if (lineElements.size() < vdmUtilWrapperOutputRxIndex)
+        if (lineElements.size() <= vdmUtilWrapperOutputRxIndex)
         {
             BMCWEB_LOG_ERROR("Invalid data: ", line);
             continue;
         }
-        int eid = 0;
-        int version = 0;
-        try
-        {
-            eid = std::stoi(lineElements[vdmUtilWrapperOutputEidIndex]);
-            version = std::stoi(lineElements[vdmUtilWrapperOutputVersionIndex]);
-        }
-        catch (const std::exception&)
+        std::optional<int64_t> eidOpt =
+            stringToInt64(lineElements[vdmUtilWrapperOutputEidIndex]);
+        std::optional<int64_t> versionOpt =
+            stringToInt64(lineElements[vdmUtilWrapperOutputVersionIndex]);
+        if (!eidOpt || !versionOpt)
         {
             BMCWEB_LOG_ERROR("Invalid data: ", line);
             continue;
         }
+        int64_t eid = *eidOpt;
+        int64_t version = *versionOpt;
         auto& txLine = lineElements[vdmUtilWrapperOutputTxIndex];
         auto& rxLine = lineElements[vdmUtilWrapperOutputRxIndex];
         BMCWEB_LOG_DEBUG("EID: {} TX: {}", eid, txLine);

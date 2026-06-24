@@ -23,6 +23,7 @@
 #include "nvidia_fabric_config_update.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/pcie_util.hpp"
 
@@ -3989,18 +3990,14 @@ inline void processLanePaths(
     {
         sdbusplus::object_path laneObjPath(lanePath);
         std::string laneIdStr = laneObjPath.filename();
-        size_t laneIndex = 0;
-        try
+        std::optional<uint64_t> parsedLane = stringToUint64(laneIdStr);
+        if (!parsedLane)
         {
-            laneIndex = std::stoul(laneIdStr);
-        }
-        catch (const std::exception& e)
-        {
-            BMCWEB_LOG_ERROR("Failed to parse lane index from {}: {}", lanePath,
-                             e.what());
+            BMCWEB_LOG_ERROR("Failed to parse lane index from {}", lanePath);
             (*remainingCount)--;
             continue;
         }
+        size_t laneIndex = static_cast<size_t>(*parsedLane);
 
         dbus::utility::getProperty<uint64_t>(
             service, lanePath, "xyz.openbmc_project.PCIe.PCIeLaneError",

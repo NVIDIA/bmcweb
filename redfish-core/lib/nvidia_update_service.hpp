@@ -38,6 +38,7 @@
 #include "utility.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <sys/mman.h>
@@ -1280,20 +1281,16 @@ inline void computeDigest(const crow::Request& req,
                 return;
             }
             const std::string hashComputeService = objInfo[0].first;
-            unsigned retimerId = 0;
-            try
+            std::optional<uint64_t> parsedRetimerId =
+                stringToUint64(swId.substr(swId.rfind('_') + 1));
+            if (!parsedRetimerId)
             {
-                // TODO this needs moved to from_chars
-                retimerId = static_cast<unsigned>(
-                    std::stoul(swId.substr(swId.rfind('_') + 1)));
-            }
-            catch (const std::exception& e)
-            {
-                BMCWEB_LOG_ERROR("Error while parsing retimer Id: {}",
-                                 e.what());
+                BMCWEB_LOG_ERROR("Error while parsing retimer Id from: {}",
+                                 swId);
                 messages::internalError(asyncResp->res);
                 return;
             }
+            uint32_t retimerId = static_cast<uint32_t>(*parsedRetimerId);
             // create a task to wait for the hash digest property changed signal
             std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                 [hashComputeObjPath, hashComputeService](

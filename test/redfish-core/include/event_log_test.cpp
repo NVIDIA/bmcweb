@@ -1,4 +1,5 @@
 #include "event_log.hpp"
+#include "utils/hex_utils.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -6,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -66,14 +68,17 @@ TEST(RedfishEventLog, GetUniqueEntryIDIndex)
 
     ASSERT_NE(index, std::string::npos);
 
-    // ast-grep-ignore: bmcweb.common-errors.unsafe-int-parse
-    const long n1 = std::stol(entryID2.substr(index + 1));
+    std::optional<int64_t> n1Opt = stringToInt64(entryID2.substr(index + 1));
+    ASSERT_TRUE(n1Opt.has_value());
+    const int64_t n1 = n1Opt.value_or(0);
 
     // unique index for repeated timestamp is >= 0
     ASSERT_GE(n1, 0);
 
-    // ast-grep-ignore: bmcweb.common-errors.unsafe-int-parse
-    const long n2 = std::stol(entryID3.substr(entryID3.find('_') + 1));
+    std::optional<int64_t> n2Opt =
+        stringToInt64(entryID3.substr(entryID3.find('_') + 1));
+    ASSERT_TRUE(n2Opt.has_value());
+    const int64_t n2 = n2Opt.value_or(0);
 
     // unique index is monotonic increasing
     ASSERT_TRUE(n2 > n1);

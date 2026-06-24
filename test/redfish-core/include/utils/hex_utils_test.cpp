@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -55,6 +56,42 @@ TEST(HexStringToBytes, Failure)
     EXPECT_THAT(hexStringToBytes("Hello"), IsEmpty());
     EXPECT_THAT(hexStringToBytes("`"), IsEmpty());
     EXPECT_THAT(hexStringToBytes("012"), IsEmpty());
+}
+
+TEST(StringToInt64, ParsesValidValues)
+{
+    EXPECT_EQ(stringToInt64("0"), 0);
+    EXPECT_EQ(stringToInt64("12345"), 12345);
+    EXPECT_EQ(stringToInt64("-42"), -42);
+    EXPECT_EQ(stringToInt64("ff", 16), 255);
+    EXPECT_EQ(stringToInt64("7fffffffffffffff", 16),
+              std::numeric_limits<int64_t>::max());
+}
+
+TEST(StringToInt64, RejectsInvalidValues)
+{
+    EXPECT_EQ(stringToInt64(""), std::nullopt);
+    EXPECT_EQ(stringToInt64("12abc"), std::nullopt);
+    EXPECT_EQ(stringToInt64("abc"), std::nullopt);
+    EXPECT_EQ(stringToInt64(" 12"), std::nullopt);
+    EXPECT_EQ(stringToInt64("99999999999999999999"), std::nullopt);
+}
+
+TEST(StringToUint64, ParsesValidValues)
+{
+    EXPECT_EQ(stringToUint64("0"), 0U);
+    EXPECT_EQ(stringToUint64("12345"), 12345U);
+    EXPECT_EQ(stringToUint64("ff", 16), 255U);
+    EXPECT_EQ(stringToUint64("FFFFFFFFFFFFFFFF", 16),
+              std::numeric_limits<uint64_t>::max());
+}
+
+TEST(StringToUint64, RejectsInvalidValues)
+{
+    EXPECT_EQ(stringToUint64(""), std::nullopt);
+    EXPECT_EQ(stringToUint64("-1"), std::nullopt);
+    EXPECT_EQ(stringToUint64("12xyz"), std::nullopt);
+    EXPECT_EQ(stringToUint64("999999999999999999999999"), std::nullopt);
 }
 
 } // namespace

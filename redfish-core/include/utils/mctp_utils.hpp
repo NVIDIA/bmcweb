@@ -19,6 +19,7 @@
 #include <nvidia_dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <utils/dbus_utils.hpp>
+#include <utils/hex_utils.hpp>
 
 #include <functional>
 #include <memory>
@@ -79,33 +80,23 @@ class MctpEndpoint
                         callback(false, "invalid MCTP object path: " + mctpObj);
                         return;
                     }
-                    try
+                    std::optional<int64_t> parsedEid = stringToInt64(v.back());
+                    if (!parsedEid || *parsedEid < 0 || *parsedEid > 0xFF)
                     {
-                        mctpEid = std::stoi(v.back());
-                        getDbusMctpProperties(callback);
-                    }
-                    catch (const std::invalid_argument& e)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Invalid MCTP object path: {} and error: {}",
-                            mctpObj, e.what());
+                        BMCWEB_LOG_ERROR("Invalid MCTP object path: {}",
+                                         mctpObj);
                         callback(false, "Invalid MCTP object path: " + mctpObj);
                         return;
                     }
-                    catch (const std::exception& e)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Unexpected error parsing MCTP object path: {} and error: {}",
-                            mctpObj, e.what());
-                        callback(false, "Invalid MCTP object path: " + mctpObj);
-                    }
+                    mctpEid = *parsedEid;
+                    getDbusMctpProperties(callback);
                     return;
                 }
                 callback(false, "invalid MCTP object path: " + mctpObj);
             });
     }
 
-    int getMctpEid() const
+    int64_t getMctpEid() const
     {
         return mctpEid;
     }
@@ -217,7 +208,7 @@ class MctpEndpoint
 
     std::string mctpObj;
     std::string spdmObj;
-    int mctpEid{-1};
+    int64_t mctpEid{-1};
     std::optional<std::string> connectivity;
     std::optional<std::vector<uint8_t>> mctpMessageTypes;
 };

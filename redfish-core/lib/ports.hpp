@@ -19,6 +19,7 @@
 #include "ethernet.hpp"
 #include "lldptool_util.hpp"
 #include "nvidia_error_messages.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 
 #include <app.hpp>
@@ -368,14 +369,13 @@ inline void setLldpTlvProperty(
         // Handle ManagementVlanId as integer
         BMCWEB_LOG_DEBUG("Processing ManagementVlanId: '{}'", propertyValue);
 
-        try
+        std::optional<int64_t> parsedVlanId = stringToInt64(propertyValue);
+        if (parsedVlanId)
         {
-            int vlanId = std::stoi(propertyValue);
-            jsonSchema["Ethernet"][lldpType][property] = vlanId;
+            jsonSchema["Ethernet"][lldpType][property] = *parsedVlanId;
         }
-        catch (const std::exception&)
+        else
         {
-            // If conversion fails, set to 0 (default)
             BMCWEB_LOG_WARNING(
                 "Could not parse ManagementVlanId: '{}', setting to 0",
                 propertyValue);
@@ -837,6 +837,14 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                 {
                     return;
                 }
+                std::optional<int64_t> parsedEntryIdx = stringToInt64(entryIdx);
+                if (!parsedEntryIdx || *parsedEntryIdx <= 0)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Port",
+                                               entryIdx);
+                    return;
+                }
+                int64_t entryIdxInt = *parsedEntryIdx;
                 asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_9_0.Port";
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Managers/" +
@@ -846,15 +854,14 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                     "Manager Dedicated Network Port";
                 asyncResp->res.jsonValue["Id"] = entryIdx;
                 getPhysicalEthernetIfaceList(
-                    [asyncResp,
-                     entryIdx](const bool& success,
-                               const std::vector<std::string>& ifaceList) {
+                    [asyncResp, entryIdx,
+                     entryIdxInt](const bool& success,
+                                  const std::vector<std::string>& ifaceList) {
                         if (!success)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        int entryIdxInt = std::stoi(entryIdx);
                         int count = 1;
                         nlohmann::json& ifaceArray =
                             asyncResp->res
@@ -878,7 +885,10 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                             }
                             ++count;
                         }
-                        BMCWEB_LOG_ERROR("No internet interface was found ");
+                        BMCWEB_LOG_ERROR(
+                            "No matching dedicated network port found");
+                        messages::resourceNotFound(asyncResp->res, "Port",
+                                                   entryIdx);
                     });
             });
 
@@ -894,6 +904,15 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                     return;
                 }
 
+                std::optional<int64_t> parsedIfaceInx = stringToInt64(ifaceInx);
+                if (!parsedIfaceInx || *parsedIfaceInx <= 0)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Port",
+                                               ifaceInx);
+                    return;
+                }
+                int64_t entryIdxInt = *parsedIfaceInx;
+
                 std::optional<bool> lldpEnabled;
                 if (!json_util::readJsonPatch(req, asyncResp->res,
                                               "LLDPEnabled", lldpEnabled))
@@ -908,15 +927,14 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                         commandType = LldpTlv::ENABLE_ADMIN_STATUS;
                     }
                     getPhysicalEthernetIfaceList(
-                        [asyncResp, ifaceInx, commandType](
-                            const bool& success,
-                            const std::vector<std::string>& ifaceList) {
+                        [asyncResp, entryIdxInt, commandType,
+                         ifaceInx](const bool& success,
+                                   const std::vector<std::string>& ifaceList) {
                             if (!success)
                             {
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            int entryIdxInt = std::stoi(ifaceInx);
                             int count = 1;
                             for (const std::string& ifaceItem : ifaceList)
                             {
@@ -929,7 +947,9 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                                 ++count;
                             }
                             BMCWEB_LOG_ERROR(
-                                "No internet interface was found ");
+                                "No matching dedicated network port found");
+                            messages::resourceNotFound(asyncResp->res, "Port",
+                                                       ifaceInx);
                         });
                 }
             });

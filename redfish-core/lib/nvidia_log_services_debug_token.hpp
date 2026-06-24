@@ -22,6 +22,7 @@
 #include "debug_token/task_utils.hpp"
 #include "nvidia_messages.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/hex_utils.hpp"
 
 namespace redfish
 {
@@ -174,7 +175,13 @@ inline void requestRoutesDebugTokenServiceEntry(App& app)
                 return;
             }
 
-            uint32_t id = static_cast<uint32_t>(stoi(idstr));
+            std::optional<uint64_t> parsedId = stringToUint64(idstr);
+            if (!parsedId)
+            {
+                messages::resourceNotFound(asyncResp->res, "LogEntry", idstr);
+                return;
+            }
+            uint32_t id = static_cast<uint32_t>(*parsedId);
             auto dataCount = debugTokenData.size();
             if (dataCount == 0 || id > dataCount - 1)
             {
@@ -327,7 +334,13 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(App& app)
                 return;
             }
 
-            uint32_t id = static_cast<uint32_t>(stoi(idstr));
+            std::optional<uint64_t> parsedId = stringToUint64(idstr);
+            if (!parsedId)
+            {
+                messages::resourceNotFound(asyncResp->res, "LogEntry", idstr);
+                return;
+            }
+            uint32_t id = static_cast<uint32_t>(*parsedId);
 
             auto dataCount = debugTokenData.size();
             if (dataCount == 0 || id > dataCount - 1)
