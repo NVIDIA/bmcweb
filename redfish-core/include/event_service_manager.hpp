@@ -853,8 +853,8 @@ class EventServiceManager
 
     /**
      * @brief Finds the right OriginOfCondition for @a path and sends the Event
-     *        The map @a dBusToRedfishURI is used for that purpose
-     * @param path  orginal path that came from Phosphor Logging
+     *        Uses origin_utils::resolveDbusPathToRedfishUri for the mapping.
+     * @param path  original path that came from Phosphor Logging
      * @param event  the event to be sent out
      */
     void eventServiceOOC(const std::string& path, const std::string& devName,
@@ -871,39 +871,15 @@ class EventServiceManager
                 return;
             }
         }
-        sdbusplus::object_path objPath(path);
-        std::string deviceName = objPath.filename();
-        if (!deviceName.empty())
+        std::string redfishUri =
+            origin_utils::resolveDbusPathToRedfishUri(path, devName);
+        if (redfishUri.empty())
         {
-            for (const auto& it : origin_utils::dBusToRedfishURI)
-            {
-                if (path.find(it.first) != std::string::npos)
-                {
-                    std::string newPath;
-                    if (it.first == origin_utils::sensorSubTree)
-                    {
-                        std::string chassisName(PLATFORMDEVICEPREFIX);
-                        chassisName += devName;
-                        sdbusplus::object_path sensorObjPath(path);
-                        std::string sensorName = sensorObjPath.filename();
-                        newPath = chassisName + "/Sensors/";
-                        newPath += sensorName;
-                    }
-                    else
-                    {
-                        newPath = path.substr(it.first.length(), path.length());
-                    }
-                    sendEventWithOOC(it.second + newPath, event);
-                    return;
-                }
-            }
+            BMCWEB_LOG_WARNING(
+                "No matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
+                path);
         }
-
-        BMCWEB_LOG_WARNING(
-            "No Matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
-            path);
-
-        sendEventWithOOC(std::string{""}, event);
+        sendEventWithOOC(redfishUri, event);
     }
 };
 

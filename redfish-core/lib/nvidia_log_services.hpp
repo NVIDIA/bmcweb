@@ -147,9 +147,12 @@ static void generateMessageRegistry(
         {"Created", timestamp},
         {"Message", message},
         {"MessageId", messageId},
-        {"MessageArgs", msgArgs},
         {"Resolution", res},
         {"Resolved", resolved}};
+    if (msg->numberOfArgs > 0)
+    {
+        newLogEntry["MessageArgs"] = msgArgs;
+    }
 
     // Update the existing logEntry with new fields, preserving existing ones
     logEntry.update(newLogEntry);
