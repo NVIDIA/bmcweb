@@ -231,7 +231,7 @@ inline void requestRoutesProcessorReset(App& app)
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
                       "Actions/Processor.Reset")
-        .privileges({{"Login"}})
+        .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
