@@ -482,7 +482,7 @@ inline void afterChassisDriveCollectionSubtreeGet(
                 asyncResp->res.jsonValue["Members@odata.count"] = resp.size();
             }); // end association lambda
 
-    }           // end Iterate over all retrieved ObjectPaths
+    } // end Iterate over all retrieved ObjectPaths
 }
 
 /**

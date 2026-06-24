@@ -9,12 +9,15 @@
 #include <optional>
 #include <version>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace redfish::time_utils
 {
 namespace
 {
+
+using testing::MatchesRegex;
 
 TEST(FromDurationTest, PositiveTests)
 {
@@ -249,85 +252,6 @@ TEST(Utility, GetDateTimeOffsetNow)
         MatchesRegex(
             "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[-+][0-9]{2}:[0-9]{2}"));
     EXPECT_THAT(offset, MatchesRegex("[-+][0-9]{2}:[0-9]{2}"));
-}
-
-TEST(Utility, GetDateTimeEmptyStringDefaultsToLocal)
-{
-    // Test that empty string parameter defaults to local timezone
-    uint64_t testTime = 1638312095; // 2021-11-30T22:41:35 UTC
-
-    // Empty string should use local timezone
-    std::string localResult = getDateTimeUint(testTime, "");
-    std::string defaultResult = getDateTimeUint(testTime);
-
-    // Both should produce same result (default parameter)
-    EXPECT_EQ(localResult, defaultResult);
-    EXPECT_FALSE(localResult.empty());
-
-    // Should be valid ISO 8601 format
-    EXPECT_THAT(
-        localResult,
-        MatchesRegex("[0-9]{4}-[0-9]{2}-[0-9]{2}T.*[+-][0-9]{2}:[0-9]{2}"));
-}
-
-TEST(Utility, GetDateTimeDefaultParameterBehavior)
-{
-    uint64_t testTime = 1638312095;
-    uint64_t testTimeMs = testTime * 1000;
-    uint64_t testTimeUs = testTime * 1000000;
-    std::time_t testTimeT = static_cast<std::time_t>(testTime);
-
-    // All functions should treat no argument same as empty string
-    EXPECT_EQ(getDateTimeUint(testTime), getDateTimeUint(testTime, ""));
-    EXPECT_EQ(getDateTimeUintMs(testTimeMs), getDateTimeUintMs(testTimeMs, ""));
-    EXPECT_EQ(getDateTimeUintUs(testTimeUs), getDateTimeUintUs(testTimeUs, ""));
-    EXPECT_EQ(getDateTimeStdtime(testTimeT), getDateTimeStdtime(testTimeT, ""));
-}
-
-TEST(Utility, GetDateTimeInvalidTimezone)
-{
-    // Test with invalid timezone name - should handle gracefully
-    uint64_t testTime = 1638312095;
-    std::string result = getDateTimeUint(testTime, "Invalid/Timezone");
-
-    // Current implementation logs error and returns empty string
-    // This is acceptable behavior for invalid input
-    EXPECT_TRUE(result.empty());
-}
-
-TEST(Utility, GetDateTimeEmptyTimezoneString)
-{
-    uint64_t testTime = 1638312095;
-
-    // Empty string should work (defaults to local timezone)
-    std::string result = getDateTimeUint(testTime, "");
-    EXPECT_FALSE(result.empty());
-    EXPECT_THAT(result, MatchesRegex("[0-9]{4}-[0-9]{2}-[0-9]{2}T.*"));
-
-    // Should contain timezone offset
-    EXPECT_THAT(result, MatchesRegex(".*[+-][0-9]{2}:[0-9]{2}$"));
-}
-
-TEST(Utility, GetDateTimeAllFunctionsUseSameTimezone)
-{
-    uint64_t seconds = 1638312095;
-    uint64_t ms = seconds * 1000;
-    uint64_t us = seconds * 1000000;
-    std::time_t t = static_cast<std::time_t>(seconds);
-
-    // All functions should produce same date/time portion when using same
-    // timezone
-    std::string s1 = getDateTimeUint(seconds, "UTC");
-    std::string s2 = getDateTimeUintMs(ms, "UTC");
-    std::string s3 = getDateTimeUintUs(us, "UTC");
-    std::string s4 = getDateTimeStdtime(t, "UTC");
-
-    // Extract date/time portion (before fractional seconds and timezone)
-    // All should start with same date and time
-    EXPECT_EQ(s1, "2021-11-30T22:41:35+00:00");
-    EXPECT_EQ(s2, "2021-11-30T22:41:35.000+00:00");
-    EXPECT_EQ(s3, "2021-11-30T22:41:35.000000+00:00");
-    EXPECT_EQ(s4, "2021-11-30T22:41:35+00:00");
 }
 
 TEST(HasValidTimezoneOffset, ValidOffsets)

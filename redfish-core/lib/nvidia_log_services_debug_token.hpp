@@ -261,8 +261,8 @@ inline void handleDebugTokenServiceDiagnosticDataCollect(
     }
     if (oemDiagnosticDataType == "DebugTokenStatus")
     {
-        std::shared_ptr<task::TaskData> task = debug_token::createTask(
-            req, asyncResp, debugTokenTaskTimeoutSec);
+        std::shared_ptr<task::TaskData> task =
+            debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
         debug_token::status::Handler::startOperation(
             task, std::bind_front(&resultHandler, oemDiagnosticDataType));
         return;
@@ -305,8 +305,8 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName) {
-                handleDebugTokenServiceDiagnosticDataCollect(app, req, asyncResp,
-                                                             systemName);
+                handleDebugTokenServiceDiagnosticDataCollect(
+                    app, req, asyncResp, systemName);
             });
 
     // Legacy action target (without the /Actions/ path segment) kept for
@@ -319,8 +319,8 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName) {
-                handleDebugTokenServiceDiagnosticDataCollect(app, req, asyncResp,
-                                                             systemName);
+                handleDebugTokenServiceDiagnosticDataCollect(
+                    app, req, asyncResp, systemName);
             });
 }
 

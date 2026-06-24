@@ -139,6 +139,8 @@ const std::string ldapCertificatePrefix =
     "/redfish/v1/AccountService/LDAP/Certificates/";
 const std::string authorityCertificateDbusPrefix =
     "/xyz/openbmc_project/certs/authority/ldap/";
+const std::string truststoreCertificateDbusPrefix =
+    "/xyz/openbmc_project/certs/authority/truststore/";
 const std::string authorityCertificatePrefix =
     std::format("/redfish/v1/Managers/{}/Truststore/Certificates/",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -190,6 +192,7 @@ inline static const std::unordered_map<std::string, std::string>
         {networkPrefixDbus, networkPrefix},
         {ldapCertificateDbusPrefix, ldapCertificatePrefix},
         {authorityCertificateDbusPrefix, authorityCertificatePrefix},
+        {truststoreCertificateDbusPrefix, authorityCertificatePrefix},
         {httpsCertificateDbusPrefix, httpsCertificatePrefix},
         {updateServiceDbusPrefix, updateServicePrefix},
         {managerResetDbusPrefix, managerResetPrefix},
@@ -242,8 +245,11 @@ inline void oocUtilServiceConditions(
     j = {{"Severity", severity},
          {"Timestamp", timestamp},
          {"Message", message},
-         {"MessageId", messageId},
-         {"MessageArgs", msgArgs}};
+         {"MessageId", messageId}};
+    if (msg->numberOfArgs > 0)
+    {
+        j["MessageArgs"] = msgArgs;
+    }
     j["LogEntry"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/"
@@ -288,6 +294,55 @@ inline void oocUtil(
 }
 
 /**
+ * Resolves a D-Bus object path to its corresponding Redfish URI using
+ * dBusToRedfishURI. deviceName is only required for sensor paths.
+ * Returns an empty string when no mapping is found.
+ */
+inline std::string resolveDbusPathToRedfishUri(const std::string& path,
+                                               const std::string& deviceName)
+{
+    if (path.empty())
+    {
+        return {};
+    }
+    if (path.starts_with(redfishPrefix))
+    {
+        return path;
+    }
+    for (const auto& it : dBusToRedfishURI)
+    {
+        if (path.find(it.first) != std::string::npos)
+        {
+            std::string newPath;
+            if (it.first == sensorSubTree)
+            {
+                if (deviceName.empty())
+                {
+                    BMCWEB_LOG_WARNING(
+                        "Empty device name for sensor OOC path: {}", path);
+                    return {};
+                }
+                std::string chassisName = std::format(
+                    "{}{}", BMCWEB_PLATFORM_DEVICE_PREFIX, deviceName);
+                sdbusplus::message::object_path sensorObjPath(path);
+                std::string sensorName = sensorObjPath.filename();
+                newPath = chassisName;
+                newPath += "/Sensors/";
+                newPath += sensorName;
+            }
+            else
+            {
+                newPath = path.substr(it.first.length());
+            }
+            return it.second + newPath;
+        }
+    }
+    BMCWEB_LOG_DEBUG(
+        "No matching prefix found for OriginOfCondition DBus path: {}", path);
+    return {};
+}
+
+/**
  * Wrapper function for setting origin of condition
  * based on DBus path that will walk through different
  * device methods as necessary to set OOC properly
@@ -304,48 +359,9 @@ inline void convertDbusObjectToOriginOfCondition(
         BMCWEB_LOG_WARNING("Empty path/OriginOfCondition");
         return;
     }
-    if (deviceName.empty())
-    {
-        BMCWEB_LOG_WARNING("Empty device name");
-        return;
-    }
-    // if redfish URI is already provided in path, no need to compute, just use
-    // it
-    if (path.starts_with(redfishPrefix))
-    {
-        oocUtil(asyncResp, logEntry, id, path, severity, messageArgs, timestamp,
-                messageId);
-        return;
-    }
-    for (const auto& it : dBusToRedfishURI)
-    {
-        if (path.find(it.first) != std::string::npos)
-        {
-            std::string newPath;
-            if (it.first == sensorSubTree)
-            {
-                std::string chassisName = std::format(
-                    "{}{}", BMCWEB_PLATFORM_DEVICE_PREFIX, deviceName);
-                std::string sensorName;
-                dbus::utility::getNthStringFromPath(path, 4, sensorName);
-                newPath = chassisName + "/Sensors/";
-                newPath += sensorName;
-            }
-            else
-            {
-                newPath = path.substr(it.first.length(), path.length());
-            }
-
-            oocUtil(asyncResp, logEntry, id, it.second + newPath, severity,
-                    messageArgs, timestamp, messageId);
-            return;
-        }
-    }
-    oocUtil(asyncResp, logEntry, id, std::string(""), severity, messageArgs,
+    std::string redfishUri = resolveDbusPathToRedfishUri(path, deviceName);
+    oocUtil(asyncResp, logEntry, id, redfishUri, severity, messageArgs,
             timestamp, messageId);
-    BMCWEB_LOG_DEBUG(
-        "No Matching prefix found for OriginOfCondition DBus object Path: {}",
-        path);
 }
 
 inline std::string getDeviceRedfishURI(const std::string& device)

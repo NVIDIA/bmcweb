@@ -212,11 +212,12 @@ inline void updateAssemblies(
             // DGXOPENBMC-25716: the @odata.id JSON-pointer fragment must be the
             // element's position in the Assemblies array (RFC 6901), not the
             // D-Bus AssemblyID. When a middle assembly fails to probe, the
-            // surviving AssemblyIDs are sparse (e.g. 0, 2) and a raw-ID fragment
+            // surviving AssemblyIDs are sparse (e.g. 0, 2) and a raw-ID
+            // fragment
             // (#/Assemblies/2 on a 2-element array) points past the array end,
-            // failing the DMTF and NVIDIA Redfish Service Validators. insertSorted
-            // keeps the array ordered, so renumber both the fragment and MemberId
-            // to the element's final array index.
+            // failing the DMTF and NVIDIA Redfish Service Validators.
+            // insertSorted keeps the array ordered, so renumber both the
+            // fragment and MemberId to the element's final array index.
             for (std::size_t idx = 0; idx < jResp.size(); ++idx)
             {
                 jResp[idx]["@odata.id"] =
