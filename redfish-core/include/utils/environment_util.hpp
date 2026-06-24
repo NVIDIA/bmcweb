@@ -1734,10 +1734,11 @@ inline void queryAllSensorsForProcessorMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& resourceType, const std::string& chassisId,
     const std::string& chassisPath, bool skipTemperatureSensors,
-    bool isSupportPowerLimit = false)
+    bool skipPowerSensors, bool isSupportPowerLimit = false)
 {
     dbus::utility::async_method_call(
         [aResp, resourceType, chassisId, skipTemperatureSensors,
+         skipPowerSensors,
          isSupportPowerLimit](const boost::system::error_code& e,
                               std::variant<std::vector<std::string>>& resp) {
             if (e)
@@ -1768,6 +1769,13 @@ inline void queryAllSensorsForProcessorMetrics(
                 {
                     continue;
                 }
+                // Skip power sensors if primary_cpupower_sensor was found
+                // to avoid overwriting PowerWatts with a non-primary sensor
+                if (skipPowerSensors &&
+                    sensorPath.find("/power/") != std::string::npos)
+                {
+                    continue;
+                }
                 getSensorDataService(aResp, "", chassisId, sensorPath,
                                      resourceType, isSupportPowerLimit);
             }
@@ -1777,7 +1785,52 @@ inline void queryAllSensorsForProcessorMetrics(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-// Helper function to query primary_temperature_sensor, then all_sensors
+// Helper: query chassisPath/primary_cpupower_sensor and, when present,
+// use its front endpoint as the PowerWatts DataSourceUri source. Then
+// fall back to all_sensors for any remaining EnvironmentMetrics sources,
+// skipping /temperature/ when a primary temperature sensor was already
+// resolved and skipping /power/ when this lookup resolved a primary
+// power sensor so neither chosen DataSourceUri is overwritten.
+inline void queryPrimaryCpupowerAndAllSensors(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& resourceType, const std::string& chassisId,
+    const std::string& chassisPath, bool foundPrimaryTemp,
+    bool isSupportPowerLimit = false)
+{
+    dbus::utility::async_method_call(
+        [aResp, resourceType, chassisId, chassisPath, foundPrimaryTemp,
+         isSupportPowerLimit](
+            const boost::system::error_code& primaryPowerEc,
+            std::variant<std::vector<std::string>>& primaryPowerResp) {
+            bool foundPrimaryPower = false;
+            if (!primaryPowerEc)
+            {
+                std::vector<std::string>* primaryPowerSensors =
+                    std::get_if<std::vector<std::string>>(&primaryPowerResp);
+                if (primaryPowerSensors != nullptr &&
+                    !primaryPowerSensors->empty())
+                {
+                    BMCWEB_LOG_DEBUG("Using primary_cpupower_sensor: {}",
+                                     primaryPowerSensors->front());
+                    getSensorDataService(aResp, "", chassisId,
+                                         primaryPowerSensors->front(),
+                                         resourceType, isSupportPowerLimit);
+                    foundPrimaryPower = true;
+                }
+            }
+            queryAllSensorsForProcessorMetrics(
+                aResp, resourceType, chassisId, chassisPath, foundPrimaryTemp,
+                foundPrimaryPower, isSupportPowerLimit);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        chassisPath + "/primary_cpupower_sensor",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+// Helper function to query primary_temperature_sensor and
+// primary_cpupower_sensor associations on the chassis, then fall back to
+// all_sensors for any remaining EnvironmentMetrics sources.
 inline void queryPrimaryTempAndAllSensors(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& resourceType, const std::string& chassisId,
@@ -1785,29 +1838,33 @@ inline void queryPrimaryTempAndAllSensors(
 {
     dbus::utility::async_method_call(
         [aResp, resourceType, chassisId, chassisPath, isSupportPowerLimit](
-            const boost::system::error_code& primaryEc,
-            std::variant<std::vector<std::string>>& primaryResp) {
-            bool foundPrimary = false;
-            if (!primaryEc)
+            const boost::system::error_code& primaryTempEc,
+            std::variant<std::vector<std::string>>& primaryTempResp) {
+            bool foundPrimaryTemp = false;
+            if (!primaryTempEc)
             {
-                std::vector<std::string>* primarySensors =
-                    std::get_if<std::vector<std::string>>(&primaryResp);
-                if (primarySensors != nullptr && !primarySensors->empty())
+                std::vector<std::string>* primaryTempSensors =
+                    std::get_if<std::vector<std::string>>(&primaryTempResp);
+                if (primaryTempSensors != nullptr &&
+                    !primaryTempSensors->empty())
                 {
                     // Use the primary temperature sensor
                     BMCWEB_LOG_DEBUG("Using primary_temperature_sensor: {}",
-                                     primarySensors->front());
+                                     primaryTempSensors->front());
                     getSensorDataService(aResp, "", chassisId,
-                                         primarySensors->front(), resourceType,
-                                         isSupportPowerLimit);
-                    foundPrimary = true;
+                                         primaryTempSensors->front(),
+                                         resourceType, isSupportPowerLimit);
+                    foundPrimaryTemp = true;
                 }
             }
-            // Query all_sensors for power, energy, voltage sensors
-            // (skip temperature if primary was found)
-            queryAllSensorsForProcessorMetrics(aResp, resourceType, chassisId,
-                                               chassisPath, foundPrimary,
-                                               isSupportPowerLimit);
+            // Chain the primary_cpupower_sensor lookup so PowerWatts is
+            // populated from the chassis-designated primary power sensor
+            // (set by PLDM via the chassis/primary_cpupower_sensor
+            // association) instead of whichever /power/ endpoint happens
+            // to be iterated last in all_sensors.
+            queryPrimaryCpupowerAndAllSensors(aResp, resourceType, chassisId,
+                                              chassisPath, foundPrimaryTemp,
+                                              isSupportPowerLimit);
         },
         "xyz.openbmc_project.ObjectMapper",
         chassisPath + "/primary_temperature_sensor",
