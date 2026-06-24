@@ -1085,8 +1085,8 @@ class Connection :
             // allow up to 15 minutes of delay
             timeoutDurationSeconds = 15 * 60;
         }
-        // Nvidia code starts here
-        else if (req && req->req.body().multipartParserCallbacks)
+        else if ((req && req->req.body().multipartParserCallbacks) ||
+                 (parser && parser->get().body().multipartParserCallbacks))
         {
             // If we're streaming multipart data, and the system has already
             // accepted the request, there's a very low chance this is a dos
@@ -1155,6 +1155,9 @@ class Connection :
             return;
         }
         headersComplete = false;
+        // Re-arm the deadline for the body phase so it isn't capped by the
+        // accept/header timeout (startDeadline() is a no-op unless cancelled).
+        cancelDeadlineTimer();
         doRead();
     }
 
