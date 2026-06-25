@@ -691,20 +691,17 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
                 }
                 if (profileMaskAsStr)
                 {
-                    try
-                    {
-                        std::vector<uint8_t> profileMask =
-                            stringNibbleToVector(*profileMaskAsStr);
-                        postEnableWorkLoadPowerProfile(asyncResp, processorId,
-                                                       profileMask);
-                    }
-                    catch (const std::exception& /*e*/)
+                    std::optional<std::vector<uint8_t>> profileMask =
+                        stringNibbleToVector(*profileMaskAsStr);
+                    if (!profileMask)
                     {
                         messages::actionParameterValueError(
                             asyncResp->res, *profileMaskAsStr,
                             "NvidiaWorkloadPower.EnableProfiles");
                         return;
                     }
+                    postEnableWorkLoadPowerProfile(asyncResp, processorId,
+                                                   *profileMask);
                 }
             });
 
@@ -766,20 +763,17 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
                 }
                 if (profileMaskAsStr)
                 {
-                    try
-                    {
-                        std::vector<uint8_t> profileMask =
-                            stringNibbleToVector(*profileMaskAsStr);
-                        postDisableWorkLoadPowerProfile(asyncResp, processorId,
-                                                        profileMask);
-                    }
-                    catch (const std::exception& /*e*/)
+                    std::optional<std::vector<uint8_t>> profileMask =
+                        stringNibbleToVector(*profileMaskAsStr);
+                    if (!profileMask)
                     {
                         messages::actionParameterValueError(
                             asyncResp->res, *profileMaskAsStr,
                             "NvidiaWorkloadPower.DisableProfiles");
                         return;
                     }
+                    postDisableWorkLoadPowerProfile(asyncResp, processorId,
+                                                    *profileMask);
                 }
             });
 

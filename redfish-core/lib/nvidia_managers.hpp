@@ -36,6 +36,7 @@
 #include "sub_request.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/nvidia_hex_utils.hpp"
 #include "utils/nvidia_json_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
@@ -52,6 +53,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -204,43 +206,27 @@ inline void doBMCGracefulShutdown(
 }
 
 // convert sync command input request data to raw datain
-inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
+inline std::optional<uint32_t> formatSyncDataIn(std::vector<std::string>& data)
 {
-    size_t found = 0;
     std::string dataStr;
-    uint32_t dataIn = 0;
     for (auto& it : std::ranges::reverse_view(data))
     {
-        found = it.find(hexPrefix);
-        if (found != std::string::npos)
+        // strip only a leading "0x" prefix; a prefix elsewhere is left in
+        // place so the hex parse below rejects the malformed token
+        if (it.starts_with(hexPrefix))
         {
-            it.erase(found, hexPrefix.length());
+            it.erase(0, hexPrefix.length());
         }
         dataStr.append(it);
     }
 
-    try
+    std::optional<uint64_t> parsed = hexStringToUint64(dataStr);
+    if (!parsed || *parsed > std::numeric_limits<uint32_t>::max())
     {
-        dataIn = static_cast<uint32_t>(std::stoul(dataStr, nullptr, 16));
+        BMCWEB_LOG_ERROR("formatSyncDataIn: invalid hex input '{}'", dataStr);
+        return std::nullopt;
     }
-    catch (const std::invalid_argument& ia)
-    {
-        BMCWEB_LOG_ERROR("stoul conversion exception Invalid argument {}",
-                         ia.what());
-        throw std::runtime_error("Invalid Argument");
-    }
-    catch (const std::out_of_range& oor)
-    {
-        BMCWEB_LOG_ERROR("stoul conversion exception out fo range {}",
-                         oor.what());
-        throw std::runtime_error("Invalid Argument");
-    }
-    catch (const std::exception& e)
-    {
-        BMCWEB_LOG_ERROR("stoul conversion undefined exception{}", e.what());
-        throw std::runtime_error("Invalid Argument");
-    }
-    return dataIn;
+    return static_cast<uint32_t>(*parsed);
 }
 
 inline void executeRawSynCommand(
@@ -303,59 +289,39 @@ inline void executeRawSynCommand(
 }
 
 // function to convert dataInbyte array to dataIn uint32 vector
-inline std::vector<std::uint32_t> formatAsyncDataIn(
+inline std::optional<std::vector<std::uint32_t>> formatAsyncDataIn(
     std::vector<std::string>& asynDataInBytes)
 {
     size_t j = 0;
-    size_t found = 0;
     std::string temp;
     std::vector<std::uint32_t> asyncDataIn;
     auto dataInSize = asynDataInBytes.size();
-    try
+    if (dataInSize != 0U)
     {
-        if (dataInSize != 0U)
+        for (size_t i = 0; i < dataInSize; i++)
         {
-            for (size_t i = 0; i < dataInSize; i++)
+            j = i + 1;
+            // strip only a leading "0x" prefix; a prefix elsewhere is left
+            // in place so the hex parse below rejects the malformed token
+            if ((asynDataInBytes[i]).starts_with(hexPrefix))
             {
-                j = i + 1;
-                // handle "0x" hex prefix
-                found = (asynDataInBytes[i]).find(hexPrefix);
-                if (found != std::string::npos)
-                {
-                    (asynDataInBytes[i]).erase(found, hexPrefix.length());
-                }
-                temp.insert(0, asynDataInBytes[i]);
+                (asynDataInBytes[i]).erase(0, hexPrefix.length());
+            }
+            temp.insert(0, asynDataInBytes[i]);
 
-                if ((j == dataInSize) || ((j % 4) == 0))
+            if ((j == dataInSize) || ((j % 4) == 0))
+            {
+                std::optional<uint64_t> parsed = hexStringToUint64(temp);
+                if (!parsed || *parsed > std::numeric_limits<uint32_t>::max())
                 {
-                    // covert string to unit32_t
-                    asyncDataIn.push_back(
-                        static_cast<uint32_t>(std::stoul(temp, nullptr, 16)));
-                    temp.erase();
+                    BMCWEB_LOG_ERROR(
+                        "formatAsyncDataIn: invalid hex input '{}'", temp);
+                    return std::nullopt;
                 }
+                asyncDataIn.push_back(static_cast<uint32_t>(*parsed));
+                temp.erase();
             }
         }
-    }
-    catch (const std::invalid_argument& ia)
-    {
-        BMCWEB_LOG_ERROR(
-            "formatAsyncDataIn: stoul conversion exception Invalid argument {}",
-            ia.what());
-        throw std::runtime_error("Invalid Argument");
-    }
-    catch (const std::out_of_range& oor)
-    {
-        BMCWEB_LOG_ERROR(
-            "formatAsyncDataIn: stoul conversion exception out fo range {}",
-            oor.what());
-        throw std::runtime_error("Argument out of range");
-    }
-    catch (const std::exception& e)
-    {
-        BMCWEB_LOG_ERROR(
-            "formatAsyncDataIn: stoul conversion undefined exception{}",
-            e.what());
-        throw std::runtime_error("undefined exception");
     }
 
     return asyncDataIn;
@@ -1035,51 +1001,54 @@ inline void requestRouteSyncRawOobCommand(App& app)
                 if ((dataIn) &&
                     (static_cast<unsigned int>(!(*dataIn).empty()) != 0U))
                 {
-                    try
+                    std::optional<uint32_t> parsedDataIn =
+                        formatSyncDataIn(*dataIn);
+                    if (!parsedDataIn)
                     {
-                        dataInRaw = formatSyncDataIn(*dataIn);
-                    }
-                    catch (const std::runtime_error& /*e*/)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "formatSyncDataIn failed with runtime error ");
+                        BMCWEB_LOG_ERROR("formatSyncDataIn failed");
                         messages::internalError(asyncResp->res);
                         return;
                     }
+                    dataInRaw = *parsedDataIn;
                 }
 
                 if ((extDataIn) &&
                     (static_cast<unsigned int>(!(*extDataIn).empty()) != 0U))
                 {
-                    try
+                    std::optional<uint32_t> parsedExtDataIn =
+                        formatSyncDataIn(*extDataIn);
+                    if (!parsedExtDataIn)
                     {
-                        extDataInRaw = formatSyncDataIn(*extDataIn);
-                    }
-                    catch (const std::runtime_error& /*e*/)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "formatSyncDataIn failed with runtime error ");
+                        BMCWEB_LOG_ERROR("formatSyncDataIn failed");
                         messages::internalError(asyncResp->res);
                         return;
                     }
+                    extDataInRaw = *parsedExtDataIn;
                 }
 
-                try
-                {
-                    opCodeRaw =
-                        static_cast<uint8_t>(std::stoul(opCode, nullptr, 16));
-                    arg1Raw =
-                        static_cast<uint8_t>(std::stoul(arg1, nullptr, 16));
-                    arg2Raw =
-                        static_cast<uint8_t>(std::stoul(arg2, nullptr, 16));
-                }
-                catch (...)
+                std::optional<uint64_t> opCodeParsed =
+                    hexStringToUint64(opCode);
+                std::optional<uint64_t> arg1Parsed = hexStringToUint64(arg1);
+                std::optional<uint64_t> arg2Parsed = hexStringToUint64(arg2);
+                if (!opCodeParsed || !arg1Parsed || !arg2Parsed)
                 {
                     BMCWEB_LOG_ERROR(
-                        "raw Sync command failed : stoul exception ");
+                        "raw Sync command failed : invalid hex input");
                     messages::internalError(asyncResp->res);
                     return;
                 }
+                if (*opCodeParsed > 0xFF || *arg1Parsed > 0xFF ||
+                    *arg2Parsed > 0xFF)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "raw Sync command: opCode/arg exceeds 8-bit range");
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "OpCode/Arg1/Arg2", opCode);
+                    return;
+                }
+                opCodeRaw = static_cast<uint8_t>(*opCodeParsed);
+                arg1Raw = static_cast<uint8_t>(*arg1Parsed);
+                arg2Raw = static_cast<uint8_t>(*arg2Parsed);
 
                 dbus::utility::getSubTree(
                     "/xyz/openbmc_project/inventory", int32_t(0),
@@ -1150,29 +1119,34 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                 if ((asynDataIn) &&
                     (static_cast<unsigned int>(!(*asynDataIn).empty()) != 0U))
                 {
-                    try
+                    std::optional<std::vector<uint32_t>> parsedAsyncDataIn =
+                        formatAsyncDataIn(*asynDataIn);
+                    if (!parsedAsyncDataIn)
                     {
-                        asyncDataInRaw = formatAsyncDataIn(*asynDataIn);
-                    }
-                    catch (const std::runtime_error& /*e*/)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "formatAsyncDataIn failed with runtime error ");
+                        BMCWEB_LOG_ERROR("formatAsyncDataIn failed");
                         messages::internalError(asyncResp->res);
                         return;
                     }
+                    asyncDataInRaw = *parsedAsyncDataIn;
                 }
-                try
-                {
-                    argRaw = static_cast<uint8_t>(std::stoul(arg, nullptr, 16));
-                }
-                catch (...)
+                std::optional<uint64_t> argParsed = hexStringToUint64(arg);
+                if (!argParsed)
                 {
                     BMCWEB_LOG_ERROR(
-                        "raw Async command failed : stoul exception ");
+                        "raw Async command failed : invalid hex input '{}'",
+                        arg);
                     messages::internalError(asyncResp->res);
                     return;
                 }
+                if (*argParsed > 0xFF)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "raw Async command: arg exceeds 8-bit range");
+                    messages::propertyValueIncorrect(asyncResp->res, "Arg",
+                                                     arg);
+                    return;
+                }
+                argRaw = static_cast<uint8_t>(*argParsed);
 
                 dbus::utility::getSubTree(
                     "/xyz/openbmc_project/inventory", int32_t(0),

@@ -400,7 +400,7 @@ inline void handleCpuDisableToken(
                     return;
                 }
                 std::optional<int64_t> vdmCode =
-                    stringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
+                    hexStringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
                 if (!vdmCode)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
@@ -637,7 +637,7 @@ inline void handleCpuInstallToken(
                     return;
                 }
                 std::optional<int64_t> vdmCode =
-                    stringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
+                    hexStringToInt64(bytes[mctpVdmUtilErrorCodeOffset]);
                 if (!vdmCode)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",

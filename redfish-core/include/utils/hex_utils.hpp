@@ -89,14 +89,14 @@ inline std::vector<uint8_t> hexStringToBytes(const std::string& str)
     return rc;
 }
 
-// Parse a signed integer from sv without throwing.  Returns std::nullopt if
-// the input is empty, contains trailing non-numeric characters, or overflows
-// int64_t.  base must be in [2, 36].  Use this instead of std::stoi/stol on
-// any value sourced from HTTP input or D-Bus properties.
-inline std::optional<int64_t> stringToInt64(std::string_view sv, int base = 10)
+// Parse a base-10 signed integer from sv without throwing.  Returns
+// std::nullopt if the input is empty, has trailing non-numeric characters, or
+// overflows int64_t.  Use this instead of std::stoi/stol on any value sourced
+// from HTTP input or D-Bus properties.
+inline std::optional<int64_t> stringToInt64(std::string_view sv)
 {
     int64_t value{};
-    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, base);
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value);
     if (ec != std::errc{} || ptr != sv.end())
     {
         return std::nullopt;
@@ -104,15 +104,52 @@ inline std::optional<int64_t> stringToInt64(std::string_view sv, int base = 10)
     return value;
 }
 
-// Parse an unsigned integer from sv without throwing.  Returns std::nullopt if
-// the input is empty, contains trailing non-numeric characters, or overflows
-// uint64_t.  base must be in [2, 36].  Use this instead of std::stoul/stoull
-// on any value sourced from HTTP input or D-Bus properties.
-inline std::optional<uint64_t> stringToUint64(std::string_view sv,
-                                              int base = 10)
+// Parse a base-10 unsigned integer from sv without throwing.  Returns
+// std::nullopt if the input is empty, has trailing non-numeric characters, or
+// overflows uint64_t.  Use this instead of std::stoul/stoull on any value
+// sourced from HTTP input or D-Bus properties.
+inline std::optional<uint64_t> stringToUint64(std::string_view sv)
 {
     uint64_t value{};
-    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, base);
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value);
+    if (ec != std::errc{} || ptr != sv.end())
+    {
+        return std::nullopt;
+    }
+    return value;
+}
+
+// Parse a base-16 signed integer from sv without throwing.  Accepts an
+// optional "0x"/"0X" prefix.  Returns std::nullopt if the input is empty, has
+// trailing non-hex characters, or overflows int64_t.  Use this instead of
+// std::stoi/stol(.., 16) on any value sourced from HTTP input or D-Bus.
+inline std::optional<int64_t> hexStringToInt64(std::string_view sv)
+{
+    if (sv.starts_with("0x") || sv.starts_with("0X"))
+    {
+        sv.remove_prefix(2);
+    }
+    int64_t value{};
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, 16);
+    if (ec != std::errc{} || ptr != sv.end())
+    {
+        return std::nullopt;
+    }
+    return value;
+}
+
+// Parse a base-16 unsigned integer from sv without throwing.  Accepts an
+// optional "0x"/"0X" prefix.  Returns std::nullopt if the input is empty, has
+// trailing non-hex characters, or overflows uint64_t.  Use this instead of
+// std::stoul/stoull(.., 16) on any value sourced from HTTP input or D-Bus.
+inline std::optional<uint64_t> hexStringToUint64(std::string_view sv)
+{
+    if (sv.starts_with("0x") || sv.starts_with("0X"))
+    {
+        sv.remove_prefix(2);
+    }
+    uint64_t value{};
+    auto [ptr, ec] = std::from_chars(sv.begin(), sv.end(), value, 16);
     if (ec != std::errc{} || ptr != sv.end())
     {
         return std::nullopt;

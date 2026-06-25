@@ -24,6 +24,7 @@
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_write_protect_domains_util.hpp"
@@ -114,6 +115,23 @@ struct TrayTopology
     uint8_t reserved4;
 };
 #pragma pack()
+
+/**
+ * @brief Decode a CBC tray topology hex string into raw bytes.
+ *
+ * @param[in] property   Hex string from the CustomField1 D-Bus property.
+ * @return Decoded bytes, or std::nullopt if the input is not valid hex.
+ */
+inline std::optional<std::vector<uint8_t>> parseCBCTrayTopologyBytes(
+    const std::string& property)
+{
+    std::vector<uint8_t> byteArray = hexStringToBytes(property);
+    if (byteArray.size() != trayTopologyByteLength)
+    {
+        return std::nullopt;
+    }
+    return byteArray;
+}
 
 using AllowListMap = std::map<std::string, std::vector<std::string>>;
 
@@ -1024,14 +1042,15 @@ inline void getOemCBCChassisAsset(
                 return;
             }
 
-            std::array<uint8_t, trayTopologyByteLength> byteArray{};
-            for (size_t i = 0; i < trayTopologyByteLength; i++)
+            std::optional<std::vector<uint8_t>> parsedBytes =
+                parseCBCTrayTopologyBytes(property);
+            if (!parsedBytes)
             {
-                byteArray[i] = static_cast<uint8_t>(
-                    std::stoi(property.substr((i * trayTopologyTokenLength),
-                                              trayTopologyTokenLength),
-                              nullptr, 16));
+                BMCWEB_LOG_ERROR("CBC Tray ID byte parse failed");
+                messages::internalError(asyncResp->res);
+                return;
             }
+            const std::vector<uint8_t>& byteArray = *parsedBytes;
 
             // Safely copy into a TrayTopology struct
             TrayTopology trayTopology{};

@@ -115,39 +115,11 @@ inline ErrorInjectionPatchMap parseErrorInjectionJson(
                         hexStr = hexStr.substr(2);
                     }
 
-                    if (hexStr.empty())
+                    byteArray = hexStringToBytes(hexStr);
+                    if (byteArray.empty())
                     {
-                        BMCWEB_LOG_ERROR(
-                            "FaultBitmap hex string is empty after removing prefix");
-                        messages::propertyValueIncorrect(
-                            aResp->res, "FaultBitmap", *faultBitmap);
-                        return properties;
-                    }
-
-                    if (hexStr.size() % 2 != 0)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "FaultBitmap hex string has odd length: {}",
-                            hexStr);
-                        messages::propertyValueIncorrect(
-                            aResp->res, "FaultBitmap", *faultBitmap);
-                        return properties;
-                    }
-
-                    try
-                    {
-                        for (size_t i = 0; i < hexStr.size(); i += 2)
-                        {
-                            std::string byteStr = hexStr.substr(i, 2);
-                            uint8_t byte = static_cast<uint8_t>(
-                                std::stoul(byteStr, nullptr, 16));
-                            byteArray.push_back(byte);
-                        }
-                    }
-                    catch (const std::exception& e)
-                    {
-                        BMCWEB_LOG_ERROR("Failed to parse FaultBitmap '{}': {}",
-                                         *faultBitmap, e.what());
+                        BMCWEB_LOG_ERROR("Failed to parse FaultBitmap '{}'",
+                                         *faultBitmap);
                         messages::propertyValueIncorrect(
                             aResp->res, "FaultBitmap", *faultBitmap);
                         return properties;
