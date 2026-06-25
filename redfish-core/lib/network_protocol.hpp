@@ -448,15 +448,16 @@ inline void handleNTPServersPatch(
 inline void handleProtocolEnabled(
     const bool protocolEnabled,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& netBasePath)
+    const std::string& netBasePath, std::string_view redfishProperty)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.Service.Attributes"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/control/service", 0, interfaces,
-        [protocolEnabled, asyncResp,
-         netBasePath](const boost::system::error_code& ec,
-                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        [protocolEnabled, asyncResp, netBasePath,
+         redfishProperty = std::string(redfishProperty)](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -468,13 +469,13 @@ inline void handleProtocolEnabled(
                 if (entry.first.starts_with(netBasePath))
                 {
                     setDbusProperty(
-                        asyncResp, "IPMI/ProtocolEnabled",
-                        entry.second.begin()->first, entry.first,
+                        asyncResp, redfishProperty, entry.second.begin()->first,
+                        entry.first,
                         "xyz.openbmc_project.Control.Service.Attributes",
                         "Running", protocolEnabled);
                     setDbusProperty(
-                        asyncResp, "IPMI/ProtocolEnabled",
-                        entry.second.begin()->first, entry.first,
+                        asyncResp, redfishProperty, entry.second.begin()->first,
+                        entry.first,
                         "xyz.openbmc_project.Control.Service.Attributes",
                         "Enabled", protocolEnabled);
                 }
@@ -614,16 +615,27 @@ inline void handleManagersNetworkProtocolPatch(
         {
             handleProtocolEnabled(
                 *ipmiEnabled, asyncResp,
-                encodeServiceObjectPath(std::string(ipmiServiceName) + '@'));
+                encodeServiceObjectPath(std::string(ipmiServiceName) + '@'),
+                "IPMI/ProtocolEnabled");
         }
     }
 
-    if constexpr (BMCWEB_PATCH_SSH) // Nvidia code
+    if (sshEnabled) // Nvidia code
     {
-        if (sshEnabled)
+        if constexpr (BMCWEB_PATCH_SSH)
         {
             handleProtocolEnabled(*sshEnabled, asyncResp,
-                                  encodeServiceObjectPath(sshServiceName));
+                                  encodeServiceObjectPath(sshServiceName),
+                                  "SSH/ProtocolEnabled");
+        }
+        else
+        {
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            messages::addMessageToJson(
+                asyncResp->res.jsonValue,
+                messages::propertyNotWritable("SSH/ProtocolEnabled"),
+                "SSH/ProtocolEnabled");
+            return;
         }
     }
     // Nvidia code starts here
