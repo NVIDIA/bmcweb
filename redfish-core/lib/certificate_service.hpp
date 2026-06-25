@@ -14,6 +14,7 @@
 #include "http_response.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
+#include "nvidia_certificate_service.hpp"
 #include "nvidia_error_messages.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
@@ -522,13 +523,10 @@ inline void handleError(const std::string_view dbusErrorName,
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
     }
-    // Nvidia code handleError starts here
-    else if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
+    else if (handleNvidiaCertError(dbusErrorName, reason, asyncResp))
     {
-        messages::resourceErrorsDetectedFormatError(asyncResp->res,
-                                                    "Certificate", reason);
+        // handled Nvidia errors
     }
-    // Nvidia code handleError ends here
     else
     {
         messages::internalError(asyncResp->res);
