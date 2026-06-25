@@ -10,6 +10,7 @@
 #include "task.hpp"
 
 #include <boost/beast/core/error.hpp>
+#include <boost/beast/http/field.hpp>
 #include <boost/system/errc.hpp>
 
 #include <format>
