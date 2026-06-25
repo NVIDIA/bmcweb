@@ -375,6 +375,24 @@ inline void handleCertificateCollectionGet(
                     "/certs"));
 }
 
+inline void afterSetSecureBootOwner(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    std::string_view resourceType, const std::string& resourceId,
+    const boost::system::error_code& ec)
+{
+    if (!ec)
+    {
+        return;
+    }
+    if (ec.value() == EBADR)
+    {
+        messages::resourceNotFound(aResp->res, resourceType, resourceId);
+        return;
+    }
+    BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
+    messages::internalError(aResp->res);
+}
+
 inline void handleCertificateCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -471,14 +489,10 @@ inline void handleCertificateCollectionPost(
                         dbus::utility::setProperty(
                             getServiceName(databaseId), objectPath,
                             "xyz.openbmc_project.Common.UUID", "UUID", *owner,
-                            [aResp](const boost::system::error_code ec3) {
-                                if (ec3)
-                                {
-                                    BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec3);
-                                    messages::internalError(aResp->res);
-                                    return;
-                                }
+                            [aResp,
+                             certId](const boost::system::error_code& ec3) {
+                                afterSetSecureBootOwner(aResp, "Certificate",
+                                                        certId, ec3);
                             });
                     }
                 },
@@ -791,14 +805,10 @@ inline void handleSignatureCollectionPost(
                         dbus::utility::setProperty(
                             getServiceName(databaseId), objectPath,
                             "xyz.openbmc_project.Common.UUID", "UUID", *owner,
-                            [aResp](const boost::system::error_code& ec2) {
-                                if (ec2)
-                                {
-                                    BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec2);
-                                    messages::internalError(aResp->res);
-                                    return;
-                                }
+                            [aResp,
+                             sigId](const boost::system::error_code& ec2) {
+                                afterSetSecureBootOwner(aResp, "Signature",
+                                                        sigId, ec2);
                             });
                     }
                 },
