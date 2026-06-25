@@ -789,7 +789,10 @@ inline void handleManagerGet(
 
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
-        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        // NVIDIA code starts here: route non-BMC managers to
+        // handleGenericManager
+        handleGenericManager(asyncResp, managerId);
+        // NVIDIA code ends here
         return;
     }
 
