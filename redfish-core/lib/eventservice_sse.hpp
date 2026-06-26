@@ -5,9 +5,11 @@
 #include "filter_expr_parser_ast.hpp"
 #include "filter_expr_printer.hpp"
 #include "http_request.hpp"
+#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "registries/privilege_registry.hpp"
 #include "server_sent_event.hpp"
+#include "subscriber.hpp"
 #include "subscription.hpp"
 
 #include <app.hpp>
@@ -74,12 +76,28 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
     if (id.empty())
     {
         conn.close("Internal Error");
+        return;
+    }
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        if (manager.getNumberOfSubscriptions() >= 1)
+        {
+            startRedfishEventListener(getIoContext());
+        }
     }
 }
 
 inline void deleteSubscription(crow::sse_socket::Connection& conn)
 {
-    EventServiceManager::getInstance().deleteSseSubscription(conn);
+    EventServiceManager& manager = EventServiceManager::getInstance();
+    manager.deleteSseSubscription(conn);
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        if (manager.getNumberOfSubscriptions() == 0)
+        {
+            stopRedfishEventListener(getIoContext());
+        }
+    }
 }
 
 inline void requestRoutesEventServiceSse(App& app)
