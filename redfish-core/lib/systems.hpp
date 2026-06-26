@@ -444,8 +444,7 @@ inline void afterGetInventory(
 
     if constexpr (BMCWEB_BIOS)
     {
-        sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose,
-                                             "BiosVersion", false);
+        nvidia_systems_utils::getBiosVersion(asyncResp);
     }
 }
 
