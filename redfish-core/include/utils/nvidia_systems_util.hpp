@@ -675,5 +675,93 @@ inline void setIPMIHostInterface(
                         serviceEnabled));
 }
 
+/* @brief Chassis inventory subtree searched for the BIOS object */
+constexpr const char* biosInventorySearchPath =
+    "/xyz/openbmc_project/inventory";
+/* @brief Revision interface containing the SMBIOS Type 0 BIOS version */
+constexpr const char* biosRevisionInterface =
+    "xyz.openbmc_project.Inventory.Decorator.Revision";
+
+using BiosVersionCallback =
+    std::function<void(const boost::system::error_code&, const std::string&)>;
+
+/**
+ * @brief Handles the BIOS version subtree from D-Bus.
+ *
+ * @param[in] callback  Callback to process the BIOS version result.
+ * @param[in] ec        The error code from D-Bus call.
+ * @param[in] subtree   The MapperGetSubTree result from D-Bus.
+ */
+inline void biosVersionSubTreeHandler(
+    BiosVersionCallback&& callback, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (!callback)
+    {
+        return;
+    }
+
+    if (ec)
+    {
+        callback(ec, {});
+        return;
+    }
+
+    auto biosPathIt = std::ranges::find_if(subtree, [](const auto& object) {
+        return sdbusplus::object_path(object.first).filename() == "bios";
+    });
+    if (biosPathIt == subtree.end() || biosPathIt->second.empty())
+    {
+        callback(boost::system::errc::make_error_code(
+                     boost::system::errc::no_such_file_or_directory),
+                 {});
+        return;
+    }
+
+    const std::string& biosPath = biosPathIt->first;
+    const std::string& service = biosPathIt->second.front().first;
+    dbus::utility::getProperty<std::string>(
+        service, biosPath, biosRevisionInterface, "Version",
+        std::move(callback));
+}
+
+/**
+ * @brief Populates the BIOS version from the SMBIOS inventory.
+ *
+ * @param[in] callback  Callback to process the SMBIOS BIOS lookup result.
+ */
+inline void populateBiosVersion(BiosVersionCallback&& callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        biosRevisionInterface};
+    dbus::utility::getSubTree(
+        biosInventorySearchPath, 0, interfaces,
+        [callback = std::move(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
+            biosVersionSubTreeHandler(std::move(callback), ec, subtree);
+        });
+}
+
+/**
+ * @brief Retrieves the BIOS version from the SMBIOS inventory.
+ *
+ * @param[in] asyncResp  Shared pointer for generating response message.
+ */
+inline void getBiosVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    populateBiosVersion([asyncResp](const boost::system::error_code& ec,
+                                    const std::string& biosVersion) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Failed to retrieve BIOS version from SMBIOS inventory: {}",
+                ec);
+            return;
+        }
+        asyncResp->res.jsonValue["BiosVersion"] = biosVersion;
+    });
+}
+
 } // namespace nvidia_systems_utils
 } // namespace redfish
