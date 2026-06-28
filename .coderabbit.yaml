@@ -35,7 +35,7 @@ reviews:
                 compatibility rules, and commit message requirements.
               - **docs/DBUS_USAGE.md**: D-Bus interaction patterns. All D-Bus
                 interfaces are OPTIONAL; missing interfaces are never errors.
-                enforce the usage of the D-Bus utility functions provided in th
+                enforce the usage of the D-Bus utility functions provided in the
                 file include/dbus_utility.hpp
               - **docs/NVIDIA_DEVELOPING.md**: NVIDIA OEM extension rules.
 
