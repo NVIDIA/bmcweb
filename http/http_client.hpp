@@ -74,19 +74,12 @@
 
 namespace crow
 {
-
 // With Redfish Aggregation it is assumed we will connect to another
 // instance of BMCWeb which can handle 100 simultaneous connections.
 constexpr size_t maxPoolSize = 20;
 constexpr size_t maxRequestQueueSize = 500;
 constexpr unsigned int httpReadBodyLimit = 131072;
-// NVIDIA code start
-// Increased from 4096 to match the HTTP/2 max-frame size (16 KiB) so
-// a single upstream read fills one complete HTTP/2 DATA frame.
-// At 4 KiB, four read/write cycles were needed per frame, quadrupling
-// system-call round-trips and cutting FDR throughput on slow paths.
 constexpr unsigned int httpReadBufferSize = 4096 * 8;
-// NVIDIA code end
 
 enum class ConnState
 {
@@ -155,11 +148,7 @@ struct PendingRequest
 };
 
 namespace http = boost::beast::http;
-
 // NVIDIA code start
-// RAII container for all streaming-only state. Created by createStreamPipe()
-// and destroyed (cancelling all timers and closing both pipe ends) when
-// streaming.reset() is called.
 struct StreamingState
 {
     explicit StreamingState(boost::asio::io_context& ioc) :
@@ -174,16 +163,8 @@ struct StreamingState
     size_t contentLength = 0;
     size_t byteCount = 0;
 };
-// NVIDIA code end
 
-// NVIDIA code start
-// Header-first receive routing for the FDR proxy. http_client reads the
-// upstream response headers first, then asks these predicates whether the body
-// should be buffered as JSON (the normal aggregator path) or streamed through a
-// kernel pipe (the streaming path).
-
-// Parse Content-Length, returning 0 when absent or unparseable (caller treats 0
-// as "no body to stream").
+// Returns 0 if Content-Length is absent or unparseable.
 inline size_t parseStreamingContentLength(
     const http::response<bmcweb::HttpBody>& response)
 {
@@ -220,12 +201,6 @@ inline bool isJsonResponse(const http::response<bmcweb::HttpBody>& response)
     return isJsonContentType(contentTypeIt->value());
 }
 
-// Decide whether this upstream response should be streamed. JSON bodies and
-// bodyless replies (4xx/5xx errors, 204 No Content, HEAD, 200 with
-// Content-Length: 0) stay on the buffered path: routing them through the pipe
-// would spin empty until the chunk-stall timer fires, bypassing the
-// retry/error policy. `responseIsInvalid` is connPolicy->invalidResp() for the
-// status code, supplied by the caller so this stays free of ConnectionPolicy.
 inline bool shouldStreamResponse(
     const http::response<bmcweb::HttpBody>& response, size_t contentLength,
     bool responseIsInvalid)
@@ -244,6 +219,7 @@ inline bool shouldStreamResponse(
 }
 // NVIDIA code end
 
+// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 {
   private:
@@ -274,17 +250,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     // Async callables
     // Nvidia code starts here
   public:
-    // Nvidia code ends here
     std::function<void(bool, uint32_t, Response&)> callback;
 
-    // Nvidia code starts here
   private:
     std::move_only_function<void()> afterHeadersCallback;
-    // NVIDIA code start
-    // Fires once the upstream socket is fully drained; the pool defers teardown
-    // until then so it never closes a socket still being read.
     std::function<void()> onRelayDone;
-    // NVIDIA code end
 
     // Nvidia code ends here
     boost::asio::io_context& ioc;
@@ -301,26 +271,21 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     boost::asio::steady_timer timer;
 
     // NVIDIA code start
-    // Streaming-only state, active while streaming has a value.
+    // Set only during active streaming.
     static constexpr std::chrono::minutes streamingDeadlineDuration{15};
     std::optional<StreamingState> streaming;
     // NVIDIA code end
 
     friend class ConnectionPool;
 
-    // Nvidia code starts here
   public:
     // NVIDIA code start
-    // True while a streaming pipe is open; the pool uses it to decide whether
-    // sendNext runs now or defers to onRelayDone.
     bool isBusyStreaming() const
     {
         return streaming.has_value();
     }
     // NVIDIA code end
 
-    // doResolve() is public: the IST multipart upload path calls it directly
-    // (nvidia_multipart_update.hpp) once the satellite controller info arrives.
     void doResolve()
     {
         state = ConnState::resolveInProgress;
@@ -454,20 +419,13 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         sendMessage();
     }
 
-    // Nvidia code starts here
     void sendMessage(const std::shared_ptr<ConnectionInfo>& /*self*/ = nullptr)
-    // Nvidia code ends here
     {
-        // NVIDIA code starts for streaming
         // Drop any bytes left in the read buffer from a previous response
-        // (e.g. unread bytes after an aborted stream) so async_read_header
-        // does not parse them as the new response.
         buffer.consume(buffer.size());
-        // NVIDIA code ends for streaming
 
         state = ConnState::sendInProgress;
 
-        // Nvidia code starts here
         if (!serializer)
         {
             serializer.emplace(req);
@@ -587,12 +545,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         state = ConnState::recvInProgress;
 
         parser_type& thisParser = parser.emplace();
-        // Read header first with unlimited body; afterReadHeader tightens
-        // the limit for JSON or switches to pipe-based streaming.
         thisParser.body_limit(std::numeric_limits<std::uint64_t>::max());
-        // Non-JSON responses are streamed via a pipe, so skip the
-        // body_limit that protects inbound request bodies. JSON responses
-        // are still bounded by connPolicy->requestByteLimit.
         thisParser.get().body().setStreamingReceiver(true);
 
         timer.expires_after(std::chrono::seconds(60));
@@ -678,7 +631,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Streaming uses per-chunk timeouts; cancel the read-header recv
         // timeout.
         timer.cancel();
-        copyStreamResponseHeaders(response);
+        res.response = response;
         if (!createStreamPipe())
         {
             if (callback)
@@ -686,6 +639,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                 callback(false, connId, res);
             }
             shutdownConn(false);
+            return;
+        }
+        if (!streaming)
+        {
             return;
         }
         streaming->contentLength = contentLength;
@@ -727,8 +684,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                       ->value()
                 : "(none)");
         // Route to the buffered-JSON path or the streamed-pipe path.
-        // invalidResp() is a ConnectionPolicy concern so it is resolved here
-        // and passed in.
         if (!shouldStreamResponse(response, contentLength,
                                   static_cast<bool>(connPolicy->invalidResp(
                                       response.result_int()))))
@@ -737,25 +692,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
         startStreamingResponse(response, contentLength);
-    }
-    // NVIDIA code end
-
-    void copyStreamResponseHeaders(
-        const http::response<bmcweb::HttpBody>& response)
-    {
-        res.response.result(response.result());
-        res.response.version(response.version());
-        for (const auto& hdrEntry : response.base())
-        {
-            const auto fieldName = hdrEntry.name();
-            // preparePayload() sets these; skip to avoid duplicates.
-            if (fieldName == boost::beast::http::field::content_length ||
-                fieldName == boost::beast::http::field::transfer_encoding)
-            {
-                continue;
-            }
-            res.response.insert(hdrEntry.name_string(), hdrEntry.value());
-        }
     }
 
     bool createStreamPipe()
@@ -773,7 +709,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return false;
         }
         // Expand the pipe buffer to reduce write stalls under backpressure.
-        constexpr int pipeBufferSize = 4 * 1024 * 1024;
+        constexpr int pipeBufferSize = 1 * 1024 * 1024;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         if (::fcntl(streaming->writePipe.native_handle(), F_SETPIPE_SZ,
                     pipeBufferSize) < 0)
@@ -828,6 +764,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     void resetChunkStallTimer()
     {
+        if (!streaming)
+        {
+            return;
+        }
         streaming->chunkStallTimer.cancel();
         streaming->chunkStallTimer.expires_after(std::chrono::seconds(120));
         streaming->chunkStallTimer.async_wait(
@@ -836,6 +776,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     void startStreamingDeadline()
     {
+        if (!streaming)
+        {
+            return;
+        }
         streaming->streamingDeadline.cancel();
         streaming->streamingDeadline.expires_after(streamingDeadlineDuration);
         streaming->streamingDeadline.async_wait(
@@ -966,6 +910,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     void handleEmptyChunk(bool done, bool hadEof)
     {
+        if (!streaming)
+        {
+            return;
+        }
         if (done || hadEof)
         {
             if (hadEof && !done)
@@ -1015,6 +963,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             streaming->writePipe, boost::asio::buffer(*lastChunk),
             [self = shared_from_this(),
              lastChunk](boost::system::error_code /*writeEc*/, size_t) {
+                if (!self->streaming)
+                {
+                    return;
+                }
                 auto cb = std::move(self->streaming->onRelayDone);
                 self->streaming.reset();
                 if (cb)
@@ -1028,6 +980,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         // Beast's partial_message fires after the final bytes are already
         // in body.str(); flush them so the client sees a complete transfer.
+        if (!streaming)
+        {
+            return;
+        }
         if (!parser)
         {
             auto cb = std::move(streaming->onRelayDone);
@@ -1063,6 +1019,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                          boost::system::error_code writeEc,
                          size_t /*bytesWritten*/)
     {
+        if (!streaming)
+        {
+            return;
+        }
         if (writeEc)
         {
             // operation_canceled/operation_aborted means the stall timer
@@ -1170,7 +1130,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             cb();
         }
     }
-    // NVIDIA code ends for streaming
+    // NVIDIA code end
 
     void afterRead(const std::shared_ptr<ConnectionInfo>& /*self*/,
                    const boost::beast::error_code& ec,
@@ -1189,10 +1149,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             BMCWEB_LOG_ERROR("recvMessage() failed: {} from {}", ec.message(),
                              host);
             // If we reused an idle pooled connection and got end-of-stream,
-            // the connection went stale while sitting in the pool (e.g.
-            // Downstream closed it due to keep-alive timeout). Reconnect
-            // transparently without counting this against maxRetryAttempts,
-            // since the server never processed the request.
+            // the connection went stale while sitting in the pool (e.g. HMC
+            // closed it due to keep-alive timeout). Reconnect transparently
+            // without counting this against maxRetryAttempts, since the
+            // server never processed the request.
             if (reusedIdleConn &&
                 (ec == boost::beast::http::error::end_of_stream ||
                  ec == boost::asio::error::eof))
@@ -1710,9 +1670,8 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
             return;
         }
 
-        // NVIDIA code starts for streaming: defer sendNext until this
-        // connection has finished reading from the upstream socket
-        // (onRelayDone).
+        // defer sendNext until this connection has finished reading
+        // from the downstream socket (onRelayDone).
         if (connId >= self->connections.size())
         {
             BMCWEB_LOG_ERROR(

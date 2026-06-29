@@ -387,24 +387,21 @@ struct Response
         return OpenCode::Success;
     }
 
-    // NVIDIA code start
     bool openFd(DuplicatableFileHandle handle,
                 bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
-    // NVIDIA code end
     {
         boost::beast::error_code ec;
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
         int retval = fcntl(handle.fileHandle.native_handle(), F_SETFL,
                            fcntl(handle.fileHandle.native_handle(), F_GETFL) |
                                O_NONBLOCK);
+        // NOLINTEND(cppcoreguidelines-pro-type-vararg)
         if (retval == -1)
         {
             BMCWEB_LOG_ERROR("Setting O_NONBLOCK failed");
         }
         response.body().encodingType = enc;
-        // NVIDIA code start
         response.body().setFd(std::move(handle), ec);
-        // NVIDIA code end
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to set fd");

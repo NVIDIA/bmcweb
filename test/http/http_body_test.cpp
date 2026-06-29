@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <optional>
 #include <span>
@@ -164,8 +165,10 @@ TEST(HttpFileBodyValueType, SetFileSizeOverridesFstat)
 
     // Override the fstat-derived size with an explicit value.
     value.setFileSize(99);
-    ASSERT_TRUE(value.payloadSize().has_value());
-    EXPECT_EQ(*value.payloadSize(), 99U);
+    std::optional<std::uint64_t> size = value.payloadSize();
+    ASSERT_TRUE(size.has_value());
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    EXPECT_EQ(*size, 99U);
 }
 
 TEST(HttpFileBodyValueType, ClearResetsToString)

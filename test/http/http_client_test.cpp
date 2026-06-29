@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
+#include "http/http_body.hpp"
 #include "http/http_client.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
+
+#include <string_view>
 
 #include "gtest/gtest.h"
 

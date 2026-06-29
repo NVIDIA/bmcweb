@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
@@ -362,6 +363,91 @@ TEST(http_connection, AuthFailedCallsHandler)
 
     // Verify DATA frame with "AuthFailedResponse" body
     EXPECT_EQ(outStr, expectedPostfix);
+}
+
+TEST(Http2Connection, OnDataReady_ExpiredWeakPtrReturnsFalse)
+{
+    // An expired (default-constructed) weak_ptr cannot be locked.
+    // onDataReady() must return false immediately without dereferencing.
+    std::weak_ptr<HTTP2Connection<TestStream, FakeHandler>> expired;
+    bool result =
+        HTTP2Connection<TestStream, FakeHandler>::onDataReady(expired, 1, {});
+    EXPECT_FALSE(result);
+}
+
+TEST(Http2Connection, OnStreamAbortTimer_OperationAbortedIsNoOp)
+{
+    // Construct a connection without feeding any HTTP/2 frames or calling
+    // start(), so no RST_STREAM frame can be written.  When the error code is
+    // operation_aborted the method must return immediately leaving the output
+    // stream empty.
+    boost::asio::io_context io;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+    FakeHandler handler;
+    std::function<std::string()> date(getDateStr);
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+    auto conn = std::make_shared<HTTP2Connection<TestStream, FakeHandler>>(
+        boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
+        &handler, date, HttpType::HTTP, nullptr);
+
+    conn->onStreamAbortTimer(1, boost::asio::error::operation_aborted);
+
+    EXPECT_TRUE(out.str().empty());
+}
+
+// ---- UT GAP stubs ---------------------------------------------------------
+// These tests are DISABLED_ because they require infrastructure that does not
+// yet exist in this repo's test helpers.  They document what would be needed
+// to achieve full coverage of the relevant code paths.
+
+TEST(Http2Connection, DISABLED_OnDataReady_EcSetResumesAndReturnsFalse)
+{
+    // GAP: Needs a running HTTP/2 session with an active deferred stream.
+    // ngSession.resumeData() on a non-existent stream triggers nghttp2
+    // internal errors in a test context.
+    // What would be needed: a full pipe-backed FDR stream that has reached
+    // EAGAIN state so that resumeData() has a valid stream to act on.
+}
+
+TEST(Http2Connection, DISABLED_FileReadCallback_EagainDefersAndLaterResumes)
+{
+    // GAP: Requires a real Unix pipe as the body source with controlled data
+    // delivery.  The nghttp2_submit_data2() + async_wait on stream_descriptor
+    // + resumeData() chain cannot be exercised without pumping io_context
+    // across multiple async hops.
+    // What would be needed: a pipe pair, a full HTTP/2 session handshake, a
+    // handler that sets a pipe-backed body, and an io_context pump loop.
+}
+
+TEST(Http2Connection, DISABLED_OnStreamAbortTimer_TimeoutSendsRstStream)
+{
+    // GAP: Requires an active fd-streaming response on a live HTTP/2 stream
+    // (stream id must exist in the streams map).  Creating this state requires
+    // a full HTTP/2 handshake plus a handler that calls openFd() on the
+    // response, and then timer expiry must be simulated.
+    // What would be needed: same setup as DISABLED_FileReadCallback above,
+    // plus a way to fire the stream-abort timer.
+}
+
+TEST(Http2Connection, DISABLED_DoWriteStreamChunk_EagainIsRetried)
+{
+    // GAP: doWriteStreamChunk() is a private method.  Exercising it requires
+    // either a friend declaration or white-box access via the Connection class.
+    // Additionally a pipe-backed body and a TestStream that returns EAGAIN on
+    // the first write_some() call are needed.
+    // What would be needed: TestStream that returns EAGAIN on first write,
+    // then succeeds on retry.
+}
+
+TEST(Http2Connection, DISABLED_StreamAbortTimer_FiresHardClose)
+{
+    // GAP: streamAbortTimer is a private member.  Advancing the steady_timer
+    // past the timeout threshold inside a unit test normally requires a
+    // mock-clock injection which does not exist in this repo's test helpers.
+    // What would be needed: a clock-injectable timer abstraction so the test
+    // can move time forward without wall-clock delays.
 }
 
 } // namespace

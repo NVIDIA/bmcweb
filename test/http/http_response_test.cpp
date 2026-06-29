@@ -10,9 +10,9 @@
 #include <boost/beast/http/serializer.hpp>
 #include <boost/beast/http/status.hpp>
 
-#include <cstdio>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 #include "gtest/gtest.h"
 namespace crow
