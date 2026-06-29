@@ -2697,29 +2697,32 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["PCIeSlots"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisId);
 
-    // TrustedComponent collection
-    getChassisAssociatedEndpoint(
-        asyncResp, chassisId,
-        [asyncResp,
-         chassisId]([[maybe_unused]] const std::string& endpoint, bool exists) {
-            if (exists)
-            {
-                // SPDM endpoint exists, add TrustedComponents link
-                asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
-                    boost::urls::format(
-                        "/redfish/v1/Chassis/{}/TrustedComponents", chassisId);
-            }
-            else
-            {
-                redfish::chassis_utils::getValidChassisPath(
-                    asyncResp, chassisId,
-                    [asyncResp, chassisId](
-                        const std::optional<std::string>& validChassisPath) {
-                        checkTPMComponentsAndAddLink(asyncResp, chassisId,
-                                                     validChassisPath);
-                    });
-            }
-        });
+    // TrustedComponent collection (once per GET when already populated;
+    // handleChassisGetAllProperties may run for multiple D-Bus interface
+    // queries on the same chassis).
+    if (!asyncResp->res.jsonValue.contains("TrustedComponents"))
+    {
+        getChassisAssociatedEndpoint(
+            chassisId,
+            [asyncResp, chassisId, chassisPath = path](
+                [[maybe_unused]] const std::string& endpoint, bool exists,
+                [[maybe_unused]] const std::optional<std::string>&
+                    resolvedPath) {
+                if (exists)
+                {
+                    asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
+                        boost::urls::format(
+                            "/redfish/v1/Chassis/{}/TrustedComponents",
+                            chassisId);
+                }
+                else
+                {
+                    checkTPMComponentsAndAddLink(asyncResp, chassisId,
+                                                 chassisPath);
+                }
+            },
+            path);
+    }
 
     // Controls Collection
     asyncResp->res.jsonValue["Controls"] = {

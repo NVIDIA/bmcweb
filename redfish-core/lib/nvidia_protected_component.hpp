@@ -434,37 +434,55 @@ inline void handleNvidiaRoTImageSlot(
         });
 }
 
+static constexpr std::array<std::string_view, 7>
+    erotChassisInventoryInterfaces = {
+        "xyz.openbmc_project.Inventory.Item.SPDMResponder",
+        securitySigningInterface,
+        softwareBuildTypeInterface,
+        softwareSigningInterface,
+        softwareStateInterface,
+        softwareSlotInterface,
+        securityVersionInterface};
+
 /**
- * @brief Update protected component link
- * @param asyncResp Async response object
+ * @brief Check inventory subtree for RoT protected component objects
  * @param chassisId Chassis ID
- * @return void
+ * @param subtree Inventory subtree from GetSubTree
+ * @return true if protected component objects exist under the chassis
  */
-inline void updateProtectedComponentLink(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
+inline bool isChassisInventorySubpath(const std::string& objectPath,
+                                      const std::string& chassisPrefix)
 {
-    dbus::utility::getSubTreePaths(
-        chassisDbusPath + chassisId, 0, propertyInterfaces,
-        [chassisId, asyncResp](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-            if (ec)
+    return objectPath == chassisPrefix ||
+           objectPath.starts_with(chassisPrefix + '/');
+}
+
+inline bool hasProtectedComponentObjects(
+    const std::string& chassisId,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    const std::string chassisPrefix = chassisDbusPath + chassisId;
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        if (!isChassisInventorySubpath(objectPath, chassisPrefix))
+        {
+            continue;
+        }
+        for (const auto& [_, interfaces] : serviceMap)
+        {
+            for (const std::string& iface : interfaces)
             {
-                BMCWEB_LOG_ERROR("Service not available {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
+                if (std::ranges::any_of(propertyInterfaces,
+                                        [&iface](const std::string_view prop) {
+                                            return prop == iface;
+                                        }))
+                {
+                    return true;
+                }
             }
-            if (!subtreePaths.empty())
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
-                    {"@odata.id",
-                     boost::urls::format("/redfish/v1/Chassis/{}/Oem/NvidiaRoT/"
-                                         "RoTProtectedComponents",
-                                         chassisId)}};
-            }
-        });
+        }
+    }
+    return false;
 }
 
 /**
