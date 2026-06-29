@@ -998,18 +998,12 @@ class Connection :
         }
         res.preparePayload(urlView, chunked);
 
-        // File-backed FdSource path (regular file or pipe filled by
-        // http_client). Use the per-chunk write loop so the stall timer resets
-        // on every successful chunk — the composed async_write arms
-        // startDeadline() once for the whole transfer and a multi-GB file at
-        // low throughput will exceed BMCWEB_HTTP_RESPONSE_TIMEOUT (300 s).
+        // Per-chunk loop resets the stall timer; async_write would time out.
         if (res.response.body().file().is_open())
         {
             responseWasStreaming = true;
             // NVIDIA code start
-            // Hard wall-clock cap: if the full transfer does not complete
-            // within 15 minutes, close the connection to reclaim resources
-            // and resist slow-read attacks.
+            // 15-min hard cap; guards against slow-read attacks.
             static constexpr std::chrono::minutes streamAbortTimeout{15};
             streamAbortTimer.emplace(adaptor.get_executor());
             streamAbortTimer->expires_after(streamAbortTimeout);
@@ -1062,9 +1056,7 @@ class Connection :
         {
             return;
         }
-        // Per-chunk stall timer: resets after every successful buffer write so
-        // a multi-GB file transfer survives slow downstream clients without
-        // hitting the BMCWEB_HTTP_RESPONSE_TIMEOUT hard cap.
+        // Per-chunk stall timer: resets on each write to allow slow clients.
         cancelDeadlineTimer();
         startDeadline(DeadlineTimerType::Default);
 
@@ -1254,19 +1246,11 @@ class Connection :
 
     boost::asio::steady_timer timer;
 
-    // NVIDIA code start
-    // Arms in doWrite() for fd-backed responses; fires hard close after 15 min.
     std::optional<boost::asio::steady_timer> streamAbortTimer;
-    // NVIDIA code end
-
-    // Set when the response body is a streaming pipe or file; prevents
-    // afterDoWrite() from issuing doReadHeaders() to reuse the socket.
     bool responseWasStreaming = false;
 
-    // Holds the response generator across per-chunk async_write_some calls.
     std::unique_ptr<boost::beast::http::message_generator> writeGen;
 
-    // Prevents concurrent writes racing in doWriteStreamChunk().
     bool writeActive = false;
 
     bool keepAlive = true;

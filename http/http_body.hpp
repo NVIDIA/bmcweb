@@ -89,9 +89,12 @@ enum class CompressionType
     Zstd,
 };
 
+// Nvidia code starts here
 struct FileBody
+// Nvidia code ends here
 {
     std::optional<size_t> fileSize;
+    // Nvidia code starts here
     DuplicatableFileHandle fileHandle;
 };
 
@@ -133,12 +136,13 @@ class HttpBody::value_type
     // Nvidia code ends here
 
   public:
-    // When set, reader::init() skips the Content-Length DoS guard (trusted
-    // internal streaming receivers).
+    // Skips the Content-Length DoS guard for trusted internal streaming.
     bool streamingReceiver = false;
 
     value_type() = default;
+    // Nvidia code starts here
     explicit value_type(std::string_view s) : bodyData(std::string(s)) {}
+    // Nvidia code ends here
     explicit value_type(EncodingType e) : encodingType(e) {}
     EncodingType encodingType = EncodingType::Raw;
     CompressionType compressionType = CompressionType::Raw;
@@ -157,12 +161,14 @@ class HttpBody::value_type
 
     const boost::beast::file_posix& file() const
     {
+        // Nvidia code starts here
         if (const auto* fileBody = std::get_if<FileBody>(&bodyData))
         {
             return fileBody->fileHandle.fileHandle;
         }
         static boost::beast::file_posix emptyFile;
         return emptyFile;
+        // Nvidia code ends here
     }
 
     // NVIDIA code start
@@ -171,8 +177,7 @@ class HttpBody::value_type
         streamingReceiver = enable;
     }
 
-    // Set the file size from an out-of-band source (e.g. Content-Length
-    // header) when fstat cannot determine it (pipes).
+    // Set file size when fstat cannot determine it (e.g. pipes).
     void setFileSize(size_t size)
     {
         if (auto* fileBody = std::get_if<FileBody>(&bodyData))
@@ -184,15 +189,18 @@ class HttpBody::value_type
 
     std::string& str()
     {
+        // Nvidia code starts here
         if (auto* s = std::get_if<std::string>(&bodyData))
         {
             return *s;
         }
         return bodyData.emplace<std::string>();
+        // Nvidia code ends here
     }
 
     const std::string& str() const
     {
+        // Nvidia code starts here
         if (const auto* s = std::get_if<std::string>(&bodyData))
         {
             return *s;
@@ -218,6 +226,7 @@ class HttpBody::value_type
 
     std::optional<size_t> payloadSize() const
     {
+        // Nvidia code starts here
         if (const auto* s = std::get_if<std::string>(&bodyData))
         {
             return s->size();
@@ -240,7 +249,9 @@ class HttpBody::value_type
 
     void clear()
     {
+        // Nvidia code starts here
         bodyData = std::string{};
+        // Nvidia code ends here
         encodingType = EncodingType::Raw;
         streamingReceiver = false;
     }
@@ -248,48 +259,63 @@ class HttpBody::value_type
     void open(const char* path, boost::beast::file_mode mode,
               boost::system::error_code& ec)
     {
+        // Nvidia code starts here
         FileBody fileBody;
         fileBody.fileHandle.fileHandle.open(path, mode, ec);
+        // Nvidia code ends here
         if (ec)
         {
             return;
         }
         boost::system::error_code ec2;
+        // Nvidia code starts here
         uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
+        // Nvidia code ends here
         if (!ec2)
         {
             BMCWEB_LOG_INFO("File size was {} bytes", size);
+            // Nvidia code starts here
             fileBody.fileSize = static_cast<size_t>(size);
+            // Nvidia code ends here
         }
         else
         {
             BMCWEB_LOG_WARNING("Failed to read file size on {}", path);
         }
 
+        // Nvidia code starts here
         int fadvise =
             posix_fadvise(fileBody.fileHandle.fileHandle.native_handle(), 0, 0,
                           POSIX_FADV_SEQUENTIAL);
+        // Nvidia code ends here
         if (fadvise != 0)
         {
             // Nvidia code starts here
             BMCWEB_LOG_WARNING("Fadvise returned {} ignoring", fadvise);
         }
         bodyData = std::move(fileBody);
+        // Nvidia code ends here
         ec = {};
     }
 
     void setFd(DuplicatableFileHandle handle, boost::system::error_code& ec)
     {
+        // Nvidia code starts here
         FileBody& fileBody = bodyData.emplace<FileBody>();
         fileBody.fileHandle = std::move(handle);
+        // Nvidia code ends here
 
         boost::system::error_code ec2;
+        // Nvidia code starts here
         uint64_t size = fileBody.fileHandle.fileHandle.size(ec2);
+        // Nvidia code ends here
         if (!ec2)
         {
             if (size != 0 && size < std::numeric_limits<size_t>::max())
             {
+                // Nvidia code starts here
                 fileBody.fileSize = static_cast<size_t>(size);
+                // Nvidia code ends here
             }
         }
         ec = {};
@@ -341,6 +367,7 @@ class HttpBody::value_type
     std::optional<MultipartParserStreamingCallbacks> multipartParserCallbacks;
     std::shared_ptr<BackpressureState> backpressureState =
         std::make_shared<BackpressureState>();
+    // Nvidia code ends here
 };
 
 class HttpBody::writer
@@ -422,8 +449,8 @@ class HttpBody::writer
         else
         {
             size_t readReq = std::min(fileReadBuf.size(), maxSize);
-            // keep per-chunk file reads at DEBUG to avoid journal flooding
-            // during large satellite firmware and FDR streaming relays.
+            // Nvidia modified: keep per-chunk file reads at DEBUG to avoid
+            // journal flooding during large satellite firmware relays.
             BMCWEB_LOG_DEBUG("Reading {}", readReq);
             boost::system::error_code readEc;
             size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
@@ -457,12 +484,12 @@ class HttpBody::writer
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
+            // Nvidia code starts here
             BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
             fileBytesRead += read;
-            // With a known size, detect EOF by byte count (pipes can
-            // short-read without being at EOF).
+            // Detect EOF by byte count; pipes can short-read.
             const auto* fb = std::get_if<FileBody>(&body.bodyData);
-            if (fb && fb->fileSize)
+            if (fb != nullptr && fb->fileSize)
             {
                 ret.second = fileBytesRead < *fb->fileSize;
             }
@@ -470,6 +497,7 @@ class HttpBody::writer
             {
                 ret.second = read != 0;
             }
+            // Nvidia code ends here
             if (body.encodingType == EncodingType::Base64)
             {
                 buf.clear();
@@ -601,6 +629,7 @@ class HttpBody::reader
             return;
         }
 
+        // Nvidia code ends here
         if (contentLength && !value.file().is_open() &&
             !value.streamingReceiver)
         {

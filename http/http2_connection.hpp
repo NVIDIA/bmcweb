@@ -72,11 +72,9 @@ struct Http2StreamData
     bool isStreamInput = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
-    // Armed for fd-backed responses; hard-closes after 15 min to bound
-    // slow-read attacks.
+    // 15-min hard cap for fd-backed streaming responses.
     std::optional<boost::asio::steady_timer> streamAbortTimer;
-    // Pipe watcher: armed when fileReadCallback gets EAGAIN, fires
-    // resumeData() when the pipe has data available.
+    // Armed on EAGAIN; fires resumeData() when pipe data is available.
     std::optional<boost::asio::posix::stream_descriptor> watchSd;
     // NVIDIA code end
 };
@@ -335,8 +333,7 @@ class HTTP2Connection :
         stream.writer.emplace(fbody.base(), fbody.body());
 
         // NVIDIA code start
-        // Hard wall-clock cap for fd-backed (streaming) responses: close after
-        // 15 minutes regardless of progress to resist slow-read attacks.
+        // Abort streaming after 15 minutes to resist slow-read attacks.
         if (fbody.body().file().is_open())
         {
             static constexpr std::chrono::minutes streamAbortTimeout{15};
@@ -359,7 +356,6 @@ class HTTP2Connection :
             close();
             return -1;
         }
-
         writeBuffer();
 
         return 0;
