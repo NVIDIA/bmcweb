@@ -85,8 +85,7 @@ TEST(StringToInt64, ParsesValidValues)
     EXPECT_EQ(stringToInt64("0"), 0);
     EXPECT_EQ(stringToInt64("12345"), 12345);
     EXPECT_EQ(stringToInt64("-42"), -42);
-    EXPECT_EQ(stringToInt64("ff", 16), 255);
-    EXPECT_EQ(stringToInt64("7fffffffffffffff", 16),
+    EXPECT_EQ(stringToInt64("9223372036854775807"),
               std::numeric_limits<int64_t>::max());
 }
 
@@ -103,8 +102,7 @@ TEST(StringToUint64, ParsesValidValues)
 {
     EXPECT_EQ(stringToUint64("0"), 0U);
     EXPECT_EQ(stringToUint64("12345"), 12345U);
-    EXPECT_EQ(stringToUint64("ff", 16), 255U);
-    EXPECT_EQ(stringToUint64("FFFFFFFFFFFFFFFF", 16),
+    EXPECT_EQ(stringToUint64("18446744073709551615"),
               std::numeric_limits<uint64_t>::max());
 }
 
@@ -114,6 +112,38 @@ TEST(StringToUint64, RejectsInvalidValues)
     EXPECT_EQ(stringToUint64("-1"), std::nullopt);
     EXPECT_EQ(stringToUint64("12xyz"), std::nullopt);
     EXPECT_EQ(stringToUint64("999999999999999999999999"), std::nullopt);
+}
+
+TEST(HexStringToInt64, ParsesValidValues)
+{
+    EXPECT_EQ(hexStringToInt64("ff"), 255);
+    EXPECT_EQ(hexStringToInt64("0xff"), 255);
+    EXPECT_EQ(hexStringToInt64("0X1A"), 26);
+    EXPECT_EQ(hexStringToInt64("7fffffffffffffff"),
+              std::numeric_limits<int64_t>::max());
+}
+
+TEST(HexStringToInt64, RejectsInvalidValues)
+{
+    EXPECT_EQ(hexStringToInt64(""), std::nullopt);
+    EXPECT_EQ(hexStringToInt64("0x"), std::nullopt);
+    EXPECT_EQ(hexStringToInt64("xyz"), std::nullopt);
+    EXPECT_EQ(hexStringToInt64("ffffffffffffffff"), std::nullopt);
+}
+
+TEST(HexStringToUint64, ParsesValidValues)
+{
+    EXPECT_EQ(hexStringToUint64("ff"), 255U);
+    EXPECT_EQ(hexStringToUint64("0xff"), 255U);
+    EXPECT_EQ(hexStringToUint64("FFFFFFFFFFFFFFFF"),
+              std::numeric_limits<uint64_t>::max());
+}
+
+TEST(HexStringToUint64, RejectsInvalidValues)
+{
+    EXPECT_EQ(hexStringToUint64(""), std::nullopt);
+    EXPECT_EQ(hexStringToUint64("0x"), std::nullopt);
+    EXPECT_EQ(hexStringToUint64("12xyz"), std::nullopt);
 }
 
 } // namespace

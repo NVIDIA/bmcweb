@@ -2,16 +2,18 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "hex_utils.hpp"
 #include "logging.hpp"
 
 #include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
-#include <regex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 static constexpr std::array<char, 16> nvidiaDigitsArray = {
@@ -76,43 +78,26 @@ inline std::string vectorTo256BitHexString(const std::vector<uint8_t>& value)
     return "0x" + result.substr(firstNonZero);
 }
 
-inline std::vector<uint8_t> stringNibbleToVector(
-    const std::string& nibbleString)
+inline std::optional<std::vector<uint8_t>> stringNibbleToVector(
+    std::string_view nibbleString)
 {
-    std::vector<uint8_t> result(32, 0); // Initialize with 32 zeros
-
-    // Validate input string
-    std::string processedString = nibbleString;
-
-    // Remove '0x' prefix if present
-    if (processedString.size() >= 2 && processedString[0] == '0' &&
-        processedString[1] == 'x')
+    if (nibbleString.starts_with("0x"))
     {
-        processedString.erase(0, 2);
+        nibbleString.remove_prefix(2);
     }
 
-    // Check for even length
-    if (processedString.length() > 64)
+    if (nibbleString.empty() || nibbleString.length() > 64)
     {
-        throw std::invalid_argument("Input string is too long");
+        return std::nullopt;
     }
 
-    // Validate hexadecimal characters
-    std::regex hexRegex("^[0-9A-Fa-f]+$");
-    if (!std::regex_match(processedString, hexRegex))
-    {
-        throw std::invalid_argument(
-            "Input string contains invalid hexadecimal characters");
-    }
+    std::string processedString = std::string(64 - nibbleString.length(), '0') +
+                                  std::string(nibbleString);
 
-    // Pad the string with leading zeros if necessary
-    processedString =
-        std::string(64 - processedString.length(), '0') + processedString;
-
-    for (size_t i = 0; i < 32; ++i)
+    std::vector<uint8_t> result = hexStringToBytes(processedString);
+    if (result.empty())
     {
-        std::string byteString = processedString.substr(i * 2, 2);
-        result[i] = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        return std::nullopt;
     }
 
     return result;

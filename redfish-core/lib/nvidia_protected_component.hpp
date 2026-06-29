@@ -1740,18 +1740,15 @@ inline void handleUpdateMinSecVersionAction(
     {
         return;
     }
-    uint64_t nonce = 0;
-    try
+    std::optional<uint64_t> parsedNonce = hexStringToUint64(nonceStr);
+    if (!parsedNonce)
     {
-        nonce = std::stoull(nonceStr, nullptr, 16);
-    }
-    catch (std::exception& e)
-    {
-        BMCWEB_LOG_ERROR("stoull failed: {}", e.what());
+        BMCWEB_LOG_ERROR("Invalid Nonce hex value");
         messages::actionParameterValueError(asyncResp->res, "Nonce",
                                             "UpdateMinimumSecurityVersion");
         return;
     }
+    uint64_t nonce = *parsedNonce;
     std::string requestType;
     uint16_t reqMinSecVersion = 0;
     if (minSecVersion)
@@ -2027,18 +2024,15 @@ inline void handleRevokeKeysAction(
     {
         return;
     }
-    uint64_t nonce = 0;
-    try
+    std::optional<uint64_t> parsedNonce = hexStringToUint64(nonceStr);
+    if (!parsedNonce)
     {
-        nonce = std::stoull(nonceStr, nullptr, 16);
-    }
-    catch (std::exception& e)
-    {
-        BMCWEB_LOG_ERROR("stoull failed: {}", e.what());
+        BMCWEB_LOG_ERROR("Invalid Nonce hex value");
         messages::actionParameterValueError(asyncResp->res, "Nonce",
                                             "RevokeKeys");
         return;
     }
+    uint64_t nonce = *parsedNonce;
     std::string requestType;
     if (keys)
     {

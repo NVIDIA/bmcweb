@@ -18,6 +18,7 @@
 
 #include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/mctp_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 
@@ -36,8 +37,10 @@
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -440,25 +443,33 @@ static inline void executeDotCommand(
         {
             mctpStatusCodeHexStr = tokens[tokens.size() - 1];
         }
-        try
+        if (!mctpStatusCodeHexStr.empty())
         {
-            if (!mctpStatusCodeHexStr.empty())
+            std::optional<int64_t> parsed =
+                hexStringToInt64(mctpStatusCodeHexStr);
+            if (!parsed)
             {
-                mctpStatusCode = std::stoi(mctpStatusCodeHexStr, nullptr, 16);
+                BMCWEB_LOG_ERROR("mctp-vdm-util RX data invalid format: {}",
+                                 output);
+                messages::resourceErrorsDetectedFormatError(
+                    asyncResp->res, "mctp-vdm-util RX data", "invalid format");
+                return;
             }
-            if (!dotCompletionCodeHexStr.empty())
-            {
-                dotCompletionCode =
-                    std::stoi(dotCompletionCodeHexStr, nullptr, 16);
-            }
+            mctpStatusCode = *parsed;
         }
-        catch (...)
+        if (!dotCompletionCodeHexStr.empty())
         {
-            BMCWEB_LOG_ERROR("mctp-vdm-util RX data invalid format: {}",
-                             output);
-            messages::resourceErrorsDetectedFormatError(
-                asyncResp->res, "mctp-vdm-util RX data", "invalid format");
-            return;
+            std::optional<int64_t> parsed =
+                hexStringToInt64(dotCompletionCodeHexStr);
+            if (!parsed)
+            {
+                BMCWEB_LOG_ERROR("mctp-vdm-util RX data invalid format: {}",
+                                 output);
+                messages::resourceErrorsDetectedFormatError(
+                    asyncResp->res, "mctp-vdm-util RX data", "invalid format");
+                return;
+            }
+            dotCompletionCode = *parsed;
         }
         if (mctpStatusCode == 0 && dotCompletionCode == 0)
         {
