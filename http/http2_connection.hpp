@@ -36,6 +36,7 @@
 #include <boost/url/url_view.hpp>
 
 #include <array>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cstddef>
@@ -56,7 +57,7 @@ namespace crow
 {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static int http2ConnectionCount = 0;
+inline std::atomic<int> http2ConnectionCount{0};
 
 enum class DeadlineTimerType
 {

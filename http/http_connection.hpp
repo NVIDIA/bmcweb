@@ -341,6 +341,14 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
+            if (http2ConnectionCount >= 200)
+            {
+                BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
+                                 http2ConnectionCount);
+                res.result(boost::beast::http::status::service_unavailable);
+                keepAlive = false;
+                return false;
+            }
             std::string_view base64settings = req->req["HTTP2-Settings"];
             if (utility::base64Decode<true>(base64settings, http2settings))
             {
