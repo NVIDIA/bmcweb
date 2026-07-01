@@ -64,6 +64,9 @@ namespace crow
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static int connectionCount = 0;
 
+constexpr int maxHttp1Connections = 200;
+constexpr int maxHttp2Connections = 200;
+
 // request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
 constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
 
@@ -203,7 +206,7 @@ class Connection :
     {
         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
                          connectionCount);
-        if (connectionCount >= 200)
+        if (connectionCount >= maxHttp1Connections)
         {
             BMCWEB_LOG_CRITICAL("{}Max connection count exceeded.",
                                 logPtr(this));
@@ -295,7 +298,7 @@ class Connection :
 
     void upgradeToHttp2()
     {
-        if (http2ConnectionCount >= 200)
+        if (http2ConnectionCount >= maxHttp2Connections)
         {
             BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
                              http2ConnectionCount);
@@ -341,7 +344,7 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
-            if (http2ConnectionCount >= 200)
+            if (http2ConnectionCount >= maxHttp2Connections)
             {
                 BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
                                  http2ConnectionCount);

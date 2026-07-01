@@ -811,11 +811,7 @@ class HTTP2Connection :
         self.streams.erase(it);
         // streams map always has stream 0 (control); if only that remains,
         // the connection is idle -- switch to the longer keepalive timeout
-        if (self.streams.size() <= 1)
-        {
-            self.cancelDeadlineTimer();
-            self.startDeadline(DeadlineTimerType::Keepalive);
-        }
+        self.refreshDeadline();
         return 0;
     }
 
@@ -936,8 +932,7 @@ class HTTP2Connection :
             {
                 BMCWEB_LOG_ERROR("Failed to set local window size");
             }
-            cancelDeadlineTimer();
-            startDeadline(DeadlineTimerType::Default);
+            refreshDeadline();
         }
         return 0;
     }
@@ -984,6 +979,7 @@ class HTTP2Connection :
             self->close();
             return;
         }
+        self->refreshDeadline();
         self->writeBuffer();
     }
 
@@ -1049,6 +1045,7 @@ class HTTP2Connection :
             close();
             return;
         }
+        refreshDeadline();
         writeBuffer();
 
         doRead();
@@ -1060,31 +1057,41 @@ class HTTP2Connection :
         timerStarted = false;
     }
 
-    void afterTimerWait(const std::weak_ptr<self_type>& weakSelf,
-                        const boost::system::error_code& ec)
+    // Push the deadline back on read/write progress, so a long-running
+    // transfer over an open stream isn't killed by the Default timeout
+    // just because no new stream has opened or closed recently.
+    void refreshDeadline()
     {
-        std::shared_ptr<self_type> self = weakSelf.lock();
-        if (!self)
+        cancelDeadlineTimer();
+        // streams map always has stream 0 (control); if only that remains,
+        // the connection is idle -- use the longer keepalive timeout
+        if (streams.size() <= 1)
         {
-            return;
+            startDeadline(DeadlineTimerType::Keepalive);
         }
+        else
+        {
+            startDeadline(DeadlineTimerType::Default);
+        }
+    }
 
-        self->timerStarted = false;
+    void afterTimerWait(const boost::system::error_code& ec)
+    {
+        timerStarted = false;
 
         if (ec)
         {
             if (ec == boost::asio::error::operation_aborted)
             {
-                BMCWEB_LOG_DEBUG("{} HTTP2 timer canceled", logPtr(self.get()));
+                BMCWEB_LOG_DEBUG("{} HTTP2 timer canceled", logPtr(this));
                 return;
             }
-            BMCWEB_LOG_CRITICAL("{} HTTP2 timer failed {}", logPtr(self.get()),
-                                ec);
+            BMCWEB_LOG_CRITICAL("{} HTTP2 timer failed {}", logPtr(this), ec);
         }
 
         BMCWEB_LOG_WARNING("{} HTTP2 connection timed out, closing",
-                           logPtr(self.get()));
-        self->close();
+                           logPtr(this));
+        close();
     }
 
     void startDeadline(DeadlineTimerType timerType)
@@ -1103,8 +1110,15 @@ class HTTP2Connection :
         std::chrono::seconds timeout(timeoutDurationSeconds);
 
         timer.expires_after(timeout);
-        timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,
-                                         weak_from_this()));
+        timer.async_wait(
+            [weakSelf = weak_from_this()](const boost::system::error_code& ec) {
+                std::shared_ptr<self_type> self = weakSelf.lock();
+                if (!self)
+                {
+                    return;
+                }
+                self->afterTimerWait(ec);
+            });
         timerStarted = true;
         BMCWEB_LOG_DEBUG("{} HTTP2 timer started ({} seconds)", logPtr(this),
                          timeoutDurationSeconds);
