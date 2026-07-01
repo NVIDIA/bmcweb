@@ -1624,7 +1624,7 @@ inline void requestRoutesPCIeClearCounter(App& app)
                                                systemId);
                     return;
                 }
-                std::optional<std::string> counterType;
+                std::string counterType;
                 if (!json_util::readJsonAction(req, asyncResp->res,
                                                "CounterType", counterType))
                 {
@@ -1632,7 +1632,7 @@ inline void requestRoutesPCIeClearCounter(App& app)
                 }
 
                 redfish::nvidia_processor_utils::postPCIeClearCounter(
-                    asyncResp, processorId, portId, *counterType);
+                    asyncResp, processorId, portId, counterType);
             });
 }
 
