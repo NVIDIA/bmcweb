@@ -1380,8 +1380,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Dump.Create", "CreateDump", createDumpParamVec);
 }
 
-inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& dumpType)
+inline void issueDumpDeleteAll(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusDumpPath)
 {
     dbus::utility::async_method_call(
         asyncResp,
@@ -1394,8 +1395,66 @@ inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             messages::success(asyncResp->res);
         },
-        "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
+        "xyz.openbmc_project.Dump.Manager", dbusDumpPath,
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
+}
+
+inline bool isDumpTypeSupported(
+    const std::string& dumpType,
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
+{
+    std::string dbusDumpPath = getDumpPath(dumpType);
+    for (const std::string& path : subTreePaths)
+    {
+        if (path == dbusDumpPath)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline void handleDumpClearSubTreePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dumpType, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& subTreePaths)
+{
+    if (ec)
+    {
+        // A mapper failure is a genuine server-side error, not an unsupported
+        // dump type - report it as 500, not 404.
+        BMCWEB_LOG_ERROR(
+            "clearDump getSubTreePaths failed for dump type {}: {}", dumpType,
+            ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (!isDumpTypeSupported(dumpType, subTreePaths))
+    {
+        BMCWEB_LOG_WARNING(
+            "clearDump: dump type {} is not supported on this platform",
+            dumpType);
+        messages::resourceNotFound(asyncResp->res, "LogService", dumpType);
+        return;
+    }
+
+    issueDumpDeleteAll(asyncResp, getDumpPath(dumpType));
+}
+
+inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& dumpType)
+{
+    // A dump type (e.g. FaultLog) may be exposed in the Redfish tree on a
+    // platform that has no backing dump manager object (for example FaultLog
+    // on the switch tray). Confirm the dump manager object exists before
+    // issuing DeleteAll, so an unsupported dump type returns 404
+    // ResourceNotFound instead of a misleading 500 InternalError. Genuine
+    // DeleteAll failures on supported platforms still surface as 500.
+    constexpr std::array<std::string_view, 1> interfaces = {deleteAllInterface};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/dump", 0, interfaces,
+        std::bind_front(handleDumpClearSubTreePaths, asyncResp, dumpType));
 }
 
 inline void parseCrashdumpParameters(
