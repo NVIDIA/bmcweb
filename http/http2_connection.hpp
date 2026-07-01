@@ -36,7 +36,6 @@
 #include <boost/url/url_view.hpp>
 
 #include <array>
-#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cstddef>
@@ -56,13 +55,22 @@
 namespace crow
 {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-inline std::atomic<int> http2ConnectionCount{0};
+// Total number of simultaneous connections, shared between HTTP/1.1
+// Connection (http_connection.hpp) and HTTP2Connection. A function-local
+// static (rather than a namespace-scope variable) guarantees a single
+// instance even though this header is included by multiple translation
+// units.
+inline int& getConnectionCount()
+{
+    static int count = 0;
+    return count;
+}
 
 enum class DeadlineTimerType
 {
     Default,
     Keepalive,
+    Multipart,
 };
 
 struct Http2StreamData
@@ -108,13 +116,13 @@ class HTTP2Connection :
         getCachedDateStr(getCachedDateStrF), mtlsSession(mtlsSessionIn),
         timer(adaptor.get_executor())
     {
-        http2ConnectionCount++;
+        getConnectionCount()++;
     }
 
     ~HTTP2Connection()
     {
         cancelDeadlineTimer();
-        http2ConnectionCount--;
+        getConnectionCount()--;
     }
 
     HTTP2Connection(const HTTP2Connection&) = delete;
@@ -1057,22 +1065,45 @@ class HTTP2Connection :
         timerStarted = false;
     }
 
+    bool isMultipartActive() const
+    {
+        for (const auto& [id, stream] : streams)
+        {
+            if (stream.req && stream.req->req.body().multipartParserCallbacks)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Push the deadline back on read/write progress, so a long-running
     // transfer over an open stream isn't killed by the Default timeout
     // just because no new stream has opened or closed recently.
     void refreshDeadline()
     {
+        // If a multipart upload is in progress and the timer is already
+        // running, let it run to its absolute 1-hour deadline rather than
+        // sliding it forward on each received chunk (mirrors HTTP/1 behaviour).
+        if (timerStarted && isMultipartActive())
+        {
+            return;
+        }
+
         cancelDeadlineTimer();
         // streams map always has stream 0 (control); if only that remains,
         // the connection is idle -- use the longer keepalive timeout
         if (streams.size() <= 1)
         {
             startDeadline(DeadlineTimerType::Keepalive);
+            return;
         }
-        else
+        if (isMultipartActive())
         {
-            startDeadline(DeadlineTimerType::Default);
+            startDeadline(DeadlineTimerType::Multipart);
+            return;
         }
+        startDeadline(DeadlineTimerType::Default);
     }
 
     void afterTimerWait(const boost::system::error_code& ec)
@@ -1105,6 +1136,10 @@ class HTTP2Connection :
         if (timerType == DeadlineTimerType::Keepalive)
         {
             timeoutDurationSeconds = 15 * 60;
+        }
+        else if (timerType == DeadlineTimerType::Multipart)
+        {
+            timeoutDurationSeconds = 60 * 60;
         }
 
         std::chrono::seconds timeout(timeoutDurationSeconds);

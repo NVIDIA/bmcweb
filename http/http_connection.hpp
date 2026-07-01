@@ -61,11 +61,14 @@
 namespace crow
 {
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static int connectionCount = 0;
+// getConnectionCount() is defined in http2_connection.hpp (included above)
+// so that it is shared between Connection and HTTP2Connection.
 
 constexpr int maxHttp1Connections = 200;
-constexpr int maxHttp2Connections = 200;
+// HTTP/2 connections have no keepalive limit and each can multiplex many
+// concurrent streams, so a much lower connection cap is appropriate here
+// than for HTTP/1.1.
+constexpr int maxHttp2Connections = 40;
 
 // request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
 constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
@@ -90,10 +93,10 @@ class Connection :
     {
         initParser();
 
-        connectionCount++;
+        getConnectionCount()++;
 
         BMCWEB_LOG_DEBUG("{} Connection created, total {}", logPtr(this),
-                         connectionCount);
+                         getConnectionCount());
     }
 
     ~Connection()
@@ -101,9 +104,9 @@ class Connection :
         res.releaseCompleteRequestHandler();
         cancelDeadlineTimer();
 
-        connectionCount--;
+        getConnectionCount()--;
         BMCWEB_LOG_DEBUG("{} Connection closed, total {}", logPtr(this),
-                         connectionCount);
+                         getConnectionCount());
     }
 
     Connection(const Connection&) = delete;
@@ -205,8 +208,8 @@ class Connection :
     void start()
     {
         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
-                         connectionCount);
-        if (connectionCount >= maxHttp1Connections)
+                         getConnectionCount());
+        if (getConnectionCount() >= maxHttp1Connections)
         {
             BMCWEB_LOG_CRITICAL("{}Max connection count exceeded.",
                                 logPtr(this));
@@ -298,10 +301,10 @@ class Connection :
 
     void upgradeToHttp2()
     {
-        if (http2ConnectionCount >= maxHttp2Connections)
+        if (getConnectionCount() >= maxHttp2Connections)
         {
-            BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
-                             http2ConnectionCount);
+            BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
+                                getConnectionCount());
             return;
         }
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
@@ -344,10 +347,10 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
-            if (http2ConnectionCount >= maxHttp2Connections)
+            if (getConnectionCount() >= maxHttp2Connections)
             {
-                BMCWEB_LOG_DEBUG("max http2 connection limit, count={}",
-                                 http2ConnectionCount);
+                BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
+                                    getConnectionCount());
                 res.result(boost::beast::http::status::service_unavailable);
                 keepAlive = false;
                 return false;
