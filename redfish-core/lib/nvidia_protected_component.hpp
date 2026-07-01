@@ -1568,7 +1568,7 @@ inline void handleUpdateMinSecVersionActionInfo(
     }
 
     dbus::utility::getSubTree(
-        chassisDbusPath + chassisId, 0,
+        sdbusplus::message::object_path(chassisDbusPath) / chassisId, 0,
         std::array<std::string_view, 1>{softwareSlotInterface},
         std::bind_front(afterGetSubTreeUpdateMinSecVersionActionInfo, asyncResp,
                         chassisId, componentId));
@@ -1858,7 +1858,7 @@ inline void handleRevokeKeysActionInfo(
     }
 
     dbus::utility::getSubTree(
-        chassisDbusPath + chassisId, 0,
+        sdbusplus::message::object_path(chassisDbusPath) / chassisId, 0,
         std::array<std::string_view, 1>{softwareSlotInterface},
         std::bind_front(afterGetSubTreeRevokeKeysActionInfo, asyncResp,
                         chassisId, componentId));
