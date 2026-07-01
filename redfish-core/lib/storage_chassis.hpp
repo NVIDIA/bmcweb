@@ -430,7 +430,7 @@ inline void afterChassisDriveCollectionSubtreeGet(
     // Iterate over all retrieved ObjectPaths.
     for (const auto& [path, connectionNames] : subtree)
     {
-        sdbusplus::object_path objPath(path);
+        sdbusplus::message::object_path objPath(path);
         if (objPath.filename() != chassisId)
         {
             continue;
@@ -464,7 +464,7 @@ inline void afterChassisDriveCollectionSubtreeGet(
                 std::vector<std::string> leafNames;
                 for (const auto& drive : resp)
                 {
-                    sdbusplus::object_path drivePath(drive);
+                    sdbusplus::message::object_path drivePath(drive);
                     leafNames.push_back(drivePath.filename());
                 }
 
@@ -482,7 +482,7 @@ inline void afterChassisDriveCollectionSubtreeGet(
                 asyncResp->res.jsonValue["Members@odata.count"] = resp.size();
             }); // end association lambda
 
-    } // end Iterate over all retrieved ObjectPaths
+    }           // end Iterate over all retrieved ObjectPaths
 }
 
 /**
@@ -570,7 +570,7 @@ inline void matchAndFillDrive(
 {
     for (const std::string& drivePath : resp)
     {
-        sdbusplus::object_path path(drivePath);
+        sdbusplus::message::object_path path(drivePath);
         std::string leaf = path.filename();
         if (leaf != driveName)
         {
@@ -614,7 +614,7 @@ inline void handleChassisDriveGet(
             // Iterate over all retrieved ObjectPaths.
             for (const auto& [path, connectionNames] : subtree)
             {
-                sdbusplus::object_path objPath(path);
+                sdbusplus::message::object_path objPath(path);
                 if (objPath.filename() != chassisId)
                 {
                     continue;

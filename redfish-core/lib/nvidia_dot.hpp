@@ -281,33 +281,41 @@ inline void validateChassisAndDOTComponent(
         return;
     }
 
-    getChassisAssociatedEndpoint(
-        asyncResp, chassisId,
-        [asyncResp, chassisId, componentId, onSuccess = std::move(onSuccess)](
-            const std::string& endpoint, bool exists) mutable {
-            if (!exists)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "DOT validation: chassis '{}' has no associated TrustedComponent",
-                    chassisId);
-                messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                           componentId);
-                return;
-            }
+    getChassisAssociatedEndpoint(chassisId, [asyncResp, chassisId, componentId,
+                                             onSuccess = std::move(onSuccess)](
+                                                const std::string& endpoint,
+                                                bool exists,
+                                                const std::optional<
+                                                    std::string>&
+                                                    chassisPath) mutable {
+        if (!chassisPath)
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+            return;
+        }
+        if (!exists)
+        {
+            BMCWEB_LOG_DEBUG(
+                "DOT validation: chassis '{}' has no associated TrustedComponent",
+                chassisId);
+            messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                       componentId);
+            return;
+        }
 
-            if (!validateComponentID(componentId, endpoint, asyncResp))
-            {
-                // validateComponentID already wrote a 404
-                return;
-            }
+        if (!validateComponentID(componentId, endpoint, asyncResp))
+        {
+            // validateComponentID already wrote a 404
+            return;
+        }
 
-            constexpr std::array<std::string_view, 1> interfaces = {
-                dot::dotActionIntf};
-            dbus::utility::getSubTree(
-                "/xyz/openbmc_project", 0, interfaces,
-                std::bind_front(afterDOTComponentValidation, asyncResp,
-                                chassisId, componentId, std::move(onSuccess)));
-        });
+        constexpr std::array<std::string_view, 1> interfaces = {
+            dot::dotActionIntf};
+        dbus::utility::getSubTree(
+            "/xyz/openbmc_project", 0, interfaces,
+            std::bind_front(afterDOTComponentValidation, asyncResp, chassisId,
+                            componentId, std::move(onSuccess)));
+    });
 }
 
 /**

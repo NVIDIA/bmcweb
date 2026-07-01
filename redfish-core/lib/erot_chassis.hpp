@@ -589,6 +589,43 @@ inline void getChassisOEMComponentProtected(
 }
 
 /**
+ * @brief Populate TrustedComponents link and RoT protected-component OEM link
+ * for EROT chassis GET (reuses inventory path and GetSubTree result).
+ */
+inline void populateRotChassisTrustedComponentsAndRotLinks(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& inventoryPath,
+    const dbus::utility::GetSubTreeType& subtree)
+{
+    getChassisAssociatedEndpoint(
+        chassisId,
+        [asyncResp, chassisId, chassisPath = inventoryPath](
+            [[maybe_unused]] const std::string& endpoint, bool exists,
+            [[maybe_unused]] const std::optional<std::string>& resolvedPath) {
+            if (exists)
+            {
+                asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
+                    boost::urls::format(
+                        "/redfish/v1/Chassis/{}/TrustedComponents", chassisId);
+            }
+            else
+            {
+                checkTPMComponentsAndAddLink(asyncResp, chassisId, chassisPath);
+            }
+        },
+        inventoryPath);
+
+    if (firmware_info::hasProtectedComponentObjects(chassisId, subtree))
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
+            {"@odata.id",
+             boost::urls::format(
+                 "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents",
+                 chassisId)}};
+    }
+}
+
+/**
  * @brief handler for ERoT chassis resource.
  *
  * @param req - Pointer to object holding request data
@@ -598,9 +635,6 @@ inline void getChassisOEMComponentProtected(
 inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& chassisId, bool isCpuEROT)
 {
-    const std::array<const char*, 1> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
-
     dbus::utility::async_method_call(
         [asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
@@ -694,36 +728,8 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
 
-                // Only add TrustedComponents link for valid chassis
-                getChassisAssociatedEndpoint(
-                    asyncResp, chassisId,
-                    [asyncResp,
-                     chassisId]([[maybe_unused]] const std::string& endpoint,
-                                bool exists) {
-                        if (exists)
-                        {
-                            // SPDM endpoint exists, add TrustedComponents link
-                            asyncResp->res
-                                .jsonValue["TrustedComponents"]["@odata.id"] =
-                                boost::urls::format(
-                                    "/redfish/v1/Chassis/{}/TrustedComponents",
-                                    chassisId);
-                        }
-                        else
-                        {
-                            redfish::chassis_utils::getValidChassisPath(
-                                asyncResp, chassisId,
-                                [asyncResp, chassisId](
-                                    const std::optional<std::string>&
-                                        validChassisPath) {
-                                    checkTPMComponentsAndAddLink(
-                                        asyncResp, chassisId, validChassisPath);
-                                });
-                        }
-                    });
-
-                firmware_info::updateProtectedComponentLink(asyncResp,
-                                                            chassisId);
+                populateRotChassisTrustedComponentsAndRotLinks(
+                    asyncResp, chassisId, path, subtree);
                 firmware_info::updateIrreversibleConfigEnabled(asyncResp,
                                                                chassisId);
                 redfish::nvidia_chassis_utils::getChassisPolicyProperties(
@@ -822,7 +828,8 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+        "/xyz/openbmc_project/inventory", 0,
+        firmware_info::erotChassisInventoryInterfaces);
 }
 
 /**

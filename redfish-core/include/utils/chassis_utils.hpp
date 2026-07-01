@@ -276,6 +276,46 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 /**
+ * @brief Retrieves valid chassis path without failing the HTTP response on
+ * mapper errors (for optional enrichment such as TrustedComponents).
+ */
+template <typename Callback>
+void tryGetValidChassisPath(const std::string& chassisId, Callback&& callback)
+{
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+        [callback = std::forward<Callback>(callback),
+         chassisId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        chassisPaths) mutable {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("tryGetValidChassisPath DBUS error for {}: {}",
+                                 chassisId, ec);
+                callback(std::nullopt);
+                return;
+            }
+            std::optional<std::string> chassisPath;
+            for (const std::string& chassis : chassisPaths)
+            {
+                sdbusplus::message::object_path path(chassis);
+                std::string chassisName = path.filename();
+                if (chassisName.empty())
+                {
+                    BMCWEB_LOG_ERROR("Failed to find '/' in {}", chassis);
+                    continue;
+                }
+                if (chassisName == chassisId)
+                {
+                    chassisPath = chassis;
+                    break;
+                }
+            }
+            callback(chassisPath);
+        });
+}
+
+/**
  * @brief Retrieves valid chassis path
  * @param asyncResp   Pointer to object holding response data
  * @param callback  Callback for next step to get valid chassis path
