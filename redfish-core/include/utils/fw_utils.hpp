@@ -740,7 +740,7 @@ inline void populateSlotInfo(
                                                                                         *value);
                                                                                     oemSlot
                                                                                         ["BuildType"] =
-                                                                                            "";
+                                                                                            nullptr;
                                                                                 }
                                                                             }
                                                                             else
