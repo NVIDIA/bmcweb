@@ -206,7 +206,43 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTImageSlot.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EntityType Name="NvidiaRoTImageSlot" BaseType="NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot"/>
+      <EntityType Name="NvidiaRoTImageSlot" BaseType="NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot">
+        <Property Name="DOTAuthState" Type="NvidiaRoTImageSlot.v1_1_0.DOTAuthState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Result of verifying this slot's firmware image against the installed DOT CAK."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the result of verifying this slot's firmware image against the installed DOT Code Authentication Key (CAK). FirmwareState reports the slot's lifecycle/update state; DOTAuthState reports whether the image currently in the slot verifies under the installed DOT CAK. The two are independent."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+      </EntityType>
+      <EnumType Name="DOTAuthState">
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="DOT auth state has not yet been determined or is unavailable."/>
+        </Member>
+        <Member Name="DOTNotInstalled">
+          <Annotation Term="OData.Description" String="No DOT CAK is installed; DOT-based verification does not apply."/>
+        </Member>
+        <Member Name="AuthenticationSuccess">
+          <Annotation Term="OData.Description" String="The firmware image verifies successfully under the installed DOT CAK."/>
+        </Member>
+        <Member Name="AuthenticationFailed">
+          <Annotation Term="OData.Description" String="The firmware image fails to verify under the installed DOT CAK."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
