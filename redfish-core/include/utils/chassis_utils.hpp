@@ -579,6 +579,22 @@ inline std::string getPowerModeType(const std::string& dbusAction)
     return "";
 }
 
+/**
+ * @brief Read the mapper endpoints array attached to an Association object
+ *        path and hand the front element to the callback.
+ *
+ * Single-endpoint variant preserving the historical 1:1 contract used by
+ * most consumers. Use @ref getAssociationEndpoints when the association
+ * may enumerate multiple targets.
+ *
+ * @tparam CallbackFunc  Callable with signature
+ *                       (const bool& status, const std::string& endpoint).
+ * @param[in]  objPath   D-Bus object path of the Association whose
+ *                       `endpoints` property is read.
+ * @param[in]  callback  Invoked with (true, endpoints.front()) on success,
+ *                       or (false, "") if the D-Bus call fails or the
+ *                       endpoints array is empty.
+ */
 template <typename CallbackFunc>
 inline void getAssociationEndpoint(const std::string& objPath,
                                    CallbackFunc&& callback)
@@ -625,6 +641,57 @@ inline void getAssociationEndpoint(const std::string& objPath,
             // with ERoT and the inventory backed by it.
             const std::string& endpointPath = resp.front();
             callback(true, endpointPath);
+        });
+}
+
+/**
+ * @brief Read the mapper endpoints array attached to an Association object
+ *        path and hand the full endpoints vector to the callback.
+ *
+ * Multi-endpoint variant; use when a single association may enumerate
+ * several targets. See @ref getAssociationEndpoint for the single-endpoint
+ * variant.
+ *
+ * @tparam CallbackFunc  Callable with signature
+ *                       (const bool& status,
+ *                        const std::vector<std::string>& endpoints).
+ * @param[in]  objPath   D-Bus object path of the Association whose
+ *                       `endpoints` property is read.
+ * @param[in]  callback  Invoked with (true, endpoints) on success, or
+ *                       (false, {}) if the D-Bus call fails or the
+ *                       endpoints array is empty.
+ */
+template <typename CallbackFunc>
+inline void getAssociationEndpoints(const std::string& objPath,
+                                    CallbackFunc&& callback)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath,
+        "xyz.openbmc_project.Association", "endpoints",
+        [callback, objPath](const boost::system::error_code& ec,
+                            const std::vector<std::string>& resp) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "D-Bus responses error: {} (busctl call {} {} {} Get ss {} endpoints)",
+                    ec, dbus_utils::mapperBusName, objPath,
+                    dbus_utils::propertyInterface,
+                    dbus_utils::associationInterface);
+                callback(false, std::vector<std::string>{});
+                return;
+            }
+
+            if (resp.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Data is empty (busctl call {} {} {} Get ss {} endpoints)",
+                    dbus_utils::mapperBusName, objPath,
+                    dbus_utils::propertyInterface,
+                    dbus_utils::associationInterface);
+                callback(false, std::vector<std::string>{});
+                return;
+            }
+            callback(true, resp);
         });
 }
 
