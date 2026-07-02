@@ -4300,5 +4300,68 @@ inline void patchChassisSKU(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         skuValue));
 }
 
+/* This function implements the OEM property under
+ * chassis schema.
+ * It first gets the associated ErotInventoryObject then
+ * it gets the inventory backed by the Erot and finally converts
+ * the Dbus inventory path to the Redfish URL.
+ * path: Dbus object path
+ * */
+inline void getChassisOEMComponentProtected(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path)
+{
+    std::string objPath = path + "/inventory";
+    chassis_utils::getAssociationEndpoints(
+        objPath, [objPath, asyncResp](const bool& status,
+                                      const std::vector<std::string>& eps) {
+            if (!status)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Unable to get the association endpoint for {}", objPath);
+                // inventory association is not created for
+                // HMC and PcieSwitch
+                // if we don't get the association
+                // assumption is, it is hmc.
+                asyncResp->res
+                    .jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaChassis.v1_3_0.NvidiaChassis";
+                nlohmann::json& componentsProtectedArray =
+                    asyncResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
+                                            ["ComponentsProtected"];
+                componentsProtectedArray = nlohmann::json::array();
+                componentsProtectedArray.push_back(
+                    {{"@odata.id",
+                      "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}});
+
+                return;
+            }
+            asyncResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_3_0.NvidiaChassis";
+            asyncResp->res
+                .jsonValue["Links"]["Oem"]["Nvidia"]["ComponentsProtected"] =
+                nlohmann::json::array();
+            for (const auto& ep : eps)
+            {
+                chassis_utils::getRedfishURL(
+                    ep, [ep, asyncResp](const bool& status1,
+                                        const std::string& url) {
+                        if (!status1)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Unable to get the Redfish URL for object={}",
+                                ep);
+                            return;
+                        }
+                        asyncResp->res
+                            .jsonValue["Links"]["Oem"]["Nvidia"]
+                                      ["ComponentsProtected"]
+                            .push_back({{"@odata.id", url}});
+                    });
+            }
+        });
+}
+
 } // namespace nvidia_chassis_utils
 } // namespace redfish
