@@ -735,6 +735,15 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 redfish::nvidia_chassis_utils::getChassisPolicyProperties(
                     asyncResp, chassisId);
 
+                if (!connectionNames.empty() &&
+                    std::ranges::find(connectionNames[0].second,
+                                      "xyz.openbmc_project.Common.UUID") !=
+                        connectionNames[0].second.end())
+                {
+                    redfish::nvidia_chassis_utils::getChassisUUID(
+                        asyncResp, connectionNames[0].first, path);
+                }
+
                 // Might have 2+ services to support different properties
                 for (const auto& connectionName : connectionNames)
                 {
@@ -742,13 +751,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     // property value to prevent getting an internal error
                     for (const auto& interface : connectionName.second)
                     {
-                        if (interface == "xyz.openbmc_project.Common.UUID")
-                        {
-                            redfish::nvidia_chassis_utils::getChassisUUID(
-                                asyncResp, connectionName.first, path);
-                        }
-                        else if (
-                            interface ==
+                        if (interface ==
                             "xyz.openbmc_project.Inventory.Decorator.Location")
                         {
                             redfish::chassis_utils::getChassisLocationType(
