@@ -999,7 +999,7 @@ inline void getPortData(
     const std::string& chassisId, const std::string& networkAdapterId,
     const std::string& portId, const std::string& networkAdapterPath)
 {
-    asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_6_0.Port";
+    asyncResp->res.jsonValue["@odata.type"] = "#Port.v1_8_0.Port";
     asyncResp->res.jsonValue["Id"] = portId;
     asyncResp->res.jsonValue["Name"] = "Port";
     asyncResp->res.jsonValue["LinkNetworkTechnology"] = "Ethernet";
