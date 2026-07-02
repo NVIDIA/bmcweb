@@ -2,7 +2,7 @@
     "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
     "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
     "Description": "This registry defines the update messages for Nvidia.",
-    "Id": "NvidiaUpdate.1.0.1",
+    "Id": "NvidiaUpdate.1.1.0",
     "Language": "en",
     "Messages": {
         "ComponentUpdateSkipped": {
@@ -158,6 +158,15 @@
             "Resolution": "None.",
             "Severity": "OK"
         },
+        "DebugTokenEraseSkipped": {
+            "Description": "Indicates that the debug token erase operation was skipped for the device.",
+            "Message": "Debug token erase operation is skipped because %1.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
         "DebugTokenEraseSuccess": {
             "Description": "Signifies the successful completion of debug token erase.",
             "Message": "The operation to erase a debug token for device '%1' has been successfully completed.",
@@ -198,5 +207,5 @@
     "Name": "Nvidia Message Registry",
     "OwningEntity": "Nvidia",
     "RegistryPrefix": "NvidiaUpdate",
-    "RegistryVersion": "1.0.1"
+    "RegistryVersion": "1.1.0"
 }
