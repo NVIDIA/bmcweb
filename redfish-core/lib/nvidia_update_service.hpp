@@ -1419,6 +1419,9 @@ inline void computeDigest(const crow::Request& req,
                                         "/Monitor";
                                     taskData->payload->httpHeaders.emplace_back(
                                         std::move(location));
+                                    taskData->taskResponse
+                                        .emplace<nlohmann::json>(
+                                            std::move(jsonResponse));
                                     taskData->state = "Completed";
                                     taskData->percentComplete = 100;
                                     taskData->messages.emplace_back(
