@@ -44,6 +44,8 @@ static constexpr auto softwareSigningInterface =
     "xyz.openbmc_project.Software.Signing";
 static constexpr auto softwareStateInterface =
     "xyz.openbmc_project.Software.State";
+static constexpr auto softwareDOTAuthStateInterface =
+    "com.nvidia.Software.DOTAuthState";
 static constexpr auto softwareSlotInterface =
     "xyz.openbmc_project.Software.Slot";
 static constexpr auto securityVersionInterface =
@@ -53,10 +55,11 @@ static constexpr auto securityConfigInterface =
 static constexpr auto minSecVersionConfigInterface =
     "xyz.openbmc_project.Software.MinSecVersionConfig";
 
-static constexpr std::array<std::string_view, 6> propertyInterfaces = {
-    securitySigningInterface, softwareBuildTypeInterface,
-    softwareSigningInterface, softwareStateInterface,
-    softwareSlotInterface,    securityVersionInterface};
+static constexpr std::array<std::string_view, 7> propertyInterfaces = {
+    securitySigningInterface,     softwareBuildTypeInterface,
+    softwareSigningInterface,     softwareStateInterface,
+    softwareSlotInterface,        securityVersionInterface,
+    softwareDOTAuthStateInterface};
 
 static const std::string chassisDbusPath =
     "/xyz/openbmc_project/inventory/system/chassis/";
@@ -271,6 +274,85 @@ inline void updateSlotProperties(
         });
 }
 
+inline std::optional<std::string> convertDOTAuthStateToRedfish(
+    const std::string& dbusState)
+{
+    if (dbusState == "com.nvidia.Software.DOTAuthState.AuthState.Unknown")
+    {
+        return "Unknown";
+    }
+    if (dbusState ==
+        "com.nvidia.Software.DOTAuthState.AuthState.DOTNotInstalled")
+    {
+        return "DOTNotInstalled";
+    }
+    if (dbusState ==
+        "com.nvidia.Software.DOTAuthState.AuthState.AuthenticationSuccess")
+    {
+        return "AuthenticationSuccess";
+    }
+    if (dbusState ==
+        "com.nvidia.Software.DOTAuthState.AuthState.AuthenticationFailed")
+    {
+        return "AuthenticationFailed";
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Fetch DOTAuthState from the dedicated interface if present.
+ * Only populated for devices that expose
+ * com.nvidia.Software.DOTAuthState (e.g. CPU/Vera). Silently skips
+ * for devices that don't have this interface.
+ */
+inline void updateSlotDOTAuthState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objectPath,
+    const std::vector<std::string>& interfaces)
+{
+    auto it = std::ranges::find(interfaces, softwareDOTAuthStateInterface);
+    if (it == interfaces.end())
+    {
+        return;
+    }
+
+    dbus::utility::getAllProperties(
+        service, objectPath, softwareDOTAuthStateInterface,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DOTAuthState DBUS error {}", ec);
+                return;
+            }
+            for (const auto& [key, val] : properties)
+            {
+                if (key == "DOTAuthState")
+                {
+                    if (const std::string* value =
+                            std::get_if<std::string>(&val))
+                    {
+                        auto redfishVal = convertDOTAuthStateToRedfish(*value);
+                        if (redfishVal)
+                        {
+                            asyncResp->res.jsonValue["DOTAuthState"] =
+                                *redfishVal;
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_WARNING("Unknown DOTAuthState value: {}",
+                                               *value);
+                        }
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned for {}", key);
+                    }
+                }
+            }
+        });
+}
+
 /**
  * @brief Process image slot properties
  * @param asyncResp Async response object
@@ -329,7 +411,9 @@ inline void processNvidiaRoTImageSlotSubtree(
 {
     auto dbusComponentId = fwTypeStr == "Self" ? chassisId : fwTypeStr;
 
-    std::vector<std::pair<std::string, std::string>> cachedPathServices;
+    using SlotEntry =
+        std::tuple<std::string, std::string, std::vector<std::string>>;
+    std::vector<SlotEntry> cachedPathServices;
     for (const auto& [objectPath, serviceMap] : subtree)
     {
         sdbusplus::message::object_path path(objectPath);
@@ -348,7 +432,7 @@ inline void processNvidiaRoTImageSlotSubtree(
             {
                 continue;
             }
-            cachedPathServices.emplace_back(objectPath, service);
+            cachedPathServices.emplace_back(objectPath, service, interfaces);
             break;
         }
     }
@@ -380,7 +464,8 @@ inline void processNvidiaRoTImageSlotSubtree(
         return;
     }
 
-    auto [objectPath, service] = cachedPathServices[slotNum];
+    auto& [objectPath, service, interfaces] = cachedPathServices[slotNum];
+    updateSlotDOTAuthState(asyncResp, service, objectPath, interfaces);
     dbus::utility::getAllProperties(
         service, objectPath, softwareSlotInterface,
         [asyncResp, chassisId, fwTypeStr, slotNumStr, service,

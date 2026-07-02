@@ -35,6 +35,14 @@ enum class SigningType{
     DOT,
 };
 
+enum class DOTAuthState{
+    Invalid,
+    Unknown,
+    DOTNotInstalled,
+    AuthenticationSuccess,
+    AuthenticationFailed,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(BuildType, {
     {BuildType::Invalid, "Invalid"},
     {BuildType::Release, "Release"},
@@ -61,6 +69,14 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SigningType, {
     {SigningType::Production, "Production"},
     {SigningType::External, "External"},
     {SigningType::DOT, "DOT"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DOTAuthState, {
+    {DOTAuthState::Invalid, "Invalid"},
+    {DOTAuthState::Unknown, "Unknown"},
+    {DOTAuthState::DOTNotInstalled, "DOTNotInstalled"},
+    {DOTAuthState::AuthenticationSuccess, "AuthenticationSuccess"},
+    {DOTAuthState::AuthenticationFailed, "AuthenticationFailed"},
 });
 
 }
