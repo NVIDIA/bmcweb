@@ -36,6 +36,19 @@ static std::shared_ptr<boost::asio::readable_pipe> mfgTestProcOutput;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<std::string> scriptExecOutputFiles;
 
+/** @brief Populates taskResponse for a completed manufacturing test task. */
+inline void setMfgTestAttachmentTaskResponse(
+    const std::shared_ptr<task::TaskData>& taskData, std::string attachmentUri)
+{
+    taskData->taskResponse.emplace<task::TaskResponseCallback>(
+        [attachmentUri = std::move(attachmentUri)](
+            const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+            aResp->res.addHeader(boost::beast::http::field::location,
+                                 attachmentUri);
+            aResp->res.jsonValue["@odata.id"] = attachmentUri;
+        });
+}
+
 /**
  * @brief Copy script output file to the predefined location.
  *
@@ -130,14 +143,14 @@ inline void mfgTestProcExitHandler(const std::error_code& ec, int exitCode)
                         .append(BMCWEB_REDFISH_SYSTEM_URI_NAME)
                         .append("/LogServices/EventLog/DiagnosticData/")
                         .append(std::to_string(id));
-                std::string location = "Location: ";
-                location += path;
-                location += "/attachment";
+                std::string attachmentUri = path + "/attachment";
+                std::string location = "Location: " + attachmentUri;
                 if (t)
                 {
                     if (auto* payload = t->payload.operator->())
                     {
                         payload->httpHeaders.emplace_back(std::move(location));
+                        setMfgTestAttachmentTaskResponse(t, attachmentUri);
                         t->state = "Completed";
                         t->percentComplete = 100;
                         t->messages.emplace_back(messages::taskCompletedOK(

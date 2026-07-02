@@ -251,6 +251,37 @@ inline void getCertificateURI(
     });
 }
 
+/** @brief Populates taskResponse for a completed SPDMGetSignedMeasurements
+ *         task per DSP0266 sect. 12.2. */
+inline void setSpdmMeasurementTaskResponse(
+    const std::shared_ptr<task::TaskData>& taskData, const std::string& objPath,
+    std::string dataUri)
+{
+    taskData->taskResponse.emplace<task::TaskResponseCallback>(
+        [objPath, dataUri = std::move(dataUri)](
+            const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+            aResp->res.addHeader(boost::beast::http::field::location, dataUri);
+            asyncGetSPDMMeasurementData(
+                objPath, [aResp](const SPDMMeasurementData& config,
+                                 const boost::system::error_code& ec) {
+                    if (ec)
+                    {
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["@odata.type"] =
+                        "#ComponentIntegrity.v1_0_0."
+                        "SPDMGetSignedMeasurementsResponse";
+                    aResp->res.jsonValue["SignedMeasurements"] =
+                        config.measurement;
+                    aResp->res.jsonValue["Version"] =
+                        getVersionStr(config.version);
+                    aResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
+                    aResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
+                });
+        });
+}
+
 inline void handleSPDMGETSignedMeasurement(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id)
@@ -378,13 +409,14 @@ inline void handleSPDMGETSignedMeasurement(
             if (*value ==
                 "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Success")
             {
-                std::string location =
-                    "Location: /redfish/v1/"
+                std::string dataUri =
+                    "/redfish/v1/"
                     "ComponentIntegrity/" +
                     id +
                     "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements/data";
                 taskData->payload->httpHeaders.emplace_back(
-                    std::move(location));
+                    "Location: " + dataUri);
+                setSpdmMeasurementTaskResponse(taskData, objPath, dataUri);
                 taskData->state = "Completed";
                 taskData->percentComplete = 100;
                 taskData->messages.emplace_back(
