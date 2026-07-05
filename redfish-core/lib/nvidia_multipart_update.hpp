@@ -13,10 +13,15 @@
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
 
+#include <sys/stat.h>
+
 #include <boost/asio/local/connect_pair.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/post.hpp>
 
+#include <cerrno>
 #include <format>
+#include <span>
 
 namespace redfish::nvidia
 {
@@ -128,16 +133,19 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
     std::function<void()> onResponseReady;
     std::function<void()> onError;
 
-    PLDMUpdateCtx(const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
-                  Payload&& payloadIn,
-                  boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
-                  const std::string& applyTimeIn, bool forceUpdateIn,
-                  const std::vector<sdbusplus::message::object_path>& targetsIn,
-                  std::function<void()> onResponseReadyIn,
-                  std::function<void()> onErrorIn) :
-        memfd(getRandomId()), asyncResp(asyncRespIn),
-        fileGetSocket(std::move(fileGetSocketIn)), applyTime(applyTimeIn),
-        forceUpdate(forceUpdateIn), targets(targetsIn),
+    PLDMUpdateCtx(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        Payload&& payloadIn,
+        boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
+        const std::string& applyTimeIn, bool forceUpdateIn,
+        const std::vector<sdbusplus::message::object_path>& targetsIn,
+        std::function<void()> onResponseReadyIn,
+        std::function<void()> onErrorIn,
+        const std::shared_ptr<MemoryFileDescriptor>& memfdIn = nullptr) :
+        memfd(memfdIn ? std::move(*memfdIn)
+                      : MemoryFileDescriptor(getRandomId())),
+        asyncResp(asyncRespIn), fileGetSocket(std::move(fileGetSocketIn)),
+        applyTime(applyTimeIn), forceUpdate(forceUpdateIn), targets(targetsIn),
         payload(std::move(payloadIn)),
         onResponseReady(std::move(onResponseReadyIn)),
         onError(std::move(onErrorIn))
@@ -195,7 +203,11 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
     void doUpdate()
     {
-        BMCWEB_LOG_DEBUG("sending {} bytes to PLDM", bytesWritten);
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Sending update to PLDM");
 
         const std::string serviceName = "xyz.openbmc_project.PLDM";
         const std::string objectPath = "/xyz/openbmc_project/software/pldm";
@@ -239,15 +251,23 @@ inline void startPLDMUpdate(
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets,
-    std::function<void()> onResponseReady, std::function<void()> onError)
+    std::function<void()> onResponseReady, std::function<void()> onError,
+    const std::shared_ptr<MemoryFileDescriptor>& memfd = nullptr)
 {
     BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
 
+    bool fileAlreadyLoaded = memfd != nullptr;
     std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
         std::make_shared<PLDMUpdateCtx>(
             asyncResp, std::move(payload), std::move(fileGetSocket), applyTime,
             forceUpdate, targets, std::move(onResponseReady),
-            std::move(onError));
+            std::move(onError), memfd);
+    if (fileAlreadyLoaded)
+    {
+        boost::asio::post(getIoContext(),
+                          [pldmUpdateCtx]() { pldmUpdateCtx->doUpdate(); });
+        return;
+    }
     pldmUpdateCtx->doRead();
 }
 
@@ -309,7 +329,8 @@ inline void afterGetSubtreePaths(
     const std::vector<std::string>& uriTargets,
     const boost::system::error_code& ec,
     const std::vector<std::string>& swInvPaths,
-    std::function<void()> onResponseReady, std::function<void()> onError)
+    std::function<void()> onResponseReady, std::function<void()> onError,
+    const std::shared_ptr<MemoryFileDescriptor>& memfd = nullptr)
 {
     if (ec)
     {
@@ -340,7 +361,7 @@ inline void afterGetSubtreePaths(
 
     startPLDMUpdate(asyncResp, std::move(payload), std::move(*fileGetSocket),
                     dbusApplyTime, forceUpdate, validTargets,
-                    std::move(onResponseReady), std::move(onError));
+                    std::move(onResponseReady), std::move(onError), memfd);
 }
 
 inline TargetType parseRfaUri(std::string_view uri)
@@ -464,9 +485,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     using SelfPtr = std::shared_ptr<UpdateCtx>;
     enum class State
     {
-        WAITING_FOR_UPDATE_PARAMETERS_HEADERS,
+        WAITING_FOR_PART_HEADERS,
         WAITING_FOR_UPDATE_PARAMETERS_DATA,
-        WAITING_FOR_UPDATE_FILE_HEADERS,
+        WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS,
         WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE,
         WAITING_FOR_UPDATE_FILE_DATA,
         WAITING_FOR_HTTP_CLIENT_DATA_SEND,
@@ -474,7 +495,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         UPDATE_COMPLETE_ERROR
     };
 
-    State state = State::WAITING_FOR_UPDATE_PARAMETERS_HEADERS;
+    State state = State::WAITING_FOR_PART_HEADERS;
     // TODO, replace this with bmcweb sax json parser
     std::string updateParametersString;
     std::optional<MultiPartUpdate::UpdateParameters> updateParameters;
@@ -501,6 +522,99 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     std::string pendingFileDataBuffer;
     bool fileSectionComplete = false;
     bool parseComplete = false;
+
+    std::shared_ptr<MemoryFileDescriptor> stagedUpdateFile;
+    bool updateParametersReceived = false;
+
+    std::optional<size_t> getStagedUpdateFileSize() const
+    {
+        if (!stagedUpdateFile)
+        {
+            return std::nullopt;
+        }
+        struct stat fileStat{};
+        if (fstat(stagedUpdateFile->fd, &fileStat) != 0 || fileStat.st_size < 0)
+        {
+            return std::nullopt;
+        }
+        return static_cast<size_t>(fileStat.st_size);
+    }
+
+    bool appendStagedUpdateFile(std::string_view data) const
+    {
+        std::span<const char> remaining(data);
+        while (!remaining.empty())
+        {
+            ssize_t written = ::write(stagedUpdateFile->fd, remaining.data(),
+                                      remaining.size());
+            if (written < 0 && errno == EINTR)
+            {
+                continue;
+            }
+            if (written <= 0)
+            {
+                return false;
+            }
+            remaining = remaining.subspan(static_cast<size_t>(written));
+        }
+        return true;
+    }
+
+    void startStagedFileReplay()
+    {
+        if (!stagedUpdateFile || !stagedUpdateFile->rewind())
+        {
+            BMCWEB_LOG_ERROR("Failed to rewind staged update memfd");
+            messages::internalError(asyncResp->res);
+            failClientResponse();
+            return;
+        }
+        replayStagedFileChunk();
+    }
+
+    void replayStagedFileChunk()
+    {
+        if (state != State::WAITING_FOR_UPDATE_FILE_DATA)
+        {
+            stagedUpdateFile.reset();
+            closeSendSocketIfReady();
+            endClientResponseIfReady();
+            return;
+        }
+        if (!stagedUpdateFile)
+        {
+            BMCWEB_LOG_ERROR("Staged update memfd missing during replay");
+            messages::internalError(asyncResp->res);
+            failClientResponse();
+            return;
+        }
+        std::array<char, 4096> buffer{};
+        ssize_t bytesRead = -1;
+        do
+        {
+            bytesRead =
+                ::read(stagedUpdateFile->fd, buffer.data(), buffer.size());
+        } while (bytesRead < 0 && errno == EINTR);
+        if (bytesRead < 0)
+        {
+            BMCWEB_LOG_ERROR("Failed to read from staged update memfd");
+            messages::internalError(asyncResp->res);
+            failClientResponse();
+            return;
+        }
+        if (bytesRead == 0)
+        {
+            BMCWEB_LOG_DEBUG("Staged update replay complete");
+            stagedUpdateFile.reset();
+            multipartSerializer.finish();
+            state = State::UPDATE_COMPLETE;
+            closeSendSocketIfReady();
+            endClientResponseIfReady();
+            return;
+        }
+        std::string_view chunk(buffer.data(), static_cast<size_t>(bytesRead));
+        multipartSerializer.put(chunk);
+    }
 
     // End the client response only once this is set AND the inbound body is
     // fully consumed (parseComplete).
@@ -580,6 +694,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     void failClientResponse()
     {
         state = State::UPDATE_COMPLETE_ERROR;
+        stagedUpdateFile.reset();
         responseReady = true;
         endClientResponseIfReady();
     }
@@ -672,6 +787,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (resumeReadCb)
         {
             resumeReadCb();
+        }
+
+        if (stagedUpdateFile)
+        {
+            replayStagedFileChunk();
+            return;
         }
 
         closeSendSocketIfReady();
@@ -771,39 +892,62 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
     void onHeadersComplete(const SelfPtr& /*self*/,
                            const boost::beast::http::fields& fields,
-                           size_t remaingingBodyLength)
+                           size_t remainingBodyLength)
     {
-        if (state == State::WAITING_FOR_UPDATE_PARAMETERS_HEADERS)
+        if (state == State::WAITING_FOR_PART_HEADERS)
         {
-            BMCWEB_LOG_DEBUG("Update Parameters headers complete");
+            if (parseContentDisposition(fields, "UpdateParameters"))
+            {
+                if (updateParametersReceived)
+                {
+                    BMCWEB_LOG_ERROR("Duplicate UpdateParameters part");
+                    messages::propertyDuplicate(asyncResp->res,
+                                                "UpdateParameters");
+                    failClientResponse();
+                    return;
+                }
+                if (!parseContentType(fields))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "UpdateParameters part missing or invalid Content-Type");
+                    messages::missingOrMalformedPart(asyncResp->res);
+                    failClientResponse();
+                    return;
+                }
+                state = State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
+                return;
+            }
 
-            if (!parseContentDisposition(fields, "UpdateParameters"))
-            {
-                BMCWEB_LOG_ERROR(
-                    "UpdateParameters part has invalid Content-Disposition");
-                messages::unrecognizedRequestBody(asyncResp->res);
-                failClientResponse();
-                return;
-            }
-            if (!parseContentType(fields))
-            {
-                BMCWEB_LOG_ERROR(
-                    "UpdateParameters part missing or invalid Content-Type");
-                messages::headerMissing(asyncResp->res, "Content-Type");
-                failClientResponse();
-                return;
-            }
-            state = State::WAITING_FOR_UPDATE_PARAMETERS_DATA;
-            return;
-        }
-        if (state == State::WAITING_FOR_UPDATE_FILE_HEADERS)
-        {
-            BMCWEB_LOG_DEBUG("Update File headers complete");
             if (!parseContentDisposition(fields, "UpdateFile"))
             {
-                BMCWEB_LOG_ERROR("Failed to parse Content-Disposition");
+                BMCWEB_LOG_ERROR("Unexpected multipart form-data name");
                 messages::unrecognizedRequestBody(asyncResp->res);
                 failClientResponse();
+                return;
+            }
+
+            if (stagedUpdateFile)
+            {
+                BMCWEB_LOG_ERROR("Duplicate UpdateFile part");
+                messages::propertyDuplicate(asyncResp->res, "UpdateFile");
+                failClientResponse();
+                return;
+            }
+
+            if (!updateParametersReceived)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "UpdateFile sent before UpdateParameters; staging");
+                stagedUpdateFile =
+                    std::make_shared<MemoryFileDescriptor>(getRandomId());
+                if (stagedUpdateFile->fd < 0)
+                {
+                    BMCWEB_LOG_ERROR("Failed to create staged update memfd");
+                    messages::internalError(asyncResp->res);
+                    failClientResponse();
+                    return;
+                }
+                state = State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS;
                 return;
             }
 
@@ -821,11 +965,25 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             // COMPLETE, the local path moves straight to
             // WAITING_FOR_UPDATE_FILE_DATA via beginLocalFileStreaming().
             pauseReadCb();
-            startRequest(remaingingBodyLength);
+            startRequest(remainingBodyLength);
+            return;
+        }
+        if (state == State::UPDATE_COMPLETE_ERROR)
+        {
+            return;
+        }
+        if (state == State::UPDATE_COMPLETE)
+        {
+            BMCWEB_LOG_ERROR("Unexpected multipart part after UpdateFile");
+            messages::unrecognizedRequestBody(asyncResp->res);
+            failClientResponse();
             return;
         }
 
-        BMCWEB_LOG_CRITICAL("Unexpected state: {}", static_cast<int>(state));
+        BMCWEB_LOG_ERROR("Unexpected multipart part in state {}",
+                         static_cast<int>(state));
+        messages::unrecognizedRequestBody(asyncResp->res);
+        failClientResponse();
     }
 
     void onDataAvailable(const SelfPtr& /*self*/, std::string_view data)
@@ -842,6 +1000,42 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             }
 
             updateParametersString += data;
+            return;
+        }
+        if (state == State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS)
+        {
+            if (!stagedUpdateFile)
+            {
+                BMCWEB_LOG_ERROR("Staged update memfd missing");
+                messages::internalError(asyncResp->res);
+                failClientResponse();
+                return;
+            }
+            std::optional<size_t> fileSize = getStagedUpdateFileSize();
+            if (!fileSize)
+            {
+                BMCWEB_LOG_ERROR("Failed to get staged update memfd size");
+                messages::internalError(asyncResp->res);
+                failClientResponse();
+                return;
+            }
+            if (*fileSize > redfish::firmwareImageLimitBytes ||
+                data.size() > redfish::firmwareImageLimitBytes - *fileSize)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Staged update exceeds memory limit of {} bytes",
+                    redfish::firmwareImageLimitBytes);
+                messages::payloadTooLarge(asyncResp->res);
+                failClientResponse();
+                return;
+            }
+            if (!appendStagedUpdateFile(data))
+            {
+                BMCWEB_LOG_ERROR("Failed to write to staged update memfd");
+                messages::internalError(asyncResp->res);
+                failClientResponse();
+                return;
+            }
             return;
         }
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
@@ -892,7 +1086,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
             multiRet.params = std::move(*params);
             updateParametersString.clear();
-            state = State::WAITING_FOR_UPDATE_FILE_HEADERS;
+            updateParametersReceived = true;
+            state = State::WAITING_FOR_PART_HEADERS;
+            return;
+        }
+        if (state == State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS)
+        {
+            BMCWEB_LOG_DEBUG("Staged UpdateFile; waiting for UpdateParameters");
+            state = State::WAITING_FOR_PART_HEADERS;
             return;
         }
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
@@ -932,12 +1133,35 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     {
         BMCWEB_LOG_DEBUG("Parse complete");
         parseComplete = true;
-        // Body ended with no UpdateFile part; fail rather than hang.
-        if (state == State::WAITING_FOR_UPDATE_PARAMETERS_HEADERS ||
-            state == State::WAITING_FOR_UPDATE_PARAMETERS_DATA ||
-            state == State::WAITING_FOR_UPDATE_FILE_HEADERS)
+
+        if (state == State::WAITING_FOR_PART_HEADERS &&
+            updateParametersReceived && stagedUpdateFile)
         {
-            messages::propertyMissing(asyncResp->res, "UpdateFile");
+            std::optional<size_t> stagedBytes = getStagedUpdateFileSize();
+            if (!stagedBytes)
+            {
+                BMCWEB_LOG_ERROR("Failed to get staged update memfd size");
+                messages::internalError(asyncResp->res);
+                failClientResponse();
+                return;
+            }
+            if (!onUpdateParametersComplete(multiRet))
+            {
+                failClientResponse();
+                return;
+            }
+            startRequest(*stagedBytes);
+            return;
+        }
+
+        if (state == State::WAITING_FOR_PART_HEADERS ||
+            state == State::WAITING_FOR_UPDATE_PARAMETERS_DATA ||
+            state == State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS)
+        {
+            messages::propertyMissing(
+                asyncResp->res, stagedUpdateFile && !updateParametersReceived
+                                    ? "UpdateParameters"
+                                    : "UpdateFile");
             failClientResponse();
             return;
         }
@@ -1049,6 +1273,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         BMCWEB_LOG_DEBUG("Satellite controller get complete");
+        if (state != State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE)
+        {
+            // The request failed while the satellite config query was in
+            // flight; don't open the forwarding connection.
+            return;
+        }
         if (ec)
         {
             BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
@@ -1140,6 +1370,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         resumeReadCb();
+
+        if (stagedUpdateFile)
+        {
+            startStagedFileReplay();
+            return;
+        }
         closeSendSocketIfReady();
     }
 
@@ -1211,6 +1447,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             resumeReadCb();
         }
+
         closeSendSocketIfReady();
     }
 
@@ -1246,6 +1483,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             return;
         }
         bool forceUpdate = multiRet.params.forceUpdate.value_or(false);
+        bool fileAlreadyStaged = stagedUpdateFile != nullptr;
+        if (fileAlreadyStaged)
+        {
+            state = State::UPDATE_COMPLETE;
+        }
 
         if (uriTargets.empty())
         {
@@ -1253,7 +1495,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             nvidia::startPLDMUpdate(
                 asyncResp, std::move(payload), std::move(fileGetSocket),
                 dbusApplyTime, forceUpdate, emptyTargets,
-                responseReadyCallback(), failResponseCallback());
+                responseReadyCallback(), failResponseCallback(),
+                stagedUpdateFile);
+            if (fileAlreadyStaged)
+            {
+                stagedUpdateFile.reset();
+                closeSendSocketIfReady();
+                return;
+            }
             beginLocalFileStreaming();
             return;
         }
@@ -1264,7 +1513,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         // TODO Need to clean up the IST dbus paths so we can use the normal
         // call
-        if (handleSoftwareUpdate(dbusApplyTime, uriTargets, fileGetSocketPtr))
+        if (!fileAlreadyStaged &&
+            handleSoftwareUpdate(dbusApplyTime, uriTargets, fileGetSocketPtr))
         {
             beginLocalFileStreaming();
             return;
@@ -1272,12 +1522,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         BMCWEB_LOG_DEBUG("Getting firmware inventory for {} targets",
                          uriTargets.size());
+        std::shared_ptr<MemoryFileDescriptor> preloadedFile =
+            std::move(stagedUpdateFile);
         dbus::utility::getSubTreePaths(
             "/xyz/openbmc_project/software", 0,
             std::array<std::string_view, 2>{
                 "xyz.openbmc_project.Software.Version"},
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocketPtr, dbusApplyTime, forceUpdate, uriTargets,
+             preloadedFile = std::move(preloadedFile),
              onResponseReady{responseReadyCallback()},
              onError{failResponseCallback()}](
                 const boost::system::error_code& ec,
@@ -1285,8 +1538,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 afterGetSubtreePaths(
                     asyncResp, std::move(payload), fileGetSocketPtr,
                     dbusApplyTime, forceUpdate, uriTargets, ec, swInvPaths,
-                    std::move(onResponseReady), std::move(onError));
+                    std::move(onResponseReady), std::move(onError),
+                    preloadedFile);
             });
+        if (fileAlreadyStaged)
+        {
+            closeSendSocketIfReady();
+            return;
+        }
         beginLocalFileStreaming();
     }
 };

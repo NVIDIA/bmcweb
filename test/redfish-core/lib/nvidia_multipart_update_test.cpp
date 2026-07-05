@@ -258,7 +258,7 @@ TEST(ErrorHandler, AlwaysReturnsSuccess)
 TEST(PutBytesToHttpClient, BuffersBeforeFileDataState)
 {
     auto ctx = makeCtx();
-    // Default state is WAITING_FOR_UPDATE_PARAMETERS_HEADERS — not yet ready
+    // Default state is WAITING_FOR_PART_HEADERS — not yet ready
     // to stream, so data must land in pendingWriteBuffer.
     ctx->putBytesToHttpClient("hello");
     EXPECT_EQ(ctx->pendingWriteBuffer, "hello");
@@ -344,7 +344,8 @@ TEST(OnHeadersComplete, InvalidApplyTimeReturnsSingleError)
     auto ctx = makeCtx();
     ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
     ctx->multiRet.params.applyTime = "Invalid";
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_HEADERS;
+    ctx->updateParametersReceived = true;
+    ctx->state = UpdateCtx::State::WAITING_FOR_PART_HEADERS;
 
     boost::beast::http::fields fileFields;
     fileFields.set(boost::beast::http::field::content_disposition,
@@ -365,7 +366,8 @@ TEST(OnParseComplete, MissingUpdateFileReturnsErrorNotHang)
 {
     auto ctx = makeCtx();
     ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_HEADERS;
+    ctx->updateParametersReceived = true;
+    ctx->state = UpdateCtx::State::WAITING_FOR_PART_HEADERS;
 
     ctx->onParseComplete(ctx);
 
@@ -524,6 +526,296 @@ TEST(AfterWritePartialData, ErrorDiscardsBodyAndResumesReads)
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_TRUE(resumed);
+}
+
+boost::beast::http::fields makePartFields(std::string_view partName)
+{
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               std::format("form-data; name=\"{}\"", partName));
+    return fields;
+}
+
+boost::beast::http::fields makeUpdateParametersFields()
+{
+    boost::beast::http::fields fields = makePartFields("UpdateParameters");
+    fields.set(boost::beast::http::field::content_type, "application/json");
+    return fields;
+}
+
+TEST(StagedUpdateFile, AcceptsExactLimitAndRejectsNextByte)
+{
+    StagedUpdateFile stagedFile(3U);
+
+    EXPECT_EQ(stagedFile.append("abc"),
+              StagedUpdateFile::AppendResult::Success);
+    EXPECT_EQ(stagedFile.size(), 3U);
+    EXPECT_EQ(stagedFile.append("d"),
+              StagedUpdateFile::AppendResult::ImageTooLarge);
+}
+
+TEST(OnHeadersComplete, UpdateFileFirstEntersStagingState)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    EXPECT_EQ(ctx->state,
+              UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS);
+}
+
+TEST(OnHeadersComplete, MultipartOverheadDoesNotRejectFileFirstUpload)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    constexpr size_t remainingBodyIncludingMultipartOverhead =
+        redfish::firmwareImageLimitBytes + 1U;
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"),
+                           remainingBodyIncludingMultipartOverhead);
+
+    EXPECT_EQ(ctx->state,
+              UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS);
+    EXPECT_TRUE(ctx->stagedUpdateFile.has_value());
+}
+
+TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onSectionComplete(ctx);
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(OnDataAvailable, StagesFileFirstDataToMemfd)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    ctx->onDataAvailable(ctx, "chunk1");
+    ctx->onDataAvailable(ctx, "chunk2");
+
+    EXPECT_EQ(
+        ctx->stagedUpdateFile.transform([](const StagedUpdateFile& stagedFile) {
+            return stagedFile.size();
+        }),
+        std::optional<size_t>{12U});
+    EXPECT_EQ(ctx->state,
+              UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS);
+}
+
+TEST(OnDataAvailable, RejectsStagedFileOverImageLimit)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->stagedUpdateFile.emplace(100U);
+    ctx->state =
+        UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS;
+
+    ctx->onDataAvailable(ctx, std::string(200, 'x'));
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 413);
+    EXPECT_FALSE(ctx->stagedUpdateFile.has_value());
+}
+
+TEST(OnDataAvailable, StagingStateWithoutMemfdFailsInsteadOfCrashing)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    // Force the state without the header step that creates the memfd.
+    ctx->state =
+        UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS;
+
+    ctx->onDataAvailable(ctx, "data");
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 500);
+}
+
+TEST(OnSectionComplete, StagedFileExpectsUpdateParametersNext)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    ctx->onSectionComplete(ctx);
+
+    EXPECT_TRUE(ctx->stagedUpdateFile.has_value());
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+}
+
+TEST(OnHeadersComplete, UpdateParametersAcceptedAfterStagedFile)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onSectionComplete(ctx);
+
+    boost::beast::http::fields fields = makeUpdateParametersFields();
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
+}
+
+TEST(OnSectionComplete, StagedFileInvalidApplyTimeFails)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onSectionComplete(ctx);
+    ctx->onHeadersComplete(ctx, makeUpdateParametersFields(), 0);
+    ctx->updateParametersString =
+        R"({"@Redfish.OperationApplyTime":"NotATime"})";
+
+    ctx->onSectionComplete(ctx);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+    ctx->onParseComplete(ctx);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(OnSectionComplete, StagedFileValidParamsStartsLocalReplay)
+{
+    redfish::fwUpdateInProgress = false;
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onDataAvailable(ctx, "abc");
+    ctx->onSectionComplete(ctx);
+    ASSERT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+    ctx->onHeadersComplete(ctx, makeUpdateParametersFields(), 0);
+    ctx->updateParametersString = "{}";
+
+    ctx->onSectionComplete(ctx);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+    EXPECT_FALSE(ctx->socketInUse);
+    ctx->onParseComplete(ctx);
+
+    // Empty targets resolve locally; the staged bytes must start replaying
+    // through the send socket.
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
+    EXPECT_TRUE(ctx->isLocal);
+    EXPECT_EQ(ctx->currentWriteBuffer, "abc");
+    EXPECT_TRUE(ctx->socketInUse);
+}
+
+TEST(OnHeadersComplete, FileFirstThirdPartRejectedBeforeDispatch)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onDataAvailable(ctx, "abc");
+    ctx->onSectionComplete(ctx);
+    ctx->onHeadersComplete(ctx, makeUpdateParametersFields(), 0);
+    ctx->updateParametersString = "{}";
+    ctx->onSectionComplete(ctx);
+
+    ASSERT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+    ASSERT_FALSE(ctx->socketInUse);
+
+    ctx->onHeadersComplete(ctx, makePartFields("ExtraPart"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_FALSE(ctx->isLocal);
+    EXPECT_FALSE(ctx->stagedUpdateFile.has_value());
+}
+
+TEST(OnHeadersComplete, UnexpectedPartAfterDispatchFails)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+
+    ctx->onHeadersComplete(ctx, makePartFields("ExtraPart"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(OnHeadersComplete, UnexpectedPartDuringSatInfoWaitFails)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateParameters"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(OnHeadersComplete, TrailingPartAfterCompletionStillIgnored)
+{
+    // Params-first parity: parts after UPDATE_COMPLETE are discarded, not
+    // failed.
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE;
+
+    ctx->onHeadersComplete(ctx, makePartFields("ExtraPart"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE);
+}
+
+TEST(ReplayStagedFileChunk, AbortsAfterRequestFailureInsteadOfWedging)
+{
+    redfish::fwUpdateInProgress = false;
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onDataAvailable(ctx, "abc");
+    ctx->onSectionComplete(ctx);
+    ctx->onHeadersComplete(ctx, makeUpdateParametersFields(), 0);
+    ctx->updateParametersString = "{}";
+    ctx->onSectionComplete(ctx);
+    ctx->onParseComplete(ctx);
+    ASSERT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
+    ASSERT_TRUE(ctx->socketInUse);
+
+    // An async validation callback fails the request while the first
+    // replay write is still in flight.
+    ctx->failClientResponse();
+    // The write then completes; the pump must stop, not buffer another
+    // chunk or overwrite the error state.
+    ctx->afterWritePartialData(ctx, {}, 3);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_FALSE(ctx->stagedUpdateFile.has_value());
+    EXPECT_TRUE(ctx->pendingWriteBuffer.empty());
+}
+
+TEST(SatControllerGetComplete, BailsOutWhenRequestAlreadyFailed)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->resumeReadCb = []() {};
+    ctx->state = UpdateCtx::State::UPDATE_COMPLETE_ERROR;
+
+    std::unordered_map<std::string, boost::urls::url> satelliteInfo;
+    satelliteInfo.emplace(BMCWEB_REDFISH_AGGREGATION_PREFIX,
+                          boost::urls::url("https://192.168.1.1:443"));
+    ctx->satControllerGetComplete(ctx, {}, 0, {}, satelliteInfo);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(OnParseComplete, StagedFileMissingParamsReportsUpdateParametersMissing)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onSectionComplete(ctx);
+
+    ctx->onParseComplete(ctx);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_NE(ctx->asyncResp->res.jsonValue.dump().find("UpdateParameters"),
+              std::string::npos);
 }
 
 } // namespace
