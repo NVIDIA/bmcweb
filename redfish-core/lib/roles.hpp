@@ -38,6 +38,10 @@ inline std::string getRoleFromPrivileges(std::string_view priv)
     {
         return "Operator";
     }
+    if (priv == "priv-noaccess")
+    {
+        return "NoAccess";
+    }
     return "";
 }
 
@@ -63,6 +67,10 @@ inline std::optional<nlohmann::json::array_t> getAssignedPrivFromRole(
     {
         privArray.emplace_back("Login");
         privArray.emplace_back("ConfigureSelf");
+    }
+    else if (role == "NoAccess")
+    {
+        // Empty privilege list: account exists but cannot authenticate
     }
     else
     {

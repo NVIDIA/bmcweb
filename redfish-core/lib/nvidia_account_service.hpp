@@ -22,14 +22,55 @@
 #include <utils/privilege_utils.hpp>
 #include <utils/registry_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <variant>
+#include <vector>
 namespace redfish
 {
+
+inline bool isUserPrivilege(const dbus::utility::DBusInterfacesMap& interfaces,
+                            const std::string& privilege)
+{
+    for (const auto& [iface, props] : interfaces)
+    {
+        if (iface != "xyz.openbmc_project.User.Attributes")
+        {
+            continue;
+        }
+        auto it = std::ranges::find_if(props, [](const auto& p) {
+            return p.first == "UserPrivilege";
+        });
+        if (it == props.end())
+        {
+            return false;
+        }
+        const auto* priv = std::get_if<std::string>(&it->second);
+        return priv != nullptr && *priv == privilege;
+    }
+    return false;
+}
+
+inline bool addServiceAccountTypes(std::string_view userGroup,
+                                   std::vector<std::string>& accountTypes)
+{
+    if (userGroup != "service")
+    {
+        return false;
+    }
+
+    // The 'service' group marks the built-in service account.
+    // It is provisioned for Redfish and WebUI but holds NoAccess role,
+    // so it cannot authenticate despite appearing in those interfaces.
+    accountTypes.emplace_back("Redfish");
+    accountTypes.emplace_back("WebUI");
+    return true;
+}
 
 inline void handleNvidiaResolution(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

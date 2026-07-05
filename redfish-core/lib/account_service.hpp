@@ -105,6 +105,10 @@ inline std::string getRoleIdFromPrivilege(std::string_view role)
     {
         return "Operator";
     }
+    if (role == "priv-noaccess")
+    {
+        return "NoAccess";
+    }
     return "";
 }
 inline std::string getPrivilegeFromRoleId(std::string_view role)
@@ -120,6 +124,10 @@ inline std::string getPrivilegeFromRoleId(std::string_view role)
     if (role == "Operator")
     {
         return "priv-operator";
+    }
+    if (role == "NoAccess")
+    {
+        return "priv-noaccess";
     }
     return "";
 }
@@ -171,7 +179,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
             // 'redfish' user group is mapped to 'Redfish'and 'WebUI'
             // AccountTypes, so do nothing here...
         }
-        else
+        else if (!addServiceAccountTypes(userGroup, accountTypes))
         {
             // Invalid user group name. Caller throws an exception.
             return false;
@@ -1769,7 +1777,10 @@ inline void handleAccountCollectionGet(
             {
                 std::string user = userpath.first.filename();
                 // Nvidia code starts here.
-                if (user == "service")
+                // "service" is hidden unless it holds priv-noaccess, which
+                // is always set on the pre-configured service account.
+                if (user == "service" &&
+                    !isUserPrivilege(userpath.second, "priv-noaccess"))
                 {
                     continue;
                 }
