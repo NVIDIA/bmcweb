@@ -1559,6 +1559,14 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
     crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Configuring multipart parser callbacks");
+    std::string_view contentType =
+        req.getHeaderValue(boost::beast::http::field::content_type);
+    if (!MultipartParser::hasMultipartBoundary(contentType))
+    {
+        BMCWEB_LOG_ERROR("The request has unsupported media type");
+        messages::unsupportedMediaType(asyncResp->res);
+        return;
+    }
     std::string_view ct =
         req.getHeaderValue(boost::beast::http::field::content_length);
     if (ct.empty())

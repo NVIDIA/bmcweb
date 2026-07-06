@@ -99,11 +99,17 @@ class MultipartParser
 
     MultipartParser(size_t contentLengthIn) : contentLength(contentLengthIn) {}
 
+    static constexpr std::string_view boundaryFormat =
+        "multipart/form-data; boundary=";
+
+    static bool hasMultipartBoundary(std::string_view contentType)
+    {
+        return contentType.starts_with(boundaryFormat);
+    }
+
     [[nodiscard]] ParserError start(std::string_view contentType)
     {
-        const std::string_view boundaryFormat =
-            "multipart/form-data; boundary=";
-        if (!contentType.starts_with(boundaryFormat))
+        if (!hasMultipartBoundary(contentType))
         {
             state = State::ERROR;
             return ParserError::ERROR_BOUNDARY_FORMAT;
