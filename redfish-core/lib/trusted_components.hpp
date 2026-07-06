@@ -494,6 +494,33 @@ inline void handleTrustedComponentsCollectionGet(
 }
 
 /**
+ * @brief Fetches location properties for a trusted component
+ * @param asyncResp Response object
+ * @param endpoint Endpoint to fetch location properties from
+ */
+inline void fetchTrustedComponentLocation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint)
+{
+    constexpr std::array<std::string_view, 1> locIfaces = {
+        "xyz.openbmc_project.Inventory.Decorator.Location"};
+
+    dbus::utility::getDbusObject(
+        endpoint, locIfaces,
+        [asyncResp, endpoint](const boost::system::error_code& ec,
+                              const dbus::utility::MapperGetObject& object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("No Location decorator on {} (ec={})",
+                                 endpoint, ec);
+                return;
+            }
+            chassis_utils::getChassisLocationType(
+                asyncResp, object.begin()->first, endpoint);
+        });
+}
+
+/**
  * @brief Fetches inventory properties for a trusted component
  * @param asyncResp Response object
  * @param chassisID ID of the chassis
@@ -669,6 +696,7 @@ inline void fetchAssociations(
                 return;
             }
 
+            fetchTrustedComponentLocation(asyncResp, endpoint);
             fetchInventoryProperties(asyncResp, chassisID, endpoint);
             fetchTrustedComponentLinks(asyncResp, chassisID, endpoint);
             // Nvidia Added Code Start
