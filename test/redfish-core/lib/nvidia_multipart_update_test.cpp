@@ -37,6 +37,27 @@ std::shared_ptr<UpdateCtx> makeCtx()
     return std::make_shared<UpdateCtx>(0, std::move(payload));
 }
 
+TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    boost::asio::local::stream_protocol::socket socket(getIoContext());
+    bool failed = false;
+    auto ctx = std::make_shared<PLDMUpdateCtx>(
+        asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+        std::vector<sdbusplus::message::object_path>{}, []() {},
+        [&failed]() { failed = true; });
+    ctx->bytesWritten = redfish::firmwareImageLimitBytes;
+
+    ctx->gotBytes({}, 1U);
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(ctx->bytesWritten, redfish::firmwareImageLimitBytes);
+    EXPECT_EQ(asyncResp->res.resultInt(), 413);
+}
+
 std::string expectedSetHeadersOutput(const std::string& boundary,
                                      const std::string& paramsJson)
 {
