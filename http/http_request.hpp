@@ -154,6 +154,11 @@ struct Request
         return req.body().multipart();
     }
 
+    std::span<const FormPart> multipart() const
+    {
+        return req.body().multipart();
+    }
+
     bool target(std::string_view target)
     {
         req.target(target);

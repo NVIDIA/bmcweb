@@ -179,6 +179,11 @@ class HttpBody::value_type
         return {};
     }
 
+    std::span<const FormPart> multipart() const
+    {
+        return getMimeFields();
+    }
+
     std::optional<size_t> payloadSize() const
     {
         if (const auto* s = std::get_if<std::string>(&bodyData))
