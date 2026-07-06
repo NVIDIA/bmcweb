@@ -168,6 +168,15 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
             onError();
             return;
         }
+        if (bytesWritten > redfish::firmwareImageLimitBytes ||
+            bytesTransferred > redfish::firmwareImageLimitBytes - bytesWritten)
+        {
+            BMCWEB_LOG_ERROR("UpdateFile exceeds image limit of {} bytes",
+                             redfish::firmwareImageLimitBytes);
+            messages::payloadTooLarge(asyncResp->res);
+            onError();
+            return;
+        }
         BMCWEB_LOG_DEBUG("Putting {} bytes to buffer", bytesTransferred);
         bytesWritten += bytesTransferred;
 
