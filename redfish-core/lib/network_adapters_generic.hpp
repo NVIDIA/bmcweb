@@ -1929,8 +1929,14 @@ inline void getPortMetricsData(
             {
                 if (addNvidiaType)
                 {
+                    // ECC (SymbolErrorRXBytes/CorrectedBits/RawErrorsPerLane)
+                    // is defined on NvidiaNetworkPortMetrics as of v1_7_0, not
+                    // on NvidiaNVLinkPortMetrics. This is a ConnectX
+                    // network-adapter port, so advertise the type that actually
+                    // defines the emitted OEM properties (DMTF RSV failure,
+                    // NVBug 6403426).
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_7_0.NvidiaNVLinkPortMetrics";
+                        "#NvidiaPortMetrics.v1_7_0.NvidiaNetworkPortMetrics";
                 }
             }
         });

@@ -3952,10 +3952,15 @@ inline void getPerLaneTelemetryData(
 {
     BMCWEB_LOG_DEBUG("Fetching Per-lane telemetry data for {}", portObjPath);
 
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["CDRErrorsPerLane"] =
-        std::vector<uint64_t>(0);
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaPortMetrics.v1_8_0.NvidiaPortMetrics";
+    // CDRErrorsPerLane is a PCIe per-lane counter (sourced from
+    // xyz.openbmc_project.PCIe.PCIeLaneError). It is only valid on ports that
+    // expose PCIe lanes. Do NOT seed it (or stamp the NvidiaPortMetrics
+    // @odata.type) up front: NVLink-family fabric ports (NVLink_*,
+    // InterswitchPort_*, NVLinkManagement_*) have no associated_lanes, and an
+    // unconditional seed leaks an empty CDRErrorsPerLane onto the NVLink port
+    // metrics under a schema type that does not define it (DMTF RSV failure,
+    // NVBug 6403426). Emit it only after associated PCIe lanes are confirmed —
+    // see handleLaneCDRErrorCallback().
 
     dbus::utility::async_method_call(
         [asyncResp, service,
@@ -4549,8 +4554,20 @@ inline void getFabricsPortMetricsData(
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                // Default the Oem.Nvidia type to the NVLink schema, but do NOT
+                // clobber a type already set by the per-lane CDR callback
+                // (handleLaneCDRErrorCallback stamps v1_8_0.NvidiaPortMetrics
+                // when the port has PCIe lanes). These run on separate async
+                // chains; an unconditional write here would race and could
+                // re-stamp a lane-bearing (PCIe) port's metrics with the NVLink
+                // type that does not define CDRErrorsPerLane (NVBug 6403426).
+                nlohmann::json& nvidiaOem =
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                if (!nvidiaOem.contains("@odata.type"))
+                {
+                    nvidiaOem["@odata.type"] =
+                        "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                }
             }
 
             if (txBytes != nullptr)
