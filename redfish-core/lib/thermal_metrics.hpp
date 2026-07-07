@@ -158,6 +158,7 @@ inline void doThermalMetrics(
     // Initialize TemperatureReadingsCelsius array
     asyncResp->res.jsonValue["TemperatureReadingsCelsius"] =
         nlohmann::json::array_t();
+    asyncResp->res.jsonValue["TemperatureReadingsCelsius@odata.count"] = 0;
 
     // Upstream code commented for calling getTemperatureReadingsCelsius
     // getTemperatureReadingsCelsius(asyncResp, *validChassisPath, chassisId);

@@ -160,6 +160,9 @@ inline void processSensorsValue(
                                 *physicalContext);
                     }
                     resArray.push_back(objectJson);
+                    asyncResp->res
+                        .jsonValue["TemperatureReadingsCelsius@odata.count"] =
+                        resArray.size();
                 }
                 else
                 {
