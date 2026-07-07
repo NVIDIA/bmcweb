@@ -709,14 +709,15 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
             {
                 return;
             }
-            // if accelerator interface then the object would be
-            // of type fpga or GPU.
-            // If switch interface then it could be Nvswitch or
-            // PcieSwitch else it is BMC
+            // Two-pass scan so that high-priority interfaces (accel/cpu/bmc)
+            // are not shadowed by Inventory.Item.Chassis exposed by a secondary
+            // service on the same object (e.g. com.nvidia.fwwriteprotect).
+            // Pass 1: accel/cpu/bmc across all services.
+            // Pass 2: chassis/nvlink/nvswitch fallback.
             for (const auto& serObj : resp)
             {
-                std::string service = serObj.first;
-                auto interfaces = serObj.second;
+                const std::string& service = serObj.first;
+                const auto& interfaces = serObj.second;
 
                 for (const auto& interface : interfaces)
                 {
@@ -750,6 +751,25 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                         callback(true, urlStr);
                         return;
                     }
+                    if (interface == bmcInvInterf)
+                    {
+                        urlStr = std::string("/redfish/v1/Managers/") +
+                                 invObjPath.filename().string();
+                        BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
+                                         urlStr);
+                        callback(true, urlStr);
+                        return;
+                    }
+                }
+            }
+
+            for (const auto& serObj : resp)
+            {
+                const std::string& service = serObj.first;
+                const auto& interfaces = serObj.second;
+
+                for (const auto& interface : interfaces)
+                {
                     if (interface == chassisInvInterf)
                     {
                         urlStr = std::string("/redfish/v1/Chassis/") +
@@ -815,16 +835,6 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                                 callback(true, urlResult);
                                 return;
                             });
-                        return;
-                    }
-                    if (interface == bmcInvInterf)
-                    {
-                        urlStr = std::string(
-                            "/redfish/v1/Managers/" +
-                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
-                        BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
-                                         urlStr);
-                        callback(true, urlStr);
                         return;
                     }
                 }
