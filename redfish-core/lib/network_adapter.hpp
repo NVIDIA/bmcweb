@@ -1169,7 +1169,12 @@ inline void getPortData(
         redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                              networkAdapterId);
     } // BMCWEB_DISABLE_CONDITIONS_ARRAY
+}
 
+inline void populatePortLldpData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const std::string& networkAdapterPath)
+{
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         // OOB Miswiring Detection: surface LLDP TLVs (Ethernet.LLDPReceive /
@@ -1177,14 +1182,10 @@ inline void getPortData(
         // DataStream) for ConnectX-9 CX_NIC ports. nsmd publishes the
         // backing D-Bus objects at <portInventoryPath>/LLDP/{RX,TX}.
         // Ethernet.LLDPEnabled is computed from the parent NetworkAdapter's
-        // com.nvidia.Network.LLDP.Modes; LLDPReceive / LLDPTransmit come
-        // from per-direction xyz.openbmc_project.Network.LLDP.TLVs; raw
-        // packet bytes come from com.nvidia.Network.LLDP.RawFrame.Data.
-        const std::string lldpRxPath = objPath + "/LLDP/RX";
-        const std::string lldpTxPath = objPath + "/LLDP/TX";
+        // com.nvidia.Network.LLDP.Modes association (lldp_mode_settings).
         nvidia_ports_utils::getLldpEnabledFromParent(asyncResp,
                                                      networkAdapterPath);
-        nvidia_ports_utils::getLldpStatus(asyncResp, lldpRxPath, lldpTxPath);
+        nvidia_ports_utils::getLldpStatus(asyncResp, objPath);
     }
 }
 
@@ -1404,6 +1405,8 @@ inline void getPortDataByAssociation(
 
             updatePortLink(asyncResp, sensorPath, chassisId, networkAdapterId,
                            portId);
+            populatePortLldpData(asyncResp, sensorPath, networkAdapterPath);
+            return;
         });
 }
 
