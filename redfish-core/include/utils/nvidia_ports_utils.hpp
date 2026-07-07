@@ -266,15 +266,37 @@ inline void getLldpRawFrame(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
+inline void populateLldpDirectionFromAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& portInventoryPath, std::string_view associationSuffix,
+    const std::string& lldpType, const std::string& streamKey)
+{
+    dbus::utility::getAssociationEndPoints(
+        portInventoryPath + std::string(associationSuffix),
+        [asyncResp, lldpType, streamKey,
+         associationSuffix](const boost::system::error_code& ec,
+                            const dbus::utility::MapperEndPoints& endpoints) {
+            if (ec || endpoints.empty())
+            {
+                BMCWEB_LOG_DEBUG("No {} association: {}", associationSuffix,
+                                 ec.message());
+                return;
+            }
+
+            const std::string& packetPath = endpoints.front();
+            getLldpTlvsFromPath(asyncResp, packetPath, lldpType);
+            getLldpRawFrame(asyncResp, packetPath, streamKey);
+        });
+}
+
 /**
  * @brief Populate NVIDIA OEM LLDP fields for a CX_NIC port (OOB Miswiring).
  *
- * Reads xyz.openbmc_project.Network.LLDP.TLVs and
- * com.nvidia.Network.LLDP.RawFrame.Data at the per-direction inventory paths
- * published by nsmd.
+ * Discovers per-direction LLDP packet objects via port associations
+ * (lldp_rx_data / lldp_tx_data), then reads TLVs and raw frame data.
  */
 inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& rxPath, const std::string& txPath)
+                          const std::string& portInventoryPath)
 {
     // Always expose mandatory LLDP TLV fields; async D-Bus reads overwrite
     // defaults when nsmd has cached TLV data.
@@ -288,10 +310,12 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["LLDP"]["RXDataStream"] = "";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["LLDP"]["TXDataStream"] = "";
 
-    getLldpTlvsFromPath(asyncResp, rxPath, lldpReceive);
-    getLldpTlvsFromPath(asyncResp, txPath, lldpTransmit);
-    getLldpRawFrame(asyncResp, rxPath, "RXDataStream");
-    getLldpRawFrame(asyncResp, txPath, "TXDataStream");
+    populateLldpDirectionFromAssociation(
+        asyncResp, portInventoryPath, "/lldp_rx_data", lldpReceive,
+        "RXDataStream");
+    populateLldpDirectionFromAssociation(
+        asyncResp, portInventoryPath, "/lldp_tx_data", lldpTransmit,
+        "TXDataStream");
 }
 
 /**
