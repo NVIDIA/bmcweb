@@ -4023,11 +4023,6 @@ inline void getPerLaneTelemetryData(
 {
     BMCWEB_LOG_DEBUG("Fetching Per-lane telemetry data for {}", portObjPath);
 
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["CDRErrorsPerLane"] =
-        std::vector<uint64_t>(0);
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaPortMetrics.v1_8_0.NvidiaPortMetrics";
-
     dbus::utility::async_method_call(
         [asyncResp, service,
          portObjPath](const boost::system::error_code& ec,
@@ -4620,8 +4615,33 @@ inline void getFabricsPortMetricsData(
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                // Pick Oem.Nvidia @odata.type by the properties emitted, not
+                // by a numeric "max version": NvidiaNVLinkPortMetrics and the
+                // base NvidiaPortMetrics are PARALLEL complex-type families
+                // (the NVLink type branches off NvidiaPortMetrics.v1_1_0), so
+                // comparing versions could cross families and drop property
+                // coverage. Discipline (matches the inline-stamp practice
+                // across redfish-core; no version parsing, no extra D-Bus
+                // call):
+                //  - Floor: stamp the NVLink default ONLY if no branch has
+                //    already set a more-specific type (the !contains guard).
+                //    The per-lane CDR callback (handleLaneCDRErrorCallback)
+                //    and the PCIe branch below run on separate async chains
+                //    and may land first.
+                //  - Each branch stamps its family's highest constant (CDR/
+                //    PCIe -> v1_8_0.NvidiaPortMetrics). A family chain is a
+                //    strict superset, so bump that constant when a newer
+                //    version is added.
+                // An unconditional write here would race and re-stamp a
+                // lane-bearing (PCIe) port with the NVLink type that lacks
+                // CDRErrorsPerLane (NVBug 6403426).
+                nlohmann::json& nvidiaOem =
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                if (!nvidiaOem.contains("@odata.type"))
+                {
+                    nvidiaOem["@odata.type"] =
+                        "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                }
             }
 
             if (txBytes != nullptr)
