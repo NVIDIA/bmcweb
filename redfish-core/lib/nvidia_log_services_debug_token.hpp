@@ -75,7 +75,7 @@ inline void requestRoutesDebugToken(App& app)
                  {{"target",
                    "/redfish/v1/Systems/" +
                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                       "/LogServices/DebugTokenService/LogService.CollectDiagnosticData"}}}};
+                       "/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData"}}}};
         });
 }
 
@@ -227,8 +227,90 @@ inline void resultHandler(const std::string& requestType,
     debug_token::finishTask(task);
 }
 
+inline void handleDebugTokenServiceDiagnosticDataCollect(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    std::string diagnosticDataType;
+    std::string oemDiagnosticDataType;
+    if (!redfish::json_util::readJsonAction(
+            req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
+            "OEMDiagnosticDataType", oemDiagnosticDataType))
+    {
+        return;
+    }
+    if (diagnosticDataType != "OEM")
+    {
+        BMCWEB_LOG_ERROR("Only OEM DiagnosticDataType supported "
+                         "for DebugTokenService");
+        messages::actionParameterValueFormatError(
+            asyncResp->res, diagnosticDataType, "DiagnosticDataType",
+            "CollectDiagnosticData");
+        return;
+    }
+    if (oemDiagnosticDataType == "DebugTokenStatus")
+    {
+        std::shared_ptr<task::TaskData> task = debug_token::createTask(
+            req, asyncResp, debugTokenTaskTimeoutSec);
+        debug_token::status::Handler::startOperation(
+            task, std::bind_front(&resultHandler, oemDiagnosticDataType));
+        return;
+    }
+    debug_token::TokenType tokenType =
+        debug_token::stringToTokenType(oemDiagnosticDataType);
+    if (tokenType == debug_token::TokenType::Invalid)
+    {
+        BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
+                         oemDiagnosticDataType);
+        messages::actionParameterValueFormatError(
+            asyncResp->res, oemDiagnosticDataType, "OEMDiagnosticDataType",
+            "CollectDiagnosticData");
+        return;
+    }
+    std::shared_ptr<task::TaskData> task =
+        debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
+    if (debug_token::isDOTTokenType(tokenType))
+    {
+        debug_token::dot_request::Handler::startOperation(
+            tokenType, task,
+            std::bind_front(&resultHandler, oemDiagnosticDataType));
+    }
+    else
+    {
+        debug_token::request::Handler::startOperation(
+            tokenType, task,
+            std::bind_front(&resultHandler, oemDiagnosticDataType));
+    }
+}
+
 inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
 {
+    // New conformant action target (with the /Actions/ path segment).
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData")
+        .privileges(redfish::privileges::postLogService)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName) {
+                handleDebugTokenServiceDiagnosticDataCollect(app, req, asyncResp,
+                                                             systemName);
+            });
+
+    // Legacy action target (without the /Actions/ path segment) kept for
+    // backward compatibility with existing clients.
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData")
@@ -236,70 +318,9 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                    return;
-                }
-                std::string diagnosticDataType;
-                std::string oemDiagnosticDataType;
-                if (!redfish::json_util::readJsonAction(
-                        req, asyncResp->res, "DiagnosticDataType",
-                        diagnosticDataType, "OEMDiagnosticDataType",
-                        oemDiagnosticDataType))
-                {
-                    return;
-                }
-                if (diagnosticDataType != "OEM")
-                {
-                    BMCWEB_LOG_ERROR("Only OEM DiagnosticDataType supported "
-                                     "for DebugTokenService");
-                    messages::actionParameterValueFormatError(
-                        asyncResp->res, diagnosticDataType,
-                        "DiagnosticDataType", "CollectDiagnosticData");
-                    return;
-                }
-                if (oemDiagnosticDataType == "DebugTokenStatus")
-                {
-                    std::shared_ptr<task::TaskData> task =
-                        debug_token::createTask(req, asyncResp,
-                                                debugTokenTaskTimeoutSec);
-                    debug_token::status::Handler::startOperation(
-                        task,
-                        std::bind_front(&resultHandler, oemDiagnosticDataType));
-                    return;
-                }
-                debug_token::TokenType tokenType =
-                    debug_token::stringToTokenType(oemDiagnosticDataType);
-                if (tokenType == debug_token::TokenType::Invalid)
-                {
-                    BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
-                                     oemDiagnosticDataType);
-                    messages::actionParameterValueFormatError(
-                        asyncResp->res, oemDiagnosticDataType,
-                        "OEMDiagnosticDataType", "CollectDiagnosticData");
-                    return;
-                }
-                std::shared_ptr<task::TaskData> task = debug_token::createTask(
-                    req, asyncResp, debugTokenTaskTimeoutSec);
-                if (debug_token::isDOTTokenType(tokenType))
-                {
-                    debug_token::dot_request::Handler::startOperation(
-                        tokenType, task,
-                        std::bind_front(&resultHandler, oemDiagnosticDataType));
-                }
-                else
-                {
-                    debug_token::request::Handler::startOperation(
-                        tokenType, task,
-                        std::bind_front(&resultHandler, oemDiagnosticDataType));
-                }
+                   const std::string& systemName) {
+                handleDebugTokenServiceDiagnosticDataCollect(app, req, asyncResp,
+                                                             systemName);
             });
 }
 
