@@ -479,6 +479,22 @@ inline void afterSystemGetSubTree(
                         "AssetTag",
                         "AssetTag",
                         std::bind_front(afterGetAssetTag, asyncResp));
+
+                    dbus::utility::getProperty<std::string>(
+                        connection.first, path,
+                        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
+                        [asyncResp](const boost::system::error_code& ec1,
+                                    const std::string& sku) {
+                            if (ec1)
+                            {
+                                BMCWEB_LOG_DEBUG("DBUS response error for SKU");
+                                return;
+                            }
+                            if (!sku.empty())
+                            {
+                                asyncResp->res.jsonValue["SKU"] = sku;
+                            }
+                        });
                 }
             }
         }

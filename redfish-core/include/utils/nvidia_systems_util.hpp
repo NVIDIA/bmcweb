@@ -72,20 +72,6 @@ inline void populateFromEntityManger(
             }
         });
     dbus::utility::getProperty<std::string>(
-        entityMangerService, card1Path,
-        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
-        [aResp](const boost::system::error_code& ec, const std::string& sku) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for "
-                                 "Trying to get SKU");
-                return;
-            }
-            aResp->res.jsonValue["SKU"] = sku;
-        }
-
-    );
-    dbus::utility::getProperty<std::string>(
         entityMangerService, card1Path, "xyz.openbmc_project.Common.UUID",
         "UUID",
         [aResp](const boost::system::error_code& ec, const std::string& uuid) {
