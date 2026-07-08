@@ -215,14 +215,14 @@ inline void updateAssemblies(
             // surviving AssemblyIDs are sparse (e.g. 0, 2) and a raw-ID fragment
             // (#/Assemblies/2 on a 2-element array) points past the array end,
             // failing the DMTF and NVIDIA Redfish Service Validators. insertSorted
-            // keeps the array ordered, so renumber every fragment to its final
-            // array index. MemberId retains the opaque AssemblyID (valid under
-            // Assembly schema v1_3_0).
+            // keeps the array ordered, so renumber both the fragment and MemberId
+            // to the element's final array index.
             for (std::size_t idx = 0; idx < jResp.size(); ++idx)
             {
                 jResp[idx]["@odata.id"] =
                     "/redfish/v1/Chassis/" + chassisId +
                     "/Assembly#/Assemblies/" + std::to_string(idx);
+                jResp[idx]["MemberId"] = std::to_string(idx);
             }
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
