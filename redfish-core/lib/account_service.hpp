@@ -1515,12 +1515,8 @@ inline void handleAccountServiceGet(
             }
         });
 
-    auto callback = [asyncResp](bool success, const LDAPConfigData& confData,
+    auto callback = [asyncResp](bool, const LDAPConfigData& confData,
                                 const std::string& ldapType) {
-        if (!success)
-        {
-            return;
-        }
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, ldapType);
     };
 
