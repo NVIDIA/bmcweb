@@ -64,6 +64,12 @@ std::pair<std::string, std::string> getDateTimeOffsetNow();
 
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
 std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime);
+/**
+ * @brief Validates that the timezone offset in an ISO 8601 datetime string
+ *        is within the real-world UTC range [-12:00, +14:00] with minutes
+ *        in [0, 59].  Returns true for strings with no offset or a 'Z' suffix.
+ */
+bool hasValidTimezoneOffset(std::string_view datetime);
 
 /**
  * @brief Returns the datetime in ISO 8601 format

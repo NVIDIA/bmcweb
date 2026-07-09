@@ -654,6 +654,12 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("Set date time: {}", datetime);
 
+    if (!redfish::time_utils::hasValidTimezoneOffset(datetime))
+    {
+        messages::propertyValueOutOfRange(asyncResp->res, datetime, "DateTime");
+        return;
+    }
+
     std::optional<redfish::time_utils::usSinceEpoch> us =
         redfish::time_utils::dateStringToEpoch(datetime);
     if (!us)

@@ -239,5 +239,159 @@ TEST(Utility, GetDateTimeIso8601)
     EXPECT_EQ(getDateTimeIso8601("202305"), std::nullopt);
 }
 
+TEST(Utility, GetDateTimeOffsetNow)
+{
+    // Not a lot of good ways to verify "now" is correct, but we can at least
+    // verify the format is correct
+    const auto [dateTime, offset] = getDateTimeOffsetNow();
+    EXPECT_THAT(
+        dateTime,
+        MatchesRegex(
+            "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[-+][0-9]{2}:[0-9]{2}"));
+    EXPECT_THAT(offset, MatchesRegex("[-+][0-9]{2}:[0-9]{2}"));
+}
+
+TEST(Utility, GetDateTimeEmptyStringDefaultsToLocal)
+{
+    // Test that empty string parameter defaults to local timezone
+    uint64_t testTime = 1638312095; // 2021-11-30T22:41:35 UTC
+
+    // Empty string should use local timezone
+    std::string localResult = getDateTimeUint(testTime, "");
+    std::string defaultResult = getDateTimeUint(testTime);
+
+    // Both should produce same result (default parameter)
+    EXPECT_EQ(localResult, defaultResult);
+    EXPECT_FALSE(localResult.empty());
+
+    // Should be valid ISO 8601 format
+    EXPECT_THAT(
+        localResult,
+        MatchesRegex("[0-9]{4}-[0-9]{2}-[0-9]{2}T.*[+-][0-9]{2}:[0-9]{2}"));
+}
+
+TEST(Utility, GetDateTimeDefaultParameterBehavior)
+{
+    uint64_t testTime = 1638312095;
+    uint64_t testTimeMs = testTime * 1000;
+    uint64_t testTimeUs = testTime * 1000000;
+    std::time_t testTimeT = static_cast<std::time_t>(testTime);
+
+    // All functions should treat no argument same as empty string
+    EXPECT_EQ(getDateTimeUint(testTime), getDateTimeUint(testTime, ""));
+    EXPECT_EQ(getDateTimeUintMs(testTimeMs), getDateTimeUintMs(testTimeMs, ""));
+    EXPECT_EQ(getDateTimeUintUs(testTimeUs), getDateTimeUintUs(testTimeUs, ""));
+    EXPECT_EQ(getDateTimeStdtime(testTimeT), getDateTimeStdtime(testTimeT, ""));
+}
+
+TEST(Utility, GetDateTimeInvalidTimezone)
+{
+    // Test with invalid timezone name - should handle gracefully
+    uint64_t testTime = 1638312095;
+    std::string result = getDateTimeUint(testTime, "Invalid/Timezone");
+
+    // Current implementation logs error and returns empty string
+    // This is acceptable behavior for invalid input
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(Utility, GetDateTimeEmptyTimezoneString)
+{
+    uint64_t testTime = 1638312095;
+
+    // Empty string should work (defaults to local timezone)
+    std::string result = getDateTimeUint(testTime, "");
+    EXPECT_FALSE(result.empty());
+    EXPECT_THAT(result, MatchesRegex("[0-9]{4}-[0-9]{2}-[0-9]{2}T.*"));
+
+    // Should contain timezone offset
+    EXPECT_THAT(result, MatchesRegex(".*[+-][0-9]{2}:[0-9]{2}$"));
+}
+
+TEST(Utility, GetDateTimeAllFunctionsUseSameTimezone)
+{
+    uint64_t seconds = 1638312095;
+    uint64_t ms = seconds * 1000;
+    uint64_t us = seconds * 1000000;
+    std::time_t t = static_cast<std::time_t>(seconds);
+
+    // All functions should produce same date/time portion when using same
+    // timezone
+    std::string s1 = getDateTimeUint(seconds, "UTC");
+    std::string s2 = getDateTimeUintMs(ms, "UTC");
+    std::string s3 = getDateTimeUintUs(us, "UTC");
+    std::string s4 = getDateTimeStdtime(t, "UTC");
+
+    // Extract date/time portion (before fractional seconds and timezone)
+    // All should start with same date and time
+    EXPECT_EQ(s1, "2021-11-30T22:41:35+00:00");
+    EXPECT_EQ(s2, "2021-11-30T22:41:35.000+00:00");
+    EXPECT_EQ(s3, "2021-11-30T22:41:35.000000+00:00");
+    EXPECT_EQ(s4, "2021-11-30T22:41:35+00:00");
+}
+
+TEST(HasValidTimezoneOffset, ValidOffsets)
+{
+    // UTC
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+00:00"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-00:00"));
+
+    // Boundary: maximum positive (+14:00, Kiribati)
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+14:00"));
+
+    // Boundary: maximum negative (-12:00, Baker Island)
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-12:00"));
+
+    // Common offsets
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:30"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:45"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-07:00"));
+
+    // Maximum valid minutes
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+01:59"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-01:59"));
+
+    // With fractional seconds
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00.123456+05:30"));
+
+    // No explicit offset (Z or bare datetime) — not range-checked here
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00Z"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00"));
+
+    // Date-only formats (no T separator)
+    EXPECT_TRUE(hasValidTimezoneOffset("20230531"));
+}
+
+TEST(HasValidTimezoneOffset, InvalidOffsetHoursOutOfRange)
+{
+    // Hours exceed +14:00 limit
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+15:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+23:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+25:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+99:00"));
+
+    // Hours exceed -12:00 limit
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-13:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-23:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-99:00"));
+
+    // Boundary: +14:01 must be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+14:01"));
+
+    // Boundary: -12:01 must be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-12:01"));
+}
+
+TEST(HasValidTimezoneOffset, InvalidOffsetMinutesOutOfRange)
+{
+    // Minutes >= 60
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:60"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:99"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-05:60"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-05:99"));
+
+    // Non-zero minutes on a boundary-exceeding hour must also be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+15:00"));
+}
 } // namespace
 } // namespace redfish::time_utils

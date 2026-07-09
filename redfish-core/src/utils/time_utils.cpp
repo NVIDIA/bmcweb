@@ -511,4 +511,61 @@ std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime)
     }
     return std::nullopt;
 }
+bool hasValidTimezoneOffset(std::string_view datetime)
+{
+    size_t tPos = datetime.find('T');
+    if (tPos == std::string_view::npos)
+    {
+        return true;
+    }
+    std::string_view timePart = datetime.substr(tPos + 1);
+
+    // Scan past at least HH:MM:SS (8 chars) to find the offset sign
+    size_t signPos = std::string_view::npos;
+    int sign = 1;
+    for (size_t i = 8; i < timePart.size(); ++i)
+    {
+        if (timePart[i] == '+' || timePart[i] == '-')
+        {
+            sign = (timePart[i] == '+') ? 1 : -1;
+            signPos = i;
+            break;
+        }
+    }
+    if (signPos == std::string_view::npos)
+    {
+        return true; // Z or no offset; dateStringToEpoch handles format
+    }
+
+    std::string_view offsetStr = timePart.substr(signPos + 1);
+    if (offsetStr.size() != 5 || offsetStr[2] != ':')
+    {
+        return false;
+    }
+
+    unsigned int hours = 0;
+    unsigned int minutes = 0;
+    std::string_view hoursStr = offsetStr.substr(0, 2);
+    auto [p1, ec1] = std::from_chars(hoursStr.begin(), hoursStr.end(), hours);
+    std::string_view minutesStr = offsetStr.substr(3, 2);
+    auto [p2,
+          ec2] = std::from_chars(minutesStr.begin(), minutesStr.end(), minutes);
+    if (ec1 != std::errc() || p1 != hoursStr.end() || ec2 != std::errc() ||
+        p2 != minutesStr.end())
+    {
+        return false;
+    }
+
+    if (minutes > 59)
+    {
+        return false;
+    }
+    // Positive offsets: max +14:00; negative offsets: max -12:00
+    if (sign > 0)
+    {
+        return hours < 14 || (hours == 14 && minutes == 0);
+    }
+    return hours < 12 || (hours == 12 && minutes == 0);
+}
+
 } // namespace redfish::time_utils
