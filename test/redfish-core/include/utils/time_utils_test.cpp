@@ -386,5 +386,69 @@ TEST(Utility, GetDateTimeAllFunctionsUseSameTimezone)
     EXPECT_EQ(s4, "2021-11-30T22:41:35+00:00");
 }
 
+TEST(HasValidTimezoneOffset, ValidOffsets)
+{
+    // UTC
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+00:00"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-00:00"));
+
+    // Boundary: maximum positive (+14:00, Kiribati)
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+14:00"));
+
+    // Boundary: maximum negative (-12:00, Baker Island)
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-12:00"));
+
+    // Common offsets
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:30"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:45"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-07:00"));
+
+    // Maximum valid minutes
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00+01:59"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00-01:59"));
+
+    // With fractional seconds
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00.123456+05:30"));
+
+    // No explicit offset (Z or bare datetime) — not range-checked here
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00Z"));
+    EXPECT_TRUE(hasValidTimezoneOffset("2025-06-15T12:00:00"));
+
+    // Date-only formats (no T separator)
+    EXPECT_TRUE(hasValidTimezoneOffset("20230531"));
+}
+
+TEST(HasValidTimezoneOffset, InvalidOffsetHoursOutOfRange)
+{
+    // Hours exceed +14:00 limit
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+15:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+23:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+25:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+99:00"));
+
+    // Hours exceed -12:00 limit
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-13:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-23:00"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-99:00"));
+
+    // Boundary: +14:01 must be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+14:01"));
+
+    // Boundary: -12:01 must be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-12:01"));
+}
+
+TEST(HasValidTimezoneOffset, InvalidOffsetMinutesOutOfRange)
+{
+    // Minutes >= 60
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:60"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+05:99"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-05:60"));
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00-05:99"));
+
+    // Non-zero minutes on a boundary-exceeding hour must also be rejected
+    EXPECT_FALSE(hasValidTimezoneOffset("2025-06-15T12:00:00+15:00"));
+}
+
 } // namespace
 } // namespace redfish::time_utils
