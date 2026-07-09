@@ -797,7 +797,7 @@ inline void finalizeTrustedComponent(
     }
 
     asyncResp->res.jsonValue["@odata.type"] =
-        "#TrustedComponent.v1_0_0.TrustedComponent";
+        "#TrustedComponent.v1_4_0.TrustedComponent";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Chassis/" + chassisID +
                                             "/TrustedComponents/" + componentID;
     asyncResp->res.jsonValue["Id"] = componentID;
@@ -854,7 +854,7 @@ inline void handleTpmComponentGet(
                         }
 
                         asyncResp->res.jsonValue["@odata.type"] =
-                            "#TrustedComponent.v1_0_0.TrustedComponent";
+                            "#TrustedComponent.v1_4_0.TrustedComponent";
                         asyncResp->res.jsonValue["@odata.id"] =
                             std::string("/redfish/v1/Chassis/")
                                 .append(chassisID)
