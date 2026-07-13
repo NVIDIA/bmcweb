@@ -2,7 +2,9 @@
 
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
+#include "nvidia_error_messages.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
@@ -12,6 +14,8 @@
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
+#include <bit>
 #include <map>
 #include <memory>
 #include <optional>
@@ -2452,6 +2456,487 @@ inline void getOperatingSpeedRange(
                         }
                     });
             }
+        });
+}
+
+// PCIe root-port link enable mask (com.nvidia.PCIe.LinkEnableMask published
+// by pldmd on an effecter reached through the pcie_link_controls association
+// pldmd places on the processor inventory object), surfaced as the CPU OEM
+// property Oem.Nvidia.PCIeLinkEnableMask.
+constexpr const char* pcieLinkEnableMaskInterface =
+    "com.nvidia.PCIe.LinkEnableMask";
+constexpr const char* pcieLinkEnableMaskStatusInterface =
+    "xyz.openbmc_project.State.Decorator.OperationalStatus";
+
+// Mask and SupportedMask render at the same width so a client can compare them
+// digit for digit. The width follows the device-reported mask; EnableMask is
+// OR-ed in so a backend value with stray high bits is never truncated by
+// intToHexString, which pads and truncates to exactly the digits requested.
+inline size_t pcieLinkEnableMaskHexDigits(uint64_t enableMask,
+                                          uint64_t supportedMask)
+{
+    return std::max<size_t>(
+        1,
+        (static_cast<size_t>(std::bit_width(enableMask | supportedMask)) + 3) /
+            4);
+}
+
+inline std::string formatPCIeLinkEnableMask(uint64_t mask, size_t digits)
+{
+    return "0x" + intToHexString(mask, digits);
+}
+
+// The mask is writable only while host firmware is polling for authorization:
+// OperationalStatus Enabled, or Deferring (DSP0248 ENABLED_UPDATEPENDING, a set
+// in flight but still inside the same window). Every other state - including
+// Starting before the host publishes its boot data, and UnavailableOffline when
+// the terminus is lost - reports not-writable.
+inline bool isPCIeLinkEnableMaskWritable(std::string_view state)
+{
+    return state ==
+               "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Enabled" ||
+           state ==
+               "xyz.openbmc_project.State.Decorator.OperationalStatus.StateType.Deferring";
+}
+
+// Seconds advertised in Retry-After whenever the mask is not writable right
+// now. Matches the length of the UEFI wait, so a client that retries on the
+// header lands inside the next window rather than after it.
+constexpr const char* pcieLinkEnableMaskRetryAfter = "60";
+
+// A refused write is never a client mistake - the value was valid, the window
+// was shut - so the resolution has to say what the operator does next. The
+// stock ServiceTemporarilyUnavailable resolution only says to wait.
+constexpr const char* pcieLinkEnableMaskWindowClosedResolution =
+    "The mask is not accepted right now. Host firmware accepts it only during "
+    "the boot window it waits in, which Oem/Nvidia/PCIeLinkEnableMask/Writable "
+    "reports. Poll GET on this Processor until Writable reads true, then "
+    "re-send the same PATCH; nothing was applied.";
+
+constexpr const char* pcieLinkEnableMaskUnavailableResolution =
+    "The mask is not accepted right now. Oem/Nvidia/PCIeLinkEnableMask is "
+    "unavailable on this Processor, so nothing was applied. Poll GET on this "
+    "Processor until Oem/Nvidia/PCIeLinkEnableMask/Writable reads true, then "
+    "re-send the same PATCH.";
+
+inline void populatePCIeLinkEnableMask(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, uint64_t enableMask,
+    uint64_t supportedMask, bool writable)
+{
+    const size_t digits =
+        pcieLinkEnableMaskHexDigits(enableMask, supportedMask);
+    nlohmann::json& oemNvidia = aResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidia["@odata.type"] = "#NvidiaProcessor.v1_9_0.NvidiaCPU";
+    nlohmann::json& maskBlock = oemNvidia["PCIeLinkEnableMask"];
+    maskBlock["Mask"] = formatPCIeLinkEnableMask(enableMask, digits);
+    maskBlock["SupportedMask"] =
+        formatPCIeLinkEnableMask(supportedMask, digits);
+    maskBlock["Writable"] = writable;
+}
+
+inline void getPCIeLinkEnableMaskData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& effecterPath)
+{
+    dbus::utility::getDbusObject(
+        effecterPath,
+        std::array<std::string_view, 1>{pcieLinkEnableMaskInterface},
+        [aResp, effecterPath](const boost::system::error_code& ec,
+                              const dbus::utility::MapperGetObject& objInfo) {
+            if (ec || objInfo.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "GetObject for {} on {} failed ({}, {} owner(s)); Processor GET omits PCIeLinkEnableMask",
+                    pcieLinkEnableMaskInterface, effecterPath, ec.message(),
+                    objInfo.size());
+                return;
+            }
+            const std::string& service = objInfo.begin()->first;
+            dbus::utility::getAllProperties(
+                service, effecterPath, pcieLinkEnableMaskInterface,
+                [aResp, effecterPath, service](
+                    const boost::system::error_code& ec1,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    if (ec1)
+                    {
+                        // Omit the block rather than fail the whole Processor
+                        // GET: one unreadable OEM effecter must not take down
+                        // a resource whose standard properties are all fine.
+                        BMCWEB_LOG_ERROR(
+                            "GetAll {} on {} from {} failed ({}); Processor GET omits PCIeLinkEnableMask",
+                            pcieLinkEnableMaskInterface, effecterPath, service,
+                            ec1.message());
+                        return;
+                    }
+                    std::optional<uint64_t> enableMask;
+                    std::optional<uint64_t> supportedMask;
+                    for (const auto& [propertyName, value] : propertiesList)
+                    {
+                        if (propertyName == "EnableMask" &&
+                            std::holds_alternative<uint64_t>(value))
+                        {
+                            enableMask = std::get<uint64_t>(value);
+                        }
+                        else if (propertyName == "SupportedMask" &&
+                                 std::holds_alternative<uint64_t>(value))
+                        {
+                            supportedMask = std::get<uint64_t>(value);
+                        }
+                    }
+                    if (!enableMask || !supportedMask)
+                    {
+                        const char* missing = "SupportedMask";
+                        if (!enableMask && !supportedMask)
+                        {
+                            missing = "EnableMask and SupportedMask";
+                        }
+                        else if (!enableMask)
+                        {
+                            missing = "EnableMask";
+                        }
+                        BMCWEB_LOG_ERROR(
+                            "{} on {} published no uint64 {}; Processor GET omits PCIeLinkEnableMask",
+                            pcieLinkEnableMaskInterface, effecterPath, missing);
+                        return;
+                    }
+                    // Writable comes from the effecter operational state that
+                    // the NumericEffecter base publishes on the same object.
+                    // The block is rendered whole, so a failed State read
+                    // reports not-writable rather than dropping the mask the
+                    // client came for - a GET must answer in every state.
+                    dbus::utility::getProperty<std::string>(
+                        service, effecterPath,
+                        pcieLinkEnableMaskStatusInterface, "State",
+                        [aResp, effecterPath, mask = *enableMask,
+                         supported = *supportedMask](
+                            const boost::system::error_code& ec2,
+                            const std::string& state) {
+                            if (ec2)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Get {} State on {} failed ({}); PCIeLinkEnableMask reports Writable false",
+                                    pcieLinkEnableMaskStatusInterface,
+                                    effecterPath, ec2.message());
+                                populatePCIeLinkEnableMask(aResp, mask,
+                                                           supported, false);
+                                return;
+                            }
+                            populatePCIeLinkEnableMask(
+                                aResp, mask, supported,
+                                isPCIeLinkEnableMaskWritable(state));
+                        });
+                });
+        });
+}
+
+inline void getPCIeLinkEnableMask(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/pcie_link_controls",
+        "xyz.openbmc_project.Association", "endpoints",
+        [aResp](const boost::system::error_code& ec,
+                const std::vector<std::string>& resp) {
+            if (ec)
+            {
+                return; // association absent = feature absent
+            }
+            for (const auto& effecterPath : resp)
+            {
+                getPCIeLinkEnableMaskData(aResp, effecterPath);
+            }
+        });
+}
+
+class PatchPCIeLinkEnableMaskCallback
+{
+  public:
+    explicit PatchPCIeLinkEnableMaskCallback(
+        std::shared_ptr<bmcweb::AsyncResp> response, std::string mask,
+        std::string effecterPath) :
+        resp(std::move(response)), maskStr(std::move(mask)),
+        path(std::move(effecterPath))
+    {}
+
+    void operator()(const std::string& status) const
+    {
+        if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+        {
+            BMCWEB_LOG_INFO("PCIeLinkEnableMask {} accepted for {}", maskStr,
+                            path);
+            messages::success(resp->res);
+            return;
+        }
+
+        if (status ==
+            nvidia_async_operation_utils::asyncStatusValueWriteFailure)
+        {
+            // The device rejected the write after the gates passed.
+            BMCWEB_LOG_ERROR(
+                "PCIeLinkEnableMask {} not applied: {} reported a device write failure",
+                maskStr, path);
+            messages::operationFailed(resp->res);
+        }
+        else if (status ==
+                 nvidia_async_operation_utils::asyncStatusValueUnavailable)
+        {
+            // mapDbusErrorNameToAsyncStatus folds NotAllowed into Unavailable,
+            // so this one status covers both the closed window and the
+            // unreachable terminus. The resolution names the window, which is
+            // the case an operator can act on.
+            BMCWEB_LOG_WARNING(
+                "PCIeLinkEnableMask {} not applied: {} is not writable (window closed or terminus unreachable)",
+                maskStr, path);
+            messages::serviceTemporarilyUnavailableMsg(
+                resp->res, pcieLinkEnableMaskRetryAfter,
+                pcieLinkEnableMaskWindowClosedResolution);
+        }
+        else if (status ==
+                 nvidia_async_operation_utils::asyncStatusValueTimeout)
+        {
+            std::string errTimeout = "0x600";
+            std::string errTimeoutResolution =
+                "Settings may or may not have been applied; check the value with a GET before patching again";
+
+            // bmcweb's own 60 s timer expired on a call that may still be in
+            // flight, so this is the one outcome that is neither applied nor
+            // definitely not applied.
+            BMCWEB_LOG_ERROR(
+                "PCIeLinkEnableMask {} timed out on {}; the write may or may not have landed",
+                maskStr, path);
+            messages::asyncError(resp->res, errTimeout, errTimeoutResolution);
+        }
+        else if (status ==
+                 nvidia_async_operation_utils::asyncStatusValueInvalidArgument)
+        {
+            // Backstop for the SupportedMask pre-check in
+            // changePCIeLinkEnableMask.
+            BMCWEB_LOG_ERROR(
+                "PCIeLinkEnableMask {} not applied: {} rejected the value",
+                maskStr, path);
+            messages::propertyValueIncorrect(
+                resp->res, "PCIeLinkEnableMask/Mask", maskStr);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR(
+                "PCIeLinkEnableMask {} not applied: {} returned unmapped async status '{}'",
+                maskStr, path, status);
+            messages::internalError(resp->res);
+        }
+    }
+
+  private:
+    std::shared_ptr<bmcweb::AsyncResp> resp;
+    std::string maskStr;
+    std::string path;
+};
+
+inline void setPCIeLinkEnableMask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path, uint64_t enableMask,
+    const std::string& maskStr)
+{
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        [asyncResp, path, enableMask, maskStr,
+         service](const boost::system::error_code& ec,
+                  const dbus::utility::MapperGetObject& object) {
+            if (!ec)
+            {
+                for (const auto& [serv, _] : object)
+                {
+                    if (serv != service)
+                    {
+                        continue;
+                    }
+
+                    BMCWEB_LOG_DEBUG(
+                        "Performing Patch using Set Async Method Call");
+                    nvidia_async_operation_utils::
+                        doGenericSetAsyncAndGatherResult(
+                            asyncResp, std::chrono::seconds(60), service, path,
+                            pcieLinkEnableMaskInterface, "EnableMask",
+                            dbus::utility::DbusVariantType(enableMask),
+                            PatchPCIeLinkEnableMaskCallback{asyncResp, maskStr,
+                                                            path});
+
+                    return;
+                }
+            }
+
+            BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
+
+            dbus::utility::async_method_call(
+                [asyncResp, maskStr, path](const boost::system::error_code& ec2,
+                                           sdbusplus::message::message& msg) {
+                    if (!ec2)
+                    {
+                        BMCWEB_LOG_INFO("PCIeLinkEnableMask {} accepted for {}",
+                                        maskStr, path);
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    // Read and convert dbus error message to redfish error
+                    const sd_bus_error* dbusError = msg.get_error();
+                    if (dbusError == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: Set on {} failed ({}) with no D-Bus error name",
+                            maskStr, path, ec2.message());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (strcmp(
+                            dbusError->name,
+                            "xyz.openbmc_project.Common.Error.InvalidArgument") ==
+                        0)
+                    {
+                        // Invalid value (unsupported or reserved bit set)
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: {} rejected the value as InvalidArgument",
+                            maskStr, path);
+                        messages::propertyValueIncorrect(
+                            asyncResp->res, "PCIeLinkEnableMask/Mask", maskStr);
+                    }
+                    else if (
+                        strcmp(dbusError->name,
+                               "xyz.openbmc_project.Common.Error.NotAllowed") ==
+                        0)
+                    {
+                        // The window is shut: the effecter is still
+                        // initializing, or it has closed for this boot. The
+                        // value was fine, so the resolution tells the operator
+                        // how to find the next window instead of blaming it.
+                        BMCWEB_LOG_WARNING(
+                            "PCIeLinkEnableMask {} not applied: {} is outside its write window (NotAllowed)",
+                            maskStr, path);
+                        messages::serviceTemporarilyUnavailableMsg(
+                            asyncResp->res, pcieLinkEnableMaskRetryAfter,
+                            pcieLinkEnableMaskWindowClosedResolution);
+                    }
+                    else if (
+                        strcmp(
+                            dbusError->name,
+                            "xyz.openbmc_project.Common.Error.Unavailable") ==
+                        0)
+                    {
+                        // Same 503, different cause: the terminus did not
+                        // answer, so the window state is unknown rather than
+                        // known-shut.
+                        BMCWEB_LOG_WARNING(
+                            "PCIeLinkEnableMask {} not applied: {} is unavailable (terminus unreachable)",
+                            maskStr, path);
+                        messages::serviceTemporarilyUnavailableMsg(
+                            asyncResp->res, pcieLinkEnableMaskRetryAfter,
+                            pcieLinkEnableMaskUnavailableResolution);
+                    }
+                    else if (strcmp(dbusError->name,
+                                    "xyz.openbmc_project.Common."
+                                    "Device.Error.WriteFailure") == 0)
+                    {
+                        // Service failed to change the config
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: {} reported a device write failure",
+                            maskStr, path);
+                        messages::operationFailed(asyncResp->res);
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: {} returned unmapped D-Bus error {}",
+                            maskStr, path, dbusError->name);
+                        messages::internalError(asyncResp->res);
+                    }
+                },
+                service, path, "org.freedesktop.DBus.Properties", "Set",
+                pcieLinkEnableMaskInterface, "EnableMask",
+                dbus::utility::DbusVariantType(enableMask));
+        });
+}
+
+inline void changePCIeLinkEnableMask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& effecterPath, uint64_t enableMask,
+    const std::string& maskStr)
+{
+    dbus::utility::getDbusObject(
+        effecterPath,
+        std::array<std::string_view, 1>{pcieLinkEnableMaskInterface},
+        [asyncResp, effecterPath, enableMask,
+         maskStr](const boost::system::error_code& ec,
+                  const dbus::utility::MapperGetObject& objInfo) {
+            if (ec || objInfo.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "PCIeLinkEnableMask {} not applied: GetObject for {} on {} failed ({}, {} owner(s))",
+                    maskStr, pcieLinkEnableMaskInterface, effecterPath,
+                    ec.message(), objInfo.size());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const std::string& service = objInfo.begin()->first;
+            // GET advertises SupportedMask; writes that set bits outside the
+            // device-reported mask are rejected rather than silently masked.
+            dbus::utility::getProperty<uint64_t>(
+                service, effecterPath, pcieLinkEnableMaskInterface,
+                "SupportedMask",
+                [asyncResp, effecterPath, enableMask, maskStr,
+                 service](const boost::system::error_code& ecSupported,
+                          uint64_t supportedMask) {
+                    if (ecSupported)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: Get SupportedMask on {} from {} failed ({})",
+                            maskStr, effecterPath, service,
+                            ecSupported.message());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if ((enableMask & ~supportedMask) != 0)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PCIeLinkEnableMask {} not applied: sets bits outside {} SupportedMask {:#x}",
+                            maskStr, effecterPath, supportedMask);
+                        messages::propertyValueOutOfRange(
+                            asyncResp->res, maskStr, "PCIeLinkEnableMask/Mask");
+                        return;
+                    }
+                    setPCIeLinkEnableMask(asyncResp, service, effecterPath,
+                                          enableMask, maskStr);
+                });
+        });
+}
+
+inline void patchPCIeLinkEnableMask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objPath,
+    uint64_t enableMask, const std::string& maskStr)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/pcie_link_controls",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, processorId, enableMask,
+         maskStr](const boost::system::error_code& ec,
+                  const std::vector<std::string>& resp) {
+            if (ec || resp.empty())
+            {
+                // Platform does not publish the link mask effecter
+                BMCWEB_LOG_ERROR(
+                    "Processor {} has no pcie_link_controls association",
+                    processorId);
+                messages::propertyNotWritable(asyncResp->res,
+                                              "PCIeLinkEnableMask");
+                return;
+            }
+            // One effecter per CPU package, so the first endpoint is the
+            // effecter. Writing only it keeps a single completion path into
+            // asyncResp - looping would let a late success overwrite an
+            // earlier rejection.
+            changePCIeLinkEnableMask(asyncResp, resp.front(), enableMask,
+                                     maskStr);
         });
 }
 
