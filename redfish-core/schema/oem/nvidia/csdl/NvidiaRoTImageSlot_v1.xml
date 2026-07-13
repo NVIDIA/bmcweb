@@ -209,8 +209,8 @@
       <EntityType Name="NvidiaRoTImageSlot" BaseType="NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot">
         <Property Name="DOTAuthState" Type="NvidiaRoTImageSlot.v1_1_0.DOTAuthState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Result of verifying this slot's firmware image against the installed DOT CAK."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the result of verifying this slot's firmware image against the installed DOT Code Authentication Key (CAK). FirmwareState reports the slot's lifecycle/update state; DOTAuthState reports whether the image currently in the slot verifies under the installed DOT CAK. The two are independent."/>
+          <Annotation Term="OData.Description" String="Result of authenticating the firmware image in this slot against the installed DOT CAK."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the result of authenticating the firmware image in this slot against the installed DOT Code Authentication Key (CAK). FirmwareState reports the slot's lifecycle/update state, while DOTAuthState reports whether the firmware image currently stored in the slot authenticates using the installed DOT CAK. The two properties are independent."/>
           <Annotation Term="Redfish.Revisions">
             <Collection>
               <Record>
