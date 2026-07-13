@@ -11,9 +11,11 @@
 #include "nvidia_error_messages.hpp"
 
 #include "error_message_utils.hpp"
+#include "error_messages.hpp"
 #include "http_response.hpp"
 #include "update_messages.hpp"
 
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 
@@ -75,6 +77,20 @@ void updateInProgressMsg(crow::Response& res, const std::string& resolution)
 {
     res.result(boost::beast::http::status::bad_request);
     auto message = redfish::messages::updateInProgress();
+    if (!resolution.empty())
+    {
+        message["Resolution"] = resolution;
+    }
+    addMessageToErrorJson(res.jsonValue, message);
+}
+
+void serviceTemporarilyUnavailableMsg(
+    crow::Response& res, std::string_view arg1, const std::string& resolution)
+{
+    res.addHeader(boost::beast::http::field::retry_after, arg1);
+    res.result(boost::beast::http::status::service_unavailable);
+    nlohmann::json::object_t message =
+        messages::serviceTemporarilyUnavailable(arg1);
     if (!resolution.empty())
     {
         message["Resolution"] = resolution;

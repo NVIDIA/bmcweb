@@ -3913,6 +3913,67 @@ inline void patchReconfigPermissionsIfPresent(
     }
 }
 
+inline void patchPCIeLinkEnableMaskIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath,
+    const std::optional<nlohmann::json>& pcieLinkEnableMask)
+{
+    if (!pcieLinkEnableMask)
+    {
+        return;
+    }
+    if (!pcieLinkEnableMask->is_object())
+    {
+        messages::propertyValueTypeError(asyncResp->res, *pcieLinkEnableMask,
+                                         "PCIeLinkEnableMask");
+        return;
+    }
+    // SupportedMask and Writable are device-reported and read-only. Naming
+    // either is a distinct client error from naming something unknown, so
+    // reject them before readJson folds them into PropertyUnknown.
+    for (const char* readOnlyMember : {"SupportedMask", "Writable"})
+    {
+        if (pcieLinkEnableMask->contains(readOnlyMember))
+        {
+            messages::propertyNotWritable(
+                asyncResp->res,
+                std::string("PCIeLinkEnableMask/") + readOnlyMember);
+            return;
+        }
+    }
+
+    nlohmann::json maskRoot = *pcieLinkEnableMask; // mutable copy
+
+    std::optional<std::string> mask;
+    if (!redfish::json_util::readJson(maskRoot, asyncResp->res, "Mask", mask))
+    {
+        return;
+    }
+    if (!mask)
+    {
+        return;
+    }
+
+    const std::string& maskStr = *mask;
+    // Schema pattern ^0[xX][0-9a-fA-F]{1,16}$: hexStringToUint64 treats the
+    // 0x prefix as optional and accepts any number of leading zeros, so the
+    // prefix and length are enforced here.
+    std::optional<uint64_t> parsed;
+    if (maskStr.size() >= 3 && maskStr.size() <= 18 && maskStr[0] == '0' &&
+        (maskStr[1] == 'x' || maskStr[1] == 'X'))
+    {
+        parsed = hexStringToUint64(maskStr);
+    }
+    if (!parsed)
+    {
+        messages::propertyValueFormatError(asyncResp->res, maskStr,
+                                           "PCIeLinkEnableMask/Mask");
+        return;
+    }
+    nvidia_processor_utils::patchPCIeLinkEnableMask(
+        asyncResp, processorId, objectPath, *parsed, maskStr);
+}
+
 inline void handleNvidiaOemIfRequested(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const MapperServiceMap& serviceMap,
@@ -3942,6 +4003,7 @@ inline void handleNvidiaOemIfRequested(
     std::optional<bool> remoteDebugEnabled;
     std::optional<nlohmann::json> inbandReconfigPermissions;
     std::optional<nlohmann::json> doeReconfigPermissions;
+    std::optional<nlohmann::json> pcieLinkEnableMask;
 
     if (oemNvidiaObject)
     {
@@ -3951,7 +4013,8 @@ inline void handleNvidiaOemIfRequested(
                 nvidiaRoot, asyncResp->res, "MIGModeEnabled", migMode,
                 "RemoteDebugEnabled", remoteDebugEnabled,
                 "InbandReconfigPermissions", inbandReconfigPermissions,
-                "DOEReconfigPermissions", doeReconfigPermissions))
+                "DOEReconfigPermissions", doeReconfigPermissions,
+                "PCIeLinkEnableMask", pcieLinkEnableMask))
         {
             return;
         }
@@ -3968,6 +4031,8 @@ inline void handleNvidiaOemIfRequested(
     patchReconfigPermissionsIfPresent(asyncResp, processorId,
                                       inbandReconfigPermissions,
                                       doeReconfigPermissions);
+    patchPCIeLinkEnableMaskIfPresent(asyncResp, processorId, objectPath,
+                                     pcieLinkEnableMask);
 }
 
 inline void handleNvidiaProcessorInterface(
@@ -4116,6 +4181,11 @@ inline void populateNvidiaProcessorPostData(
             asyncResp, processorId, objectPath);
         nvidia_processor_utils::populateErrorInjectionData(asyncResp,
                                                            processorId);
+        if (deviceType == "xyz.openbmc_project.Inventory.Item.Cpu")
+        {
+            nvidia_processor_utils::getPCIeLinkEnableMask(asyncResp,
+                                                          objectPath);
+        }
     }
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {

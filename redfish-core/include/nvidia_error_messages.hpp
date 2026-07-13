@@ -66,6 +66,22 @@ void asyncError(crow::Response& res, const std::string& errorCode,
  */
 void updateInProgressMsg(crow::Response& res, const std::string& resolution);
 
+/**
+ * @brief Base.ServiceTemporarilyUnavailable with a caller-supplied resolution.
+ *
+ * The registry resolution ("Wait for the indicated retry duration and retry the
+ * operation.") says nothing about why the service refused the request, which
+ * leaves the operator guessing on properties that are writable only inside a
+ * device-driven window. Sets the same 503 and Retry-After header as
+ * messages::serviceTemporarilyUnavailable.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - retry duration in seconds, also sent as Retry-After
+ * @param resolution[in] - if empty the registry resolution is kept
+ */
+void serviceTemporarilyUnavailableMsg(
+    crow::Response& res, std::string_view arg1, const std::string& resolution);
+
 void success(crow::Response& res, const std::string& resolution);
 
 /**
