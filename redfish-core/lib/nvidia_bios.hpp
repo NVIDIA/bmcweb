@@ -1356,8 +1356,97 @@ inline void setBiosCurrentOrPendingAttr(
                             std::get<BaseBiosTableIndex::baseBiosAttrType>(
                                 attrIt->second);
                         std::string attrType = getBiosAttrType(attrItType);
-                        if ((attrType == "String") ||
-                            (attrType == "Enumeration"))
+                        if (attrType == "Enumeration")
+                        {
+                            const std::vector<AttrBoundType> boundValues =
+                                std::get<
+                                    BaseBiosTableIndex::baseBiosBoundValues>(
+                                    attrIt->second);
+
+                            std::vector<std::string> enumValues;
+                            for (const AttrBoundType& boundValueIt :
+                                 boundValues)
+                            {
+                                std::string boundValType = getBiosBoundValType(
+                                    std::string(std::get<BaseBiosBoundIndex::
+                                                             baseBiosBoundType>(
+                                        boundValueIt)));
+                                if (boundValType != "OneOf")
+                                {
+                                    continue;
+                                }
+                                const std::string* currBoundVal = std::get_if<
+                                    std::string>(
+                                    &std::get<
+                                        BaseBiosBoundIndex::baseBiosBoundValue>(
+                                        boundValueIt));
+                                if (currBoundVal == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR("Bound Value not found");
+                                    continue;
+                                }
+                                enumValues.push_back(*currBoundVal);
+                            }
+
+                            std::string attrReqVal;
+                            if (pendingAttrIt.value().is_string())
+                            {
+                                attrReqVal =
+                                    pendingAttrIt.value().get<std::string>();
+                                bool found =
+                                    std::ranges::find(enumValues, attrReqVal) !=
+                                    enumValues.end();
+                                if (!found)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Requested Attribute Value invalid");
+                                    messages::propertyValueNotInList(
+                                        asyncResp->res, attrReqVal,
+                                        pendingAttrIt.key());
+                                    return;
+                                }
+                            }
+                            else if (pendingAttrIt.value().is_number_integer())
+                            {
+                                int64_t idx =
+                                    pendingAttrIt.value().get<int64_t>();
+                                if (idx < 0 || idx >= static_cast<int64_t>(
+                                                          enumValues.size()))
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Requested Attribute Value invalid");
+                                    messages::propertyValueOutOfRange(
+                                        asyncResp->res, pendingAttrIt.value(),
+                                        pendingAttrIt.key());
+                                    return;
+                                }
+                                attrReqVal =
+                                    enumValues[static_cast<size_t>(idx)];
+                            }
+                            else
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Requested Attribute Value invalid");
+                                messages::propertyValueTypeError(
+                                    asyncResp->res,
+                                    pendingAttrIt.value().dump(),
+                                    pendingAttrIt.key());
+                                return;
+                            }
+
+                            if (biosFlag)
+                            {
+                                std::get<BaseBiosTableIndex::baseBiosCurrValue>(
+                                    attrIt->second) = attrReqVal;
+                            }
+                            else
+                            {
+                                pendingAttrs.insert(std::make_pair(
+                                    pendingAttrIt.key(),
+                                    std::make_tuple(attrItType, attrReqVal)));
+                            }
+                        }
+                        else if (attrType == "String")
                         {
                             if (!pendingAttrIt.value().is_string())
                             {
@@ -1365,69 +1454,13 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    std::string(pendingAttrIt.value()),
+                                    pendingAttrIt.value().dump(),
                                     pendingAttrIt.key());
                                 return;
                             }
                             std::string attrReqVal =
                                 pendingAttrIt.value().get<std::string>();
 
-                            if (attrType == "Enumeration")
-                            {
-                                // read the bound values for the attribute
-                                const std::vector<AttrBoundType> boundValues =
-                                    std::get<BaseBiosTableIndex::
-                                                 baseBiosBoundValues>(
-                                        attrIt->second);
-                                bool found = false;
-
-                                for (const AttrBoundType& boundValueIt :
-                                     boundValues)
-                                {
-                                    // read the bound value type at 0th field
-                                    // and convert from dbus to string format
-                                    std::string boundValType =
-                                        getBiosBoundValType(std::string(
-                                            std::get<BaseBiosBoundIndex::
-                                                         baseBiosBoundType>(
-                                                boundValueIt)));
-
-                                    if (boundValType == "OneOf")
-                                    {
-                                        // read the bound value  at 1st field
-                                        // for each entry
-                                        const std::string* currBoundVal =
-                                            std::get_if<std::string>(
-                                                &std::get<
-                                                    BaseBiosBoundIndex::
-                                                        baseBiosBoundValue>(
-                                                    boundValueIt));
-                                        if (currBoundVal == nullptr)
-                                        {
-                                            BMCWEB_LOG_ERROR(
-                                                "Bound Value not found");
-                                            continue;
-                                        }
-                                        if (attrReqVal == *currBoundVal)
-                                        {
-                                            found = true;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        continue;
-                                    }
-                                }
-
-                                if (!found)
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Requested Attribute Value invalid");
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                            }
-                            else if (attrType == "String")
                             {
                                 const std::vector<AttrBoundType> boundValues =
                                     std::get<BaseBiosTableIndex::
@@ -1438,8 +1471,6 @@ inline void setBiosCurrentOrPendingAttr(
                                 for (const AttrBoundType& boundValueIt :
                                      boundValues)
                                 {
-                                    // read the bound value type at 0th field
-                                    // and convert from dbus to string format
                                     std::string boundValType =
                                         getBiosBoundValType(std::string(
                                             std::get<BaseBiosBoundIndex::
@@ -1525,7 +1556,7 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    std::string(pendingAttrIt.value()),
+                                    pendingAttrIt.value().dump(),
                                     pendingAttrIt.key());
                                 return;
                             }
@@ -1551,7 +1582,7 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    std::string(pendingAttrIt.value()),
+                                    pendingAttrIt.value().dump(),
                                     pendingAttrIt.key());
                                 return;
                             }
