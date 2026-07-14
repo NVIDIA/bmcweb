@@ -4461,8 +4461,7 @@ inline void handleComputerSystemPatch(
                 const boost::system::error_code ec, const bool isBios) {
             if (ec || !isBios)
             {
-                messages::propertyNotWritable(asyncResp->res,
-                                                "AllowableValues");
+                messages::insufficientPrivilege(asyncResp->res);
                 return;
             }
             if (sku)
