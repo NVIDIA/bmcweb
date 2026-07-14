@@ -31,6 +31,7 @@
 #include <utils/nvidia_control_utils.hpp>
 
 #include <algorithm>
+#include <cerrno>
 
 namespace redfish
 {
@@ -928,6 +929,18 @@ inline void requestRoutesChassisControls(App& app)
                                        const std::vector<std::string>& resp) {
                         if (ec)
                         {
+                            if (ec.value() == EBADR)
+                            {
+                                // No power_controls association: the control
+                                // is not configured on this platform, so
+                                // report it as not found, not an error.
+                                BMCWEB_LOG_DEBUG(
+                                    "Control {} not configured on this chassis",
+                                    controlID);
+                                messages::resourceNotFound(
+                                    asyncResp->res, "ControlID", controlID);
+                                return;
+                            }
                             BMCWEB_LOG_ERROR(
                                 "ObjectMapper::GetObject call failed: {}", ec);
                             messages::internalError(asyncResp->res);
