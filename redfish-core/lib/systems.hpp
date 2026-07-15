@@ -4224,41 +4224,40 @@ inline void handleComputerSystemGet(
     }
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]
-                      ["#NvidiaComputerSystem.ProcessorDiagMode"]["target"] =
-            boost::urls::format(
-                "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagCapabilities",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
         asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagMode"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagCapabilitiesActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagSysConfig"]
+                                ["#NvidiaComputerSystem.SetProcessorDiagMode"]
                                 ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagSysConfig",
+            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.SetProcessorDiagMode",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
         asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagSysConfig"]
+                                ["#NvidiaComputerSystem.SetProcessorDiagMode"]
                                 ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagSysConfigActionInfo",
+            "/redfish/v1/Systems/{}/Oem/Nvidia/SetProcessorDiagModeActionInfo",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
         asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagTidConfig"]
+                                ["#NvidiaComputerSystem.ConfigProcessorDiag"]
                                 ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagTidConfig",
+            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiag",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
         asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagTidConfig"]
+                                ["#NvidiaComputerSystem.ConfigProcessorDiag"]
                                 ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagTidConfigActionInfo",
+            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagActionInfo",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                ["#NvidiaComputerSystem.ConfigProcessorDiagTid"]
+                                ["target"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiagTid",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                ["#NvidiaComputerSystem.ConfigProcessorDiagTid"]
+                                ["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagTidActionInfo",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
         handleDiagModeGet(asyncResp);

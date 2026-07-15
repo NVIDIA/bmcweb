@@ -51,29 +51,22 @@
 namespace redfish
 {
 
-// TODO(DGXOPENBMC-23861): The OEM field name "ProcessorDiagCapabilities"
-// is misleading — it carries Enable/Disable + DiagMode + DiagStatus, which
-// is boot status, not capabilities. Rename to "ProcessorDiagBootStatus"
-// once external scripts are ready to adopt the new name (tracked via the
-// weekly sync). Touches this file plus systems.hpp / nvidia_system.hpp
-// route paths.
-
 constexpr auto diagServiceList = "cpu-diag-status.timer "
                                  "cpu-diag-status.service";
 
 enum class DiagStatus : uint8_t
 {
-    Inprogress = 0x0,
+    InProgress = 0x0,
     RecoveryMode = 0x1,
     Completed = 0x2,
-    Abort = 0x3,
+    Aborted = 0x3,
     NotStarted = 0x4,
     TestRunning = 0x5
 };
 
 inline bool isDiagRunning(DiagStatus status)
 {
-    bool result = (status == DiagStatus::Inprogress) ||
+    bool result = (status == DiagStatus::InProgress) ||
                   (status == DiagStatus::RecoveryMode) ||
                   (status == DiagStatus::TestRunning);
     BMCWEB_LOG_DEBUG("isDiagRunning: {} for status {}", result,
@@ -85,16 +78,16 @@ inline std::string diagStatusToString(DiagStatus status)
 {
     switch (status)
     {
-        case DiagStatus::Inprogress:
-            return "Inprogress";
+        case DiagStatus::InProgress:
+            return "InProgress";
         case DiagStatus::RecoveryMode:
             return "RecoveryMode";
         case DiagStatus::Completed:
             return "Completed";
-        case DiagStatus::Abort:
-            return "Abort";
+        case DiagStatus::Aborted:
+            return "Aborted";
         case DiagStatus::NotStarted:
-            return "Not Started";
+            return "NotStarted";
         case DiagStatus::TestRunning:
             return "TestRunning";
         default:
@@ -189,20 +182,25 @@ inline void handleDiagResultGet(
             {
                 uint8_t tid = item["Tid"].get<uint8_t>();
                 uint16_t result = item["Result"].get<uint16_t>();
-                uint8_t resultMaskSize = item["ResultMaskSize"].get<uint8_t>();
                 std::vector<uint8_t> resultMask =
                     item["ResultMask"].get<std::vector<uint8_t>>();
 
-                // Copy the required number of bytes
-                std::vector<uint8_t> truncatedResultMask(
-                    resultMask.begin(), resultMask.begin() + resultMaskSize);
+                // Entries persisted by producers that pad the mask carry a
+                // ResultMaskSize field counting the valid bytes; honor it
+                // when present so padding is not exposed. Producers storing
+                // exact-length masks omit the field.
+                size_t maskSize =
+                    item.value("ResultMaskSize", resultMask.size());
+                if (maskSize < resultMask.size())
+                {
+                    resultMask.resize(maskSize);
+                }
 
                 // Create an object with the required fields
                 nlohmann::json jsonObject;
                 jsonObject["Tid"] = tid;
                 jsonObject["Result"] = result;
-                jsonObject["ResultMaskSize"] = resultMaskSize;
-                jsonObject["ResultMask"] = truncatedResultMask;
+                jsonObject["ResultMask"] = resultMask;
 
                 // Add the object to the response array
                 json["Oem"]["Nvidia"]["ProcessorDiagResult"].push_back(
@@ -234,7 +232,7 @@ inline void handleDiagStatusGet(
             nlohmann::json& json = asyncResp->res.jsonValue;
             if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
             {
-                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                json["Oem"]["Nvidia"]["ProcessorDiagState"]
                     ["DiagStatus"] =
                         diagStatusToString(static_cast<DiagStatus>(value));
             }
@@ -242,23 +240,23 @@ inline void handleDiagStatusGet(
             {
                 if ((value == 0x1) || (value == 0x0))
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                        ["DiagStatus"] = "Inprogress";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
+                        ["DiagStatus"] = "InProgress";
                 }
                 else if (value == 0x2)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
                         ["DiagStatus"] = "Completed";
                 }
                 else if (value == 0x3)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                        ["DiagStatus"] = "Abort";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
+                        ["DiagStatus"] = "Aborted";
                 }
                 else if (value == 0x4)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
-                        ["DiagStatus"] = "Not Started";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
+                        ["DiagStatus"] = "NotStarted";
                 }
             }
         });
@@ -284,13 +282,13 @@ inline void handleDiagModeGet(
             }
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
-                static_cast<int>(diagMode) != 0;
+            json["Oem"]["Nvidia"]["ProcessorDiagState"]
+                ["DiagModeEnabled"] = diagMode;
             // Always expose configs, status, and last-run result regardless
             // of DiagMode. The daemon owns DiagMode lifecycle and flips it
             // false at session end (clean or abort), but DiagStatus and the
             // previous run's DiagResult remain meaningful afterwards (e.g.
-            // "NotStarted" or "Abort" with the last result still readable).
+            // "NotStarted" or "Aborted" with the last result still readable).
             handleDiagSysConfigGet(asyncResp);
             handleDiagTidConfigGet(asyncResp);
             handleDiagStatusGet(asyncResp);
@@ -410,11 +408,10 @@ inline void setDiagModeProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         nlohmann::json& json, std::string_view prop)
 {
-    using namespace std::string_literals;
-    std::string propStr{};
+    bool enable{};
 
     if (!redfish::json_util::getValueFromJsonObject(json, std::string(prop),
-                                                    propStr))
+                                                    enable))
     {
         BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json.dump());
         return false;
@@ -422,7 +419,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
     {
         // Vera path: D-Bus guards + prebootdiag property
-        if (propStr == "Enable"s)
+        if (enable)
         {
             // Guard 1: verify DiagConfig is non-empty (412 if absent)
             dbus::utility::getProperty<std::string>(
@@ -481,22 +478,15 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         });
                 });
         }
-        else if (propStr == "Disable"s)
-        {
-            clearDiagResult(aResp);
-            initDiagStatus(aResp);
-            setPreBootDiagEnabled(aResp, false);
-        }
         else
         {
-            BMCWEB_LOG_ERROR("Invalid input it should be Enable/Disable");
-            return false;
+            setPreBootDiagEnabled(aResp, false);
         }
     }
     else
     {
         // Grace path: systemctl timers + Settings DiagMode property
-        if (propStr == "Enable"s)
+        if (enable)
         {
             std::string startupDiagTimerString = "systemctl start ";
             startupDiagTimerString += diagServiceList;
@@ -509,7 +499,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             setDiagModeProperty(aResp, true);
         }
-        else if (propStr == "Disable"s)
+        else
         {
             clearDiagResult(aResp);
             initDiagStatus(aResp);
@@ -524,11 +514,6 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             setDiagModeProperty(aResp, false);
         }
-        else
-        {
-            BMCWEB_LOG_ERROR("Invalid input it should be Enable/Disable");
-            return false;
-        }
     }
 
     return true;
@@ -538,10 +523,10 @@ inline void handleDiagPostReq(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     nlohmann::json& procCap)
 {
-    if (!setDiagMode(asyncResp, procCap, "DiagMode"))
+    if (!setDiagMode(asyncResp, procCap, "DiagModeEnabled"))
     {
-        BMCWEB_LOG_ERROR("DiagMode property error");
-        messages::propertyUnknown(asyncResp->res, "DiagMode");
+        BMCWEB_LOG_ERROR("DiagModeEnabled property error");
+        messages::propertyUnknown(asyncResp->res, "DiagModeEnabled");
         return;
     }
 }
@@ -661,8 +646,6 @@ inline bool validateDiagTidConfig(
             !item.contains("Loops") || !item["Loops"].is_number_unsigned() ||
             !item.contains("LogLevel") ||
             !item["LogLevel"].is_number_unsigned() ||
-            !item.contains("DynamicDataSize") ||
-            !item["DynamicDataSize"].is_number_unsigned() ||
             !item.contains("DynamicData") || !item["DynamicData"].is_array())
         {
             BMCWEB_LOG_ERROR("Invalid item in DiagTidConfig");
@@ -694,22 +677,6 @@ inline bool validateDiagTidConfig(
         {
             BMCWEB_LOG_ERROR(
                 "LogLevel value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
-            return false;
-        }
-        if (item["DynamicDataSize"].get<unsigned>() > 255)
-        {
-            BMCWEB_LOG_ERROR(
-                "DynamicDataSize value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
-            return false;
-        }
-        uint8_t dynamicDataSize = item["DynamicDataSize"].get<uint8_t>();
-        std::vector<uint8_t> dynamicData =
-            item["DynamicData"].get<std::vector<uint8_t>>();
-        if (dynamicDataSize != dynamicData.size())
-        {
-            BMCWEB_LOG_ERROR("DynamicDataSize and DynamicData value mismatch");
             messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
             return false;
         }
