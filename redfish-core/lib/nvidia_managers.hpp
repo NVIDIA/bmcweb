@@ -1499,26 +1499,17 @@ inline void extendManagerGet(
                                 return; // no chassis = no failures
                             }
 
-                            // single entry will be present
+                            // ManagementService association identifies the
+                            // chassis that physically contains this manager.
+                            // Only ManagerInChassis is set here;
+                            // ManagerForChassis is populated from the full
+                            // chassis subtree in handleManagerGet so all
+                            // managed chassis are listed.
                             for (const std::string& p : property)
                             {
                                 sdbusplus::object_path objPath(p);
                                 const std::string& chassisId =
                                     objPath.filename();
-                                asyncResp->res
-                                    .jsonValue["Links"]["ManagerForChassis"]
-                                    .clear();
-                                nlohmann::json::array_t managerForChassis;
-                                nlohmann::json::object_t managerObj;
-                                boost::urls::url chassiUrl =
-                                    boost::urls::format(
-                                        "/redfish/v1/Chassis/{}", chassisId);
-                                managerObj["@odata.id"] = chassiUrl;
-                                managerForChassis.emplace_back(
-                                    std::move(managerObj));
-                                asyncResp->res
-                                    .jsonValue["Links"]["ManagerForChassis"] =
-                                    std::move(managerForChassis);
                                 asyncResp->res
                                     .jsonValue["Links"]["ManagerInChassis"]
                                               ["@odata.id"] =

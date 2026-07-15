@@ -912,20 +912,42 @@ inline void handleManagerGet(
     managerDiagnosticData["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/ManagerDiagnosticData", managerId);
 
+    // ManagerInChassis = the single chassis that physically contains this BMC.
+    // ManagerForChassis = all chassis this BMC manages (populated separately
+    // below from the full subtree so the two fields stay semantically
+    // distinct).
     getMainChassisId(
         asyncResp, [](const std::string& chassisId,
                       const std::shared_ptr<bmcweb::AsyncResp>& aRsp) {
-            aRsp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] = 1;
-            nlohmann::json::array_t managerForChassis;
-            nlohmann::json::object_t managerObj;
-            boost::urls::url chassiUrl =
-                boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-            managerObj["@odata.id"] = chassiUrl;
-            managerForChassis.emplace_back(std::move(managerObj));
-            aRsp->res.jsonValue["Links"]["ManagerForChassis"] =
-                std::move(managerForChassis);
             aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
-                chassiUrl;
+                boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
+        });
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec || subtree.empty())
+            {
+                return;
+            }
+            nlohmann::json::array_t managerForChassis;
+            for (const auto& [path, serviceMap] : subtree)
+            {
+                std::size_t idPos = path.rfind('/');
+                if (idPos == std::string::npos || idPos + 1 >= path.size())
+                {
+                    continue;
+                }
+                nlohmann::json::object_t obj;
+                obj["@odata.id"] = boost::urls::format("/redfish/v1/Chassis/{}",
+                                                       path.substr(idPos + 1));
+                managerForChassis.emplace_back(std::move(obj));
+            }
+            asyncResp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] =
+                managerForChassis.size();
+            asyncResp->res.jsonValue["Links"]["ManagerForChassis"] =
+                std::move(managerForChassis);
         });
 
     dbus::utility::getProperty<double>(
