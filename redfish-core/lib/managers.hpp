@@ -24,6 +24,7 @@
 #include "redfish.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/etag_utils.hpp"
@@ -912,22 +913,20 @@ inline void handleManagerGet(
     managerDiagnosticData["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/ManagerDiagnosticData", managerId);
 
-    // ManagerInChassis = the single chassis that physically contains this BMC.
-    // ManagerForChassis = all chassis this BMC manages (populated separately
-    // below from the full subtree so the two fields stay semantically
-    // distinct).
-    getMainChassisId(
-        asyncResp, [](const std::string& chassisId,
-                      const std::shared_ptr<bmcweb::AsyncResp>& aRsp) {
-            aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
-                boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-        });
+    // ManagerInChassis is set authoritatively by extendManagerGet via the
+    // ManagementService/chassis association; no second writer here.
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec || subtree.empty())
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("getSubTree for ManagerForChassis failed: {}",
+                                 ec);
+                return;
+            }
+            if (subtree.empty())
             {
                 return;
             }
