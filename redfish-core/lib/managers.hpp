@@ -24,6 +24,7 @@
 #include "redfish.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -993,22 +994,59 @@ inline void requestRoutesManager(App& app)
                 "/redfish/v1/Managers/{}/ManagerDiagnosticData",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-            getMainChassisId(asyncResp, [](const std::string& chassisId,
-                                           const std::shared_ptr<
-                                               bmcweb::AsyncResp>& aRsp) {
-                aRsp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] =
-                    1;
-                nlohmann::json::array_t managerForChassis;
-                nlohmann::json::object_t managerObj;
-                boost::urls::url chassiUrl =
-                    boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-                managerObj["@odata.id"] = chassiUrl;
-                managerForChassis.emplace_back(std::move(managerObj));
-                aRsp->res.jsonValue["Links"]["ManagerForChassis"] =
-                    std::move(managerForChassis);
-                aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
-                    chassiUrl;
-            });
+            // ManagerInChassis is set authoritatively by extendManagerGet via
+            // the ManagementService/chassis association; no second writer here.
+
+            // Enumerate all chassis managed by this BMC
+            // (BMCWEB_REDFISH_MANAGER_URI_NAME). This handler is only reached
+            // for the local BMC manager; any other manager (e.g. HGX_BMC_0 for
+            // the satellite HMC) is routed to handleGenericManager above and
+            // has its own ManagerForChassis path.
+            //
+            // The full Item.Board/Item.Chassis subtree walk is used because no
+            // per-manager "managed_chassis" association exists on the D-Bus:
+            // the BMC's D-Bus namespace exclusively contains objects managed by
+            // this BMC, and the HMC's chassis (HGX_* objects) live on a
+            // separate D-Bus instance on the HMC and are never present here.
+            //
+            // If a second D-Bus-local BMC manager is ever added, this walk
+            // would need to be scoped to that manager's own association
+            // endpoint.
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+                [asyncResp](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "getSubTree for ManagerForChassis failed: {}", ec);
+                        return;
+                    }
+                    if (subtree.empty())
+                    {
+                        return;
+                    }
+                    nlohmann::json::array_t managerForChassis;
+                    for (const auto& [path, serviceMap] : subtree)
+                    {
+                        sdbusplus::message::object_path objPath(path);
+                        std::string chassisId = objPath.filename();
+                        if (chassisId.empty())
+                        {
+                            continue;
+                        }
+                        nlohmann::json::object_t obj;
+                        obj["@odata.id"] = boost::urls::format(
+                            "/redfish/v1/Chassis/{}", chassisId);
+                        managerForChassis.emplace_back(std::move(obj));
+                    }
+                    asyncResp->res
+                        .jsonValue["Links"]["ManagerForChassis@odata.count"] =
+                        managerForChassis.size();
+                    asyncResp->res.jsonValue["Links"]["ManagerForChassis"] =
+                        std::move(managerForChassis);
+                });
 
             dbus::utility::getProperty<double>(
                 "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
