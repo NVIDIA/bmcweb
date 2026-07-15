@@ -879,8 +879,9 @@ inline void afterGetDimmData(
         return;
     }
     // Set @odata only if object is found
-    // Nvidia : Updated to v1_20_0.Memory from v1_11_0.Memory
-    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
+    // Nvidia : Bumped to v1_21_0 to expose BaseModuleType=CAMM (added in DMTF
+    // Memory 1.21.0).
+    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_21_0.Memory";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);

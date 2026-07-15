@@ -604,9 +604,16 @@ inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessor.v1_7_0.NvidiaGPU";
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
-                property;
+            if (property.empty())
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
+                                        ["SystemGUID"] = nullptr;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
+                                        ["SystemGUID"] = property;
+            }
         });
 }
 
