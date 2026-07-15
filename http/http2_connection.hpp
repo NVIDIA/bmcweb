@@ -464,15 +464,13 @@ class HTTP2Connection :
         auto headersAsyncResp = std::make_shared<bmcweb::AsyncResp>();
         stream.headersAsyncResp = headersAsyncResp;
         stream.bodyReadPending = true;
-        headersAsyncResp->res.setCompleteRequestHandler(
-            [weakSelf = weak_from_this(), streamId](Response& /*phase1Res*/) {
-                if (auto self = weakSelf.lock())
-                {
-                    self->onHeadersHandlerComplete(streamId);
-                }
-            });
-
-        handler->handleHeaders(stream.req, headersAsyncResp);
+        handler->handleHeaders(stream.req, headersAsyncResp,
+                               [weakSelf = weak_from_this(), streamId]() {
+                                   if (auto self = weakSelf.lock())
+                                   {
+                                       self->onHeadersHandlerComplete(streamId);
+                                   }
+                               });
         return 0;
     }
 
@@ -522,11 +520,11 @@ class HTTP2Connection :
                             }
                         }
                     });
-                stream.headersAsyncResp->res.end();
                 stream.headersAsyncResp.reset();
             }
         }
 
+        stream.headersAsyncResp.reset();
         stream.bodyReadPending = false;
 
         if (!stream.pendingBodyData.empty())

@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "async_resp.hpp"
 #include "http_request.hpp"
+#include "multipart_parser.hpp"
 #include "routing.hpp"
 #include "utility.hpp"
 
 #include <boost/beast/http/verb.hpp>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -56,6 +58,73 @@ TEST(Router, AllowHeader)
     EXPECT_EQ(router.findRoute(req).allowHeader, "GET, PATCH");
     EXPECT_NE(router.findRoute(req).route.rule, nullptr);
     EXPECT_NE(router.findRoute(patchReq).route.rule, nullptr);
+}
+
+TEST(Router, HandleHeadersCompletesRegularRouteWithoutEndingResponse)
+{
+    Router router;
+    std::error_code ec;
+    constexpr std::string_view url = "/regular";
+
+    router.newRuleTagged<getParameterTag(url)>(std::string(url))(
+        [](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&) {});
+    router.validate();
+
+    auto req = std::make_shared<Request>(
+        Request::Body{boost::beast::http::verb::get, url, 11}, ec);
+    size_t completionCount = 0;
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
+    bool headersCompleted = false;
+
+    router.handleHeaders(req, asyncResp, [&headersCompleted] {
+        headersCompleted = true;
+    });
+
+    EXPECT_TRUE(headersCompleted);
+    EXPECT_FALSE(asyncResp->res.isCompleted());
+    EXPECT_EQ(completionCount, 0U);
+
+    asyncResp.reset();
+
+    EXPECT_EQ(completionCount, 1U);
+}
+
+TEST(Router, HandleHeadersCompletesStreamRouteWithoutEndingResponse)
+{
+    Router router;
+    std::error_code ec;
+    constexpr std::string_view url = "/stream";
+
+    router.newRuleTagged<getParameterTag(url)>(std::string(url))
+        .streamInput()
+        .methods(boost::beast::http::verb::post)(
+            [](Request& req, const std::shared_ptr<bmcweb::AsyncResp>&) {
+                req.setMultipartParserCallbacks(
+                    MultipartParserStreamingCallbacks{});
+            });
+    router.validate();
+
+    auto req = std::make_shared<Request>(
+        Request::Body{boost::beast::http::verb::post, url, 11}, ec);
+    size_t completionCount = 0;
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
+    bool headersCompleted = false;
+
+    router.handleHeaders(req, asyncResp, [&headersCompleted] {
+        headersCompleted = true;
+    });
+
+    EXPECT_TRUE(headersCompleted);
+    EXPECT_FALSE(asyncResp->res.isCompleted());
+    EXPECT_EQ(completionCount, 0U);
+
+    asyncResp.reset();
+
+    EXPECT_EQ(completionCount, 1U);
 }
 
 TEST(Router, OverlapingRoutes)

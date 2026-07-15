@@ -529,38 +529,55 @@ TEST(CloseSendSocketIfReady, ClosesSocketOnUpdateCompleteError)
     EXPECT_FALSE(ctx->fileSendSocket.is_open());
 }
 
-TEST(EndClientResponseIfReady, DoesNotEndWhenOnlyResponseReady)
+TEST(ReleaseClientResponseIfReady, RetainsResponseWhenOnlyResponseReady)
 {
+    size_t completionCount = 0;
     auto ctx = makeCtx();
     ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
     ctx->responseReady = true;
 
-    ctx->endClientResponseIfReady();
+    ctx->releaseClientResponseIfReady();
 
+    ASSERT_TRUE(ctx->asyncResp);
     EXPECT_FALSE(ctx->asyncResp->res.isCompleted());
+    EXPECT_EQ(completionCount, 0U);
 }
 
-TEST(EndClientResponseIfReady, DoesNotEndWhenOnlyParseComplete)
+TEST(ReleaseClientResponseIfReady, RetainsResponseWhenOnlyParseComplete)
 {
+    size_t completionCount = 0;
     auto ctx = makeCtx();
     ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
     ctx->parseComplete = true;
 
-    ctx->endClientResponseIfReady();
+    ctx->releaseClientResponseIfReady();
 
+    ASSERT_TRUE(ctx->asyncResp);
     EXPECT_FALSE(ctx->asyncResp->res.isCompleted());
+    EXPECT_EQ(completionCount, 0U);
 }
 
-TEST(EndClientResponseIfReady, EndsWhenResponseReadyAndParseComplete)
+TEST(ReleaseClientResponseIfReady,
+     ReleasesResponseWhenResponseReadyAndParseComplete)
 {
+    size_t completionCount = 0;
     auto ctx = makeCtx();
     ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
+    std::weak_ptr<bmcweb::AsyncResp> weakResp = ctx->asyncResp;
     ctx->responseReady = true;
     ctx->parseComplete = true;
 
-    ctx->endClientResponseIfReady();
+    ctx->releaseClientResponseIfReady();
 
-    EXPECT_TRUE(ctx->asyncResp->res.isCompleted());
+    EXPECT_FALSE(ctx->asyncResp);
+    EXPECT_TRUE(weakResp.expired());
+    EXPECT_EQ(completionCount, 1U);
 }
 
 TEST(FailClientResponse, SetsErrorStateAndMarksResponseReady)
@@ -1050,14 +1067,16 @@ TEST(SatControllerGetComplete, BailsOutWhenRequestAlreadyFailed)
 TEST(OnParseComplete, StagedFileMissingParamsReportsUpdateParametersMissing)
 {
     auto ctx = makeCtx();
-    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp = asyncResp;
     ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
     ctx->onSectionComplete(ctx);
 
     ctx->onParseComplete(ctx);
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
-    EXPECT_NE(ctx->asyncResp->res.jsonValue.dump().find("UpdateParameters"),
+    EXPECT_FALSE(ctx->asyncResp);
+    EXPECT_NE(asyncResp->res.jsonValue.dump().find("UpdateParameters"),
               std::string::npos);
 }
 

@@ -614,7 +614,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             stagedUpdateFile.reset();
             closeSendSocketIfReady();
-            endClientResponseIfReady();
+            releaseClientResponseIfReady();
             return;
         }
         if (!stagedUpdateFile)
@@ -645,7 +645,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             multipartSerializer.finish();
             state = State::UPDATE_COMPLETE;
             closeSendSocketIfReady();
-            endClientResponseIfReady();
+            releaseClientResponseIfReady();
             return;
         }
         std::string_view chunk(buffer.data(), static_cast<size_t>(bytesRead));
@@ -695,9 +695,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
     }
 
-    // Ending a streamInput response before the inbound body is fully consumed
-    // desyncs HTTP framing (leftover body is parsed as the next request).
-    void endClientResponseIfReady()
+    // Keep the response alive until the inbound body is fully consumed to
+    // avoid desynchronizing HTTP framing.
+    void releaseClientResponseIfReady()
     {
         if (!responseReady)
         {
@@ -711,14 +711,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             }
             return;
         }
-        asyncResp->res.end();
+        asyncResp.reset();
     }
 
     std::function<void()> responseReadyCallback()
     {
         return [self(shared_from_this())]() {
             self->responseReady = true;
-            self->endClientResponseIfReady();
+            self->releaseClientResponseIfReady();
         };
     }
 
@@ -732,7 +732,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         state = State::UPDATE_COMPLETE_ERROR;
         stagedUpdateFile.reset();
         responseReady = true;
-        endClientResponseIfReady();
+        releaseClientResponseIfReady();
     }
 
     void putBytesToHttpClient(std::string_view data)
@@ -799,7 +799,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             {
                 resumeReadCb();
             }
-            endClientResponseIfReady();
+            releaseClientResponseIfReady();
             return;
         }
         BMCWEB_LOG_DEBUG("afterWritePartialData() success: {} bytes sent",
@@ -1218,7 +1218,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             return;
         }
         closeSendSocketIfReady();
-        endClientResponseIfReady();
+        releaseClientResponseIfReady();
     }
 
     void onHttpClientDataSendComplete(
@@ -1257,7 +1257,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         redfish::RedfishAggregator::processResponse(prefix, asyncResp, res);
         responseReady = true;
-        endClientResponseIfReady();
+        releaseClientResponseIfReady();
     }
 
     bool onUpdateParametersComplete(MultiPartUpdate& multipart)

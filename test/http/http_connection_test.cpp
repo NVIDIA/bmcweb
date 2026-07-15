@@ -37,10 +37,12 @@ struct FakeHandler
     }
 
     void handleHeaders(const std::shared_ptr<Request>& /*req*/,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       std::move_only_function<void()> headersCompleteCallback)
     {
         handleHeadersCalled = true;
-        asyncResp->res.end();
+        headersAsyncResp = asyncResp;
+        headersCompleteCallback();
     }
 
     void handle(const std::shared_ptr<Request>& req,
@@ -61,6 +63,7 @@ struct FakeHandler
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
         EXPECT_EQ(req->target(), "/redfish/v1/Systems");
+        authFailedUsedHeadersAsyncResp = headersAsyncResp.lock() == asyncResp;
         asyncResp->res.result(boost::beast::http::status::unauthorized);
         asyncResp->res.addHeader(boost::beast::http::field::www_authenticate,
                                  "Basic");
@@ -71,7 +74,9 @@ struct FakeHandler
 
     bool called = false;
     bool authFailedCalled = false;
+    bool authFailedUsedHeadersAsyncResp = false;
     bool handleHeadersCalled = false;
+    std::weak_ptr<bmcweb::AsyncResp> headersAsyncResp;
 };
 
 struct ClockFake
@@ -178,6 +183,7 @@ TEST(http_connection, AuthFailedCallsHandler)
         outStr = out.str();
     }
     EXPECT_TRUE(handler.authFailedCalled);
+    EXPECT_TRUE(handler.authFailedUsedHeadersAsyncResp);
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }

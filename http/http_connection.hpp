@@ -462,7 +462,7 @@ class Connection :
                         req->methodString(), req->target(),
                         req->ipAddress.to_string());
 
-        if (res.completed)
+        if (res.isCompleted())
         {
             completeRequest(res);
             return;
@@ -479,13 +479,29 @@ class Connection :
                 {
                     BMCWEB_LOG_WARNING("Authentication failed");
 
-                    auto asyncResp =
-                        std::make_shared<bmcweb::AsyncResp>(std::move(res));
-                    BMCWEB_LOG_DEBUG("Setting completion handler");
-                    asyncResp->res.setCompleteRequestHandler(
-                        [self(shared_from_this())](crow::Response& thisRes) {
-                            self->completeRequest(thisRes);
-                        });
+                    std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+                        requestAsyncResp;
+                    if (asyncResp)
+                    {
+                        std::function<void(crow::Response&)>
+                            completeRequestHandler =
+                                asyncResp->res.releaseCompleteRequestHandler();
+                        asyncResp->res = std::move(res);
+                        asyncResp->res.setCompleteRequestHandler(
+                            std::move(completeRequestHandler));
+                    }
+                    else
+                    {
+                        asyncResp =
+                            std::make_shared<bmcweb::AsyncResp>(std::move(res));
+                        BMCWEB_LOG_DEBUG("Setting completion handler");
+                        asyncResp->res.setCompleteRequestHandler(
+                            [self(shared_from_this())](
+                                crow::Response& thisRes) {
+                                self->completeRequest(thisRes);
+                            });
+                    }
+                    requestAsyncResp.reset();
                     if (!handler->handleAuthFailed(req, asyncResp))
                     {
                         forward_unauthorized::sendUnauthorized(
@@ -493,7 +509,6 @@ class Connection :
                             req->getHeaderValue("X-Requested-With"),
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
-                    releaseRequestAsyncResp();
                     return;
                 }
             }
@@ -741,10 +756,6 @@ class Connection :
         req->session = userSession;
         req->ipAddress = ip;
         requestAsyncResp = std::make_shared<bmcweb::AsyncResp>();
-        requestAsyncResp->res.setCompleteRequestHandler(
-            [self(shared_from_this())](crow::Response& /*thisRes*/) {
-                self->afterHeadersComplete();
-            });
 
         if (expectsContinue)
         {
@@ -754,11 +765,13 @@ class Connection :
             pendingContinue = true;
         }
 
-        handler->handleHeaders(req, requestAsyncResp);
-        // For streamInput routes handleHeaders() calls asyncResp->res.end()
-        // synchronously, which fires afterHeadersComplete(). If pendingContinue
-        // is set, afterHeadersComplete() deferred doRead(). We now send the
-        // 100 Continue so the client starts uploading the body.
+        handler->handleHeaders(
+            req, requestAsyncResp,
+            [self(shared_from_this())]() { self->afterHeadersComplete(); });
+        // afterHeadersComplete() defers body reading while 100 Continue is
+        // pending. Send it now so the client can start uploading the body;
+        // body reading starts after both header processing and the write have
+        // completed.
 
         if (expectsContinue)
         {
