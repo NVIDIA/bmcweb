@@ -28,11 +28,13 @@
 #include <string_view>
 #include <utility>
 
+namespace bmcweb
+{
+class AsyncResp;
+}
+
 namespace crow
 {
-
-template <typename Adaptor, typename Handler>
-class Connection;
 
 namespace http = boost::beast::http;
 
@@ -51,8 +53,7 @@ enum class OpenCode
 
 struct Response
 {
-    template <typename Adaptor, typename Handler>
-    friend class Connection;
+    friend class bmcweb::AsyncResp;
 
     http::response<bmcweb::HttpBody> response;
 
@@ -306,26 +307,6 @@ struct Response
         response.body().str() = std::move(bodyPart);
     }
 
-    void end()
-    {
-        if (completed)
-        {
-            BMCWEB_LOG_ERROR("{} Response was ended twice", logPtr(this));
-            return;
-        }
-        completed = true;
-        BMCWEB_LOG_DEBUG("{} calling completion handler", logPtr(this));
-        if (completeRequestHandler)
-        {
-            BMCWEB_LOG_DEBUG("{} completion handler was valid", logPtr(this));
-            completeRequestHandler(*this);
-        }
-        else
-        {
-            BMCWEB_LOG_DEBUG("no completion handler, ");
-        }
-    }
-
     void setCompleteRequestHandler(std::function<void(Response&)>&& handler)
     {
         BMCWEB_LOG_DEBUG("{} setting completion handler", logPtr(this));
@@ -425,6 +406,26 @@ struct Response
     }
 
   private:
+    void end()
+    {
+        if (completed)
+        {
+            BMCWEB_LOG_ERROR("{} Response was ended twice", logPtr(this));
+            return;
+        }
+        completed = true;
+        BMCWEB_LOG_DEBUG("{} calling completion handler", logPtr(this));
+        if (completeRequestHandler)
+        {
+            BMCWEB_LOG_DEBUG("{} completion handler was valid", logPtr(this));
+            completeRequestHandler(*this);
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("no completion handler, ");
+        }
+    }
+
     std::optional<std::string> requestExpectedEtag;
     std::optional<std::string> currentOverrideEtag;
     bool completed = false;

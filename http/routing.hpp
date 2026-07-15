@@ -325,13 +325,14 @@ class Router
 
     void handleHeaders(
         const std::shared_ptr<Request>& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        std::move_only_function<void()> headersCompleteCallback) const
     {
         FindRouteResponse foundRoute = findRoute(*req);
         if (foundRoute.route.rule == nullptr ||
             !foundRoute.route.rule->isStreamInput)
         {
-            asyncResp->res.end();
+            headersCompleteCallback();
             return;
         }
         BaseRule& rule = *foundRoute.route.rule;
@@ -342,16 +343,15 @@ class Router
         {
             // Nvidia code starts here
             rule.handle(*req, asyncResp, {});
-            asyncResp->res.end();
-            // Nvidia code ends here
+            headersCompleteCallback();
             return;
         }
-        // Nvidia code starts here
-        validatePrivilege(req, asyncResp, rule,
-                          [req, &rule, asyncResp]() mutable {
-                              rule.handle(*req, asyncResp, {});
-                              asyncResp->res.end();
-                          });
+        validatePrivilege(
+            req, asyncResp, rule,
+            [req, &rule, asyncResp]() mutable {
+                rule.handle(*req, asyncResp, {});
+            },
+            std::move(headersCompleteCallback));
         // Nvidia code ends here
     }
 

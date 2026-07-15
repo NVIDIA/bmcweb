@@ -137,7 +137,8 @@ inline void handleRequestUserInfo(
     const boost::system::error_code& ec,
     std::move_only_function<void(const dbus::utility::DBusPropertiesMap&)>
         callback,
-    const dbus::utility::DBusPropertiesMap& userInfoMap)
+    const dbus::utility::DBusPropertiesMap& userInfoMap,
+    std::move_only_function<void()> onValidationDone = {})
 {
     if (ec)
     {
@@ -147,38 +148,49 @@ inline void handleRequestUserInfo(
             BMCWEB_LOG_WARNING(
                 "There is io error when calling the user manager service, this suggests the user doesn't have permission to access");
             asyncResp->res.result(boost::beast::http::status::unauthorized);
-            return;
         }
-        if (ec.value() == boost::system::errc::host_unreachable)
+        else if (ec.value() == boost::system::errc::host_unreachable)
         {
             BMCWEB_LOG_ERROR(
                 "User manager service not reachable, this suggests the user manager service is not healthy");
             asyncResp->res.result(
                 boost::beast::http::status::internal_server_error);
-            return;
         }
-
-        BMCWEB_LOG_ERROR("Unhandled error code {} for GetUserInfo", ec.value());
-        asyncResp->res.result(
-            boost::beast::http::status::internal_server_error);
+        else
+        {
+            BMCWEB_LOG_ERROR("Unhandled error code {} for GetUserInfo",
+                             ec.value());
+            asyncResp->res.result(
+                boost::beast::http::status::internal_server_error);
+        }
+        if (onValidationDone)
+        {
+            onValidationDone();
+        }
         return;
     }
     callback(userInfoMap);
+    if (onValidationDone)
+    {
+        onValidationDone();
+    }
 }
 
 inline void requestUserInfo(
     const std::string& username,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::move_only_function<void(const dbus::utility::DBusPropertiesMap&)>&&
-        callback)
+        callback,
+    std::move_only_function<void()>&& onValidationDone = {})
 {
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, callback = std::move(callback)](
+        [asyncResp, callback = std::move(callback),
+         onValidationDone = std::move(onValidationDone)](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
             handleRequestUserInfo(asyncResp, ec, std::move(callback),
-                                  userInfoMap);
+                                  userInfoMap, std::move(onValidationDone));
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo", username);
@@ -187,10 +199,15 @@ inline void requestUserInfo(
 inline void validatePrivilege(
     const std::shared_ptr<Request>& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, BaseRule& rule,
-    std::move_only_function<void()>&& callback)
+    std::move_only_function<void()>&& callback,
+    std::move_only_function<void()>&& onValidationDone = {})
 {
     if (req->session == nullptr)
     {
+        if (onValidationDone)
+        {
+            onValidationDone();
+        }
         return;
     }
 
@@ -202,7 +219,8 @@ inline void validatePrivilege(
             {
                 callback();
             }
-        });
+        },
+        std::move(onValidationDone));
 }
 
 inline void getUserInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
