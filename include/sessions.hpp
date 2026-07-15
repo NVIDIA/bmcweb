@@ -318,7 +318,6 @@ class SessionStore
 
     std::shared_ptr<UserSession> getSessionByUid(std::string_view uid)
     {
-        applySessionTimeouts();
         // TODO(Ed) this is inefficient
         auto sessionIt = authTokens.begin();
         while (sessionIt != authTokens.end())
