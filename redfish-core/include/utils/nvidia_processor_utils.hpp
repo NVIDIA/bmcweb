@@ -7,6 +7,7 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/processor_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -605,9 +606,9 @@ inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessor.v1_7_0.NvidiaGPU";
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
-                property;
+            mapStringOrNull(
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                "SystemGUID", &property);
         });
 }
 
