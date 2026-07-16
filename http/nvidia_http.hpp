@@ -16,7 +16,10 @@
  */
 #pragma once
 
-#include "logging.hpp"
+#include "bmcweb_config.h"
+
+#include <syslog.h>
+#include <systemd/sd-journal.h>
 
 #include <boost/url/url_view_base.hpp>
 
@@ -55,9 +58,13 @@ inline void logRedfishRequest(std::string_view clientIp,
             return;
         }
 
-        // Log API metrics to journal for rsyslog filtering
-        BMCWEB_LOG_INFO("API Metrics: IP={} METHOD={} URI={}", clientIp, method,
-                        uri);
+        // Log API metrics independently of the global bmcweb log level so they
+        // can be filtered and persisted separately by rsyslog
+        std::string_view uriBuffer = uri.buffer();
+        sd_journal_print(LOG_INFO, "API Metrics: IP=%.*s METHOD=%.*s URI=%.*s",
+                         static_cast<int>(clientIp.size()), clientIp.data(),
+                         static_cast<int>(method.size()), method.data(),
+                         static_cast<int>(uriBuffer.size()), uriBuffer.data());
     }
 }
 
