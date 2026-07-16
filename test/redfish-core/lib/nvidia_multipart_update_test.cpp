@@ -69,6 +69,29 @@ std::shared_ptr<UpdateCtx> makeCtx()
     return ctx;
 }
 
+std::shared_ptr<PLDMUpdateCtx> makePLDMCtx(bool preUpdateValidation)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    boost::asio::local::stream_protocol::socket socket(getIoContext());
+    return std::make_shared<PLDMUpdateCtx>(
+        asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{},
+        preUpdateValidation, []() {}, []() {});
+}
+
+TEST(PLDMUpdateCtx, PreservesPreUpdateValidationTrue)
+{
+    EXPECT_TRUE(makePLDMCtx(true)->preUpdateValidation);
+}
+
+TEST(PLDMUpdateCtx, PreservesPreUpdateValidationFalse)
+{
+    EXPECT_FALSE(makePLDMCtx(false)->preUpdateValidation);
+}
+
 TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
@@ -82,7 +105,7 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
         std::vector<sdbusplus::object_path>{},
         FirmwarePackageInfo{"nvfw_release.fwpkg",
                             redfish::firmwareImageLimitBytes + 1U},
-        []() {}, [&failed]() { failed = true; });
+        false, []() {}, [&failed]() { failed = true; });
     ctx->bytesWritten = redfish::firmwareImageLimitBytes;
 
     ctx->gotBytes({}, 1U);
@@ -160,6 +183,34 @@ TEST(SetHeaders, WithForceUpdateTrue)
 
     EXPECT_EQ(ctx->pendingWriteBuffer,
               expectedSetHeadersOutput(boundary, R"({"ForceUpdate":true})"));
+}
+
+TEST(SetHeaders, WithPreUpdateValidationTrue)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.preUpdateValidation = true;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary,
+                  R"({"Oem":{"Nvidia":{"PreUpdateValidation":true}}})"));
+}
+
+TEST(SetHeaders, WithPreUpdateValidationFalse)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.preUpdateValidation = false;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary,
+                  R"({"Oem":{"Nvidia":{"PreUpdateValidation":false}}})"));
 }
 
 TEST(SetHeaders, AllParams)
@@ -376,8 +427,8 @@ TEST(PLDMUpdateCtx, DoesNotStartUpdateAfterRequestFailure)
     boost::asio::local::stream_protocol::socket socket(getIoContext());
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "xyz", false,
-        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, []() {},
-        []() {});
+        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, false,
+        []() {}, []() {});
     redfish::fwUpdateInProgress = false;
     messages::unrecognizedRequestBody(asyncResp->res);
 
@@ -899,8 +950,8 @@ TEST(UpdateInProgressGate, PldmUpdateRejectedAtDispatch)
     bool failed = false;
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "xyz", false,
-        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, []() {},
-        [&failed]() { failed = true; });
+        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, false,
+        []() {}, [&failed]() { failed = true; });
     redfish::fwUpdateInProgress = true;
 
     ctx->doUpdate();
@@ -1548,7 +1599,7 @@ TEST(AfterGetSubtreePaths, InventoryLookupFailureIsRetryable)
 
     afterGetSubtreePaths(
         asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {},
-        FirmwarePackageInfo{},
+        FirmwarePackageInfo{}, false,
         boost::system::errc::make_error_code(boost::system::errc::timed_out),
         {}, []() {}, [&failed]() { failed = true; });
 
@@ -1587,7 +1638,7 @@ TEST(AfterGetSubtreePaths, UnknownTargetIsNamedInTheError)
     // No inventory path matches, so the target is unknown.
     afterGetSubtreePaths(
         asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {target},
-        FirmwarePackageInfo{}, boost::system::error_code{}, {}, []() {},
+        FirmwarePackageInfo{}, false, boost::system::error_code{}, {}, []() {},
         [&failed]() { failed = true; });
 
     EXPECT_TRUE(failed);
@@ -1610,7 +1661,7 @@ TEST(AfterGetSubtreePaths, UnparsableTargetDoesNotAbort)
 
     afterGetSubtreePaths(
         asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {target},
-        FirmwarePackageInfo{}, boost::system::error_code{}, {}, []() {},
+        FirmwarePackageInfo{}, false, boost::system::error_code{}, {}, []() {},
         [&failed]() { failed = true; });
 
     EXPECT_TRUE(failed);

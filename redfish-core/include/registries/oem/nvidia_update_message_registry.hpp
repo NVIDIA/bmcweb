@@ -285,6 +285,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "FirmwarePackageComponentImageMissing",
+        {
+            "Indicates that the firmware package does not contain a required update image for a target component.",
+            "The firmware update for target '%1' cannot proceed because the firmware package does not contain a required update image.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Provide a firmware package containing update images for all applicable platform components, and retry the firmware update.",
+        }},
+    MessageEntry{
         "FirmwarePackageEmpty",
         {
             "Indicates that the uploaded firmware package contains no data.",
@@ -398,6 +410,16 @@ static constexpr std::array registry =
             "Correct the multipart request formatting and resubmit the request.",
         }},
     MessageEntry{
+        "PreUpdateValidationFailed",
+        {
+            "Indicates that a firmware update request was rejected because one or more target components failed pre-update validation.",
+            "The firmware update request was rejected because one or more target components failed pre-update validation.",
+            "Critical",
+            0,
+            {},
+            "Review the accompanying messages that identify the affected components, resolve the reported conditions, and retry the firmware update request.",
+        }},
+    MessageEntry{
         "RecoveryStarted",
         {
             "Indicates that recovery has started on a component",
@@ -446,17 +468,19 @@ enum class Index
     firmwareInRecovery = 17,
     firmwareNotInRecovery = 18,
     firmwarePackage = 19,
-    firmwarePackageEmpty = 20,
-    firmwarePackageSizeExceeded = 21,
-    firmwarePackageStagingError = 22,
-    firmwareUpdateInProgress = 23,
-    firmwareUpdateInitiationError = 24,
-    firmwareUpdateTargetInvalid = 25,
-    headerValueInvalid = 26,
-    imageCopyCompleted = 27,
-    malformedMultipartRequest = 28,
-    recoveryStarted = 29,
-    recoverySuccessful = 30,
+    firmwarePackageComponentImageMissing = 20,
+    firmwarePackageEmpty = 21,
+    firmwarePackageSizeExceeded = 22,
+    firmwarePackageStagingError = 23,
+    firmwareUpdateInProgress = 24,
+    firmwareUpdateInitiationError = 25,
+    firmwareUpdateTargetInvalid = 26,
+    headerValueInvalid = 27,
+    imageCopyCompleted = 28,
+    malformedMultipartRequest = 29,
+    preUpdateValidationFailed = 30,
+    recoveryStarted = 31,
+    recoverySuccessful = 32,
 };
 }; // struct nvidia_update
 
