@@ -949,6 +949,22 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
+            {
+                auto ctIt =
+                    fields.find(boost::beast::http::field::content_type);
+                if (ctIt != fields.end() &&
+                    http_helpers::getContentType(ctIt->value()) !=
+                        http_helpers::ContentType::OctetStream)
+                {
+                    BMCWEB_LOG_ERROR("UpdateFile Content-Type is not "
+                                     "application/octet-stream: {}",
+                                     ctIt->value());
+                    messages::missingOrMalformedPart(asyncResp->res);
+                    failClientResponse();
+                    return;
+                }
+            }
+
             updateFileHeadersSeen = true;
             updateFileRemainingBodyLength = remainingBodyLength;
             if (stagedUpdateFile)
