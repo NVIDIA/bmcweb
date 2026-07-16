@@ -32,6 +32,7 @@ srcfiles_unittest = files(
     'redfish-core/include/redfish_aggregator_test.cpp',
     'redfish-core/include/redfish_oem_routing_test.cpp',
     'redfish-core/include/redfish_test.cpp',
+    'redfish-core/include/registries/oem/nvidia_update_registry_test.cpp',
     'redfish-core/include/registries_test.cpp',
     'redfish-core/include/submit_test_event_test.cpp',
     'redfish-core/include/utils/collection_test.cpp',

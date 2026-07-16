@@ -2,7 +2,7 @@
     "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
     "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
     "Description": "This registry defines the update messages for Nvidia.",
-    "Id": "NvidiaUpdate.1.1.0",
+    "Id": "NvidiaUpdate.1.2.0",
     "Language": "en",
     "Messages": {
         "ComponentUpdateSkipped": {
@@ -202,10 +202,28 @@
             "ParamTypes": ["string", "string"],
             "Resolution": "None.",
             "Severity": "OK"
+        },
+        "PreUpdateValidationFailed": {
+            "Description": "Indicates that a firmware update request was rejected because one or more target components failed pre-update validation.",
+            "Message": "The firmware update request was rejected because one or more target components failed pre-update validation.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 0,
+            "ParamTypes": [],
+            "Resolution": "Review the accompanying messages that identify the affected components, resolve the reported conditions, and retry the firmware update request.",
+            "Severity": "Critical"
+        },
+        "FirmwarePackageComponentImageMissing": {
+            "Description": "Indicates that the firmware package does not contain a required update image for a target component.",
+            "Message": "The firmware update for target '%1' cannot proceed because the firmware package does not contain a required update image.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Provide a firmware package containing update images for all applicable platform components, and retry the firmware update.",
+            "Severity": "Critical"
         }
     },
     "Name": "Nvidia Message Registry",
     "OwningEntity": "Nvidia",
     "RegistryPrefix": "NvidiaUpdate",
-    "RegistryVersion": "1.1.0"
+    "RegistryVersion": "1.2.0"
 }

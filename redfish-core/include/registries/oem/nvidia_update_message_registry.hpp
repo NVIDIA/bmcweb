@@ -25,7 +25,7 @@ static constexpr Header header = {
     "Copyright 2024 Nvidia. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
-    1,
+    2,
     0,
     "Nvidia Message Registry",
     "en",
@@ -261,6 +261,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "FirmwarePackageComponentImageMissing",
+        {
+            "Indicates that the firmware package does not contain a required update image for a target component.",
+            "The firmware update for target '%1' cannot proceed because the firmware package does not contain a required update image.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Provide a firmware package containing update images for all applicable platform components, and retry the firmware update.",
+        }},
+    MessageEntry{
         "HeaderValueInvalid",
         {
             "Indicates that a header value is invalid.",
@@ -285,6 +297,16 @@ static constexpr std::array registry =
                 "string",
             },
             "None.",
+        }},
+    MessageEntry{
+        "PreUpdateValidationFailed",
+        {
+            "Indicates that a firmware update request was rejected because one or more target components failed pre-update validation.",
+            "The firmware update request was rejected because one or more target components failed pre-update validation.",
+            "Critical",
+            0,
+            {},
+            "Review the accompanying messages that identify the affected components, resolve the reported conditions, and retry the firmware update request.",
         }},
     MessageEntry{
         "RecoveryStarted",
@@ -333,10 +355,12 @@ enum class Index
     enterDOTRecovery = 15,
     firmwareInRecovery = 16,
     firmwareNotInRecovery = 17,
-    headerValueInvalid = 18,
-    imageCopyCompleted = 19,
-    recoveryStarted = 20,
-    recoverySuccessful = 21,
+    firmwarePackageComponentImageMissing = 18,
+    headerValueInvalid = 19,
+    imageCopyCompleted = 20,
+    preUpdateValidationFailed = 21,
+    recoveryStarted = 22,
+    recoverySuccessful = 23,
 };
 }; // struct nvidia_update
 

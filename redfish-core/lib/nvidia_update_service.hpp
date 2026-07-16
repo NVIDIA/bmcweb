@@ -417,6 +417,14 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::serviceRestart(arg1);
     }
+    if (msgId == "NvidiaUpdate.1.2.PreUpdateValidationFailed")
+    {
+        return messages::preUpdateValidationFailed();
+    }
+    if (msgId == "NvidiaUpdate.1.2.FirmwarePackageComponentImageMissing")
+    {
+        return messages::firmwarePackageComponentImageMissing(arg1);
+    }
 
     return {};
 }
@@ -2759,29 +2767,33 @@ inline void addUnsupportedActionParametersMessages(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json::object_t& actionParametersObject)
 {
-    asyncResp->res.jsonValue.clear();
-    asyncResp->res.result(boost::beast::http::status::bad_request);
-    nlohmann::json& extendedInfo =
-        asyncResp->res.jsonValue["error"][messages::messageAnnotation];
+    nlohmann::json::array_t extendedInfo;
     for (const auto& [key, _] : actionParametersObject)
     {
         if (key == "Targets" || key == "ForceUpdate" ||
-            key == "@Redfish.OperationApplyTime")
+            key == "@Redfish.OperationApplyTime" || key == "Oem")
         {
             continue;
-        }
-        if (!extendedInfo.is_array())
-        {
-            extendedInfo = nlohmann::json::array();
         }
         nlohmann::json message =
             messages::actionParameterNotSupported(key, "UpdateParameters");
         message["Resolution"] =
             "Refer to DMTF Redfish Specification for valid UpdateParameters. "
-            "Currently supported  UpdateParameters are Targets, ForceUpdate and "
-            "@Redfish.OperationApplyTime.";
+            "Currently supported UpdateParameters are Targets, ForceUpdate, "
+            "Oem.Nvidia.PreUpdateValidation and @Redfish.OperationApplyTime.";
         extendedInfo.push_back(std::move(message));
     }
+    if (extendedInfo.empty())
+    {
+        // The parse failed on a supported parameter (wrong type, or an
+        // unknown key nested under Oem); keep the specific error that
+        // readJson already set instead of replacing it.
+        return;
+    }
+    asyncResp->res.jsonValue.clear();
+    asyncResp->res.result(boost::beast::http::status::bad_request);
+    asyncResp->res.jsonValue["error"][messages::messageAnnotation] =
+        std::move(extendedInfo);
 }
 
 inline void requestRoutesNvidiaUpdateService(App& app)

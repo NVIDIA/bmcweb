@@ -766,6 +766,9 @@ struct MultiPartUpdate
         std::optional<std::string> applyTime;
         std::optional<std::vector<std::string>> targets;
         std::optional<bool> forceUpdate;
+        // Nvidia code starts here
+        std::optional<bool> preUpdateValidation;
+        // Nvidia code ends here
     } params;
 };
 
@@ -843,7 +846,10 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
             *obj, asyncResp->res,                              //
             "@Redfish.OperationApplyTime", multiRet.applyTime, //
             "Targets", multiRet.targets,                       //
-            "ForceUpdate", multiRet.forceUpdate                //
+            "ForceUpdate", multiRet.forceUpdate,               //
+            // Nvidia code starts here
+            "Oem/Nvidia/PreUpdateValidation", multiRet.preUpdateValidation //
+            // Nvidia code ends here
             ))
     {
         addUnsupportedActionParametersMessages(asyncResp, *obj);

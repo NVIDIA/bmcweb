@@ -68,6 +68,23 @@ inline nlohmann::json getLogNvidia(
         redfish::registries::NvidiaResourceEvent::registry, index, args);
 }
 
+inline nlohmann::json preUpdateValidationFailed()
+{
+    std::array<std::string_view, 0> args{};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::preUpdateValidationFailed,
+        args);
+}
+
+inline nlohmann::json firmwarePackageComponentImageMissing(
+    std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(redfish::registries::NvidiaUpdate::Index::
+                            firmwarePackageComponentImageMissing,
+                        args);
+}
+
 inline nlohmann::json debugTokenAlreadyInstalled(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};

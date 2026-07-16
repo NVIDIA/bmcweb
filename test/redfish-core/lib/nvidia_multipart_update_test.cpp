@@ -37,6 +37,29 @@ std::shared_ptr<UpdateCtx> makeCtx()
     return std::make_shared<UpdateCtx>(0, std::move(payload));
 }
 
+std::shared_ptr<PLDMUpdateCtx> makePLDMCtx(bool preUpdateValidation)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    boost::asio::local::stream_protocol::socket socket(getIoContext());
+    return std::make_shared<PLDMUpdateCtx>(
+        asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+        std::vector<sdbusplus::message::object_path>{}, preUpdateValidation,
+        []() {}, []() {});
+}
+
+TEST(PLDMUpdateCtx, PreservesPreUpdateValidationTrue)
+{
+    EXPECT_TRUE(makePLDMCtx(true)->preUpdateValidation);
+}
+
+TEST(PLDMUpdateCtx, PreservesPreUpdateValidationFalse)
+{
+    EXPECT_FALSE(makePLDMCtx(false)->preUpdateValidation);
+}
+
 TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
@@ -47,7 +70,7 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     bool failed = false;
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "OnReset", false,
-        std::vector<sdbusplus::message::object_path>{}, []() {},
+        std::vector<sdbusplus::message::object_path>{}, false, []() {},
         [&failed]() { failed = true; });
     ctx->bytesWritten = redfish::firmwareImageLimitBytes;
 
@@ -117,6 +140,34 @@ TEST(SetHeaders, WithForceUpdateTrue)
 
     EXPECT_EQ(ctx->pendingWriteBuffer,
               expectedSetHeadersOutput(boundary, R"({"ForceUpdate":true})"));
+}
+
+TEST(SetHeaders, WithPreUpdateValidationTrue)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.preUpdateValidation = true;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary,
+                  R"({"Oem":{"Nvidia":{"PreUpdateValidation":true}}})"));
+}
+
+TEST(SetHeaders, WithPreUpdateValidationFalse)
+{
+    auto ctx = makeCtx();
+    std::string boundary(ctx->multipartSerializer.getBoundary());
+    ctx->multiRet.params.preUpdateValidation = false;
+
+    ctx->setHeaders({});
+
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  boundary,
+                  R"({"Oem":{"Nvidia":{"PreUpdateValidation":false}}})"));
 }
 
 TEST(SetHeaders, AllParams)
@@ -267,7 +318,8 @@ TEST(PLDMUpdateCtx, DoesNotStartUpdateAfterRequestFailure)
     boost::asio::local::stream_protocol::socket socket(getIoContext());
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "xyz", false,
-        std::vector<sdbusplus::message::object_path>{}, []() {}, []() {});
+        std::vector<sdbusplus::message::object_path>{}, false, []() {},
+        []() {});
     redfish::fwUpdateInProgress = false;
     messages::unrecognizedRequestBody(asyncResp->res);
 

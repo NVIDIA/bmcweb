@@ -128,6 +128,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
     std::string applyTime;
     bool forceUpdate;
     std::vector<sdbusplus::message::object_path> targets;
+    bool preUpdateValidation;
 
     redfish::task::Payload payload;
     std::function<void()> onResponseReady;
@@ -139,13 +140,14 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
         const std::string& applyTimeIn, bool forceUpdateIn,
         const std::vector<sdbusplus::message::object_path>& targetsIn,
-        std::function<void()> onResponseReadyIn,
+        bool preUpdateValidationIn, std::function<void()> onResponseReadyIn,
         std::function<void()> onErrorIn,
         const std::shared_ptr<MemoryFileDescriptor>& memfdIn = nullptr) :
         memfd(memfdIn ? std::move(*memfdIn)
                       : MemoryFileDescriptor(getRandomId())),
         asyncResp(asyncRespIn), fileGetSocket(std::move(fileGetSocketIn)),
         applyTime(applyTimeIn), forceUpdate(forceUpdateIn), targets(targetsIn),
+        preUpdateValidation(preUpdateValidationIn),
         payload(std::move(payloadIn)),
         onResponseReady(std::move(onResponseReadyIn)),
         onError(std::move(onErrorIn))
@@ -242,7 +244,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
                                           onResponseReady);
             },
             serviceName, objectPath, updateInterface, "StartUpdate", fd,
-            applyTime, forceUpdate, targets);
+            applyTime, forceUpdate, targets, preUpdateValidation);
     }
 };
 
@@ -251,7 +253,8 @@ inline void startPLDMUpdate(
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets,
-    std::function<void()> onResponseReady, std::function<void()> onError,
+    bool preUpdateValidation, std::function<void()> onResponseReady,
+    std::function<void()> onError,
     const std::shared_ptr<MemoryFileDescriptor>& memfd = nullptr)
 {
     BMCWEB_LOG_DEBUG("Starting PLDM update for {} targets", targets.size());
@@ -260,8 +263,8 @@ inline void startPLDMUpdate(
     std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
         std::make_shared<PLDMUpdateCtx>(
             asyncResp, std::move(payload), std::move(fileGetSocket), applyTime,
-            forceUpdate, targets, std::move(onResponseReady),
-            std::move(onError), memfd);
+            forceUpdate, targets, preUpdateValidation,
+            std::move(onResponseReady), std::move(onError), memfd);
     if (fileAlreadyLoaded)
     {
         boost::asio::post(getIoContext(),
@@ -326,7 +329,7 @@ inline void afterGetSubtreePaths(
     const std::shared_ptr<boost::asio::local::stream_protocol::socket>&
         fileGetSocket,
     const std::string& dbusApplyTime, bool forceUpdate,
-    const std::vector<std::string>& uriTargets,
+    const std::vector<std::string>& uriTargets, bool preUpdateValidation,
     const boost::system::error_code& ec,
     const std::vector<std::string>& swInvPaths,
     std::function<void()> onResponseReady, std::function<void()> onError,
@@ -361,7 +364,8 @@ inline void afterGetSubtreePaths(
 
     startPLDMUpdate(asyncResp, std::move(payload), std::move(*fileGetSocket),
                     dbusApplyTime, forceUpdate, validTargets,
-                    std::move(onResponseReady), std::move(onError), memfd);
+                    preUpdateValidation, std::move(onResponseReady),
+                    std::move(onError), memfd);
 }
 
 inline TargetType parseRfaUri(std::string_view uri)
@@ -1255,6 +1259,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             updateParametersJson["ForceUpdate"] = *multiRet.params.forceUpdate;
         }
+        if (multiRet.params.preUpdateValidation)
+        {
+            updateParametersJson["Oem"]["Nvidia"]["PreUpdateValidation"] =
+                *multiRet.params.preUpdateValidation;
+        }
         using field = boost::beast::http::field;
         {
             boost::beast::http::fields headers;
@@ -1505,13 +1514,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             state = State::UPDATE_COMPLETE;
         }
+        bool preUpdateValidation =
+            multiRet.params.preUpdateValidation.value_or(false);
 
         if (uriTargets.empty())
         {
             std::vector<sdbusplus::message::object_path> emptyTargets{};
             nvidia::startPLDMUpdate(
                 asyncResp, std::move(payload), std::move(fileGetSocket),
-                dbusApplyTime, forceUpdate, emptyTargets,
+                dbusApplyTime, forceUpdate, emptyTargets, preUpdateValidation,
                 responseReadyCallback(), failResponseCallback(),
                 stagedUpdateFile);
             if (fileAlreadyStaged)
@@ -1547,16 +1558,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 "xyz.openbmc_project.Software.Version"},
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocketPtr, dbusApplyTime, forceUpdate, uriTargets,
-             preloadedFile = std::move(preloadedFile),
+             preloadedFile = std::move(preloadedFile), preUpdateValidation,
              onResponseReady{responseReadyCallback()},
              onError{failResponseCallback()}](
                 const boost::system::error_code& ec,
                 const std::vector<std::string>& swInvPaths) mutable {
                 afterGetSubtreePaths(
                     asyncResp, std::move(payload), fileGetSocketPtr,
-                    dbusApplyTime, forceUpdate, uriTargets, ec, swInvPaths,
-                    std::move(onResponseReady), std::move(onError),
-                    preloadedFile);
+                    dbusApplyTime, forceUpdate, uriTargets, preUpdateValidation,
+                    ec, swInvPaths, std::move(onResponseReady),
+                    std::move(onError), preloadedFile);
             });
         if (fileAlreadyStaged)
         {
