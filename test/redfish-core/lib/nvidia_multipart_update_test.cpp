@@ -681,6 +681,39 @@ TEST(OnHeadersComplete, MultipartOverheadDoesNotRejectFileFirstUpload)
     EXPECT_TRUE(ctx->stagedUpdateFile);
 }
 
+TEST(OnHeadersComplete, UpdateFileWithWrongContentTypeIsRejected)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    boost::beast::http::fields fields = makePartFields("UpdateFile");
+    fields.set(boost::beast::http::field::content_type, "application/ream");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "Base.1.19.MissingOrMalformedPart");
+}
+
+TEST(OnHeadersComplete, UpdateFileWithOctetStreamContentTypeAccepted)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    boost::beast::http::fields fields = makePartFields("UpdateFile");
+    fields.set(boost::beast::http::field::content_type,
+               "application/octet-stream");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    EXPECT_EQ(ctx->state,
+              UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS);
+    EXPECT_TRUE(ctx->stagedUpdateFile);
+}
+
 TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
 {
     auto ctx = makeCtx();
