@@ -37,6 +37,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
+#include "nvidia_switch_power_cap_mode.hpp"
 // Nvidia code starts here
 #include "nvidia_multipart_update.hpp"
 // Nvidia code ends here
@@ -167,6 +168,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPowerProfile(app);
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesSwitchPowerMode(app);
+        requestRoutesSwitchPowerCappingMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
