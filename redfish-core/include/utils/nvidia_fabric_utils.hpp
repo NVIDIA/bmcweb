@@ -21,6 +21,7 @@
 #include "error_messages.hpp"
 #include "http_body.hpp"
 #include "logging.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
@@ -30,10 +31,13 @@
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 namespace redfish
@@ -84,9 +88,9 @@ inline void patchL1PowerMode(
                             std::string serviceName;
                             for (const auto& [serv, interfaceList] : object)
                             {
-                                if (std::find(
-                                        interfaceList.begin(),
-                                        interfaceList.end(),
+                                if (std::ranges::find(
+                                        interfaceList,
+
                                         "xyz.openbmc_project.Object.Enable") !=
                                     interfaceList.end())
                                 {
@@ -260,15 +264,15 @@ inline void populateErrorInjectionData(
 
                     for (const auto& [_, interfaces] : serviceMap2)
                     {
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
+                        if (std::ranges::find(
+                                interfaces,
                                 "com.nvidia.ErrorInjection.ErrorInjection") ==
                             interfaces.end())
                         {
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+                            "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
                         std::string errorInjectionPath = "/redfish/v1/Fabrics/";
                         errorInjectionPath += fabricId2;
                         errorInjectionPath += "/Switches/";
@@ -360,11 +364,337 @@ inline void getSwitchPowerModeLink(
             std::string switchPowerModeURI = switchURI;
             switchPowerModeURI += "/Oem/Nvidia/PowerMode";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
                 switchPowerModeURI;
         });
+}
+
+constexpr std::string_view powerCappingModeIntf =
+    "com.nvidia.DeviceMode.PowerCappingMode";
+
+inline std::string translatePowerCapModeDbusToRedfish(
+    const std::string& dbusValue)
+{
+    if (dbusValue ==
+        "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Default")
+    {
+        return "Default";
+    }
+    if (dbusValue ==
+        "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Enabled")
+    {
+        return "Enabled";
+    }
+    if (dbusValue ==
+        "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Disabled")
+    {
+        return "Disabled";
+    }
+    return "";
+}
+
+inline std::string translatePowerCapModeRedfishToDbus(
+    const std::string& redfishValue)
+{
+    if (redfishValue == "Default")
+    {
+        return "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Default";
+    }
+    if (redfishValue == "Enabled")
+    {
+        return "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Enabled";
+    }
+    if (redfishValue == "Disabled")
+    {
+        return "com.nvidia.DeviceMode.PowerCappingMode.PowerCapMode.Disabled";
+    }
+    return "";
+}
+
+inline void afterUpdateSwitchPowerCappingModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for updateSwitchPowerCappingModeData(): {}",
+            ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "CurrentMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "PowerCappingMode CurrentMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::string redfishValue = translatePowerCapModeDbusToRedfish(*value);
+        // Active resource reports Enabled/Disabled only.
+        if (redfishValue.empty() || redfishValue == "Default")
+        {
+            BMCWEB_LOG_ERROR(
+                "Unexpected CurrentMode on active PowerCappingMode: {}",
+                *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["PowerCapMode"] = redfishValue;
+    }
+    std::string settingsURI =
+        switchURI + "/Oem/Nvidia/PowerCappingMode/Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res
+        .jsonValue["@Redfish.Settings"]["SettingsObject"]["@odata.id"] =
+        settingsURI;
+    std::string resetTarget =
+        switchURI + "/Oem/Nvidia/PowerCappingMode/Actions/"
+                    "NvidiaSwitchPowerCapMode.ResetToDefaults";
+    asyncResp->res
+        .jsonValue["Actions"]["#NvidiaSwitchPowerCapMode.ResetToDefaults"]
+                  ["target"] = resetTarget;
+}
+
+inline void updateSwitchPowerCappingModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& powerCapObjPath,
+    const std::string& switchURI)
+{
+    dbus::utility::getAllProperties(
+        service, powerCapObjPath, std::string(powerCappingModeIntf),
+        std::bind_front(afterUpdateSwitchPowerCappingModeData, asyncResp,
+                        switchURI));
+}
+
+inline void afterUpdateSwitchPowerCappingModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for PowerCappingMode Settings: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "PendingMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "PowerCappingMode Settings PendingMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // Settings publishes Enabled/Disabled only; omit internal Default.
+        std::string redfishValue = translatePowerCapModeDbusToRedfish(*value);
+        if (redfishValue.empty())
+        {
+            BMCWEB_LOG_ERROR(
+                "Unexpected PendingMode on PowerCappingMode Settings: {}",
+                *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (redfishValue == "Default")
+        {
+            return;
+        }
+        asyncResp->res.jsonValue["PowerCapMode"] = redfishValue;
+    }
+}
+
+inline void updateSwitchPowerCappingModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& powerCapObjPath)
+{
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["@odata.type"] =
+        "#Settings.v1_3_3.PreferredApplyTime";
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["ApplyTime"] =
+        "OnReset";
+    dbus::utility::getAllProperties(
+        service, powerCapObjPath, std::string(powerCappingModeIntf),
+        std::bind_front(afterUpdateSwitchPowerCappingModeSettingsData,
+                        asyncResp));
+}
+
+inline void afterGetSwitchPowerCappingModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        return;
+    }
+    std::string uri = switchURI + "/Oem/Nvidia/PowerCappingMode";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerCappingMode"]["@odata.id"] =
+        uri;
+}
+
+inline void getSwitchPowerCappingModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& switchURI)
+{
+    dbus::utility::findAssociations(
+        objectPath + "/power_capping_mode",
+        std::bind_front(afterGetSwitchPowerCappingModeLink, asyncResp,
+                        switchURI));
+}
+
+using PowerCappingModeObjectHandler =
+    std::function<void(const std::string&, const std::string&,
+                       const dbus::utility::MapperGetObject&)>;
+
+inline void afterGetSwitchPowerCappingModeDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& powerCapObjPath,
+    const PowerCappingModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    handler(object.front().first, powerCapObjPath, object);
+}
+
+inline void afterGetSwitchPowerCappingModeAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const PowerCappingModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::resourceNotFound(resp->res, "PowerCappingMode", switchId);
+        return;
+    }
+    const std::string& powerCapObjPath = endpoints.front();
+    dbus::utility::getDbusObject(
+        powerCapObjPath, std::array<std::string_view, 1>{powerCappingModeIntf},
+        std::bind_front(afterGetSwitchPowerCappingModeDbusObject, resp,
+                        powerCapObjPath, handler));
+}
+
+inline void getSwitchPowerCappingModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const std::string& switchObjPath,
+    const PowerCappingModeObjectHandler& handler)
+{
+    dbus::utility::findAssociations(
+        switchObjPath + "/power_capping_mode",
+        std::bind_front(afterGetSwitchPowerCappingModeAssociation, resp,
+                        switchId, handler));
+}
+
+inline void afterPatchSwitchPowerCappingModeGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    for (const auto& [serv, _] : object)
+    {
+        if (serv != service)
+        {
+            continue;
+        }
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            resp, std::chrono::seconds(60), service, objectPath,
+            std::string(powerCappingModeIntf), "PendingMode",
+            std::variant<std::string>(dbusValue),
+            nvidia_async_operation_utils::PatchGenericCallback{resp});
+        return;
+    }
+    messages::internalError(resp->res);
+}
+
+inline void afterPatchSwitchPowerCappingModeGetConfigurable(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    bool isModeConfigurable)
+{
+    if (ec)
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    if (!isModeConfigurable)
+    {
+        messages::propertyNotWritable(resp->res, "PowerCapMode");
+        return;
+    }
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        std::bind_front(afterPatchSwitchPowerCappingModeGetDbusObject, resp,
+                        dbusValue, objectPath, service));
+}
+
+inline void patchSwitchPowerCappingMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& powerCapMode, const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      std::string(powerCappingModeIntf)) != interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+
+    std::string dbusValue = translatePowerCapModeRedfishToDbus(powerCapMode);
+    if (dbusValue.empty())
+    {
+        messages::propertyValueNotInList(resp->res, powerCapMode,
+                                         "PowerCapMode");
+        return;
+    }
+
+    dbus::utility::getProperty<bool>(
+        *inventoryService, objectPath, std::string(powerCappingModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterPatchSwitchPowerCappingModeGetConfigurable, resp,
+                        dbusValue, objectPath, *inventoryService));
 }
 
 /**
@@ -388,8 +718,8 @@ inline void patchSwitchIsolationMode(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.SwitchIsolation") != interfaceList.end())
+        if (std::ranges::find(interfaceList, "com.nvidia.SwitchIsolation") !=
+            interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -580,7 +910,7 @@ inline void getSwitchHistogramLink(
             std::string switchHistogramURI = switchURI;
             switchHistogramURI += "/Oem/Nvidia/Histograms";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
                 switchHistogramURI;

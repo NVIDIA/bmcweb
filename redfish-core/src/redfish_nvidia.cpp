@@ -68,6 +68,7 @@
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
+#include "nvidia_switch_power_cap_mode.hpp"
 #include "nvidia_system.hpp"
 #include "nvidia_system_processor_power_limits.hpp"
 #include "nvidia_systems_logservices_hostlogger.hpp"
@@ -165,6 +166,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPowerProfile(app);
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesSwitchPowerMode(app);
+        requestRoutesSwitchPowerCappingMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);

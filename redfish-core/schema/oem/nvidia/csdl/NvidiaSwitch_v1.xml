@@ -27,6 +27,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchPowerMode_v1.xml">
     <edmx:Include Namespace="NvidiaSwitchPowerMode"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchPowerCapMode_v1.xml">
+    <edmx:Include Namespace="NvidiaSwitchPowerCapMode"/>
+  </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
     <edmx:Include Namespace="NvidiaHistogramCollection"/>
   </edmx:Reference>
@@ -146,6 +149,17 @@
           <Annotation Term="OData.Description" String="The date and time when the fabric manager associated with the switch was last reset or rebooted."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the fabric manager associated with the switch last came out of a reset or was rebooted."/>
         </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_4_0.NvidiaSwitch">
+        <NavigationProperty Name="PowerCappingMode" Type="NvidiaSwitchPowerCapMode.NvidiaSwitchPowerCapMode" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power capping mode resource for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaSwitchPowerCapMode."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
