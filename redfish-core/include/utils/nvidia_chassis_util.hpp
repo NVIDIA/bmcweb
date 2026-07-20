@@ -3912,7 +3912,7 @@ inline void getChassisOemNvidiaSKU(
                     ec.message());
                 return;
             }
-            if (!sku.empty())
+            if (!sku.empty() && sku != redfish::propertyNotSupported)
             {
                 BMCWEB_LOG_INFO("Successfully set OEM Nvidia SKU from {}: {}",
                                 path, sku);
@@ -3920,7 +3920,8 @@ inline void getChassisOemNvidiaSKU(
             }
             else
             {
-                BMCWEB_LOG_ERROR("OEM Nvidia SKU from {} is empty", path);
+                BMCWEB_LOG_ERROR(
+                    "OEM Nvidia SKU from {} is empty or not supported", path);
             }
         });
 }
@@ -3993,7 +3994,7 @@ inline void handleAssociatedSKURead(
                          ec.message());
         return;
     }
-    if (!sku.empty())
+    if (!sku.empty() && sku != redfish::propertyNotSupported)
     {
         BMCWEB_LOG_INFO("Successfully set SKU from associated object {}: {}",
                         associatedPath, sku);
@@ -4003,8 +4004,11 @@ inline void handleAssociatedSKURead(
     }
     else
     {
-        BMCWEB_LOG_DEBUG("SKU from associated object {} is empty",
-                         associatedPath);
+        // NOT_SUPPORTED is a backend tombstone; the associated object is the
+        // terminal SKU source, so omit the property rather than surface it.
+        BMCWEB_LOG_DEBUG(
+            "SKU from associated object {} is empty or not supported",
+            associatedPath);
     }
 }
 
@@ -4109,7 +4113,7 @@ inline void handleDirectSKURead(
         checkAssociatedSKU(asyncResp, path);
         return;
     }
-    if (!chassisSKU.empty())
+    if (!chassisSKU.empty() && chassisSKU != redfish::propertyNotSupported)
     {
         BMCWEB_LOG_DEBUG("Successfully set SKU for {}: {}", path, chassisSKU);
         asyncResp->res.jsonValue["SKU"] = chassisSKU;
@@ -4118,9 +4122,11 @@ inline void handleDirectSKURead(
     }
     else
     {
-        // SKU property is empty, check for backward association
+        // SKU property is empty or NOT_SUPPORTED (backend tombstone); the
+        // chassis' own SKU is absent, so fall back to backward association --
+        // a real SKU may still be provided by an associated object.
         BMCWEB_LOG_DEBUG(
-            "SKU property is empty for {}, checking backward association",
+            "SKU property is empty or not supported for {}, checking backward association",
             path);
         checkAssociatedSKU(asyncResp, path);
     }
