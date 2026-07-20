@@ -47,6 +47,10 @@ inline void afterGetOemNvidiaOpenOCDPortForwardEnabled(
         messages::internalError(asyncResp->res);
         return;
     }
+    // Declare the parent NvidiaNetworkProtocol OEM type so its properties
+    // resolve during Redfish schema validation.
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaNetworkProtocol.v1_2_0.NvidiaNetworkProtocol";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCDPortForward"]["Enable"] =
         enabled;
 }

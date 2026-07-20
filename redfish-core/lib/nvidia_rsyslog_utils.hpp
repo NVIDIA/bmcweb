@@ -170,6 +170,10 @@ inline void populateRsyslogClientSettings(
 
     asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
     asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
+    // Declare the parent NvidiaNetworkProtocol OEM type so its properties
+    // resolve during Redfish schema validation.
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaNetworkProtocol.v1_2_0.NvidiaNetworkProtocol";
     auto& rsyslog = asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"];
     rsyslog = nlohmann::json::object();
     rsyslog["@odata.type"] = "#NvidiaNetworkProtocol.v1_1_0.Rsyslog";
