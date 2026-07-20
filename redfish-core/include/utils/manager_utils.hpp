@@ -76,8 +76,20 @@ inline void getServiceIdentification(
     asyncResp->res.jsonValue["ServiceIdentification"] = serviceIdentification;
 }
 
+/**
+ * @brief Complete a getValidManagerPath() mapper lookup by forwarding the
+ *        inventory path that matches managerId (or an empty path for
+ *        NotFound) to callback.
+ *
+ * @param[in] asyncResp  Response object (retained for signature symmetry with
+ *                       the getValidManagerPath callback chain).
+ * @param[in] managerId  Requested manager id (the URI leaf).
+ * @param[in] callback   Completion callback (error_code, path, serviceMap).
+ * @param[in] ec         D-Bus error code from the mapper query.
+ * @param[in] subtree    Mapper subtree of Inventory.Item.BMC objects.
+ */
 inline void afterGetValidManagerPath(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId,
     const std::function<
         void(const boost::system::error_code&, const std::string& managerPath,
@@ -92,12 +104,10 @@ inline void afterGetValidManagerPath(
         return;
     }
 
-    // Assume only 1 bmc D-Bus object
-    // Throw an error if there is more than 1
     if (subtree.size() > 1)
     {
-        BMCWEB_LOG_ERROR("Found more than 1 bmc D-Bus object!");
-        messages::internalError(asyncResp->res);
+        nvidia_manager_util::resolveManagerPathById(managerId, callback, ec,
+                                                    subtree);
         return;
     }
 

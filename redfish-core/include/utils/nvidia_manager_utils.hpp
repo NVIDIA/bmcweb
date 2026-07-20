@@ -48,6 +48,39 @@ namespace nvidia_manager_util
 {
 
 /**
+ * @brief Select the BMC manager inventory path from a mapper subtree that holds
+ *        multiple Inventory.Item.BMC objects. NVIDIA multi-BMC platforms expose
+ *        several such objects (host BMC, HMC, satellites, FRU assemblies), so
+ *        the object whose leaf name matches the requested manager id is chosen.
+ *
+ * @param[in] managerId  Requested manager id (the URI leaf, e.g. "BMC_0").
+ * @param[in] callback   Completion callback invoked with the matching path and
+ *                       service map, or an empty path (NotFound) when no object
+ *                       matches the requested manager id.
+ * @param[in] ec         D-Bus error code carried through to the callback.
+ * @param[in] subtree    Mapper subtree of Inventory.Item.BMC objects.
+ */
+inline void resolveManagerPathById(
+    const std::string& managerId,
+    const std::function<
+        void(const boost::system::error_code&, const std::string& managerPath,
+             const dbus::utility::MapperServiceMap& serviceMap)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    for (const auto& [path, serviceMap] : subtree)
+    {
+        if (sdbusplus::object_path(path).filename() == managerId)
+        {
+            callback(ec, path, serviceMap);
+            return;
+        }
+    }
+    // No inventory object matched the requested manager id: NotFound.
+    callback(ec, {}, {});
+}
+
+/**
  * @brief Retrieves telemetry ready state data over DBus
  *
  * @param[in] aResp Shared pointer for completing asynchronous calls
