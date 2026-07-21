@@ -2907,7 +2907,7 @@ inline void requestRoutesNetworkAdaptersGeneric(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")
-        .privileges(redfish::privileges::getNetworkAdapter)
+        .privileges(redfish::privileges::postNetworkAdapter)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleNetworkAdapterResetGeneric, std::ref(app)));
     BMCWEB_ROUTE(
