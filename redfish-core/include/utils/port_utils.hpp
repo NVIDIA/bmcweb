@@ -756,6 +756,69 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         asyncResp->res.jsonValue["Status"]["State"] = "Absent";
                     }
                 }
+                // NOTE: link speed/width are NOT on the CPU link-state sensor
+                // object; they come from the dedicated telemetry inventory
+                // object via getCpuPortTelemetry() below.
+            }
+        });
+}
+
+/** @brief Merge PCIe port link speed/width onto the Redfish Port from the
+ *  dedicated telemetry inventory object (published by pldm from the OEM 0xF4
+ *  PCIePortInfo event). The CPU link-state sensor object read by
+ *  getCpuPortData() drives Status.Health/State but not the negotiated
+ *  speed/width. An absent telemetry object is not an error - the port simply
+ *  reports no speed/width.
+ */
+inline void getCpuPortTelemetry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
+{
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "No PCIe port telemetry object; skipping speed/width");
+                return;
+            }
+            for (const auto& property : properties)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "CurrentSpeed")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue["CurrentSpeedGbps"] = *value;
+                    }
+                }
+                else if (propertyName == "MaxSpeed")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue["MaxSpeedGbps"] = *value;
+                    }
+                }
+                else if ((propertyName == "Width") ||
+                         (propertyName == "ActiveWidth"))
+                {
+                    const size_t* value = std::get_if<size_t>(&property.second);
+                    if (value != nullptr)
+                    {
+                        if (*value == INT_MAX)
+                        {
+                            asyncResp->res.jsonValue[propertyName] = 0;
+                        }
+                        else
+                        {
+                            asyncResp->res.jsonValue[propertyName] = *value;
+                        }
+                    }
+                }
             }
         });
 }

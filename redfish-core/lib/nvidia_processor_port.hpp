@@ -554,6 +554,14 @@ inline void getProcessorPortData(
 
                         redfish::port_utils::getCpuPortData(
                             aResp, object.front().first, sensorpath);
+                        // Link speed/width live on a separate telemetry
+                        // inventory object (pldm OEM 0xF4), keyed by the same
+                        // CPU + port id.
+                        std::string cpuPortPath = cpuInventoryPath;
+                        cpuPortPath += "/Ports/";
+                        cpuPortPath += portId;
+                        redfish::port_utils::getCpuPortTelemetry(
+                            aResp, object.front().first, cpuPortPath);
                         getProcessorPortLinks(aResp, sensorpath, processorId,
                                               portId);
                     });
