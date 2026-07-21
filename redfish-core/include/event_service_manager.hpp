@@ -709,6 +709,8 @@ class EventServiceManager
             }
             else
             {
+                // The message is reused for each subscription.
+                // Remove Context left by the previous subscriber.
                 msg.erase("Context");
             }
 
@@ -854,6 +856,8 @@ class EventServiceManager
             }
             else
             {
+                // The message is reused for each subscription.
+                // Remove Context left by the previous subscriber.
                 msg.erase("Context");
             }
 
