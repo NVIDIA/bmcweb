@@ -109,6 +109,10 @@ void Subscription::sendHeartbeatEvent()
     msgJson["@odata.type"] = "#Event.v1_4_0.Event";
     msgJson["Name"] = "Heartbeat";
     msgJson["Events"] = std::move(eventRecord);
+    if (!userSub->customText.empty())
+    {
+        msgJson["Context"] = userSub->customText;
+    }
 
     std::string strMsg =
         msgJson.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
