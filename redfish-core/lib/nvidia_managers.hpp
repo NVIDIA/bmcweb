@@ -34,6 +34,7 @@
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sub_request.hpp"
+#include "utils/collection.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
@@ -47,12 +48,16 @@
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -721,6 +726,45 @@ inline void getFabricManagerInfo(
                                                          path);
     }
 }
+
+namespace nvidia
+{
+inline void afterGetManagementServicePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& objects)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("ManagementService discovery failed: {}", ec);
+        return;
+    }
+    // entity-manager may also expose the BMC itself as a ManagementService;
+    // drop it here so the static BMC collection member is not duplicated
+    dbus::utility::MapperGetSubTreePathsResponse services;
+    for (const std::string& object : objects)
+    {
+        if (sdbusplus::message::object_path(object).filename() !=
+            BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            services.emplace_back(object);
+        }
+    }
+    collection_util::handleCollectionMembers(
+        asyncResp, boost::urls::url("/redfish/v1/Managers"),
+        nlohmann::json::json_pointer("/Members"), {}, services);
+}
+
+inline void getManagementServiceCollectionMembers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Inventory.Item.ManagementService"};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        std::bind_front(afterGetManagementServicePaths, asyncResp));
+}
+} // namespace nvidia
 
 inline void getIsCommandShellEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)

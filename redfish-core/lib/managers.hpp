@@ -1159,6 +1159,13 @@ inline void requestRoutesManagerCollection(App& app)
                     "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     members.size();
+
+                // NVIDIA code starts here
+                // Call NVIDIA extension function to add NVIDIA specific
+                // managers
+                redfish::nvidia::getManagementServiceCollectionMembers(
+                    asyncResp);
+                // NVIDIA code ends here
             });
 }
 
