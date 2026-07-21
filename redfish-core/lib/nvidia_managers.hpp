@@ -1501,7 +1501,7 @@ inline void extendManagerOEM(
 {
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_8_0.NvidiaManager";
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_9_0.NvidiaManager";
     oemNvidia["DebugTokenManagement"]["@odata.id"] = std::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     checkAndAddDOTBackupDataLink(asyncResp, managerId);
