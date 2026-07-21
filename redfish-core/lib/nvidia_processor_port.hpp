@@ -1586,7 +1586,7 @@ inline void requestRoutesPCIeClearCounter(App& app)
         app,
         "/redfish/v1/Systems/<str>/Processors/<str>/"
         "Ports/<str>/Metrics/Actions/Oem/NvidiaPortMetrics.ClearPCIeCounters/")
-        .privileges({{"Login"}})
+        .privileges(redfish::privileges::postPortMetrics)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
