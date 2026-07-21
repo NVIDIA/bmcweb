@@ -159,6 +159,17 @@
           <Annotation Term="OData.Description" String="The settings for this manager's Secure Shell (SSH) protocol support."/>
           <Annotation Term="OData.LongDescription" String="This object shall contain the Secure Shell (SSH) protocol settings for the manager."/>
         </Property>
+        <Property Name="OpenOCDPortForward" Type="NvidiaNetworkProtocol.v1_2_0.OpenOCDPortForward">
+          <Annotation Term="OData.Description" String="The settings of the OpenOCD port forwarding service attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the settings of the BMC-managed forwarding service used to access OpenOCD endpoints attached to this manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="OpenOCDPortForward">
+        <Property Name="Enable" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the OpenOCD port forwarding service is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the BMC-managed forwarding of OpenOCD-related ports is enabled.  The default value is `false`."/>
+        </Property>
       </ComplexType>
       <ComplexType Name="SSHProtocol">
         <Property Name="PreferredAuthentications" Type="Collection(NvidiaNetworkProtocol.v1_2_0.SSHPreferredAuthentication)">
