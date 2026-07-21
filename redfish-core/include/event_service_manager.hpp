@@ -706,6 +706,16 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
+
+            if (!entry->userSub->customText.empty())
+            {
+                msg["Context"] = entry->userSub->customText;
+            }
+            else
+            {
+                msg.erase("Context");
+            }
+
             std::string strMsg2 = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEventToSubscriber(eventId, std::move(strMsg2));
@@ -801,6 +811,10 @@ class EventServiceManager
             msgJson["Name"] = "Event Log";
             msgJson["Id"] = eventId;
             msgJson["Events"] = std::move(eventRecord);
+            if (!entry->userSub->customText.empty())
+            {
+                msgJson["Context"] = entry->userSub->customText;
+            }
 
             std::string strMsg = msgJson.dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
@@ -837,6 +851,16 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
+
+            if (!entry->userSub->customText.empty())
+            {
+                msg["Context"] = entry->userSub->customText;
+            }
+            else
+            {
+                msg.erase("Context");
+            }
+
             std::string strMsg = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEventToSubscriber(eventId, std::move(strMsg));
