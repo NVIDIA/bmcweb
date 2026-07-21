@@ -152,6 +152,7 @@ inline void handleCollectionPendingBootOptionMembers(
     }
     std::ranges::sort(pathNames, AlphanumLess<std::string>());
 
+    asyncResp->res.jsonValue["Members@odata.count"] = 0;
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     members = nlohmann::json::array();
     for (const std::string& bootOptionName : pathNames)

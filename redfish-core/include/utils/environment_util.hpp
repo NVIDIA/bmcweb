@@ -2985,8 +2985,6 @@ inline void getfanSpeedsPercent(
                                               "Chassis Fan #" + sensorName},
                                              {"SpeedRPM", *attributeValue},
                                              {"DataSourceUri",
-                                              tempPath + sensorName},
-                                             {"@odata.id",
                                               tempPath + sensorName}});
                                     },
                                     connectionName, validPath,

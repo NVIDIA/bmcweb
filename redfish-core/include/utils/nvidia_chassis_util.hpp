@@ -2632,7 +2632,7 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_14_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_15_0.NvidiaChassis";
         populateWriteProtectDomainLink(asyncResp, chassisId);
         getEmbeddedProcessorOSState(asyncResp, path);
 

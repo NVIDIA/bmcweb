@@ -181,7 +181,7 @@ inline void handleSystemsLogServicesHostloggerGet(
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/HostLogger",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_9_0.LogService";
     asyncResp->res.jsonValue["Name"] = "Host Logger Service";
     asyncResp->res.jsonValue["Description"] = "Host Logger Service";
     asyncResp->res.jsonValue["Id"] = "HostLogger";

@@ -913,7 +913,7 @@ inline void requestRoutesNvidiaSyncOOBRawCommandActionInfo(App& app)
                     return;
                 }
                 asyncResp->res.jsonValue = {
-                    {"@odata.type", "#ActionInfo.v1_1_2.ActionInfo"},
+                    {"@odata.type", "#ActionInfo.v1_5_0.ActionInfo"},
                     {"@odata.id",
                      "/redfish/v1/Managers/" + bmcId +
                          "/Oem/Nvidia/SyncOOBRawCommandActionInfo"},
@@ -1681,7 +1681,7 @@ inline void extendManagerOEMActions(
 
     if constexpr (BMCWEB_COMMAND_SMBPBI_OOB)
     {
-        nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
+        nlohmann::json& oemActionsNvidia = oemActions;
 
         oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
             "/redfish/v1/Managers/" +

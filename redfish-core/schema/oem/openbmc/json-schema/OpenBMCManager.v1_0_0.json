@@ -259,6 +259,12 @@
                     "longDescription": "The Chassis that enables this Zone.",
                     "readonly": true
                 },
+                "CycleIntervalTimeMS": {
+                    "description": "The interval, in milliseconds, of the fan control cycle for this Zone.",
+                    "longDescription": "The interval, in milliseconds, of the fan control cycle for this Zone.",
+                    "readonly": true,
+                    "type": "number"
+                },
                 "FailSafePercent": {
                     "description": "If the sensors are in fail-safe mode, this is the percentage to use.",
                     "longDescription": "If the sensors are in fail-safe mode, this is the percentage to use.",
@@ -269,6 +275,12 @@
                     "description": "Minimum thermal RPM that can be set in this Zone.",
                     "longDescription": "Minimum thermal RPM that can be set in this Zone.",
                     "readonly": false,
+                    "type": "number"
+                },
+                "UpdateThermalsTimeMS": {
+                    "description": "The interval, in milliseconds, at which thermal inputs are updated for this Zone.",
+                    "longDescription": "The interval, in milliseconds, at which thermal inputs are updated for this Zone.",
+                    "readonly": true,
                     "type": "number"
                 }
             },
@@ -327,6 +339,12 @@
                     ],
                     "description": "OpenBMC fan configuration.",
                     "longDescription": "OpenBMC fan configuration."
+                },
+                "Certificates": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/CertificateCollection.json#/definitions/CertificateCollection",
+                    "description": "The link to a collection of certificates for device identity and attestation.",
+                    "longDescription": "This property shall contain a link to a resource collection of type `CertificateCollection` that contains certificates for device identity and attestation.",
+                    "readonly": true
                 }
             },
             "type": "object"
