@@ -826,6 +826,12 @@ inline void handleManagerGet(
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             managerId);
 
+    if constexpr (BMCWEB_MANAGER_USB_PORTS)
+    {
+        asyncResp->res.jsonValue["USBPorts"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
+    }
+
     manager_utils::getServiceIdentification(asyncResp, false);
 
     if constexpr (BMCWEB_VM_NBDPROXY)
