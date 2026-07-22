@@ -654,10 +654,11 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       "/redfish/v1/Managers/" +
                           std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}}};
 
-                asyncResp->res.jsonValue["Links"]["ComputerSystems"] = {
-                    {{"@odata.id",
-                      "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
+                // Emit Links/ComputerSystems only when this ERoT chassis
+                // carries a "computer_system" association (i.e. it actually
+                // hosts the system), rather than unconditionally.
+                redfish::nvidia_chassis_utils::getChassisComputerSystemsLink(
+                    asyncResp, path);
 
                 populateRotChassisTrustedComponentsAndRotLinks(
                     asyncResp, chassisId, path, subtree);

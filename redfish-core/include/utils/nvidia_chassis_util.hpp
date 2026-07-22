@@ -117,6 +117,43 @@ struct TrayTopology
 #pragma pack()
 
 /**
+ * @brief Conditionally populate Chassis Links/ComputerSystems.
+ *
+ * The DMTF Chassis schema defines Links/ComputerSystems as the computer systems
+ * a chassis "directly and wholly contains", so the link must only appear on the
+ * chassis that actually embodies the host (e.g. HGX_Chassis_0) rather than on
+ * every chassis. Instead of hardcoding that platform assumption, the link is
+ * gated on a "computer_system" D-Bus association authored from
+ * entity-manager/nsmd config on the hosting chassis (mirroring how the adjacent
+ * Contains/ContainedBy/Drives links are driven). A chassis without the
+ * association omits the link entirely. The single-host system URI
+ * (BMCWEB_REDFISH_SYSTEM_URI_NAME) is used as the target value.
+ */
+inline void getChassisComputerSystemsLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
+{
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/computer_system",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperEndPoints& endpoints) {
+            if (ec || endpoints.empty())
+            {
+                // No association: this chassis does not host the computer
+                // system, so omit Links/ComputerSystems.
+                return;
+            }
+            nlohmann::json::array_t computerSystems;
+            nlohmann::json::object_t system;
+            system["@odata.id"] = "/redfish/v1/Systems/" +
+                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            computerSystems.emplace_back(std::move(system));
+            asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
+                std::move(computerSystems);
+        });
+}
+
+/**
  * @brief Decode a CBC tray topology hex string into raw bytes.
  *
  * @param[in] property   Hex string from the CustomField1 D-Bus property.
@@ -2728,13 +2765,10 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Controls"] = {
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/Controls"}};
 
-    nlohmann::json::array_t computerSystems;
-    nlohmann::json::object_t system;
-    system["@odata.id"] =
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    computerSystems.emplace_back(std::move(system));
-    asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
-        std::move(computerSystems);
+    // Links/ComputerSystems is emitted only on the chassis that actually hosts
+    // the computer system, gated on a "computer_system" association authored
+    // from config, rather than uniformly on every chassis.
+    getChassisComputerSystemsLink(asyncResp, path);
 
     nlohmann::json::array_t managedBy;
     nlohmann::json::object_t manager;

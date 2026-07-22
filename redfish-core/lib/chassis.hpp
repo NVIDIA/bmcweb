@@ -604,18 +604,27 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     // TODO (Alexander): Support Multi Computer System
-    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-    {
-        nlohmann::json::array_t computerSystems;
-
-        nlohmann::json::object_t system;
-        system["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-        computerSystems.emplace_back(std::move(system));
-
-        asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
-            std::move(computerSystems);
-    }
+    //
+    // Nvidia: this upstream block unconditionally links every chassis to the
+    // single system. On Nvidia builds the equivalent is emitted only for the
+    // chassis that actually hosts the system, gated on a "computer_system"
+    // D-Bus association by
+    // nvidia_chassis_utils::getChassisComputerSystemsLink() (called from
+    // nvidia_chassis_utils::handleChassisGetAllProperties()). The upstream code
+    // is kept commented out rather than removed to ease upstream
+    // reconciliation.
+    // if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    // {
+    //     nlohmann::json::array_t computerSystems;
+    //
+    //     nlohmann::json::object_t system;
+    //     system["@odata.id"] = boost::urls::format(
+    //         "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    //     computerSystems.emplace_back(std::move(system));
+    //
+    //     asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
+    //         std::move(computerSystems);
+    // }
 
     nlohmann::json::array_t managedBy;
     nlohmann::json::object_t manager;
