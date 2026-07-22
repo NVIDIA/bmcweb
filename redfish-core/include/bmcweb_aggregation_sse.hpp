@@ -54,10 +54,11 @@ class SseEventAggregator
      * Backoff sequence: 5s, 10s, 20s, 40s, 80s, 150s (capped), 150s...
      */
     static constexpr int satConfigLoadBackoffBaseSec = 5;
+    static constexpr std::chrono::minutes satConfigLoadTimeoutMins{3};
 
     explicit SseEventAggregator(boost::asio::io_context& iocIn) :
         ioc(iocIn), reconnectTimer(iocIn), persistTimer(iocIn),
-        satConfigRefreshTimer(iocIn)
+        satConfigLoadDeadlineTimer(iocIn)
     {
         // Start periodic persist timer
         schedulePersistTimer();
@@ -66,8 +67,7 @@ class SseEventAggregator
     virtual ~SseEventAggregator()
     {
         shuttingDown = true;
-        satConfigRefreshCancelled = true;
-        satConfigRefreshTimer.cancel();
+        satConfigLoadDeadlineTimer.cancel();
         reconnectTimer.cancel();
         persistTimer.cancel();
         stopSatConfigLoadTimer();
@@ -84,7 +84,20 @@ class SseEventAggregator
     void start(SatConfigRefreshHandler refresh)
     {
         satConfigRefresher = std::move(refresh);
-        satConfigRefreshCancelled = false;
+        satConfigLoadCancelled = false;
+        satConfigLoadDeadlineTimer.expires_after(satConfigLoadTimeoutMins);
+        satConfigLoadDeadlineTimer.async_wait([this](const boost::system::
+                                                         error_code& ec) {
+            if (ec || shuttingDown)
+            {
+                return;
+            }
+            satConfigLoadCancelled = true;
+            BMCWEB_LOG_WARNING(
+                "Satellite config load timed out; giving up after {} minutes",
+                satConfigLoadTimeoutMins.count());
+            stopSatConfigLoadTimer();
+        });
         initSatConfigLoad(0);
     }
 
@@ -120,13 +133,11 @@ class SseEventAggregator
     boost::asio::io_context& ioc;
     boost::asio::steady_timer reconnectTimer;
     boost::asio::steady_timer persistTimer;
-    boost::asio::steady_timer satConfigRefreshTimer;
+    boost::asio::steady_timer satConfigLoadDeadlineTimer;
     std::shared_ptr<boost::asio::steady_timer> satConfigLoadTimer;
     SatelliteConfigRefresher satConfigRefresher;
-    std::optional<std::unordered_map<std::string, boost::urls::url>>
-        lastAppliedSatConfig;
-    bool satConfigRefreshCancelled{false};
     bool shuttingDown{false};
+    bool satConfigLoadCancelled{false};
     boost::urls::url url;
     std::string buffer;
     std::shared_ptr<crow::SSEConnection> sseConnection;
@@ -142,10 +153,6 @@ class SseEventAggregator
 
     // SSE retry configuration
     static constexpr std::chrono::seconds retryIntervalSecs{60};
-
-    // Periodic EntityManager refresh while aggregation is active (independent
-    // of bootstrap backoff in scheduleSatConfigLoad).
-    static constexpr std::chrono::minutes satConfigRefreshInterval{3};
 
     // Persist configuration - save every 5 minutes if changed
     static constexpr std::chrono::minutes persistIntervalMins{5};
@@ -517,23 +524,7 @@ class SseEventAggregator
     }
 
   private:
-    static bool isSatConfigChanged(
-        const std::unordered_map<std::string, boost::urls::url>& curSatConfig,
-        const std::unordered_map<std::string, boost::urls::url>& newSatConfig)
-    {
-        if (curSatConfig.size() != newSatConfig.size())
-        {
-            return true;
-        }
-        return std::ranges::any_of(
-            curSatConfig, [&newSatConfig](const auto& kv) {
-                auto it = newSatConfig.find(kv.first);
-                return it == newSatConfig.end() ||
-                       kv.second.buffer() != it->second.buffer();
-            });
-    }
-
-    void stopSatConfigLoadTimer()
+    void cancelSatConfigRetryTimer()
     {
         if (satConfigLoadTimer)
         {
@@ -542,9 +533,16 @@ class SseEventAggregator
         }
     }
 
+    void stopSatConfigLoadTimer()
+    {
+        satConfigLoadCancelled = true;
+        satConfigLoadDeadlineTimer.cancel();
+        cancelSatConfigRetryTimer();
+    }
+
     [[nodiscard]] bool isSatConfigRefresherAvailable() const
     {
-        return !satConfigRefreshCancelled && satConfigRefresher;
+        return !shuttingDown && !satConfigLoadCancelled && satConfigRefresher;
     }
 
     void applySatConfig(
@@ -570,17 +568,16 @@ class SseEventAggregator
         bool stopLoadTimer)
     {
         applySatConfig(satConfig);
-        lastAppliedSatConfig = satConfig;
         if (stopLoadTimer)
         {
-            stopSatConfigLoadTimer();
+            satConfigLoadDeadlineTimer.cancel();
+            cancelSatConfigRetryTimer();
         }
-        scheduleSatConfigRefresh();
     }
 
     void scheduleSatConfigLoad(int attempt)
     {
-        stopSatConfigLoadTimer();
+        cancelSatConfigRetryTimer();
 
         constexpr int maxDelaySec = 150;
         const int shiftAttempt = std::min(attempt, 10);
@@ -616,7 +613,7 @@ class SseEventAggregator
         int attempt, const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satConfig)
     {
-        if (satConfigRefreshCancelled)
+        if (shuttingDown || satConfigLoadCancelled)
         {
             return;
         }
@@ -644,95 +641,19 @@ class SseEventAggregator
             BMCWEB_LOG_ERROR("Satellite config retry timer error: {}",
                              timerEc.message());
             // Schedule retry despite timer error to avoid getting stuck
-            if (!satConfigRefreshCancelled)
+            if (!shuttingDown && !satConfigLoadCancelled)
             {
                 initSatConfigLoad(nextAttempt);
             }
             return;
         }
 
-        if (satConfigRefreshCancelled)
+        if (shuttingDown || satConfigLoadCancelled)
         {
             return;
         }
 
         initSatConfigLoad(nextAttempt);
-    }
-
-    void scheduleSatConfigRefresh()
-    {
-        if (!isSatConfigRefresherAvailable())
-        {
-            return;
-        }
-        satConfigRefreshTimer.expires_after(satConfigRefreshInterval);
-        satConfigRefreshTimer.async_wait(std::bind_front(
-            &SseEventAggregator::onSatConfigRefreshTimer, this));
-    }
-
-    void onSatConfigRefreshTimer(const boost::system::error_code& ec)
-    {
-        if (satConfigRefreshCancelled)
-        {
-            return;
-        }
-        if (ec == boost::asio::error::operation_aborted)
-        {
-            return;
-        }
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Satellite config refresh timer error: {}",
-                             ec.message());
-            scheduleSatConfigRefresh();
-            return;
-        }
-        if (!isSatConfigRefresherAvailable())
-        {
-            return;
-        }
-        satConfigRefresher(
-            std::bind_front(&SseEventAggregator::onRefreshedSatConfig, this),
-            true);
-    }
-
-    void onRefreshedSatConfig(
-        const boost::system::error_code& ec,
-        const std::unordered_map<std::string, boost::urls::url>& satConfig)
-    {
-        if (satConfigRefreshCancelled)
-        {
-            return;
-        }
-
-        if (ec)
-        {
-            BMCWEB_LOG_WARNING("Satellite config refresh failed: {}",
-                               ec.message());
-            scheduleSatConfigRefresh();
-            return;
-        }
-
-        if (lastAppliedSatConfig &&
-            !isSatConfigChanged(*lastAppliedSatConfig,
-                                satConfig)) // same config
-        {
-            scheduleSatConfigRefresh();
-            return;
-        }
-
-        if (satConfig.empty())
-        {
-            BMCWEB_LOG_WARNING(
-                "Satellite config refresh returned empty; keeping current SSE configuration");
-            scheduleSatConfigRefresh();
-            return;
-        }
-
-        BMCWEB_LOG_INFO(
-            "Satellite configuration changed; reconnecting SSE stream");
-        stopSseConnectionOnly();
-        commitSatConfigApply(satConfig, false);
     }
 
     void stopSseConnectionOnly()
