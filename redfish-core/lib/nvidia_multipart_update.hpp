@@ -1279,7 +1279,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             // flight; don't open the forwarding connection.
             return;
         }
-<<<<<<< HEAD
         if (ec)
         {
             BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
@@ -1288,17 +1287,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             failClientResponse();
             return;
         }
-||||||| constructed merge base
-=======
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
-                             ec.message());
-            messages::internalError(asyncResp->res);
-            failClientResponse();
-            return;
-        }
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
         if (satelliteInfo.empty())
         {
             BMCWEB_LOG_ERROR("No satellite BMC configs found.");

@@ -774,12 +774,6 @@ class RedfishAggregator
         const boost::system::error_code& ec,
         const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
-                             ec.message());
-            return;
-        }
         if (sharedReq == nullptr)
         {
             return;
@@ -1004,7 +998,6 @@ class RedfishAggregator
                                    getAggregationPolicy())),
         sseAggregator(getIoContext())
     {
-<<<<<<< HEAD
         // Get satellite configs and initialize SSE aggregator when ready
         getSatelliteConfigs([this](const boost::system::error_code& ec,
                                    const std::unordered_map<std::string,
@@ -1024,32 +1017,6 @@ class RedfishAggregator
                     "SSE Event Aggregator not started - no satellite configuration available");
             }
         });
-||||||| constructed merge base
-        // Get satellite configs and initialize SSE aggregator when ready
-        getSatelliteConfigs([this](const std::unordered_map<std::string,
-                                                            boost::urls::url>&
-                                       satelliteInfo) {
-            constructorCallback(satelliteInfo);
-
-            // Initialize SSE aggregator after configs are loaded
-            if (!satelliteInfo.empty())
-            {
-                BMCWEB_LOG_INFO("Starting SSE Event Aggregator");
-                sseAggregator.start(satelliteInfo);
-            }
-            else
-            {
-                BMCWEB_LOG_WARNING(
-                    "SSE Event Aggregator not started - no satellite configuration available");
-            }
-        });
-=======
-        // Registers SatMC refresh + retry / periodic refresh
-        sseAggregator.start(
-            [this](SatelliteConfigHandler handler, bool forceRefresh) {
-                getSatelliteConfigs(std::move(handler), forceRefresh);
-            });
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     }
     RedfishAggregator(const RedfishAggregator&) = delete;
     RedfishAggregator& operator=(const RedfishAggregator&) = delete;
@@ -1070,34 +1037,16 @@ class RedfishAggregator
 
     // Polls D-Bus to get all available satellite config information
     // Expects a handler which interacts with the returned configs
-<<<<<<< HEAD
     static void getSatelliteConfigs(
-||||||| constructed merge base
-    void getSatelliteConfigs(
-=======
-    // If forceRefresh is true, skips the static cache and always queries
-    // EntityManager
-    void getSatelliteConfigs(
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
         std::function<
-<<<<<<< HEAD
             void(const boost::system::error_code&,
                  const std::unordered_map<std::string, boost::urls::url>&)>
             handler)
-||||||| constructed merge base
-            void(const std::unordered_map<std::string, boost::urls::url>&)>
-            handler) const
-=======
-            void(const boost::system::error_code&,
-                 const std::unordered_map<std::string, boost::urls::url>&)>
-            handler,
-        bool forceRefresh = false) const
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     {
         static std::unordered_map<std::string, boost::urls::url> cachedSatInfo =
             {};
         std::size_t cacheSize = cachedSatInfo.size();
-        if (!forceRefresh && cacheSize != 0)
+        if (cacheSize != 0)
         {
             auto ec = boost::system::errc::make_error_code(
                 boost::system::errc::success);

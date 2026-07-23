@@ -957,14 +957,7 @@ TEST(SatControllerGetComplete, BailsOutWhenRequestAlreadyFailed)
     std::unordered_map<std::string, boost::urls::url> satelliteInfo;
     satelliteInfo.emplace(BMCWEB_REDFISH_AGGREGATION_PREFIX,
                           boost::urls::url("https://192.168.1.1:443"));
-<<<<<<< HEAD
     ctx->satControllerGetComplete(ctx, {}, 0, {}, satelliteInfo);
-||||||| constructed merge base
-    ctx->satControllerGetComplete(ctx, {}, 0, satelliteInfo);
-=======
-    ctx->satControllerGetComplete(ctx, {}, 0, boost::system::error_code{},
-                                  satelliteInfo);
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
 }
