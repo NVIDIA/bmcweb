@@ -25,9 +25,7 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
-// Nvidia code starts here
 #include "generated/enums/resource.hpp"
-// Nvidia code ends here
 #include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
@@ -74,7 +72,6 @@
 
 namespace redfish
 {
-
 /* holds compute digest operation state to allow one operation at a time */
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool computeDigestInProgress = false;
@@ -105,7 +102,8 @@ struct AsyncImageWriteSession :
     /**
      * @brief Constructs an AsyncImageWriteSession.
      *
-     * @param asyncRespIn A shared pointer to the asynchronous response object.
+     * @param asyncRespIn A shared pointer to the asynchronous response
+     * object.
      * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
      * @param filepathIn The file path where the image data will be written.
      * @param dataRefIn A reference to the string containing the image data.
@@ -124,7 +122,8 @@ struct AsyncImageWriteSession :
     /**
      * @brief Starts the asynchronous write operation.
      *
-     * Initiates the process of writing the image data to the file in chunks.
+     * Initiates the process of writing the image data to the file in
+     * chunks.
      */
     void start()
     {
@@ -246,7 +245,7 @@ class BMCStatusAsyncResp
  */
 inline void checkInitialActivationState(
     const std::shared_ptr<task::TaskData>& task,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::getDbusObject(
         objPath.str,
@@ -428,7 +427,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
 {
     std::vector<std::pair<std::string, dbus::utility::DBusPropertiesMap>>
         interfacesProperties;
-    sdbusplus::object_path objPath;
+    sdbusplus::message::object_path objPath;
     m.read(objPath, interfacesProperties);
     const std::vector<std::pair<std::string, std::string>>* additionalData =
         nullptr;
@@ -581,7 +580,7 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
 
 inline static void getRelatedItemsDrive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     // Drive is expected to be under a Chassis
     // Only add Chassis/Drives link, not Storage/Drives link
@@ -606,7 +605,7 @@ inline static void getRelatedItemsDrive(
             }
 
             // Find the chassisId that contains this driveId
-            sdbusplus::object_path chassisPath(resp[0]);
+            sdbusplus::message::object_path chassisPath(resp[0]);
             std::string chassisId = chassisPath.filename();
 
             // Build Chassis drive link only (no Storage link)
@@ -630,7 +629,7 @@ inline static void getRelatedItemsDrive(
 
 inline static void getRelatedItemsStorageController(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
@@ -648,7 +647,7 @@ inline static void getRelatedItemsStorageController(
                     continue;
                 }
 
-                sdbusplus::object_path path(object);
+                sdbusplus::message::object_path path(object);
 
                 dbus::utility::getSubTree(
                     object, int32_t(0),
@@ -700,7 +699,7 @@ inline static void getRelatedItemsStorageController(
 
 inline static void getRelatedItemsPowerSupply(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
@@ -716,7 +715,7 @@ inline static void getRelatedItemsPowerSupply(
             std::string chassisName = "chassis";
             for (const std::string& path : data)
             {
-                sdbusplus::object_path myLocalPath(path);
+                sdbusplus::message::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -735,7 +734,7 @@ inline static void getRelatedItemsPowerSupply(
 
 inline static void getRelatedItemsPCIeDevice(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
@@ -751,7 +750,7 @@ inline static void getRelatedItemsPCIeDevice(
             std::string chassisName = "chassis";
             for (const std::string& path : data)
             {
-                sdbusplus::object_path myLocalPath(path);
+                sdbusplus::message::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -768,7 +767,7 @@ inline static void getRelatedItemsPCIeDevice(
 
 inline static void getRelatedItemsSwitch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/fabrics",
@@ -784,7 +783,7 @@ inline static void getRelatedItemsSwitch(
             std::string fabricName = "fabric";
             for (const std::string& path : data)
             {
-                sdbusplus::object_path myLocalPath(path);
+                sdbusplus::message::object_path myLocalPath(path);
                 fabricName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -801,7 +800,7 @@ inline static void getRelatedItemsSwitch(
 
 inline static void getRelatedItemsNetworkAdapter(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::message::object_path& objPath)
 {
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/parent_chassis",
@@ -817,7 +816,7 @@ inline static void getRelatedItemsNetworkAdapter(
             std::string networAdapterChassisName = "Networkadapter";
             if (!data.empty())
             {
-                sdbusplus::object_path myLocalPath(data.front());
+                sdbusplus::message::object_path myLocalPath(data.front());
                 networAdapterChassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -835,7 +834,7 @@ inline static void getRelatedItemsNetworkAdapter(
 
 inline static void getRelatedItemsOther(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const sdbusplus::object_path& association)
+    const sdbusplus::message::object_path& association)
 {
     // Find supported device types.
     dbus::utility::async_method_call(
@@ -981,7 +980,7 @@ inline static void getRelatedItemsOthers(
                                      std::string, std::vector<std::string>>>>&
                      obj : subtree)
             {
-                sdbusplus::object_path path(obj.first);
+                sdbusplus::message::object_path path(obj.first);
                 if (path.filename() != swId)
                 {
                     continue;
@@ -998,6 +997,9 @@ inline static void getRelatedItemsOthers(
                             const std::vector<std::string>& resp) {
                         if (errCodeAssoc)
                         {
+                            // The inventory association may be transiently
+                            // unavailable under load; non-fatal, so log at
+                            // debug to avoid flooding.
                             BMCWEB_LOG_DEBUG("error_code = {}, error msg = {}",
                                              errCodeAssoc,
                                              errCodeAssoc.message());
@@ -1010,7 +1012,8 @@ inline static void getRelatedItemsOthers(
                             {
                                 continue;
                             }
-                            sdbusplus::object_path associationPath(association);
+                            sdbusplus::message::object_path associationPath(
+                                association);
 
                             getRelatedItemsOther(aResp, associationPath);
                         }
@@ -1027,16 +1030,17 @@ inline static void getRelatedItemsOthers(
  * @param[in] uriTargets  List of components delivered in HTTPRequest
  * @param[in] updateables List of all unupdateable components in the system
  * @param[in] swInvPaths  List of software inventory paths
- * @param[out] validTargets  List of valid components delivered in HTTPRequest
+ * @param[out] validTargets  List of valid components delivered in
+ * HTTPRequest
  *
- * @return It returns true when a list of delivered components contains invalid
- * or unupdateable components
+ * @return It returns true when a list of delivered components contains
+ * invalid or unupdateable components
  */
 inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
     const std::vector<std::string>& updateables,
     const std::vector<std::string>& swInvPaths,
-    std::vector<sdbusplus::object_path>& validTargets)
+    std::vector<sdbusplus::message::object_path>& validTargets)
 {
     bool hasAnyInvalidOrUnupdateableTarget = false;
     for (const std::string& target : uriTargets)
@@ -1046,14 +1050,15 @@ inline bool areTargetsInvalidOrUnupdatable(
         std::string softwarePath =
             "/xyz/openbmc_project/software/" + componentName;
 
-        if (std::ranges::any_of(swInvPaths, [&](const std::string& path) {
-                return path.find(softwarePath) != std::string::npos;
-            }))
+        if (std::any_of(swInvPaths.begin(), swInvPaths.end(),
+                        [&](const std::string& path) {
+                            return path.find(softwarePath) != std::string::npos;
+                        }))
         {
             validTarget = true;
 
-            if (std::ranges::find(updateables, componentName) !=
-                updateables.end())
+            if (std::find(updateables.begin(), updateables.end(),
+                          componentName) != updateables.end())
             {
                 validTargets.emplace_back(softwarePath);
             }
@@ -1125,18 +1130,15 @@ inline void extendUpdateServiceGet(
          "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
         {"@Redfish.ActionInfo",
          "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
-    if constexpr (BMCWEB_SCP_UPDATE)
-    {
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaUpdateService.PublicKeyExchange"] = {
-            {"target",
-             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
-        asyncResp->res.jsonValue
-            ["Actions"]["Oem"]
-            ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
-            {"target",
-             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
-    }
+    asyncResp->res.jsonValue["Actions"]["Oem"]
+                            ["#NvidiaUpdateService.PublicKeyExchange"] = {
+        {"target",
+         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
+    asyncResp->res
+        .jsonValue["Actions"]["Oem"]
+                  ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
+        {"target",
+         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
 
     if constexpr (BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
     {
@@ -1241,8 +1243,8 @@ inline void extendUpdateServiceGet(
 }
 
 /**
- * @brief update oem action with ComputeDigest for devices which supports hash
- * compute
+ * @brief update oem action with ComputeDigest for devices which supports
+ * hash compute
  *
  * @param[in] asyncResp
  * @param[in] swId
@@ -1268,7 +1270,7 @@ inline void updateOemActionComputeDigest(
             }
             for (const auto& obj : subtree)
             {
-                sdbusplus::object_path hashPath(obj.first);
+                sdbusplus::message::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
                 if (hashId == swId)
                 {
@@ -1507,7 +1509,7 @@ inline void handlePostComputeDigest(
             }
             for (const auto& obj : subtree)
             {
-                sdbusplus::object_path hashPath(obj.first);
+                sdbusplus::message::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
                 if (hashId == swId)
                 {
@@ -1538,8 +1540,9 @@ inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
     std::pair<bool, CommitImageValueEntry> result;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    auto it = std::ranges::find(allowableValues, inventoryPathIn,
-                                &CommitImageValueEntry::inventoryUri);
+    std::vector<CommitImageValueEntry>::iterator it =
+        find(allowableValues.begin(), allowableValues.end(),
+             static_cast<std::string>(inventoryPathIn));
 
     if (it != allowableValues.end())
     {
@@ -1569,8 +1572,9 @@ inline bool isInventoryAllowableValue(const std::string_view inventoryPathIn)
     bool isAllowable = false;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    auto it = std::ranges::find(allowableValues, inventoryPathIn,
-                                &CommitImageValueEntry::inventoryUri);
+    std::vector<CommitImageValueEntry>::iterator it =
+        find(allowableValues.begin(), allowableValues.end(),
+             static_cast<std::string>(inventoryPathIn));
 
     isAllowable = it != allowableValues.end();
 
@@ -1606,7 +1610,7 @@ inline void updateParametersForCommitImageInfo(
 
     for (const auto& obj : subtree)
     {
-        sdbusplus::object_path path(obj.first);
+        sdbusplus::message::object_path path(obj.first);
         std::string fwId = path.filename();
         if (fwId.empty())
         {
@@ -1656,7 +1660,8 @@ inline void handleCommitImagePost(
         hasTargets = true;
     }
 
-    // Pair: first = dbus software object path, second = redfish inventory path
+    // Pair: first = dbus software object path, second = redfish inventory
+    // path
     std::vector<std::pair<std::string, std::string>> softwareObjectPaths = {};
     bool hasInvalidTargets = false;
 
@@ -1666,8 +1671,9 @@ inline void handleCommitImagePost(
 
         for (auto& target : targetsCollection)
         {
-            // Validate that the target is a proper Redfish FirmwareInventory
-            // path (same style as processUrl() in update_service.hpp)
+            // Validate that the target is a proper Redfish
+            // FirmwareInventory path (same style as processUrl() in
+            // update_service.hpp)
             boost::system::result<boost::urls::url_view> url =
                 boost::urls::parse_origin_form(target);
             if (!url)
@@ -1722,8 +1728,9 @@ inline void handleCommitImagePost(
                     bool foundInChassis = false;
                     for (const auto& [chassisName, chassisInfo] : chassisMap)
                     {
-                        if (std::ranges::find(chassisInfo.softwarePaths,
-                                              dbusPath) !=
+                        if (std::find(chassisInfo.softwarePaths.begin(),
+                                      chassisInfo.softwarePaths.end(),
+                                      dbusPath) !=
                             chassisInfo.softwarePaths.end())
                         {
                             foundInChassis = true;
@@ -1752,8 +1759,9 @@ inline void handleCommitImagePost(
                 {
                     if (hasTargets)
                     {
-                        auto it = std::ranges::find_if(
-                            softwareObjectPaths,
+                        auto it = std::find_if(
+                            softwareObjectPaths.begin(),
+                            softwareObjectPaths.end(),
                             [&path](const std::pair<std::string, std::string>&
                                         swPathPair) {
                                 return swPathPair.first == path;
@@ -1765,8 +1773,8 @@ inline void handleCommitImagePost(
                     }
                     else
                     {
-                        // When no targets specified, only include paths that
-                        // are in the allowable values list
+                        // When no targets specified, only include paths
+                        // that are in the allowable values list
                         if (isInventoryAllowableValue(path))
                         {
                             matchingPaths.push_back(path);
@@ -2108,11 +2116,22 @@ inline void forwardCommitImagePost(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+||||||| constructed merge base
+=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2190,9 +2209,8 @@ inline bool handleSatBMCCommitImagePost(
         if (prefix && !noPrefix)
         {
             // targets with the prefix included only.
-            RedfishAggregator::getInstance().getSatelliteConfigs(
-                std::bind_front(forwardCommitImagePost, std::ref(req),
-                                asyncResp));
+            RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                forwardCommitImagePost, std::ref(req), asyncResp));
 
             // don't pass the request to the local
             return false;
@@ -2207,7 +2225,7 @@ inline bool handleSatBMCCommitImagePost(
     }
     else
     {
-        RedfishAggregator::getInstance().getSatelliteConfigs(
+        RedfishAggregator::getSatelliteConfigs(
             std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
         // forward the request with empty target.
     }
@@ -2318,8 +2336,8 @@ inline void commitImageActionInfoResp(
 
 /**
  * @brief forward Commit Image Action Info request to satBMC.
- * the function will send the request to satBMC to get the CommitImageActionInfo
- * if the satellie BMC is available.
+ * the function will send the request to satBMC to get the
+ * CommitImageActionInfo if the satellie BMC is available.
  *
  * @param[in] req  HTTP request
  * @param[in] asyncResp Shared pointer to the response message
@@ -2334,11 +2352,23 @@ inline void forwardCommitImageActionInfo(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
+    // Something went wrong while querying dbus
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+||||||| constructed merge base
+=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2355,13 +2385,9 @@ inline void forwardCommitImageActionInfo(
     std::string data;
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-
-    boost::beast::http::fields headers = req.fields();
-    headers.set(boost::beast::http::field::accept, "application/json");
-
-    client.sendDataWithCallback(std::move(data), url,
-                                ensuressl::VerifyCertificate::Verify, headers,
-                                boost::beast::http::verb::get, cb);
+    client.sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify,
+        req.fields(), boost::beast::http::verb::get, cb);
 }
 
 inline void handleCommitImageActionInfoGet(
@@ -2402,9 +2428,8 @@ inline void handleCommitImageActionInfoGet(
             updateParametersForCommitImageInfo(asyncResp, subtree);
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                RedfishAggregator::getInstance().getSatelliteConfigs(
-                    std::bind_front(forwardCommitImageActionInfo, std::ref(req),
-                                    asyncResp));
+                RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                    forwardCommitImageActionInfo, std::ref(req), asyncResp));
             }
         });
 }
@@ -2522,7 +2547,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                      obj : subtree)
             {
                 const std::string& path = obj.first;
-                sdbusplus::object_path objPath(path);
+                sdbusplus::message::object_path objPath(path);
                 if (objPath.filename() != *swId)
                 {
                     continue;
@@ -2534,10 +2559,8 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                 }
 
                 asyncResp->res.jsonValue["Id"] = *swId;
-                // Nvidia code starts here
                 asyncResp->res.jsonValue["Status"]["Health"] =
                     resource::Health::OK;
-                // Nvidia code ends here
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =
@@ -2637,7 +2660,7 @@ inline void tryInventoryPatchAfterGetSubTree(
     for (const auto& obj : subtree)
     {
         const std::string& path = obj.first;
-        sdbusplus::object_path objPath(path);
+        sdbusplus::message::object_path objPath(path);
         if (objPath.filename() != *swId)
         {
             continue;

@@ -5,38 +5,24 @@
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
-#include "error_messages.hpp"
 #include "http/http_request.hpp"
-#include "io_context_singleton.hpp"
 #include "nvidia_multipart_update.hpp"
-#include "nvidia_update_service.hpp"
 #include "task.hpp"
 
-#include <sys/types.h>
 #include <unistd.h>
 
-#include <boost/asio/error.hpp>
-#include <boost/asio/local/stream_protocol.hpp>
 #include <boost/beast/core/error.hpp>
-#include <boost/beast/http/field.hpp>
 #include <boost/system/errc.hpp>
-#include <boost/url/url.hpp>
-#include <sdbusplus/message/native_types.hpp>
 
-#include <cstddef>
-#include <cstdio>
 #include <format>
 #include <memory>
 #include <optional>
 #include <string>
 #include <system_error>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
-
-// Nvidia code starts here
 
 namespace redfish::nvidia
 {
@@ -61,7 +47,7 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     bool failed = false;
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "OnReset", false,
-        std::vector<sdbusplus::object_path>{}, []() {},
+        std::vector<sdbusplus::message::object_path>{}, []() {},
         [&failed]() { failed = true; });
     ctx->bytesWritten = redfish::firmwareImageLimitBytes;
 
@@ -281,7 +267,7 @@ TEST(PLDMUpdateCtx, DoesNotStartUpdateAfterRequestFailure)
     boost::asio::local::stream_protocol::socket socket(getIoContext());
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "xyz", false,
-        std::vector<sdbusplus::object_path>{}, []() {}, []() {});
+        std::vector<sdbusplus::message::object_path>{}, []() {}, []() {});
     redfish::fwUpdateInProgress = false;
     messages::unrecognizedRequestBody(asyncResp->res);
 
@@ -325,17 +311,6 @@ TEST(OnDataAvailable, AccumulatesUpdateParametersData)
     EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_PARAMETERS_DATA);
 }
 
-TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
-{
-    auto ctx = makeCtx();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
-    ctx->updateStarted = false;
-
-    ctx->onDataAvailable(ctx, "fw data");
-
-    EXPECT_EQ(ctx->pendingFileDataBuffer, "fw data");
-}
-
 TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
 {
     auto ctx = makeCtx();
@@ -375,23 +350,10 @@ TEST(OnSectionComplete, SetsFileSectionCompleteWhenWaitingForSatInfo)
               UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE);
 }
 
-TEST(OnSectionComplete, SetsFileSectionCompleteWhenUpdateNotStarted)
-{
-    auto ctx = makeCtx();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
-    EXPECT_FALSE(ctx->fileSectionComplete);
-
-    ctx->onSectionComplete(ctx);
-
-    EXPECT_TRUE(ctx->fileSectionComplete);
-    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
-}
-
 TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
 {
     auto ctx = makeCtx();
     ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
-    ctx->updateStarted = true;
 
     ctx->onSectionComplete(ctx);
 
@@ -995,8 +957,14 @@ TEST(SatControllerGetComplete, BailsOutWhenRequestAlreadyFailed)
     std::unordered_map<std::string, boost::urls::url> satelliteInfo;
     satelliteInfo.emplace(BMCWEB_REDFISH_AGGREGATION_PREFIX,
                           boost::urls::url("https://192.168.1.1:443"));
+<<<<<<< HEAD
+    ctx->satControllerGetComplete(ctx, {}, 0, {}, satelliteInfo);
+||||||| constructed merge base
+    ctx->satControllerGetComplete(ctx, {}, 0, satelliteInfo);
+=======
     ctx->satControllerGetComplete(ctx, {}, 0, boost::system::error_code{},
                                   satelliteInfo);
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
 }
@@ -1017,4 +985,3 @@ TEST(OnParseComplete, StagedFileMissingParamsReportsUpdateParametersMissing)
 
 } // namespace
 } // namespace redfish::nvidia
-// Nvidia code ends here

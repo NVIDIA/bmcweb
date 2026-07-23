@@ -23,8 +23,6 @@
 #include <format>
 #include <span>
 
-// Nvidia code starts here
-
 namespace redfish::nvidia
 {
 
@@ -49,7 +47,7 @@ enum class TargetType
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload payload,
     const std::string& target, const boost::system::error_code& ec,
-    const sdbusplus::object_path& retPath,
+    const sdbusplus::message::object_path& retPath,
     const std::function<void()>& onResponseReady)
 {
     if (ec)
@@ -74,8 +72,8 @@ inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
-    const sdbusplus::object_path& target, std::function<void()> onResponseReady,
-    const std::function<void()>& onError)
+    const sdbusplus::message::object_path& target,
+    std::function<void()> onResponseReady, const std::function<void()>& onError)
 {
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
@@ -103,7 +101,7 @@ inline void startSoftwareUpdate(
         [asyncResp, payload = std::move(payload), target,
          onResponseReady = std::move(onResponseReady)](
             const boost::system::error_code& ec1,
-            const sdbusplus::object_path& retPath) mutable {
+            const sdbusplus::message::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
                                       ec1, retPath, onResponseReady);
         },
@@ -129,7 +127,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 
     std::string applyTime;
     bool forceUpdate;
-    std::vector<sdbusplus::object_path> targets;
+    std::vector<sdbusplus::message::object_path> targets;
 
     redfish::task::Payload payload;
     std::function<void()> onResponseReady;
@@ -140,7 +138,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         Payload&& payloadIn,
         boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
         const std::string& applyTimeIn, bool forceUpdateIn,
-        const std::vector<sdbusplus::object_path>& targetsIn,
+        const std::vector<sdbusplus::message::object_path>& targetsIn,
         std::function<void()> onResponseReadyIn,
         std::function<void()> onErrorIn,
         const std::shared_ptr<MemoryFileDescriptor>& memfdIn = nullptr) :
@@ -238,7 +236,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
              fileGetSocket{std::move(fileGetSocket)}, objectPath,
              onResponseReady{onResponseReady}](
                 const boost::system::error_code& ec1,
-                const sdbusplus::object_path& retPath) mutable {
+                const sdbusplus::message::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
                                           objectPath, ec1, retPath,
                                           onResponseReady);
@@ -252,7 +250,7 @@ inline void startPLDMUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
-    const std::vector<sdbusplus::object_path>& targets,
+    const std::vector<sdbusplus::message::object_path>& targets,
     std::function<void()> onResponseReady, std::function<void()> onError,
     const std::shared_ptr<MemoryFileDescriptor>& memfd = nullptr)
 {
@@ -293,7 +291,7 @@ inline void afterGetSubtreePathsSoftware(
 
     for (const auto& path : swInvPaths)
     {
-        sdbusplus::object_path softwarePath(path.first);
+        sdbusplus::message::object_path softwarePath(path.first);
         std::string filename = softwarePath.filename();
         BMCWEB_LOG_DEBUG("Comparing filename {} to updateUriTarget {}",
                          filename, updateUriTarget);
@@ -342,7 +340,7 @@ inline void afterGetSubtreePaths(
         return;
     }
 
-    std::vector<sdbusplus::object_path> validTargets;
+    std::vector<sdbusplus::message::object_path> validTargets;
     std::vector<std::string> updateableFw;
     updateableFw.reserve(swInvPaths.size());
     for (const auto& path : swInvPaths)
@@ -500,9 +498,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     State state = State::WAITING_FOR_PART_HEADERS;
     // TODO, replace this with bmcweb sax json parser
     std::string updateParametersString;
-    bool updateFileHeadersSeen = false;
-    size_t updateFileRemainingBodyLength = 0;
-    bool updateStarted = false;
+    std::optional<MultiPartUpdate::UpdateParameters> updateParameters;
 
     // Socket for sending data to the http client
     boost::asio::local::stream_protocol::socket fileSendSocket;
@@ -873,7 +869,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 }
                 state = State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
                 BMCWEB_LOG_DEBUG("Getting satellite configs");
-                RedfishAggregator::getInstance().getSatelliteConfigs(
+                RedfishAggregator::getSatelliteConfigs(
                     std::bind_front(&UpdateCtx::satControllerGetComplete, this,
                                     shared_from_this(), satelliteTargetsOut,
                                     remainingBodyLength));
@@ -892,25 +888,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
 
         localUpdate(localTargetsOut);
-    }
-
-    void beginUpdateFile(size_t remainingBodyLength)
-    {
-        if (updateStarted)
-        {
-            return;
-        }
-        if (!onUpdateParametersComplete(multiRet))
-        {
-            failClientResponse();
-            return;
-        }
-        if (pauseReadCb)
-        {
-            pauseReadCb();
-        }
-        updateStarted = true;
-        startRequest(remainingBodyLength);
     }
 
     void onHeadersComplete(const SelfPtr& /*self*/,
@@ -949,8 +926,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
-            updateFileHeadersSeen = true;
-            updateFileRemainingBodyLength = remainingBodyLength;
             if (stagedUpdateFile)
             {
                 BMCWEB_LOG_ERROR("Duplicate UpdateFile part");
@@ -976,11 +951,23 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
-            state = State::WAITING_FOR_UPDATE_FILE_DATA;
-            beginUpdateFile(remainingBodyLength);
+            // Validate apply time here so a bad value is rejected once; the
+            // local path re-derives it in localUpdate() after this gate.
+            if (!onUpdateParametersComplete(multiRet))
+            {
+                failClientResponse();
+                return;
+            }
+
+            // Throttle input while the update destination is set up.
+            // startRequest() is responsible for the next state transition:
+            // the satellite path moves to WAITING_FOR_SAT_CONTROLLER_INFO_
+            // COMPLETE, the local path moves straight to
+            // WAITING_FOR_UPDATE_FILE_DATA via beginLocalFileStreaming().
+            pauseReadCb();
+            startRequest(remainingBodyLength);
             return;
         }
-
         if (state == State::UPDATE_COMPLETE_ERROR)
         {
             return;
@@ -1054,11 +1041,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             // BMCWEB_LOG_DEBUG("Update file data available: {}", data);
-            if (!updateStarted)
-            {
-                pendingFileDataBuffer.append(data);
-                return;
-            }
             if (isLocal)
             {
                 putBytesToHttpClient(data);
@@ -1102,7 +1084,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 return;
             }
 
-            mergeUpdateParameters(multiRet.params, *params);
+            multiRet.params = std::move(*params);
             updateParametersString.clear();
             updateParametersReceived = true;
             state = State::WAITING_FOR_PART_HEADERS;
@@ -1117,11 +1099,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::WAITING_FOR_UPDATE_FILE_DATA)
         {
             BMCWEB_LOG_DEBUG("Update file complete");
-            if (!updateStarted)
-            {
-                fileSectionComplete = true;
-                return;
-            }
             if (!isLocal)
             {
                 // Only the satellite path needs the trailing multipart
@@ -1187,10 +1164,6 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                                     : "UpdateFile");
             failClientResponse();
             return;
-        }
-        if (updateFileHeadersSeen && !updateStarted)
-        {
-            beginUpdateFile(updateFileRemainingBodyLength);
         }
         closeSendSocketIfReady();
         endClientResponseIfReady();
@@ -1306,6 +1279,17 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             // flight; don't open the forwarding connection.
             return;
         }
+<<<<<<< HEAD
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Dbus query error for satellite BMC: {}",
+                             ec.message());
+            messages::internalError(asyncResp->res);
+            failClientResponse();
+            return;
+        }
+||||||| constructed merge base
+=======
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
@@ -1314,6 +1298,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             failClientResponse();
             return;
         }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
         if (satelliteInfo.empty())
         {
             BMCWEB_LOG_ERROR("No satellite BMC configs found.");
@@ -1396,10 +1381,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             state = State::UPDATE_COMPLETE;
         }
 
-        if (resumeReadCb)
-        {
-            resumeReadCb();
-        }
+        resumeReadCb();
 
         if (stagedUpdateFile)
         {
@@ -1486,6 +1468,23 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         BMCWEB_LOG_DEBUG("Starting local update for {} targets",
                          uriTargets.size());
         isLocal = true;
+
+        // Local firmware-update mutual exclusion. Reject early (before the
+        // file body streams) if a local update is already running. This is the
+        // fast-fail; the authoritative race-free claim is the check-and-set at
+        // the StartUpdate dispatch point. Satellite updates target a different
+        // BMC and intentionally do not consult this guard.
+        if (redfish::fwUpdateInProgress)
+        {
+            BMCWEB_LOG_ERROR("Update already in progress.");
+            redfish::messages::updateInProgressMsg(
+                asyncResp->res,
+                "Another update is in progress. Retry the update operation "
+                "once it is complete.");
+            failClientResponse();
+            return;
+        }
+
         std::string dbusApplyTime;
         if (!convertApplyTime(asyncResp->res,
                               multiRet.params.applyTime.value_or("OnReset"),
@@ -1504,7 +1503,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
         if (uriTargets.empty())
         {
-            std::vector<sdbusplus::object_path> emptyTargets{};
+            std::vector<sdbusplus::message::object_path> emptyTargets{};
             nvidia::startPLDMUpdate(
                 asyncResp, std::move(payload), std::move(fileGetSocket),
                 dbusApplyTime, forceUpdate, emptyTargets,
@@ -1592,17 +1591,6 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
         messages::headerInvalid(asyncResp->res, "Content-Length");
         return;
     }
-    // Only allow one firmware update at a time (the streaming flow no longer
-    // calls preCheckMultipartUpdateServiceReq()).
-    if (redfish::fwUpdateInProgress)
-    {
-        BMCWEB_LOG_ERROR("Update already in progress.");
-        redfish::messages::updateInProgressMsg(
-            asyncResp->res,
-            "Another update is in progress. Retry the update operation once "
-            "it is complete.");
-        return;
-    }
     // Register streaming callbacks for the multipart parser
     std::shared_ptr<UpdateCtx> contextPtr =
         std::make_shared<UpdateCtx>(contentLength, Payload(req));
@@ -1634,4 +1622,3 @@ inline void requestRoutesNvUpdateServiceMultipartUpdate(App& app)
             handleUpdateServiceMultipartUpdatePostHeaders);
 }
 } // namespace redfish::nvidia
-// Nvidia code ends here
