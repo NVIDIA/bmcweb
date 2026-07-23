@@ -333,6 +333,8 @@ class Router
             return;
         }
         BaseRule& rule = *foundRoute.route.rule;
+        req->streamInputRoute = true;
+        // Nvidia code ends here
 
         if (req->session == nullptr)
         {
