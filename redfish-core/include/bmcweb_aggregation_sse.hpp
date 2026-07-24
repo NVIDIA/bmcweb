@@ -37,6 +37,13 @@ void addPrefixes(nlohmann::json& json, std::string_view prefix);
 using SatelliteEventCallback =
     std::function<void(const std::string& eventJson, uint64_t eventId)>;
 
+using SatelliteConfigHandler = std::function<void(
+    const boost::system::error_code&,
+    const std::unordered_map<std::string, boost::urls::url>&)>;
+using SatelliteConfigRefresher =
+    std::function<void(SatelliteConfigHandler, bool forceRefresh)>;
+using SatConfigRefreshHandler = SatelliteConfigRefresher;
+
 class SseEventAggregator
 {
   public:
@@ -73,7 +80,8 @@ class SseEventAggregator
     SseEventAggregator(SseEventAggregator&&) = delete;
     SseEventAggregator& operator=(SseEventAggregator&&) = delete;
 
-    void start(const std::unordered_map<std::string, boost::urls::url>& configs)
+    /** Register SatMC refresher and start initial config load */
+    void start(SatConfigRefreshHandler refresh)
     {
         satConfigRefresher = std::move(refresh);
         satConfigLoadCancelled = false;
@@ -96,6 +104,7 @@ class SseEventAggregator
     void stop()
     {
         BMCWEB_LOG_INFO("SSE aggregator stopping...");
+        stopSatConfigLoadTimer();
         reconnectTimer.cancel();
 
         if (sseConnection)
@@ -108,7 +117,7 @@ class SseEventAggregator
 
     void setSatelliteEventCallback(SatelliteEventCallback callback)
     {
-        satelliteEventCallback_ = std::move(callback);
+        satelliteEventCallback = std::move(callback);
     }
 
     enum class State
@@ -138,7 +147,7 @@ class SseEventAggregator
     std::string lastEventId;
     bool lastEventIdDirty =
         false; // Track if lastEventId changed since last persist
-    SatelliteEventCallback satelliteEventCallback_;
+    SatelliteEventCallback satelliteEventCallback;
     bool skipLastEventIdOnReconnect = false;
     bool sentLastEventIdThisAttempt = false;
 
@@ -191,6 +200,10 @@ class SseEventAggregator
 
     void handlePersistTimer(const boost::system::error_code& ec)
     {
+        if (shuttingDown)
+        {
+            return;
+        }
         if (ec)
         {
             return;
@@ -434,9 +447,8 @@ class SseEventAggregator
                 continue;
             }
 
-            auto eventTypeIt = event.find("EventType");
             auto messageIdIt = event.find("MessageId");
-            if (eventTypeIt == event.end() || messageIdIt == event.end())
+            if (messageIdIt == event.end())
             {
                 BMCWEB_LOG_ERROR("Event missing required fields");
                 continue;
@@ -463,7 +475,7 @@ class SseEventAggregator
         (void)origin;
         (void)resourceType;
 
-        if (!satelliteEventCallback_)
+        if (!satelliteEventCallback)
         {
             BMCWEB_LOG_WARNING(
                 "Satellite event callback not set, event not forwarded to local subscribers");
@@ -495,7 +507,7 @@ class SseEventAggregator
                 eventId = 0;
             }
         }
-        satelliteEventCallback_(strMsg, eventId);
+        satelliteEventCallback(strMsg, eventId);
     }
 
     void scheduleReconnect()
@@ -733,6 +745,10 @@ class SseEventAggregator
 
     void handleReconnectTimer(const boost::system::error_code& ec)
     {
+        if (shuttingDown)
+        {
+            return;
+        }
         if (ec)
         {
             if (ec != boost::asio::error::operation_aborted)

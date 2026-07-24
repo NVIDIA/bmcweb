@@ -25,7 +25,9 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
+// Nvidia code starts here
 #include "generated/enums/resource.hpp"
+// Nvidia code ends here
 #include "http_utility.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_messages.hpp"
@@ -72,6 +74,7 @@
 
 namespace redfish
 {
+
 /* holds compute digest operation state to allow one operation at a time */
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool computeDigestInProgress = false;
@@ -102,8 +105,7 @@ struct AsyncImageWriteSession :
     /**
      * @brief Constructs an AsyncImageWriteSession.
      *
-     * @param asyncRespIn A shared pointer to the asynchronous response
-     * object.
+     * @param asyncRespIn A shared pointer to the asynchronous response object.
      * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
      * @param filepathIn The file path where the image data will be written.
      * @param dataRefIn A reference to the string containing the image data.
@@ -122,8 +124,7 @@ struct AsyncImageWriteSession :
     /**
      * @brief Starts the asynchronous write operation.
      *
-     * Initiates the process of writing the image data to the file in
-     * chunks.
+     * Initiates the process of writing the image data to the file in chunks.
      */
     void start()
     {
@@ -997,9 +998,6 @@ inline static void getRelatedItemsOthers(
                             const std::vector<std::string>& resp) {
                         if (errCodeAssoc)
                         {
-                            // The inventory association may be transiently
-                            // unavailable under load; non-fatal, so log at
-                            // debug to avoid flooding.
                             BMCWEB_LOG_DEBUG("error_code = {}, error msg = {}",
                                              errCodeAssoc,
                                              errCodeAssoc.message());
@@ -1012,8 +1010,7 @@ inline static void getRelatedItemsOthers(
                             {
                                 continue;
                             }
-                            sdbusplus::message::object_path associationPath(
-                                association);
+                            sdbusplus::message::object_path associationPath(association);
 
                             getRelatedItemsOther(aResp, associationPath);
                         }
@@ -1030,11 +1027,10 @@ inline static void getRelatedItemsOthers(
  * @param[in] uriTargets  List of components delivered in HTTPRequest
  * @param[in] updateables List of all unupdateable components in the system
  * @param[in] swInvPaths  List of software inventory paths
- * @param[out] validTargets  List of valid components delivered in
- * HTTPRequest
+ * @param[out] validTargets  List of valid components delivered in HTTPRequest
  *
- * @return It returns true when a list of delivered components contains
- * invalid or unupdateable components
+ * @return It returns true when a list of delivered components contains invalid
+ * or unupdateable components
  */
 inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
@@ -1050,15 +1046,14 @@ inline bool areTargetsInvalidOrUnupdatable(
         std::string softwarePath =
             "/xyz/openbmc_project/software/" + componentName;
 
-        if (std::any_of(swInvPaths.begin(), swInvPaths.end(),
-                        [&](const std::string& path) {
-                            return path.find(softwarePath) != std::string::npos;
-                        }))
+        if (std::ranges::any_of(swInvPaths, [&](const std::string& path) {
+                return path.find(softwarePath) != std::string::npos;
+            }))
         {
             validTarget = true;
 
-            if (std::find(updateables.begin(), updateables.end(),
-                          componentName) != updateables.end())
+            if (std::ranges::find(updateables, componentName) !=
+                updateables.end())
             {
                 validTargets.emplace_back(softwarePath);
             }
@@ -1130,15 +1125,18 @@ inline void extendUpdateServiceGet(
          "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
         {"@Redfish.ActionInfo",
          "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
-    asyncResp->res.jsonValue["Actions"]["Oem"]
-                            ["#NvidiaUpdateService.PublicKeyExchange"] = {
-        {"target",
-         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
-    asyncResp->res
-        .jsonValue["Actions"]["Oem"]
-                  ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
-        {"target",
-         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
+    if constexpr (BMCWEB_SCP_UPDATE)
+    {
+        asyncResp->res.jsonValue["Actions"]["Oem"]
+                                ["#NvidiaUpdateService.PublicKeyExchange"] = {
+            {"target",
+             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange"}};
+        asyncResp->res.jsonValue
+            ["Actions"]["Oem"]
+            ["#NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"] = {
+            {"target",
+             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
+    }
 
     if constexpr (BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
     {
@@ -1243,8 +1241,8 @@ inline void extendUpdateServiceGet(
 }
 
 /**
- * @brief update oem action with ComputeDigest for devices which supports
- * hash compute
+ * @brief update oem action with ComputeDigest for devices which supports hash
+ * compute
  *
  * @param[in] asyncResp
  * @param[in] swId
@@ -1540,9 +1538,8 @@ inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
     std::pair<bool, CommitImageValueEntry> result;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    std::vector<CommitImageValueEntry>::iterator it =
-        find(allowableValues.begin(), allowableValues.end(),
-             static_cast<std::string>(inventoryPathIn));
+    auto it = std::ranges::find(allowableValues, inventoryPathIn,
+                                &CommitImageValueEntry::inventoryUri);
 
     if (it != allowableValues.end())
     {
@@ -1572,9 +1569,8 @@ inline bool isInventoryAllowableValue(const std::string_view inventoryPathIn)
     bool isAllowable = false;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
-    std::vector<CommitImageValueEntry>::iterator it =
-        find(allowableValues.begin(), allowableValues.end(),
-             static_cast<std::string>(inventoryPathIn));
+    auto it = std::ranges::find(allowableValues, inventoryPathIn,
+                                &CommitImageValueEntry::inventoryUri);
 
     isAllowable = it != allowableValues.end();
 
@@ -1660,8 +1656,7 @@ inline void handleCommitImagePost(
         hasTargets = true;
     }
 
-    // Pair: first = dbus software object path, second = redfish inventory
-    // path
+    // Pair: first = dbus software object path, second = redfish inventory path
     std::vector<std::pair<std::string, std::string>> softwareObjectPaths = {};
     bool hasInvalidTargets = false;
 
@@ -1671,9 +1666,8 @@ inline void handleCommitImagePost(
 
         for (auto& target : targetsCollection)
         {
-            // Validate that the target is a proper Redfish
-            // FirmwareInventory path (same style as processUrl() in
-            // update_service.hpp)
+            // Validate that the target is a proper Redfish FirmwareInventory
+            // path (same style as processUrl() in update_service.hpp)
             boost::system::result<boost::urls::url_view> url =
                 boost::urls::parse_origin_form(target);
             if (!url)
@@ -1728,9 +1722,8 @@ inline void handleCommitImagePost(
                     bool foundInChassis = false;
                     for (const auto& [chassisName, chassisInfo] : chassisMap)
                     {
-                        if (std::find(chassisInfo.softwarePaths.begin(),
-                                      chassisInfo.softwarePaths.end(),
-                                      dbusPath) !=
+                        if (std::ranges::find(chassisInfo.softwarePaths,
+                                              dbusPath) !=
                             chassisInfo.softwarePaths.end())
                         {
                             foundInChassis = true;
@@ -1759,9 +1752,8 @@ inline void handleCommitImagePost(
                 {
                     if (hasTargets)
                     {
-                        auto it = std::find_if(
-                            softwareObjectPaths.begin(),
-                            softwareObjectPaths.end(),
+                        auto it = std::ranges::find_if(
+                            softwareObjectPaths,
                             [&path](const std::pair<std::string, std::string>&
                                         swPathPair) {
                                 return swPathPair.first == path;
@@ -1773,8 +1765,8 @@ inline void handleCommitImagePost(
                     }
                     else
                     {
-                        // When no targets specified, only include paths
-                        // that are in the allowable values list
+                        // When no targets specified, only include paths that
+                        // are in the allowable values list
                         if (isInventoryAllowableValue(path))
                         {
                             matchingPaths.push_back(path);
@@ -2116,22 +2108,11 @@ inline void forwardCommitImagePost(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-<<<<<<< HEAD
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-||||||| constructed merge base
-=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2209,8 +2190,9 @@ inline bool handleSatBMCCommitImagePost(
         if (prefix && !noPrefix)
         {
             // targets with the prefix included only.
-            RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                forwardCommitImagePost, std::ref(req), asyncResp));
+            RedfishAggregator::getInstance().getSatelliteConfigs(
+                std::bind_front(forwardCommitImagePost, std::ref(req),
+                                asyncResp));
 
             // don't pass the request to the local
             return false;
@@ -2225,7 +2207,7 @@ inline bool handleSatBMCCommitImagePost(
     }
     else
     {
-        RedfishAggregator::getSatelliteConfigs(
+        RedfishAggregator::getInstance().getSatelliteConfigs(
             std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
         // forward the request with empty target.
     }
@@ -2336,8 +2318,8 @@ inline void commitImageActionInfoResp(
 
 /**
  * @brief forward Commit Image Action Info request to satBMC.
- * the function will send the request to satBMC to get the
- * CommitImageActionInfo if the satellie BMC is available.
+ * the function will send the request to satBMC to get the CommitImageActionInfo
+ * if the satellie BMC is available.
  *
  * @param[in] req  HTTP request
  * @param[in] asyncResp Shared pointer to the response message
@@ -2352,23 +2334,11 @@ inline void forwardCommitImageActionInfo(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-<<<<<<< HEAD
-    // Something went wrong while querying dbus
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-||||||| constructed merge base
-=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2432,8 +2402,9 @@ inline void handleCommitImageActionInfoGet(
             updateParametersForCommitImageInfo(asyncResp, subtree);
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardCommitImageActionInfo, std::ref(req), asyncResp));
+                RedfishAggregator::getInstance().getSatelliteConfigs(
+                    std::bind_front(forwardCommitImageActionInfo, std::ref(req),
+                                    asyncResp));
             }
         });
 }
@@ -2563,8 +2534,10 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                 }
 
                 asyncResp->res.jsonValue["Id"] = *swId;
+                // Nvidia code starts here
                 asyncResp->res.jsonValue["Status"]["Health"] =
                     resource::Health::OK;
+                // Nvidia code ends here
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
                     asyncResp->res.jsonValue["Status"]["Conditions"] =

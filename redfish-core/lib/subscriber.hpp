@@ -261,21 +261,11 @@ inline void getSatBMCInfo(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-<<<<<<< HEAD
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        return;
-    }
-
-||||||| constructed merge base
-=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     const auto& sat =
@@ -291,7 +281,7 @@ inline void getSatBMCInfo(
                     BMCWEB_LOG_ERROR("Timer error: {}", ec1);
                     return;
                 }
-                RedfishAggregator::getSatelliteConfigs(
+                RedfishAggregator::getInstance().getSatelliteConfigs(
                     std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
             });
         return;
@@ -311,7 +301,7 @@ inline void getSatBMCInfo(
 inline int initRedfishEventListener(boost::asio::io_context& ioc)
 {
     const uint8_t deferTime = BMCWEB_RFA_DELAY_SUBSCRIBE_TIME;
-    RedfishAggregator::getSatelliteConfigs(
+    RedfishAggregator::getInstance().getSatelliteConfigs(
         std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
 
     return 0;
@@ -322,7 +312,7 @@ inline int startRedfishEventListener(
 {
     const uint8_t immediateTime = 1;
 
-    RedfishAggregator::getSatelliteConfigs(
+    RedfishAggregator::getInstance().getSatelliteConfigs(
         std::bind_front(getSatBMCInfo, std::ref(ioc), immediateTime));
 
     return 0;
@@ -332,21 +322,11 @@ inline void unSubscribe(
     boost::asio::io_context& ioc, const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
-<<<<<<< HEAD
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        return;
-    }
-
-||||||| constructed merge base
-=======
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
         return;
     }
->>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
 
@@ -379,7 +359,7 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
     // stop the timer.
     subscribeTimer->cancel();
 
-    RedfishAggregator::getSatelliteConfigs(
+    RedfishAggregator::getInstance().getSatelliteConfigs(
         std::bind_front(unSubscribe, std::ref(ioc)));
 
     // stop redfish event listener
