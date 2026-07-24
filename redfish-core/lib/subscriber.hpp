@@ -263,9 +263,10 @@ inline void getSatBMCInfo(
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
         return;
     }
+
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     const auto& sat =
@@ -324,9 +325,10 @@ inline void unSubscribe(
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
         return;
     }
+
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
 
