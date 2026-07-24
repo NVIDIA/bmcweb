@@ -30,6 +30,7 @@
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/system/error_code.hpp>
@@ -95,6 +96,7 @@ struct Http2StreamData
     // unlike req->req.body().multipartParserCallbacks, which is moved out
     // (and reset) by HttpBody::reader::init() on the first body chunk.
     bool multipartActive = false;
+    bool headersRejected = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
     // 15-min hard cap for fd-backed streaming responses.
@@ -483,49 +485,52 @@ class HTTP2Connection :
         }
         Http2StreamData& stream = it->second;
 
-        if (stream.req && stream.req->req.body().multipartParserCallbacks)
+        const bool hasMultipartCallbacks =
+            stream.req && stream.req->req.body().multipartParserCallbacks;
+        if (stream.headersAsyncResp)
+        {
+            const boost::beast::http::status_class responseClass =
+                boost::beast::http::to_status_class(
+                    stream.headersAsyncResp->res.result());
+            if (responseClass ==
+                    boost::beast::http::status_class::client_error ||
+                responseClass == boost::beast::http::status_class::server_error)
+            {
+                stream.headersRejected = true;
+            }
+        }
+        if (!stream.headersRejected && hasMultipartCallbacks)
         {
             stream.isStreamInput = true;
             stream.multipartActive = true;
-            if (stream.headersAsyncResp)
-            {
-                stream.headersAsyncResp->res.setCompleteRequestHandler(
-                    [weakSelf = weak_from_this(),
-                     streamId](Response& completedRes) {
-                        if (auto self = weakSelf.lock())
-                        {
-                            if (self->sendResponse(completedRes, streamId) != 0)
-                            {
-                                self->close();
-                            }
-                        }
-                    });
-            }
-        }
-        else if (stream.req && stream.req->streamInputRoute)
-        {
-            // Headers-phase rejection: deliver parked response and skip body
-            // dispatch.
-            stream.isStreamInput = true;
-            if (stream.headersAsyncResp)
-            {
-                stream.headersAsyncResp->res.setCompleteRequestHandler(
-                    [weakSelf = weak_from_this(),
-                     streamId](Response& completedRes) {
-                        if (auto self = weakSelf.lock())
-                        {
-                            if (self->sendResponse(completedRes, streamId) != 0)
-                            {
-                                self->close();
-                            }
-                        }
-                    });
-                stream.headersAsyncResp.reset();
-            }
         }
 
+        if (stream.isStreamInput || stream.headersRejected)
+        {
+            if (stream.headersAsyncResp)
+            {
+                stream.headersAsyncResp->res.setCompleteRequestHandler(
+                    [weakSelf = weak_from_this(),
+                     streamId](Response& completedRes) {
+                        if (auto self = weakSelf.lock())
+                        {
+                            if (self->sendResponse(completedRes, streamId) != 0)
+                            {
+                                self->close();
+                            }
+                        }
+                    });
+            }
+        }
         stream.headersAsyncResp.reset();
         stream.bodyReadPending = false;
+
+        if (stream.headersRejected)
+        {
+            stream.pendingBodyData.clear();
+            stream.endStreamPending = false;
+            return;
+        }
 
         if (!stream.pendingBodyData.empty())
         {
@@ -562,6 +567,10 @@ class HTTP2Connection :
         if (it->second.bodyReadPending)
         {
             it->second.endStreamPending = true;
+            return 0;
+        }
+        if (it->second.headersRejected)
+        {
             return 0;
         }
         if (finishStreamBody(streamId) != 0)
@@ -650,6 +659,10 @@ class HTTP2Connection :
             return -1;
         }
 
+        if (thisStream->second.headersRejected)
+        {
+            return 0;
+        }
         // Nvidia code starts here
         if (thisStream->second.bodyReadPending)
         {
