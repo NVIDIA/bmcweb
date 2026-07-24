@@ -281,7 +281,7 @@ inline void getSatBMCInfo(
                     BMCWEB_LOG_ERROR("Timer error: {}", ec1);
                     return;
                 }
-                RedfishAggregator::getInstance().getSatelliteConfigs(
+                RedfishAggregator::getSatelliteConfigs(
                     std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
             });
         return;
@@ -301,7 +301,7 @@ inline void getSatBMCInfo(
 inline int initRedfishEventListener(boost::asio::io_context& ioc)
 {
     const uint8_t deferTime = BMCWEB_RFA_DELAY_SUBSCRIBE_TIME;
-    RedfishAggregator::getInstance().getSatelliteConfigs(
+    RedfishAggregator::getSatelliteConfigs(
         std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
 
     return 0;
@@ -312,7 +312,7 @@ inline int startRedfishEventListener(
 {
     const uint8_t immediateTime = 1;
 
-    RedfishAggregator::getInstance().getSatelliteConfigs(
+    RedfishAggregator::getSatelliteConfigs(
         std::bind_front(getSatBMCInfo, std::ref(ioc), immediateTime));
 
     return 0;
@@ -359,7 +359,7 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
     // stop the timer.
     subscribeTimer->cancel();
 
-    RedfishAggregator::getInstance().getSatelliteConfigs(
+    RedfishAggregator::getSatelliteConfigs(
         std::bind_front(unSubscribe, std::ref(ioc)));
 
     // stop redfish event listener

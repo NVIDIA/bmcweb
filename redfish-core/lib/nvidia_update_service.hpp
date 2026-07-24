@@ -2190,7 +2190,7 @@ inline bool handleSatBMCCommitImagePost(
         if (prefix && !noPrefix)
         {
             // targets with the prefix included only.
-            RedfishAggregator::getInstance().getSatelliteConfigs(
+            RedfishAggregator::getSatelliteConfigs(
                 std::bind_front(forwardCommitImagePost, std::ref(req),
                                 asyncResp));
 
@@ -2207,7 +2207,7 @@ inline bool handleSatBMCCommitImagePost(
     }
     else
     {
-        RedfishAggregator::getInstance().getSatelliteConfigs(
+        RedfishAggregator::getSatelliteConfigs(
             std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
         // forward the request with empty target.
     }
@@ -2402,7 +2402,7 @@ inline void handleCommitImageActionInfoGet(
             updateParametersForCommitImageInfo(asyncResp, subtree);
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                RedfishAggregator::getInstance().getSatelliteConfigs(
+                RedfishAggregator::getSatelliteConfigs(
                     std::bind_front(forwardCommitImageActionInfo, std::ref(req),
                                     asyncResp));
             }
