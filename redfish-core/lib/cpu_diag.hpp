@@ -29,6 +29,7 @@
 #include <app.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/url/format.hpp>
 #include <dbus_utility.hpp>
 #include <nlohmann/json.hpp>
 #include <query.hpp>
@@ -42,10 +43,12 @@
 #include <utils/nvidia_json_utils.hpp>
 #include <utils/sw_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <functional>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 namespace redfish
@@ -188,9 +191,17 @@ inline void handleDiagResultGet(
                 // Entries persisted by producers that pad the mask carry a
                 // ResultMaskSize field counting the valid bytes; honor it
                 // when present so padding is not exposed. Producers storing
-                // exact-length masks omit the field.
-                size_t maskSize =
-                    item.value("ResultMaskSize", resultMask.size());
+                // exact-length masks omit the field. Validate the persisted
+                // field before use: a malformed value (negative, string, or
+                // larger than the mask) is ignored rather than trusted.
+                size_t maskSize = resultMask.size();
+                if (const auto maskSizeIt = item.find("ResultMaskSize");
+                    maskSizeIt != item.end() &&
+                    maskSizeIt->is_number_unsigned())
+                {
+                    const size_t candidate = maskSizeIt->get<size_t>();
+                    maskSize = std::min(candidate, maskSize);
+                }
                 if (maskSize < resultMask.size())
                 {
                     resultMask.resize(maskSize);
@@ -232,31 +243,30 @@ inline void handleDiagStatusGet(
             nlohmann::json& json = asyncResp->res.jsonValue;
             if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
             {
-                json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                    ["DiagStatus"] =
-                        diagStatusToString(static_cast<DiagStatus>(value));
+                json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagStatus"] =
+                    diagStatusToString(static_cast<DiagStatus>(value));
             }
             else
             {
                 if ((value == 0x1) || (value == 0x0))
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                        ["DiagStatus"] = "InProgress";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagStatus"] =
+                        "InProgress";
                 }
                 else if (value == 0x2)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                        ["DiagStatus"] = "Completed";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagStatus"] =
+                        "Completed";
                 }
                 else if (value == 0x3)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                        ["DiagStatus"] = "Aborted";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagStatus"] =
+                        "Aborted";
                 }
                 else if (value == 0x4)
                 {
-                    json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                        ["DiagStatus"] = "NotStarted";
+                    json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagStatus"] =
+                        "NotStarted";
                 }
             }
         });
@@ -282,8 +292,8 @@ inline void handleDiagModeGet(
             }
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
-            json["Oem"]["Nvidia"]["ProcessorDiagState"]
-                ["DiagModeEnabled"] = diagMode;
+            json["Oem"]["Nvidia"]["ProcessorDiagState"]["DiagModeEnabled"] =
+                diagMode;
             // Always expose configs, status, and last-run result regardless
             // of DiagMode. The daemon owns DiagMode lifecycle and flips it
             // false at session end (clean or abort), but DiagStatus and the
@@ -294,6 +304,52 @@ inline void handleDiagModeGet(
             handleDiagStatusGet(asyncResp);
             handleDiagResultGet(asyncResp);
         });
+}
+
+// Advertises the pre-boot diagnostic OEM actions under Actions.Oem of the
+// ComputerSystem resource with their @Redfish.ActionInfo pointers, then
+// fetches the current diagnostic state. Extracted from systems.hpp so the
+// NVIDIA-specific payload lives in the NVIDIA-specific file and the generic
+// handler calls only this one helper (mirroring
+// advertiseSetProcessorPowerLimits). The BMCWEB_CPU_DIAG_SUPPORT gating
+// remains at the systems.hpp call site.
+inline void advertiseProcessorDiagActions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view systemId)
+{
+    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+
+    oemActions["#NvidiaComputerSystem.SetProcessorDiagMode"]["target"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Actions/Oem/"
+                            "NvidiaComputerSystem.SetProcessorDiagMode",
+                            systemId);
+    oemActions
+        ["#NvidiaComputerSystem.SetProcessorDiagMode"]
+        ["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Oem/Nvidia/SetProcessorDiagModeActionInfo",
+            systemId);
+
+    oemActions["#NvidiaComputerSystem.ConfigProcessorDiag"]["target"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Actions/Oem/"
+                            "NvidiaComputerSystem.ConfigProcessorDiag",
+                            systemId);
+    oemActions
+        ["#NvidiaComputerSystem.ConfigProcessorDiag"]
+        ["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagActionInfo",
+            systemId);
+
+    oemActions["#NvidiaComputerSystem.ConfigProcessorDiagTid"]["target"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Actions/Oem/"
+                            "NvidiaComputerSystem.ConfigProcessorDiagTid",
+                            systemId);
+    oemActions
+        ["#NvidiaComputerSystem.ConfigProcessorDiagTid"]
+        ["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagTidActionInfo",
+            systemId);
+
+    handleDiagModeGet(asyncResp);
 }
 
 inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -684,6 +740,15 @@ inline bool validateDiagTidConfig(
         if (!tidNumbers.insert(tidValue).second)
         {
             BMCWEB_LOG_ERROR("Duplicate TID");
+            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            return false;
+        }
+        // The ProcessorDiagTidConfigEntry schema caps DynamicData at 194
+        // bytes; enforce it here now that DynamicDataSize is gone.
+        if (item["DynamicData"].size() > 194)
+        {
+            BMCWEB_LOG_ERROR(
+                "DynamicData exceeds maximum allowed length of 194");
             messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
             return false;
         }

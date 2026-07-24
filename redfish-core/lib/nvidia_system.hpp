@@ -61,6 +61,11 @@ inline void getSystemsOemNvidiaProperties(
         std::bind_front(&afterSystemSpiInterfacesFound, asyncResp, systemId));
 }
 
+// OEM-only pre-boot diagnostic action handlers. Kept in redfish::nvidia so the
+// NVIDIA surface stays separated from the generic Redfish code; the generic
+// route registration below delegates into this namespace.
+namespace nvidia
+{
 inline void handleProcessorDiagActionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -78,8 +83,7 @@ inline void handleProcessorDiagActionPost(
                                    systemName);
         return;
     }
-    if (!json_util::readJsonAction(req, asyncResp->res,
-                                   "ProcessorDiagState",
+    if (!json_util::readJsonAction(req, asyncResp->res, "ProcessorDiagState",
                                    processorDiagState))
     {
         return;
@@ -260,6 +264,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
+} // namespace nvidia
 
 inline void requestRoutesSystemsCPUDiag(App& app)
 {
@@ -267,37 +272,39 @@ inline void requestRoutesSystemsCPUDiag(App& app)
         app,
         "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.SetProcessorDiagMode/")
         .privileges(redfish::privileges::postComputerSystem)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleProcessorDiagActionPost, std::ref(app)));
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia::handleProcessorDiagActionPost, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Oem/Nvidia/SetProcessorDiagModeActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleSystemProcessorDiagStateActionGet, std::ref(app)));
+            nvidia::handleSystemProcessorDiagStateActionGet, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiag/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleProcessorDiagSysConfigActionPost, std::ref(app)));
+            nvidia::handleProcessorDiagSysConfigActionPost, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Oem/Nvidia/ConfigProcessorDiagActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleSystemProcessorDiagSysConfigActionGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(nvidia::handleSystemProcessorDiagSysConfigActionGet,
+                            std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiagTid/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleProcessorDiagTidConfigActionPost, std::ref(app)));
+            nvidia::handleProcessorDiagTidConfigActionPost, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Oem/Nvidia/ConfigProcessorDiagTidActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleSystemProcessorDiagTidConfigActionGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(nvidia::handleSystemProcessorDiagTidConfigActionGet,
+                            std::ref(app)));
 }
 } // namespace redfish

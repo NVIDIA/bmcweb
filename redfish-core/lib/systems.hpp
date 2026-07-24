@@ -3922,7 +3922,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+            "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
@@ -4000,7 +4000,7 @@ inline void handleComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+            "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
@@ -4224,43 +4224,11 @@ inline void handleComputerSystemGet(
     }
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.SetProcessorDiagMode"]
-                                ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.SetProcessorDiagMode",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.SetProcessorDiagMode"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/SetProcessorDiagModeActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ConfigProcessorDiag"]
-                                ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiag",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ConfigProcessorDiag"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ConfigProcessorDiagTid"]
-                                ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.ConfigProcessorDiagTid",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ConfigProcessorDiagTid"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ConfigProcessorDiagTidActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        handleDiagModeGet(asyncResp);
+        // Advertise the pre-boot diagnostic OEM actions and fetch the current
+        // diagnostic state. The NVIDIA-specific payload lives in cpu_diag.hpp;
+        // call only the helper here.
+        advertiseProcessorDiagActions(asyncResp,
+                                      BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 }
 
