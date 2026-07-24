@@ -377,13 +377,13 @@ TEST(OnSectionComplete, SetsFileSectionCompleteWhenWaitingForSatInfo)
 TEST(OnSectionComplete, SetsFileSectionCompleteWhenUpdateNotStarted)
 {
     auto ctx = makeCtx();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
     EXPECT_FALSE(ctx->fileSectionComplete);
 
     ctx->onSectionComplete(ctx);
 
     EXPECT_TRUE(ctx->fileSectionComplete);
-    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE);
 }
 
 TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
