@@ -1704,6 +1704,7 @@ inline void handleSystemsEventLogServiceGet(
     }
     eventlog_utils::handleSystemsAndManagersEventLogServiceGet(
         asyncResp, eventlog_utils::LogServiceParentCollection::Systems);
+    extendSystemLogServicesGet(asyncResp);
 }
 
 inline void handleManagersEventLogServiceGet(
