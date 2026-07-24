@@ -733,7 +733,7 @@ class RedfishAggregator
         }
         // Filter headers to only allow Host and Content-Type
         localReq->target(urlNew.buffer());
-        getInstance().getSatelliteConfigs(
+        getSatelliteConfigs(
             std::bind_front(aggregateAndHandle, aggType, localReq, asyncResp));
     }
 
@@ -1000,7 +1000,7 @@ class RedfishAggregator
     {
         // Registers SatMC refresh + retry / periodic refresh
         sseAggregator.start(
-            [this](SatelliteConfigHandler handler, bool forceRefresh) {
+            [](SatelliteConfigHandler handler, bool forceRefresh) {
                 getSatelliteConfigs(std::move(handler), forceRefresh);
             });
     }
@@ -1023,12 +1023,12 @@ class RedfishAggregator
 
     // Polls D-Bus to get all available satellite config information
     // Expects a handler which interacts with the returned configs
-    void getSatelliteConfigs(
+    static void getSatelliteConfigs(
         std::function<
             void(const boost::system::error_code&,
                  const std::unordered_map<std::string, boost::urls::url>&)>
             handler,
-        bool forceRefresh = false) const
+        bool forceRefresh = false)
     {
         static std::unordered_map<std::string, boost::urls::url> cachedSatInfo =
             {};
