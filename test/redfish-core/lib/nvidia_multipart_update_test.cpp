@@ -328,8 +328,7 @@ TEST(OnDataAvailable, AccumulatesUpdateParametersData)
 TEST(OnDataAvailable, BuffersUpdateFileDataBeforeUpdateStarted)
 {
     auto ctx = makeCtx();
-    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
-    ctx->updateStarted = false;
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
 
     ctx->onDataAvailable(ctx, "fw data");
 
@@ -391,7 +390,6 @@ TEST(OnSectionComplete, TransitionsToUpdateCompleteFromFileDataState)
 {
     auto ctx = makeCtx();
     ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
-    ctx->updateStarted = true;
 
     ctx->onSectionComplete(ctx);
 

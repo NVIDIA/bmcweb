@@ -114,7 +114,7 @@ inline void handleAggregationSourceCollectionGet(
     json["Name"] = "Aggregation Source Collection";
 
     // Query D-Bus for satellite configs and add them to the Members array
-    RedfishAggregator::getSatelliteConfigs(
+    RedfishAggregator::getInstance().getSatelliteConfigs(
         std::bind_front(populateAggregationSourceCollection, asyncResp));
 }
 
@@ -201,7 +201,7 @@ inline void handleAggregationSourceGet(
 
     // Query D-Bus for satellite config corresponding to the specified
     // AggregationSource
-    RedfishAggregator::getSatelliteConfigs(std::bind_front(
+    RedfishAggregator::getInstance().getSatelliteConfigs(std::bind_front(
         populateAggregationSource, aggregationSourceId, asyncResp));
 }
 
