@@ -130,6 +130,8 @@ inline void downloadEntryCallback(
             close(fd);
             return;
         }
+        asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                                 "application/json");
         return;
     }
     // NVIDIA code ends here

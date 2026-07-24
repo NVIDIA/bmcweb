@@ -83,10 +83,9 @@ namespace redfish
 
 // Match signals added on software path
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
+static std::unique_ptr<sdbusplus::match> fwUpdateMatcher;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateErrorMatcher;
-
+static std::unique_ptr<sdbusplus::match> fwUpdateErrorMatcher;
 // Timer for software available
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
@@ -551,14 +550,13 @@ inline void monitorForSoftwareAvailable(
 
     fwUpdateInProgress = true;
 
-    fwUpdateMatcher = std::make_unique<sdbusplus::bus::match_t>(
+    fwUpdateMatcher = std::make_unique<sdbusplus::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',path='/xyz/openbmc_project/software'",
         callback);
 
-    // Nvidia modified bound function to log task messages
-    fwUpdateErrorMatcher = std::make_unique<sdbusplus::bus::match_t>(
+    fwUpdateErrorMatcher = std::make_unique<sdbusplus::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',"
@@ -1456,11 +1454,17 @@ inline static void getRelatedItems(
     const std::string& swId, const std::string& purpose)
 {
     // Nvidia getRelatedItems start
-    if (purpose == sw_util::otherPurpose || purpose == sw_util::bmcPurpose)
+    if (purpose == sw_util::otherPurpose)
     {
         getRelatedItemsOthers(asyncResp, swId);
     }
     // Nvidia getRelatedItems end
+    else if (purpose == sw_util::bmcPurpose)
+    {
+        auto url = boost::urls::format("/redfish/v1/Managers/{}",
+                                       BMCWEB_REDFISH_MANAGER_URI_NAME);
+        addRelatedItem(asyncResp, url);
+    }
     else if (purpose == sw_util::biosPurpose)
     {
         auto url = boost::urls::format("/redfish/v1/Systems/{}/Bios",
@@ -1495,13 +1499,6 @@ inline void getSoftwareVersionCallback(
         messages::internalError(asyncResp->res);
         return;
     }
-    if (swInvPurpose == nullptr)
-    {
-        BMCWEB_LOG_DEBUG("Can't find property \"Purpose\"!");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
     if (version == nullptr)
     {
         BMCWEB_LOG_DEBUG("Can't find property \"Version\"!");
@@ -1510,6 +1507,13 @@ inline void getSoftwareVersionCallback(
     }
     asyncResp->res.jsonValue["Version"] = *version;
     asyncResp->res.jsonValue["Id"] = swId;
+
+    if (swInvPurpose == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Software object {} has no \"Purpose\"", swId);
+        return;
+    }
+    BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
     // swInvPurpose is of format:
     // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
     // Translate this to "ABC image"

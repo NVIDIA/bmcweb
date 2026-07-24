@@ -147,8 +147,8 @@ inline void populateXIDLogServiceFromSubtree(
                             std::to_string(std::get<0>(reqData));
                         asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                                 ["LatestEntryTimeStamp"] =
-                            redfish::time_utils::getDateTimeStdtime(
-                                lastTimeStamp);
+                            redfish::time_utils::getDateTimeUint(
+                                static_cast<uint64_t>(lastTimeStamp));
                     },
                     "xyz.openbmc_project.Logging",
                     "/xyz/openbmc_project/logging",

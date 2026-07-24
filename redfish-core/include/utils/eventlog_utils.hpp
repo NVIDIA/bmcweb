@@ -6,6 +6,7 @@
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "event_log.hpp"
 #include "generated/enums/log_service.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -31,7 +32,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <memory>
@@ -195,45 +195,6 @@ inline bool getRedfishLogFiles(
     return !redfishLogFiles.empty();
 }
 
-inline bool getUniqueEntryID(const std::string& logEntry, std::string& entryID,
-                             const bool firstEntry = true)
-{
-    static time_t prevTs = 0;
-    static int index = 0;
-    if (firstEntry)
-    {
-        prevTs = 0;
-    }
-
-    // Get the entry timestamp
-    std::time_t curTs = 0;
-    std::tm timeStruct = {};
-    std::istringstream entryStream(logEntry);
-    if (entryStream >> std::get_time(&timeStruct, "%Y-%m-%dT%H:%M:%S"))
-    {
-        curTs = std::mktime(&timeStruct);
-    }
-    // If the timestamp isn't unique, increment the index
-    if (curTs == prevTs)
-    {
-        index++;
-    }
-    else
-    {
-        // Otherwise, reset it
-        index = 0;
-    }
-    // Save the timestamp
-    prevTs = curTs;
-
-    entryID = std::to_string(curTs);
-    if (index > 0)
-    {
-        entryID += "_" + std::to_string(index);
-    }
-    return true;
-}
-
 enum class LogParseError
 {
     success,
@@ -384,6 +345,7 @@ inline void handleSystemsAndManagersLogServiceEventLogLogEntryCollection(
 
     // Oldest logs are in the last file, so start there and loop
     // backwards
+    event_log::UniqueEntryIDState state;
     for (auto it = redfishLogFiles.rbegin(); it < redfishLogFiles.rend(); it++)
     {
         std::ifstream logStream(*it);
@@ -393,15 +355,13 @@ inline void handleSystemsAndManagersLogServiceEventLogLogEntryCollection(
         }
 
         // Reset the unique ID on the first entry
-        bool firstEntry = true;
         while (std::getline(logStream, logEntry))
         {
             std::string idStr;
-            if (!getUniqueEntryID(logEntry, idStr, firstEntry))
+            if (!event_log::getUniqueEntryID(state, logEntry, idStr))
             {
                 continue;
             }
-            firstEntry = false;
 
             nlohmann::json::object_t bmcLogEntry;
             LogParseError status = fillEventLogEntryJson(
@@ -465,6 +425,7 @@ inline void handleSystemsAndManagersLogServiceEventLogEntriesGet(
 
     // Oldest logs are in the last file, so start there and loop
     // backwards
+    event_log::UniqueEntryIDState state;
     for (auto it = redfishLogFiles.rbegin(); it < redfishLogFiles.rend(); it++)
     {
         std::ifstream logStream(*it);
@@ -474,15 +435,13 @@ inline void handleSystemsAndManagersLogServiceEventLogEntriesGet(
         }
 
         // Reset the unique ID on the first entry
-        bool firstEntry = true;
         while (std::getline(logStream, logEntry))
         {
             std::string idStr;
-            if (!getUniqueEntryID(logEntry, idStr, firstEntry))
+            if (!event_log::getUniqueEntryID(state, logEntry, idStr))
             {
                 continue;
             }
-            firstEntry = false;
 
             if (idStr == targetID)
             {
@@ -629,7 +588,15 @@ inline void afterLogEntriesGetManagedObjects(
 {
     if (ec)
     {
-        // TODO Handle for specific error code
+        if (ec.value() == EBADR || ec == boost::system::errc::host_unreachable)
+        {
+            BMCWEB_LOG_DEBUG(
+                "EventLog entry collection unavailable on DBus, returning empty collection: {}",
+                ec);
+            asyncResp->res.jsonValue["Members@odata.count"] = 0;
+            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+            return;
+        }
         BMCWEB_LOG_ERROR("getLogEntriesIfaceData resp_handler got error {}",
                          ec);
         messages::internalError(asyncResp->res);
@@ -804,6 +771,7 @@ inline void dBusEventLogEntryDelete(
     dbus::utility::escapePathForDbus(entryID);
 
     // Process response from Logging service.
+    // ast-grep-ignore: long-lambda
     auto respHandler = [asyncResp,
                         entryID](const boost::system::error_code& ec) {
         BMCWEB_LOG_DEBUG("EventLogEntry (DBus) doDelete callback: Done");
@@ -838,6 +806,7 @@ inline void dBusLogServiceActionsClear(
     BMCWEB_LOG_DEBUG("Do delete all entries.");
 
     // Process response from Logging service.
+    // ast-grep-ignore: long-lambda
     auto respHandler = [asyncResp](const boost::system::error_code& ec) {
         BMCWEB_LOG_DEBUG("doClearLog resp_handler callback: Done");
         if (ec)

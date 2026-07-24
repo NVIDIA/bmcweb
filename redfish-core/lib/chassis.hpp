@@ -58,6 +58,12 @@
 
 namespace redfish
 {
+// Interfaces that support indicator LED functionality
+constexpr std::array<const char*, 3> hasIndicatorLedInterfaces = {
+    "xyz.openbmc_project.Inventory.Item.Chassis",
+    "xyz.openbmc_project.Inventory.Item.Panel",
+    "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
+
 inline chassis::ChassisType translateChassisTypeToRedfish(
     const std::string_view& chassisType)
 {
@@ -203,6 +209,7 @@ inline void getStorageLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", (path / "storage").str,
         "xyz.openbmc_project.Association", "endpoints",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& storageList) {
             if (ec)
@@ -367,6 +374,7 @@ inline void handlePhysicalSecurityGetSubTree(
             dbus::utility::getProperty<std::string>(
                 service.first, object.first,
                 "xyz.openbmc_project.Chassis.Intrusion", "Status",
+                // ast-grep-ignore: long-lambda
                 [asyncResp](const boost::system::error_code& ec1,
                             const std::string& value) {
                     if (ec1)
@@ -525,6 +533,7 @@ inline void getChassisLocationCode(
     dbus::utility::getProperty<std::string>(
         connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
             if (ec)
@@ -770,6 +779,7 @@ inline void handleChassisGetSubTree(
 
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
+            // ast-grep-ignore: long-lambda
             [asyncResp, chassisId](const boost::system::error_code& ec3,
                                    const dbus::utility::MapperEndPoints& resp) {
                 if (ec3 || resp.empty())
@@ -1172,12 +1182,8 @@ inline void handleChassisPatch(
                 const std::vector<std::string>& interfaces3 =
                     connectionNames[0].second;
 
-                const std::array<const char*, 3> hasIndicatorLed = {
-                    "xyz.openbmc_project.Inventory.Item.Chassis",
-                    "xyz.openbmc_project.Inventory.Item.Panel",
-                    "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
                 bool indicatorChassis = false;
-                for (const char* interface : hasIndicatorLed)
+                for (const char* interface : hasIndicatorLedInterfaces)
                 {
                     if (std::ranges::find(interfaces3, interface) !=
                         interfaces3.end())
@@ -1279,6 +1285,7 @@ inline void doChassisPowerCycle(
     // Use mapper to get subtree paths.
     dbus::utility::getSubTreePaths(
         "/", 0, interfaces,
+        // ast-grep-ignore: long-lambda
         [asyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& chassisList) {

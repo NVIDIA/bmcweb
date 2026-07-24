@@ -14,6 +14,7 @@
 #include "nvidia_cables.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/asset_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 
@@ -108,8 +109,9 @@ inline void fillCableHealthState(
     const std::string& cableObjectPath, const std::string& service)
 {
     dbus::utility::getProperty<bool>(
-        service, cableObjectPath, "xyz.openbmc_project.Inventory.Item",
-        "Present",
+        *crow::connections::systemBus, service, cableObjectPath,
+        "xyz.openbmc_project.Inventory.Item", "Present",
+        // ast-grep-ignore: long-lambda
         [asyncResp,
          cableObjectPath](const boost::system::error_code& ec, bool present) {
             handleCablePresence(asyncResp, cableObjectPath, ec, present);
@@ -139,6 +141,12 @@ inline void getCableProperties(
                 dbus::utility::getAllProperties(
                     service, cableObjectPath, interface,
                     std::bind_front(fillCableProperties, asyncResp));
+            }
+            else if (interface ==
+                     "xyz.openbmc_project.Inventory.Decorator.Asset")
+            {
+                asset_utils::getAssetInfo(asyncResp, service, cableObjectPath,
+                                          ""_json_pointer, false, true);
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {

@@ -146,9 +146,9 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
                 "/LogServices/"
                 "EventLog/Entries/",
             "v1_15_0", std::to_string(entry.Id), "Manager Event Log Entry",
-            (entry.Timestamp == 0) ? ""
-                                   : redfish::time_utils::getDateTimeStdtime(
-                                         static_cast<time_t>(entry.Timestamp)),
+            (entry.Timestamp == 0)
+                ? ""
+                : redfish::time_utils::getDateTimeUint(entry.Timestamp),
             messageId, messageArgs,
             (entry.Resolution == nullptr) ? "" : *entry.Resolution,
             entry.Resolved, (entry.Id == 0) ? "" : std::to_string(entry.Id), "",

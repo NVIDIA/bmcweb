@@ -149,7 +149,7 @@ TEST(http_connection, RequestPropogates)
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
     auto conn = std::make_shared<HTTP2Connection<TestStream, FakeHandler>>(
         boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
-        &handler, date, HttpType::HTTP, nullptr);
+        &handler, date, HttpType::HTTP, nullptr, boost::asio::ip::address());
     conn->start();
 
     std::array<std::string_view, 9> expectedPrefix = {
@@ -267,7 +267,7 @@ TEST(http_connection, AuthFailedCallsHandler)
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
     auto conn = std::make_shared<HTTP2Connection<TestStream, FakeHandler>>(
         boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
-        &handler, date, HttpType::HTTP, nullptr);
+        &handler, date, HttpType::HTTP, nullptr, boost::asio::ip::address());
     conn->start();
 
     // Settings/window prefix shared with RequestPropogates (first 8 elements)

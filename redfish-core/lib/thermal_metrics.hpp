@@ -182,6 +182,7 @@ inline void handleThermalMetricsHead(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
+        // ast-grep-ignore: long-lambda
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
             if (!validChassisPath)

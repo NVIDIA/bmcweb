@@ -155,7 +155,6 @@ int runWebserver()
 
     bmcweb::registerUserRemovedSignal();
     bmcweb::registerUserPropertiesChangedSignal();
-
     bmcweb::ServiceWatchdog watchdog;
 
     app.run();

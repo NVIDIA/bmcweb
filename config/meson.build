@@ -205,6 +205,7 @@ string_options = [
     'rfa-hmc-update-target',
     'tls-cacert-path',
     'update-service-image-location',
+    'tls-profile',
 ]
 
 int_options = [

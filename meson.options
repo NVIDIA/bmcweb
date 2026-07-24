@@ -40,7 +40,7 @@ option(
 # if you use this option and are seeing this comment, please comment here:
 # https://github.com/openbmc/bmcweb/issues/188 and put forward your intentions
 # for this code.  At this point, no daemon has been upstreamed that implements
-# this interface, so for the moment this appears to be dead code;  In leiu of
+# this interface, so for the moment this appears to be dead code;  In lieu of
 # removing it, it has been disabled to try to give those that use it the
 # opportunity to upstream their backend implementation
 #option(
@@ -123,7 +123,7 @@ option(
     type: 'feature',
     value: 'disabled',
     description: '''Enable CPU log service transactions through Redfish. Paths
-                    are under /redfish/v1/Systems/system/LogServices/Crashdump'.''',
+                    are under /redfish/v1/Systems/system/LogServices/Crashdump.''',
 )
 
 # BMCWEB_REDFISH_DUMP_LOG
@@ -599,6 +599,22 @@ option(
                     index.''',
 )
 # end additional ports
+
+# BMCWEB_TLS_PROFILE
+option(
+    'tls-profile',
+    type: 'combo',
+    choices: ['modern', 'intermediate'],
+    value: 'modern',
+    description: '''Selects the Mozilla TLS configuration profile applied to
+                    the server and outbound client TLS contexts.  See
+                    https://ssl-config.mozilla.org/ for the underlying
+                    guidelines.
+                    - intermediate: TLS 1.2 + TLS 1.3, the Mozilla
+                      intermediate cipher set.  Broad compatibility.
+                    - modern: TLS 1.3 only, Mozilla modern cipher suites.
+                      Rejects clients that cannot negotiate TLS 1.3.''',
+)
 
 # BMCWEB_DNS_RESOLVER
 option(

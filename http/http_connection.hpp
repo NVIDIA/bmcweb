@@ -16,6 +16,7 @@
 #include "logging.hpp"
 #include "mutual_tls.hpp"
 #include "nvidia_persistent_data.hpp"
+#include "ossl_wrappers.hpp"
 #include "sessions.hpp"
 #include "str_utility.hpp"
 #include "utility.hpp"
@@ -169,7 +170,7 @@ class Connection :
     {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Couldn't detect ssl ", ec);
+            BMCWEB_LOG_WARNING("Couldn't detect ssl ", ec);
             return;
         }
         BMCWEB_LOG_DEBUG("{} TLS was detected as {}", logPtr(this), isTls);
@@ -208,10 +209,12 @@ class Connection :
     {
         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
                          connectionCount);
+        readClientIp();
         if (connectionCount >= 200)
         {
-            BMCWEB_LOG_CRITICAL("{}Max connection count exceeded.",
-                                logPtr(this));
+            BMCWEB_LOG_CRITICAL("{} Max connection count exceeded. Request {}",
+                                logPtr(this), ip.to_string());
+
             return;
         }
 
@@ -226,7 +229,6 @@ class Connection :
 
         startDeadline(DeadlineTimerType::Default);
 
-        readClientIp();
         boost::beast::async_detect_ssl(
             adaptor.next_layer(), buffer,
             std::bind_front(&self_type::afterDetectSsl, this,
@@ -240,7 +242,7 @@ class Connection :
         buffer.consume(bytesParsed);
         if (ec)
         {
-            BMCWEB_LOG_ERROR("{} SSL handshake failed", logPtr(this));
+            BMCWEB_LOG_WARNING("{} SSL handshake failed", logPtr(this));
             return;
         }
         BMCWEB_LOG_DEBUG("{} SSL handshake succeeded", logPtr(this));
@@ -250,7 +252,9 @@ class Connection :
             BMCWEB_LOG_DEBUG(
                 "{} Establishing mTLS session after handshake, session reused: {}",
                 logPtr(this), SSL_session_reused(adaptor.native_handle()) != 0);
-            mtlsSession = verifyMtlsUser(ip, adaptor.native_handle());
+
+            OpenSSLSSL ssl(adaptor.native_handle());
+            mtlsSession = verifyMtlsUser(ip, ssl);
             if (mtlsSession != nullptr)
             {
                 BMCWEB_LOG_DEBUG("{} Generated TLS session: {}", logPtr(this),
@@ -302,7 +306,7 @@ class Connection :
     {
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
             std::move(adaptor), handler, getCachedDateStr, httpType,
-            mtlsSession);
+            mtlsSession, ip);
         if (http2settings.empty())
         {
             http2->start();

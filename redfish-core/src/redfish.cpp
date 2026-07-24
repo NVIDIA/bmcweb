@@ -189,6 +189,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesSystemDumpService(app);
         requestRoutesSystemDumpEntryCollection(app);
         requestRoutesSystemDumpEntry(app);
+        requestRoutesSystemDumpEntryDownload(app);
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
@@ -196,7 +197,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesBMCDumpEntryCollection(app);
         requestRoutesBMCDumpEntry(app);
         requestRoutesBMCDumpEntryDownload(app);
-        requestRoutesSystemDumpEntryDownload(app);
         requestRoutesBMCDumpCreate(app);
         requestRoutesBMCDumpClear(app);
     }

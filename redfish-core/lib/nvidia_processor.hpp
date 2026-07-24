@@ -3796,7 +3796,8 @@ inline void patchEccMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
 inline void patchSpeedConfigIfRequested(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objectPath, const MapperServiceMap& serviceMap,
+    const std::string& objectPath,
+    const processor_utils::MapperServiceMap& serviceMap,
     const std::string& processorId, const std::optional<int>& speedLimit,
     const std::optional<bool>& speedLocked)
 {
@@ -3820,7 +3821,7 @@ inline void patchSpeedConfigIfRequested(
 inline void patchOperatingSpeedRangeIfRequested(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath,
-    [[maybe_unused]] const MapperServiceMap& serviceMap,
+    [[maybe_unused]] const processor_utils::MapperServiceMap& serviceMap,
     const std::string& processorId,
     const std::optional<nlohmann::json>& operatingSpeedRangeMHzObject)
 {
@@ -3859,7 +3860,8 @@ inline void patchOperatingSpeedRangeIfRequested(
 inline void patchMigModeIfPresent(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, const std::string& objectPath,
-    const MapperServiceMap& serviceMap, const std::optional<bool>& migMode)
+    const processor_utils::MapperServiceMap& serviceMap,
+    const std::optional<bool>& migMode)
 {
     if (!migMode)
     {
@@ -3873,7 +3875,7 @@ inline void patchMigModeIfPresent(
 inline void patchRemoteDebugIfPresent(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, const std::string& objectPath,
-    [[maybe_unused]] const MapperServiceMap& serviceMap,
+    [[maybe_unused]] const processor_utils::MapperServiceMap& serviceMap,
     const std::optional<bool>& remoteDebugEnabled)
 {
     if (!remoteDebugEnabled)
@@ -3907,7 +3909,8 @@ inline void patchReconfigPermissionsIfPresent(
 
 inline void handleNvidiaOemIfRequested(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objectPath, const MapperServiceMap& serviceMap,
+    const std::string& objectPath,
+    const processor_utils::MapperServiceMap& serviceMap,
     const std::string& processorId,
     const std::optional<nlohmann::json>& oemObject)
 {

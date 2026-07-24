@@ -2,15 +2,11 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include <openssl/crypto.h>
+#include "ossl_wrappers.hpp"
 
 #include <string>
 #include <string_view>
 
-std::string getCommonNameFromCert(X509* cert);
-
-std::string getUPNFromCert(X509* peerCert, std::string_view hostname);
-
-std::string getUsernameFromCert(X509* cert);
+std::string getUPNFromCert(OpenSSLX509& peerCert, std::string_view hostname);
 
 bool isUPNMatch(std::string_view upn, std::string_view hostname);

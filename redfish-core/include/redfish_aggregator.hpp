@@ -840,7 +840,8 @@ class RedfishAggregator
             return;
         }
 
-        const boost::urls::segments_view urlSegments = thisReq.url().segments();
+        const boost::urls::url_view thisReqUrl = thisReq.url();
+        const boost::urls::segments_view urlSegments = thisReqUrl.segments();
         boost::urls::url currentUrl("/");
         boost::urls::segments_view::const_iterator it = urlSegments.begin();
         boost::urls::segments_view::const_iterator end = urlSegments.end();
@@ -897,7 +898,8 @@ class RedfishAggregator
             return;
         }
 
-        const boost::urls::segments_view urlSegments = thisReq.url().segments();
+        const boost::urls::url_view thisReqUrl = thisReq.url();
+        const boost::urls::segments_view urlSegments = thisReqUrl.segments();
         boost::urls::url currentUrl("/");
         boost::urls::segments_view::iterator it = urlSegments.begin();
         boost::urls::segments_view::iterator end = urlSegments.end();

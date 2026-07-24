@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "async_resp.hpp"
-#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/control.hpp"
 #include "generated/enums/sensor.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
@@ -15,7 +17,9 @@
 #include "registries/privilege_registry.hpp"
 #include "str_utility.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/fan_utils.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/sensor_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -25,15 +29,15 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
-#include <utils/dbus_utils.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 #include <utils/environment_util.hpp>
-#include <utils/json_utils.hpp>
 #include <utils/processor_utils.hpp>
 
 #include <array>
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -43,6 +47,18 @@
 
 namespace redfish
 {
+
+void getPowerLimitWatts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const boost::system::error_code& ec,
+                        const std::string& service,
+                        const std::string& controlPath);
+
+void getPowerCapObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath,
+    const std::function<void(const boost::system::error_code& ec,
+                             const std::string& service,
+                             const std::string& controlPath)>& callback);
 
 inline void afterGetPowerWatts(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -277,6 +293,78 @@ inline void getFanSpeedsPercent(
         std::bind_front(afterGetFanSpeedsPercent, asyncResp, chassisId));
 }
 
+inline void setPowerCapControlMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& controlMode, const std::string& service,
+    const std::string& controlPath)
+{
+    BMCWEB_LOG_DEBUG("setPowerCapControlMode: {}", controlPath);
+
+    bool powerCapEnable = false;
+
+    if (controlMode == "Disabled")
+    {
+        powerCapEnable = false;
+    }
+    else if (controlMode == "Automatic")
+    {
+        powerCapEnable = true;
+    }
+    else
+    {
+        BMCWEB_LOG_WARNING("Power Control Mode does not support this mode : {}",
+                           controlMode);
+        messages::propertyValueNotInList(asyncResp->res, controlMode,
+                                         "ControlMode");
+        return;
+    }
+
+    setDbusProperty(asyncResp, "ControlMode", service, controlPath,
+                    "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
+                    powerCapEnable);
+}
+
+inline void setPowerLimitWatts(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<uint32_t>& setPoint,
+    const std::optional<std::string>& controlMode,
+    const boost::system::error_code& ec, const std::string& service,
+    const std::string& controlPath)
+{
+    BMCWEB_LOG_DEBUG("setPowerLimitWatts: {}", controlPath);
+
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            messages::propertyUnknown(asyncResp->res, "PowerLimitWatts");
+            return;
+        }
+
+        BMCWEB_LOG_ERROR("D-Bus response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (service.empty() || controlPath.empty())
+    {
+        messages::propertyUnknown(asyncResp->res, "PowerLimitWatts");
+        return;
+    }
+
+    if (setPoint)
+    {
+        setDbusProperty(asyncResp, "SetPoint", service, controlPath,
+                        "xyz.openbmc_project.Control.Power.Cap", "PowerCap",
+                        *setPoint);
+    }
+
+    if (controlMode)
+    {
+        setPowerCapControlMode(asyncResp, *controlMode, service, controlPath);
+    }
+}
+
 inline void handleEnvironmentMetricsHead(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -287,6 +375,7 @@ inline void handleEnvironmentMetricsHead(
         return;
     }
 
+    // ast-grep-ignore: long-lambda
     auto respHandler = [asyncResp, chassisId](
                            const std::optional<std::string>& validChassisPath) {
         if (!validChassisPath)
@@ -349,6 +438,354 @@ inline void handleEnvironmentMetricsGet(
         std::bind_front(doEnvironmentMetricsGet, asyncResp, chassisId));
 }
 
+inline void afterGetPowerLimitWatts(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error for Power.Cap: {}", ec);
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    const uint32_t* defaultPowerCap = nullptr;
+    const uint32_t* maxPowerCapValue = nullptr;
+    const uint32_t* minPowerCapValue = nullptr;
+    const uint32_t* powerCap = nullptr;
+    const bool* powerCapEnable = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "DefaultPowerCap",
+        defaultPowerCap, "MaxPowerCapValue", maxPowerCapValue,
+        "MinPowerCapValue", minPowerCapValue, "PowerCap", powerCap,
+        "PowerCapEnable", powerCapEnable);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    nlohmann::json::object_t powerLimit;
+
+    constexpr uint32_t invalidPowerCapValue =
+        std::numeric_limits<uint32_t>::max();
+
+    if (maxPowerCapValue != nullptr)
+    {
+        powerLimit["AllowableMax"] = *maxPowerCapValue;
+    }
+
+    if (minPowerCapValue != nullptr)
+    {
+        powerLimit["AllowableMin"] = *minPowerCapValue;
+    }
+
+    if (powerCapEnable != nullptr)
+    {
+        if (*powerCapEnable)
+        {
+            powerLimit["ControlMode"] = control::ControlMode::Automatic;
+        }
+        else
+        {
+            powerLimit["ControlMode"] = control::ControlMode::Disabled;
+        }
+    }
+
+    if (defaultPowerCap != nullptr && *defaultPowerCap != invalidPowerCapValue)
+    {
+        powerLimit["DefaultSetPoint"] = *defaultPowerCap;
+    }
+
+    if (powerCap != nullptr)
+    {
+        if (*powerCap == invalidPowerCapValue)
+        {
+            powerLimit["SetPoint"] = nullptr;
+        }
+        else
+        {
+            powerLimit["SetPoint"] = *powerCap;
+        }
+    }
+
+    asyncResp->res.jsonValue["PowerLimitWatts"] = std::move(powerLimit);
+}
+
+inline void getPowerLimitWatts(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& service,
+    const std::string& controlPath)
+{
+    BMCWEB_LOG_DEBUG("getPowerLimitWatts: {}", controlPath);
+
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("D-Bus response error {}", ec);
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    if (service.empty() || controlPath.empty())
+    {
+        BMCWEB_LOG_DEBUG("No Power.Cap control object");
+        return;
+    }
+
+    dbus::utility::getAllProperties(
+        service, controlPath, "xyz.openbmc_project.Control.Power.Cap",
+        std::bind_front(afterGetPowerLimitWatts, asyncResp));
+}
+
+inline void afterGetPowerCapObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<void(const boost::system::error_code& ec,
+                             const std::string& service,
+                             const std::string& controlPath)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec || subtree.empty())
+    {
+        callback(ec, {}, {});
+        return;
+    }
+
+    if (subtree.size() > 1)
+    {
+        BMCWEB_LOG_ERROR(
+            "More than one Power.Cap control in controlled_by association");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const auto& [controlPath, serviceMap] = subtree.front();
+    callback(ec, serviceMap.begin()->first, controlPath);
+}
+
+inline void getPowerCapObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath,
+    const std::function<void(const boost::system::error_code& ec,
+                             const std::string& service,
+                             const std::string& controlPath)>& callback)
+{
+    BMCWEB_LOG_DEBUG("getPowerCapObject: {}", objectPath);
+
+    sdbusplus::object_path associationPath(objectPath);
+    associationPath /= "controlled_by";
+    constexpr std::array<std::string_view, 1> powerCapInterface = {
+        "xyz.openbmc_project.Control.Power.Cap"};
+    dbus::utility::getAssociatedSubTree(
+        associationPath, sdbusplus::object_path("/xyz/openbmc_project/control"),
+        0, powerCapInterface,
+        std::bind_front(afterGetPowerCapObject, asyncResp, callback));
+}
+
+inline void populateProcessorEnvMetricsBody(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath)
+{
+    asyncResp->res.addHeader(
+        boost::beast::http::field::link,
+        "</redfish/v1/JsonSchemas/EnvironmentMetrics/EnvironmentMetrics.json>; rel=describedby");
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#EnvironmentMetrics.v1_3_0.EnvironmentMetrics";
+    asyncResp->res.jsonValue["Name"] = "Processor Environment Metrics";
+    asyncResp->res.jsonValue["Id"] = "EnvironmentMetrics";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Processors/{}/EnvironmentMetrics",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
+
+    getPowerCapObject(asyncResp, objectPath,
+                      std::bind_front(getPowerLimitWatts, asyncResp));
+}
+
+inline void handleProcessorEnvMetricsSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId,
+    const std::function<void(const std::string& objectPath)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        sdbusplus::object_path path(objectPath);
+        if (path.filename() != processorId)
+        {
+            continue;
+        }
+
+        callback(objectPath);
+        return;
+    }
+
+    messages::resourceNotFound(asyncResp->res, "Processor", processorId);
+}
+
+inline void getProcessorForEnvMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId,
+    std::function<void(const std::string& objectPath)>&& callback)
+{
+    BMCWEB_LOG_DEBUG("getProcessorForEnvMetrics: {}", processorId);
+
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "xyz.openbmc_project.Inventory.Item.Accelerator"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        std::bind_front(handleProcessorEnvMetricsSubtree, asyncResp,
+                        processorId, std::move(callback)));
+}
+
+inline void handleProcessorEnvironmentMetricsHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& processorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        // Option currently returns no systems. TBD
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    getProcessorForEnvMetrics(
+        asyncResp, processorId, [asyncResp](const std::string& /*objectPath*/) {
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/EnvironmentMetrics/EnvironmentMetrics.json>; rel=describedby");
+        });
+}
+
+inline void handleProcessorEnvironmentMetricsGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& processorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        // Option currently returns no systems. TBD
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    getProcessorForEnvMetrics(asyncResp, processorId,
+                              std::bind_front(populateProcessorEnvMetricsBody,
+                                              asyncResp, processorId));
+}
+
+inline void doEnvironmentMetricsPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::optional<uint32_t>& setPoint,
+    const std::optional<std::string>& controlMode,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    if (setPoint || controlMode)
+    {
+        getPowerCapObject(asyncResp, *validChassisPath,
+                          std::bind_front(setPowerLimitWatts, asyncResp,
+                                          setPoint, controlMode));
+    }
+}
+
+inline void handleProcessorEnvironmentMetricsPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& processorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    {
+        // Option currently returns no systems. TBD
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    std::optional<uint32_t> setPoint;
+    std::optional<std::string> controlMode;
+    if (!json_util::readJsonPatch(                      //
+            req, asyncResp->res,                        //
+            "PowerLimitWatts/ControlMode", controlMode, //
+            "PowerLimitWatts/SetPoint", setPoint        //
+            ))
+    {
+        return;
+    }
+
+    if (!setPoint && !controlMode)
+    {
+        return;
+    }
+
+    getProcessorForEnvMetrics(
+        asyncResp, processorId,
+        [asyncResp, setPoint, controlMode](const std::string& objectPath) {
+            getPowerCapObject(asyncResp, objectPath,
+                              std::bind_front(setPowerLimitWatts, asyncResp,
+                                              setPoint, controlMode));
+        });
+}
+
 inline void requestRoutesEnvironmentMetrics(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/")
@@ -360,6 +797,13 @@ inline void requestRoutesEnvironmentMetrics(App& app)
         .privileges(redfish::privileges::getEnvironmentMetrics)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleEnvironmentMetricsGet, std::ref(app)));
+
+    // Use patchChassis (ConfigureComponents) instead of patchEnvironmentMetrics
+    // (ConfigureManager) to preserve downstream privilege behavior
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/")
+        .privileges(redfish::privileges::patchChassis)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleEnvironmentMetricsPatch, std::ref(app)));
 }
 
 } // namespace redfish

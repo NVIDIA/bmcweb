@@ -21,14 +21,16 @@
 #include "utils/collection.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/system/result.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
@@ -68,15 +70,15 @@ constexpr std::array<std::string_view, 2> processorInterfaces = {
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getProcessorUUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                             const std::string& service,
-                             const std::string& objPath)
+inline void getProcessorUUID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor UUID");
     dbus::utility::getProperty<std::string>(
         service, objPath, "xyz.openbmc_project.Common.UUID", "UUID",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec, const std::string& property) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -233,38 +235,42 @@ inline void getCpuDataByInterface(
     }
 }
 
+inline void afterGetCpuDataByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& objPath,
+    const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& dbusData)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Id"] = cpuId;
+    asyncResp->res.jsonValue["Name"] = "Processor";
+    asyncResp->res.jsonValue["ProcessorType"] = processor::ProcessorType::CPU;
+
+    for (const auto& object : dbusData)
+    {
+        if (object.first.str == objPath)
+        {
+            getCpuDataByInterface(asyncResp, object.second);
+        }
+    }
+}
+
 inline void getCpuDataByService(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system cpu resources by service.");
 
     sdbusplus::object_path path("/xyz/openbmc_project/inventory");
     dbus::utility::getManagedObjects(
         service, path,
-        [cpuId, service, objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::ManagedObjectType& dbusData) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Id"] = cpuId;
-            asyncResp->res.jsonValue["Name"] = "Processor";
-            asyncResp->res.jsonValue["ProcessorType"] =
-                processor::ProcessorType::CPU;
-
-            for (const auto& object : dbusData)
-            {
-                if (object.first.str == objPath)
-                {
-                    getCpuDataByInterface(asyncResp, object.second);
-                }
-            }
-            return;
-        });
+        std::bind_front(afterGetCpuDataByService, asyncResp, cpuId, objPath));
 }
 
 /**
@@ -359,129 +365,265 @@ inline void getThrottleProperties(
         });
 }
 
-inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+inline void afterGetCpuAssetData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const std::string* serialNumber = nullptr;
+    const std::string* model = nullptr;
+    const std::string* manufacturer = nullptr;
+    const std::string* partNumber = nullptr;
+    const std::string* sparePartNumber = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "SerialNumber",
+        serialNumber, "Model", model, "Manufacturer", manufacturer,
+        "PartNumber", partNumber, "SparePartNumber", sparePartNumber);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (serialNumber != nullptr && !serialNumber->empty())
+    {
+        asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+    }
+
+    if ((model != nullptr) && !model->empty())
+    {
+        asyncResp->res.jsonValue["Model"] = *model;
+    }
+
+    if (manufacturer != nullptr)
+    {
+        asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+
+        // Otherwise would be unexpected.
+        if (manufacturer->contains("Intel"))
+        {
+            asyncResp->res.jsonValue["ProcessorArchitecture"] = "x86";
+            asyncResp->res.jsonValue["InstructionSet"] = "x86-64";
+        }
+        else if (manufacturer->contains("IBM"))
+        {
+            asyncResp->res.jsonValue["ProcessorArchitecture"] = "Power";
+            asyncResp->res.jsonValue["InstructionSet"] = "PowerISA";
+        }
+        else if (manufacturer->contains("Ampere"))
+        {
+            asyncResp->res.jsonValue["ProcessorArchitecture"] = "ARM";
+            asyncResp->res.jsonValue["InstructionSet"] = "ARM-A64";
+        }
+    }
+
+    if (partNumber != nullptr)
+    {
+        asyncResp->res.jsonValue["PartNumber"] = *partNumber;
+    }
+
+    if (sparePartNumber != nullptr && !sparePartNumber->empty())
+    {
+        asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
+    }
+}
+
+inline void getCpuAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service,
                             const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu Asset Data");
     dbus::utility::getAllProperties(
         service, objPath, "xyz.openbmc_project.Inventory.Decorator.Asset",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            const std::string* serialNumber = nullptr;
-            const std::string* model = nullptr;
-            const std::string* manufacturer = nullptr;
-            const std::string* partNumber = nullptr;
-            const std::string* sparePartNumber = nullptr;
-
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties, "SerialNumber",
-                serialNumber, "Model", model, "Manufacturer", manufacturer,
-                "PartNumber", partNumber, "SparePartNumber", sparePartNumber);
-
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            if (serialNumber != nullptr && !serialNumber->empty())
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-            }
-
-            if ((model != nullptr) && !model->empty())
-            {
-                asyncResp->res.jsonValue["Model"] = *model;
-            }
-
-            if (manufacturer != nullptr)
-            {
-                asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
-
-                // Otherwise would be unexpected.
-                if (manufacturer->find("Intel") != std::string::npos)
-                {
-                    asyncResp->res.jsonValue["ProcessorArchitecture"] = "x86";
-                    asyncResp->res.jsonValue["InstructionSet"] = "x86-64";
-                }
-                else if (manufacturer->find("IBM") != std::string::npos)
-                {
-                    asyncResp->res.jsonValue["ProcessorArchitecture"] = "Power";
-                    asyncResp->res.jsonValue["InstructionSet"] = "PowerISA";
-                }
-                else if (manufacturer->find("Ampere") != std::string::npos)
-                {
-                    asyncResp->res.jsonValue["ProcessorArchitecture"] = "ARM";
-                    asyncResp->res.jsonValue["InstructionSet"] = "ARM-A64";
-                }
-            }
-
-            if (partNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-            }
-
-            if (sparePartNumber != nullptr && !sparePartNumber->empty())
-            {
-                asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
-            }
-        });
+        std::bind_front(afterGetCpuAssetData, asyncResp));
 }
 
-inline void getCpuRevisionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                               const std::string& service,
-                               const std::string& objPath)
+inline void afterGetCpuRevisionData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const std::string* version = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "Version", version);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (version != nullptr)
+    {
+        asyncResp->res.jsonValue["Version"] = *version;
+    }
+}
+
+inline void getCpuRevisionData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu Revision Data");
     dbus::utility::getAllProperties(
         service, objPath, "xyz.openbmc_project.Inventory.Decorator.Revision",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
+        std::bind_front(afterGetCpuRevisionData, asyncResp));
+}
 
-            const std::string* version = nullptr;
+inline void afterGetAcceleratorDataByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& acceleratorId, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
 
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties, "Version",
-                version);
+    const bool* functional = nullptr;
+    const bool* present = nullptr;
 
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "Functional", functional,
+        "Present", present);
 
-            if (version != nullptr)
-            {
-                asyncResp->res.jsonValue["Version"] = *version;
-            }
-        });
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    std::string state = "Enabled";
+    std::string health = "OK";
+
+    if (present != nullptr && !*present)
+    {
+        state = "Absent";
+    }
+
+    if (functional != nullptr && !*functional)
+    {
+        if (state == "Enabled")
+        {
+            health = "Critical";
+        }
+    }
+
+    asyncResp->res.jsonValue["Id"] = acceleratorId;
+    asyncResp->res.jsonValue["Name"] = "Processor";
+    asyncResp->res.jsonValue["Status"]["State"] = state;
+    asyncResp->res.jsonValue["Status"]["Health"] = health;
+    asyncResp->res.jsonValue["ProcessorType"] =
+        processor::ProcessorType::Accelerator;
+}
+
+inline void afterGetProcessorFirmwareVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& version)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            // Software.Version not present on this object
+            BMCWEB_LOG_DEBUG("No Version property to report");
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (version.empty())
+    {
+        return;
+    }
+    asyncResp->res.jsonValue["FirmwareVersion"] = version;
+}
+
+inline void afterGetProcessorFirmwareVersionSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            // No "ran_on" association — processor has no firmware to report
+            BMCWEB_LOG_DEBUG("No firmware association for processor");
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (subtree.empty())
+    {
+        // Association resolves to no Software.Version object
+        return;
+    }
+    if (subtree.size() > 1)
+    {
+        BMCWEB_LOG_ERROR("Processor maps to more than one firmware object");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const auto& [softwarePath, serviceMap] = subtree.front();
+    if (serviceMap.empty())
+    {
+        BMCWEB_LOG_ERROR("No service owns {}", softwarePath);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const std::string& service = serviceMap.front().first;
+    dbus::utility::getProperty<std::string>(
+        service, softwarePath, "xyz.openbmc_project.Software.Version",
+        "Version",
+        std::bind_front(afterGetProcessorFirmwareVersion, asyncResp));
+}
+
+inline void getProcessorFirmwareVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorPath)
+{
+    BMCWEB_LOG_DEBUG("Get Processor Firmware Version");
+    constexpr std::array<std::string_view, 1> softwareIfaces = {
+        "xyz.openbmc_project.Software.Version"};
+    dbus::utility::getAssociatedSubTree(
+        sdbusplus::object_path(processorPath) / "ran_on",
+        sdbusplus::object_path("/xyz/openbmc_project/software"), 0,
+        softwareIfaces,
+        std::bind_front(afterGetProcessorFirmwareVersionSubTree, asyncResp));
 }
 
 inline void getAcceleratorDataByService(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& acclrtrId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& acceleratorId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
 
     dbus::utility::getAllProperties(
         service, objPath, "",
-        [acclrtrId, asyncResp{std::move(asyncResp)}](
+        [acceleratorId, asyncResp{asyncResp}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -526,7 +668,7 @@ inline void getAcceleratorDataByService(
                 }
             }
 
-            asyncResp->res.jsonValue["Id"] = acclrtrId;
+            asyncResp->res.jsonValue["Id"] = acceleratorId;
             asyncResp->res.jsonValue["Name"] = "Processor";
             asyncResp->res.jsonValue["Status"]["State"] = state;
             asyncResp->res.jsonValue["Status"]["Health"] = health;
@@ -583,6 +725,92 @@ inline void highSpeedCoreIdsHandler(
     }
 }
 
+inline void afterGetCpuConfigData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    nlohmann::json& json = asyncResp->res.jsonValue;
+
+    const sdbusplus::object_path* appliedConfig = nullptr;
+    const bool* baseSpeedPriorityEnabled = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "AppliedConfig",
+        appliedConfig, "BaseSpeedPriorityEnabled", baseSpeedPriorityEnabled);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (appliedConfig != nullptr)
+    {
+        const std::string& dbusPath = appliedConfig->str;
+        nlohmann::json::object_t operatingConfig;
+        operatingConfig["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuId);
+        json["OperatingConfigs"] = std::move(operatingConfig);
+
+        // Reuse the D-Bus config object name for the Redfish
+        // URI
+        size_t baseNamePos = dbusPath.rfind('/');
+        if (baseNamePos == std::string::npos ||
+            baseNamePos == (dbusPath.size() - 1))
+        {
+            // If the AppliedConfig was somehow not a valid path,
+            // skip adding any more properties, since everything
+            // else is tied to this applied config.
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        nlohmann::json::object_t appliedOperatingConfig;
+        appliedOperatingConfig["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs/{}",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuId,
+            dbusPath.substr(baseNamePos + 1));
+        json["AppliedOperatingConfig"] = std::move(appliedOperatingConfig);
+
+        // Once we found the current applied config, queue another
+        // request to read the base freq core ids out of that
+        // config.
+        dbus::utility::getProperty<BaseSpeedPrioritySettingsProperty>(
+            service, dbusPath,
+            "xyz.openbmc_project.Inventory.Item.Cpu."
+            "OperatingConfig",
+            "BaseSpeedPrioritySettings",
+            // ast-grep-ignore: long-lambda
+            [asyncResp](
+                const boost::system::error_code& ec2,
+                const BaseSpeedPrioritySettingsProperty& baseSpeedList) {
+                if (ec2)
+                {
+                    BMCWEB_LOG_WARNING("D-Bus Property Get error: {}", ec2);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                highSpeedCoreIdsHandler(asyncResp, baseSpeedList);
+            });
+    }
+
+    if (baseSpeedPriorityEnabled != nullptr)
+    {
+        json["BaseSpeedPriorityState"] =
+            *baseSpeedPriorityEnabled ? "Enabled" : "Disabled";
+    }
+}
+
 /**
  * Fill out OperatingConfig related items in a Processor resource by requesting
  * data from the given D-Bus object.
@@ -603,90 +831,21 @@ inline void getCpuConfigData(
     dbus::utility::getAllProperties(
         service, objPath,
         "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-        [asyncResp, cpuId,
-         service](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
+        std::bind_front(afterGetCpuConfigData, asyncResp, cpuId, service));
+}
 
-            nlohmann::json& json = asyncResp->res.jsonValue;
-
-            const sdbusplus::object_path* appliedConfig = nullptr;
-            const bool* baseSpeedPriorityEnabled = nullptr;
-
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties, "AppliedConfig",
-                appliedConfig, "BaseSpeedPriorityEnabled",
-                baseSpeedPriorityEnabled);
-
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            if (appliedConfig != nullptr)
-            {
-                const std::string& dbusPath = appliedConfig->str;
-                nlohmann::json::object_t operatingConfig;
-                operatingConfig["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuId);
-                json["OperatingConfigs"] = std::move(operatingConfig);
-
-                // Reuse the D-Bus config object name for the Redfish
-                // URI
-                size_t baseNamePos = dbusPath.rfind('/');
-                if (baseNamePos == std::string::npos ||
-                    baseNamePos == (dbusPath.size() - 1))
-                {
-                    // If the AppliedConfig was somehow not a valid path,
-                    // skip adding any more properties, since everything
-                    // else is tied to this applied config.
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                nlohmann::json::object_t appliedOperatingConfig;
-                appliedOperatingConfig["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs/{}",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuId,
-                    dbusPath.substr(baseNamePos + 1));
-                json["AppliedOperatingConfig"] =
-                    std::move(appliedOperatingConfig);
-
-                // Once we found the current applied config, queue another
-                // request to read the base freq core ids out of that
-                // config.
-                dbus::utility::getProperty<BaseSpeedPrioritySettingsProperty>(
-                    service, dbusPath,
-                    "xyz.openbmc_project.Inventory.Item.Cpu."
-                    "OperatingConfig",
-                    "BaseSpeedPrioritySettings",
-                    [asyncResp](const boost::system::error_code& ec2,
-                                const BaseSpeedPrioritySettingsProperty&
-                                    baseSpeedList) {
-                        if (ec2)
-                        {
-                            BMCWEB_LOG_WARNING("D-Bus Property Get error: {}",
-                                               ec2);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        highSpeedCoreIdsHandler(asyncResp, baseSpeedList);
-                    });
-            }
-
-            if (baseSpeedPriorityEnabled != nullptr)
-            {
-                json["BaseSpeedPriorityState"] =
-                    *baseSpeedPriorityEnabled ? "Enabled" : "Disabled";
-            }
-        });
+inline void afterGetProcessorLocationCode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& property)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
+        property;
 }
 
 /**
@@ -697,27 +856,15 @@ inline void getCpuConfigData(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                               const std::string& service,
-                               const std::string& objPath)
+inline void getProcessorLocationCode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
-    BMCWEB_LOG_DEBUG("Get Cpu Location Data");
+    BMCWEB_LOG_DEBUG("Get Processor Location Code");
     dbus::utility::getProperty<std::string>(
         service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec, const std::string& property) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            asyncResp->res
-                .jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
-                property;
-        });
+        std::bind_front(afterGetProcessorLocationCode, asyncResp));
 }
 
 /**
@@ -737,7 +884,9 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         service, objectPath,
         "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
         "UniqueIdentifier",
-        [asyncResp](boost::system::error_code ec, const std::string& id) {
+        // ast-grep-ignore: long-lambda
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& id) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to read cpu unique id: {}", ec);
@@ -747,6 +896,53 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             asyncResp->res
                 .jsonValue["ProcessorId"]["ProtectedIdentificationNumber"] = id;
         });
+}
+
+inline void afterGetAssociatedSubTreeForEnvMetricsLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            BMCWEB_LOG_DEBUG("No controlled_by association for processor");
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBUS response error for getAssociatedSubTree: {}",
+                         ec);
+        return;
+    }
+
+    if (subtree.empty())
+    {
+        BMCWEB_LOG_DEBUG("No Power.Cap control found for processor");
+        return;
+    }
+
+    asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
+        boost::urls::format(
+            "/redfish/v1/Systems/{}/Processors/{}/EnvironmentMetrics",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
+}
+
+inline void getEnvironmentMetricsLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath)
+{
+    BMCWEB_LOG_DEBUG("getEnvironmentMetricsLink: {}", objectPath);
+
+    sdbusplus::object_path associationPath(objectPath);
+    associationPath /= "controlled_by";
+    constexpr std::array<std::string_view, 1> powerCapInterface = {
+        "xyz.openbmc_project.Control.Power.Cap"};
+
+    dbus::utility::getAssociatedSubTree(
+        associationPath, sdbusplus::object_path("/xyz/openbmc_project/control"),
+        0, powerCapInterface,
+        std::bind_front(afterGetAssociatedSubTreeForEnvMetricsLink, asyncResp,
+                        processorId));
 }
 
 inline void handleProcessorSubtree(
@@ -896,7 +1092,7 @@ inline void getProcessorData(
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.LocationCode")
             {
-                getCpuLocationCode(asyncResp, serviceName, objectPath);
+                getProcessorLocationCode(asyncResp, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Common.UUID")
             {
@@ -914,6 +1110,8 @@ inline void getProcessorData(
             else if (interface == "xyz.openbmc_project.Association.Definitions")
             {
                 getLocationIndicatorActive(asyncResp, objectPath);
+                getEnvironmentMetricsLink(asyncResp, processorId, objectPath);
+                getProcessorFirmwareVersion(asyncResp, objectPath);
             }
             // Nvidia Added Code Start
             else if (interface ==

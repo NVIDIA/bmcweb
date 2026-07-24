@@ -230,7 +230,6 @@ inline JsonParseResult parseRequestAsJson(const crow::Request& req,
     std::optional<nlohmann::json> obj = parseStringAsJson(req.body());
     if (!obj)
     {
-        BMCWEB_LOG_WARNING("Failed to parse json in request");
         return JsonParseResult::BadJsonData;
     }
 

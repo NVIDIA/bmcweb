@@ -83,10 +83,12 @@ class HTTP2Connection :
     HTTP2Connection(
         boost::asio::ssl::stream<Adaptor>&& adaptorIn, Handler* handlerIn,
         std::function<std::string()>& getCachedDateStrF, HttpType httpTypeIn,
-        const std::shared_ptr<persistent_data::UserSession>& mtlsSessionIn) :
+        const std::shared_ptr<persistent_data::UserSession>& mtlsSessionIn,
+        boost::asio::ip::address ipIn) :
         httpType(httpTypeIn), adaptor(std::move(adaptorIn)),
         ngSession(initializeNghttp2Session()), handler(handlerIn),
-        getCachedDateStr(getCachedDateStrF), mtlsSession(mtlsSessionIn)
+        ip(std::move(ipIn)), getCachedDateStr(getCachedDateStrF),
+        mtlsSession(mtlsSessionIn)
     {}
 
     void start()
@@ -430,6 +432,7 @@ class HTTP2Connection :
         Response& thisRes = it->second.res;
 
         thisRes.setCompleteRequestHandler(
+            // ast-grep-ignore: long-lambda
             [weakSelf = weak_from_this(), streamId](Response& completeRes) {
                 BMCWEB_LOG_DEBUG("res.completeRequestHandler called");
                 if (auto self = weakSelf.lock(); self)
@@ -451,10 +454,10 @@ class HTTP2Connection :
         }
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
-            thisReq.session = crow::authentication::authenticate(
+            thisReq.session = authentication::authenticate(
                 ip, asyncResp->res, thisReq.method(), thisReq.req, mtlsSession);
-            if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
-                                                     thisReq.method()) &&
+            if (!authentication::isOnAllowlist(thisReq.url().path(),
+                                               thisReq.method()) &&
                 thisReq.session == nullptr)
             {
                 BMCWEB_LOG_WARNING("Authentication failed");
@@ -475,6 +478,7 @@ class HTTP2Connection :
         {
             asyncResp->res.setExpectedEtag(expectedEtag);
         }
+        it->second.req->ipAddress = ip;
         handler->handle(it->second.req, asyncResp);
         return 0;
     }

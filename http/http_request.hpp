@@ -16,9 +16,7 @@
 #include <boost/url/url_view.hpp>
 
 #include <memory>
-// Nvidia code starts here
 #include <optional>
-// Nvidia code ends here
 #include <string>
 #include <string_view>
 #include <system_error>

@@ -250,10 +250,12 @@ if get_option('shmem-platform-metrics').enabled()
     bmcweb_dependencies += nvtal
 endif
 
-zstd = dependency('libzstd', required: get_option('http-zstd').allowed())
-if zstd.found()
-    add_project_arguments('-DHAVE_ZSTD', language: 'cpp')
-    bmcweb_dependencies += zstd
+if get_option('http-zstd').allowed()
+    zstd = dependency('libzstd', required: get_option('http-zstd').enabled())
+    if zstd.found()
+        add_project_arguments('-DHAVE_ZSTD', language: 'cpp')
+        bmcweb_dependencies += zstd
+    endif
 endif
 
 nghttp2 = dependency('libnghttp2', version: '>=1.66.0', required: false)

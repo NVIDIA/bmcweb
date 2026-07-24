@@ -21,13 +21,26 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <ctime>
 #include <functional>
 #include <memory>
 #include <utility>
 
 namespace redfish
 {
+
+inline void setTelemetryServiceStaticAttributes(nlohmann::json& json)
+{
+    json["@odata.type"] = "#TelemetryService.v1_2_1.TelemetryService";
+    json["@odata.id"] = "/redfish/v1/TelemetryService";
+    json["Id"] = "TelemetryService";
+    json["Name"] = "Telemetry Service";
+
+    json["MetricReportDefinitions"]["@odata.id"] =
+        "/redfish/v1/TelemetryService/MetricReportDefinitions";
+    json["MetricReports"]["@odata.id"] =
+        "/redfish/v1/TelemetryService/MetricReports";
+    json["Triggers"]["@odata.id"] = "/redfish/v1/TelemetryService/Triggers";
+}
 
 inline void handleTelemetryServiceGet(
     crow::App& app, const crow::Request& req,
@@ -63,6 +76,7 @@ inline void handleTelemetryServiceGet(
     dbus::utility::getAllProperties(
         telemetry::service, "/xyz/openbmc_project/Telemetry/Reports",
         "xyz.openbmc_project.Telemetry.ReportManager",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& ret) {
             if (ec == boost::system::errc::host_unreachable)
@@ -101,9 +115,9 @@ inline void handleTelemetryServiceGet(
 
             if (minInterval != nullptr)
             {
+                std::chrono::milliseconds minIntervalMs(*minInterval);
                 asyncResp->res.jsonValue["MinCollectionInterval"] =
-                    time_utils::toDurationString(std::chrono::milliseconds(
-                        static_cast<time_t>(*minInterval)));
+                    time_utils::toDurationString(minIntervalMs);
             }
             nlohmann::json::array_t supportedCollectionFunctions;
             supportedCollectionFunctions.emplace_back("Maximum");

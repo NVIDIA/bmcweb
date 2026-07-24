@@ -128,6 +128,7 @@ void getEthernetIfaceData(CallbackFunc&& callback)
     sdbusplus::object_path path("/xyz/openbmc_project/network");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Network", path,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<CallbackFunc>(callback)](
             const boost::system::error_code& ec,
             const dbus::utility::ManagedObjectType& dbusData) {
@@ -414,6 +415,7 @@ inline void handleNTPServersPatch(
         "xyz.openbmc_project.Network.EthernetInterface"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, ethInterfaces,
+        // ast-grep-ignore: long-lambda
         [asyncResp, currentNtpServers](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -484,8 +486,10 @@ inline void handleProtocolEnabled(
                         entry.first,
                         "xyz.openbmc_project.Control.Service.Attributes",
                         "Enabled", protocolEnabled);
+                    return;
                 }
             }
+            messages::propertyNotWritable(asyncResp->res, redfishProperty);
         });
 }
 
@@ -623,10 +627,9 @@ inline void handleManagersNetworkProtocolPatch(
         else
         {
             asyncResp->res.result(boost::beast::http::status::bad_request);
-            messages::addMessageToJson(
+            messages::addMessageToJsonRoot(
                 asyncResp->res.jsonValue,
-                messages::propertyNotWritable("SSH/ProtocolEnabled"),
-                "SSH/ProtocolEnabled");
+                messages::propertyNotWritable("SSH/ProtocolEnabled"));
             return;
         }
     }

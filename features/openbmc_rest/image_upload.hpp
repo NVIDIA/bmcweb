@@ -33,7 +33,7 @@ namespace image_upload
 {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
+static std::unique_ptr<sdbusplus::match> fwUpdateMatcher;
 
 inline void uploadImageHandler(
     const crow::Request& req,
@@ -52,6 +52,7 @@ inline void uploadImageHandler(
 
     timeout.expires_after(std::chrono::seconds(15));
 
+    // ast-grep-ignore: long-lambda
     auto timeoutHandler = [asyncResp](const boost::system::error_code& ec) {
         fwUpdateMatcher = nullptr;
         if (ec == boost::asio::error::operation_aborted)
@@ -75,6 +76,7 @@ inline void uploadImageHandler(
     };
 
     std::function<void(sdbusplus::message_t&)> callback =
+        // ast-grep-ignore: long-lambda
         [asyncResp](sdbusplus::message_t& m) {
             BMCWEB_LOG_DEBUG("Match fired");
 
@@ -100,7 +102,7 @@ inline void uploadImageHandler(
                 fwUpdateMatcher = nullptr;
             }
         };
-    fwUpdateMatcher = std::make_unique<sdbusplus::bus::match_t>(
+    fwUpdateMatcher = std::make_unique<sdbusplus::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',path='/xyz/openbmc_project/software'",

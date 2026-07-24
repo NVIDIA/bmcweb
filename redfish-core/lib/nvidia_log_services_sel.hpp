@@ -318,8 +318,9 @@ inline void populateRedfishSELEntry(
                 "/LogServices/"
                 "SEL/Entries/",
             "v1_13_0", std::to_string(*id), "System Event Log Entry",
-            redfish::time_utils::getDateTimeStdtime(timestamp), messageId,
-            messageArgs, *resolution, resolved,
+            redfish::time_utils::getDateTimeUint(
+                static_cast<uint64_t>(timestamp)),
+            messageId, messageArgs, *resolution, resolved,
             (eventId == nullptr) ? "" : *eventId, deviceName, *severity);
         thisEntry["EntryType"] = "SEL";
     }
@@ -350,10 +351,10 @@ inline void populateRedfishSELEntry(
         thisEntry["Resolved"] = resolved;
         thisEntry["EntryType"] = "SEL";
         thisEntry["Severity"] = translateSeverityDbusToRedfish(*severity);
-        thisEntry["Created"] =
-            redfish::time_utils::getDateTimeStdtime(timestamp);
-        thisEntry["Modified"] =
-            redfish::time_utils::getDateTimeStdtime(updateTimestamp);
+        thisEntry["Created"] = redfish::time_utils::getDateTimeUint(
+            static_cast<uint64_t>(timestamp));
+        thisEntry["Modified"] = redfish::time_utils::getDateTimeUint(
+            static_cast<uint64_t>(updateTimestamp));
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             if ((eventId != nullptr && !eventId->empty()) ||

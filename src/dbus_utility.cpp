@@ -94,6 +94,7 @@ void getSubTreePaths(
                        const MapperGetSubTreePathsResponse&)>&& callback)
 {
     dbus::utility::async_method_call(
+        // ast-grep-ignore: long-lambda
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
@@ -140,6 +141,7 @@ void getAssociatedSubTreePaths(
                        const MapperGetSubTreePathsResponse&)>&& callback)
 {
     dbus::utility::async_method_call(
+        // ast-grep-ignore: long-lambda
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
@@ -188,6 +190,7 @@ void getAssociatedSubTreePathsById(
                        const MapperGetSubTreePathsResponse&)>&& callback)
 {
     dbus::utility::async_method_call(
+        // ast-grep-ignore: long-lambda
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {

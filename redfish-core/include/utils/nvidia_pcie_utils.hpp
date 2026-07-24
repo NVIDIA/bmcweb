@@ -18,6 +18,8 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
+#include <utils/conditions_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 
 #include <algorithm>
 #include <cstdint>

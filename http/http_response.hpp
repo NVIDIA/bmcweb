@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -70,7 +71,14 @@ struct Response
     // Adds a header, allowing duplicates
     void addHeader(std::string_view key, std::string_view value)
     {
-        fields().insert(key, value);
+        boost::system::error_code ec;
+
+        fields().insert(boost::beast::http::string_to_field(key), key, value,
+                        ec);
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to set header {}", ec.message());
+        }
     }
 
     // Adds a header, allowing duplicates
@@ -189,6 +197,12 @@ struct Response
     std::string_view getHeaderValue(boost::beast::http::field key) const
     {
         return fields()[key];
+    }
+
+    std::size_t headerCount() const
+    {
+        return static_cast<std::size_t>(
+            std::distance(fields().begin(), fields().end()));
     }
 
     void keepAlive(bool k)

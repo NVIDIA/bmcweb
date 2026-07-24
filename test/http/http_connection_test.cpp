@@ -56,9 +56,7 @@ struct FakeHandler
                   "openbmc_project.xyz");
         EXPECT_FALSE(req->keepAlive());
         EXPECT_EQ(req->version(), 11);
-        // Nvidia code starts here
         EXPECT_EQ(req->body(), "Hello, World!");
-        // Nvidia code ends here
 
         called = true;
     }
@@ -101,13 +99,11 @@ TEST(http_connection, RequestPropogates)
     stream.connect(out);
 
     out.write_some(boost::asio::buffer(
-        // Nvidia code starts here
         "GET / HTTP/1.1\r\n"
         "Host: openbmc_project.xyz\r\n"
         "Connection: close\r\n"
         "Content-Length: 13\r\n\r\n"
         "Hello, World!"));
-    // Nvidia code ends here
     FakeHandler handler;
     boost::asio::steady_timer timer(io);
     std::function<std::string()> date(

@@ -12,9 +12,6 @@
 #include "logging.hpp"
 #include "ssl_key_handler.hpp"
 
-#include <openssl/err.h>
-#include <openssl/tls1.h>
-
 #include <boost/asio/connect.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
@@ -22,6 +19,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
+#include <boost/asio/ssl/host_name_verification.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -219,10 +217,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
         boost::asio::ip::tcp::endpoint end(addr, host.port_number());
-        // Nvidia code starts here
         Resolver::results_type ip = Resolver::results_type::create(
             end, host.host_address(), host.port());
-        // Nvidia code ends here
         afterResolve(shared_from_this(), boost::system::error_code(), ip);
     }
 
@@ -763,27 +759,44 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
 
-        if (host.host_type() != boost::urls::host_type::name)
-        {
-            // Avoid setting SNI hostname if its IP address
-            return;
-        }
-        // Create a null terminated string for SSL
         std::string hostname(host.encoded_host_address());
-        if (SSL_set_tlsext_host_name(sslConn->native_handle(),
-                                     hostname.data()) == 0)
 
+        // SNI is only defined for DNS names (RFC 6066)
+        if (host.host_type() == boost::urls::host_type::name)
         {
-            boost::beast::error_code ec{static_cast<int>(::ERR_get_error()),
-                                        boost::asio::error::get_ssl_category()};
+            if (SSL_set_tlsext_host_name(sslConn->native_handle(),
+                                         hostname.data()) == 0)
+            {
+                boost::beast::error_code ec{
+                    static_cast<int>(::ERR_get_error()),
+                    boost::asio::error::get_ssl_category()};
 
-            BMCWEB_LOG_ERROR("SSL_set_tlsext_host_name {}, id: {} failed: {}",
-                             host, connId, ec.message());
-            // Set state as sslInit failed so that we close the connection
-            // and take appropriate action as per retry configuration.
-            state = ConnState::sslInitFailed;
-            waitAndRetry();
-            return;
+                BMCWEB_LOG_ERROR(
+                    "SSL_set_tlsext_host_name {}, id: {} failed: {}", host,
+                    connId, ec.message());
+                state = ConnState::sslInitFailed;
+                waitAndRetry();
+                return;
+            }
+        }
+
+        // Verify the peer certificate matches the destination hostname.
+        // Without this, verify_peer only checks the chain up to a
+        // trusted CA but not whether the cert was issued for this host,
+        // allowing MITM with any CA-signed certificate.
+        if (verifyCert != ensuressl::VerifyCertificate::NoVerify)
+        {
+            boost::system::error_code ec;
+            sslConn->set_verify_callback(
+                boost::asio::ssl::host_name_verification(hostname), ec);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("set_verify_callback {}, id: {} failed: {}",
+                                 host, connId, ec.message());
+                state = ConnState::sslInitFailed;
+                waitAndRetry();
+                return;
+            }
         }
     }
 
@@ -870,12 +883,17 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     {
         if (connId >= connections.size())
         {
-            BMCWEB_LOG_ERROR("sendNext() bad connection id (out of range) :{}",
-                             std::to_string(connId));
+            BMCWEB_LOG_ERROR("Invalid connId: {} (size: {})", connId,
+                             connections.size());
             return;
         }
 
         auto conn = connections[connId];
+        if (!conn)
+        {
+            BMCWEB_LOG_ERROR("Connection at index {} is null", connId);
+            return;
+        }
 
         // Allow the connection's handler to be deleted
         // This is needed because of Redfish Aggregation passing an
@@ -995,10 +1013,6 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
                               const std::function<void(Response&)>& resHandler,
                               bool keepAlive, uint32_t connId, Response& res)
     {
-        // Allow provided callback to perform additional processing of the
-        // request
-        resHandler(res);
-
         // If requests remain in the queue then we want to reuse this
         // connection to send the next request
         std::shared_ptr<ConnectionPool> self = weakSelf.lock();
@@ -1008,6 +1022,10 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
                                 logPtr(self.get()));
             return;
         }
+
+        // Allow provided callback to perform additional processing of the
+        // request
+        resHandler(res);
 
         self->sendNext(keepAlive, connId);
     }

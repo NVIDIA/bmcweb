@@ -40,7 +40,6 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
-#include <ctime>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -158,9 +157,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                            const std::shared_ptr<TaskData>&)>&& handler,
         const std::string& matchIn, size_t idx) :
         callback(std::move(handler)), matchStr(matchIn), index(idx),
-        startTime(std::chrono::system_clock::to_time_t(
-            std::chrono::system_clock::now())),
-        status("OK"), state("Running"), messages(nlohmann::json::array()),
+        startTime(std::chrono::system_clock::now()), status("OK"),
+        state("Running"), messages(nlohmann::json::array()),
         timer(crow::connections::systemBus->get_io_context())
 
     {}
@@ -334,8 +332,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             return;
         }
-        endTime = std::chrono::system_clock::to_time_t(
-            std::chrono::system_clock::now());
+        endTime = std::chrono::system_clock::now();
         // nvidia code
         setTaskStatus();
     }
@@ -344,6 +341,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     {
         timer.expires_after(timeout);
         timer.async_wait(
+            // ast-grep-ignore: long-lambda
             [self = shared_from_this()](boost::system::error_code ec) {
                 if (ec == boost::asio::error::operation_aborted)
                 {
@@ -432,12 +430,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             return;
         }
-
         if (matchStr != "0")
         {
-            match = std::make_unique<sdbusplus::bus::match_t>(
+            match = std::make_unique<sdbusplus::match>(
                 static_cast<sdbusplus::bus_t&>(*crow::connections::systemBus),
                 matchStr,
+                // ast-grep-ignore: long-lambda
                 [self = shared_from_this()](sdbusplus::message_t& message) {
                     boost::system::error_code ec;
 
@@ -508,13 +506,13 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         callback;
     std::string matchStr;
     size_t index;
-    time_t startTime;
+    std::chrono::system_clock::time_point startTime;
     std::string status;
     std::string state;
     nlohmann::json messages;
     boost::asio::steady_timer timer;
-    std::unique_ptr<sdbusplus::bus::match_t> match;
-    std::optional<time_t> endTime;
+    std::unique_ptr<sdbusplus::match> match;
+    std::optional<std::chrono::system_clock::time_point> endTime;
     std::optional<Payload> payload;
     bool taskComplete = false;
     bool gave204 = false;
@@ -529,6 +527,7 @@ inline void requestRoutesTaskMonitor(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>/")
         .privileges(redfish::privileges::getTask)
         .methods(boost::beast::http::verb::get)(
+            // ast-grep-ignore: long-lambda
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
@@ -600,6 +599,7 @@ inline void requestRoutesTask(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
         .privileges(redfish::privileges::getTask)
         .methods(boost::beast::http::verb::get)(
+            // ast-grep-ignore: long-lambda
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
@@ -681,6 +681,7 @@ inline void requestRoutesTaskCollection(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/")
         .privileges(redfish::privileges::getTaskCollection)
         .methods(boost::beast::http::verb::get)(
+            // ast-grep-ignore: long-lambda
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -720,6 +721,7 @@ inline void requestRoutesTaskService(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/")
         .privileges(redfish::privileges::getTaskService)
         .methods(boost::beast::http::verb::get)(
+            // ast-grep-ignore: long-lambda
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))

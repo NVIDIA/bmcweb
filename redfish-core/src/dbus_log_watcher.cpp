@@ -14,7 +14,6 @@
 #include "telemetry_readings.hpp"
 #include "utils/dbus_event_log_entry.hpp"
 #include "utils/dbus_log_utils.hpp"
-#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
@@ -133,10 +132,12 @@ static void onDbusEventLogCreated(sdbusplus::message_t& msg)
     }
 }
 
-const std::string propertiesMatchString(
-    "type='signal', "
-    "member='InterfacesAdded', "
-    "path_namespace='/xyz/openbmc_project/logging'");
+const std::string propertiesMatchString =
+    sdbusplus::match_rules::type::signal() +
+    sdbusplus::match_rules::sender("xyz.openbmc_project.Logging") +
+    sdbusplus::match_rules::interface("org.freedesktop.DBus.ObjectManager") +
+    sdbusplus::match_rules::path("/xyz/openbmc_project/logging") +
+    sdbusplus::match_rules::member("InterfacesAdded");
 
 DbusEventLogMonitor::DbusEventLogMonitor() :
     dbusEventLogMonitor(*crow::connections::systemBus, propertiesMatchString,
@@ -309,8 +310,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
 
     if (entry.Timestamp != 0)
     {
-        timestamp = redfish::time_utils::getDateTimeStdtime(
-            redfish::time_utils::getTimestamp(entry.Timestamp));
+        timestamp = redfish::time_utils::getDateTimeUint(entry.Timestamp);
     }
 
     NvEvent event(messageId);

@@ -38,14 +38,6 @@ inline void handleEnvironmentMetricsPatch(
         req, asyncResp, chassisId);
 }
 
-inline void requestRoutesEnvironmentMetricsPatch(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/")
-        .privileges(redfish::privileges::patchChassis)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(handleEnvironmentMetricsPatch, std::ref(app)));
-}
-
 inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/Actions/Oem"

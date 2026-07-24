@@ -69,7 +69,7 @@ namespace redfish
 namespace message_registries
 {
 
-static void generateMessageRegistry(
+inline void generateMessageRegistry(
     nlohmann::json& logEntry,
     const std::string& odataId, /* e.g. /redfish/v1/Systems/system/LogServices/"
                                   "EventLog/Entries/ */
@@ -955,7 +955,8 @@ inline void extendSystemLogServicesGet(
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LatestEntryID"] =
                 std::to_string(std::get<0>(reqData));
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LatestEntryTimeStamp"] =
-                redfish::time_utils::getDateTimeStdtime(lastTimeStamp);
+                redfish::time_utils::getDateTimeUint(
+                    static_cast<uint64_t>(lastTimeStamp));
         },
         "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
         "xyz.openbmc_project.Logging.Namespace", "GetStats", "all");
@@ -1239,9 +1240,8 @@ inline void dBusEventLogEntryGetAdditionalInfo(
                 "/LogServices/"
                 "EventLog/Entries/",
             "v1_15_0", std::to_string(entry.Id), "System Event Log Entry",
-            redfish::time_utils::getDateTimeStdtime(
-                redfish::time_utils::getTimestamp(entry.Timestamp)),
-            messageId, messageArgs, *entry.Resolution, entry.Resolved,
+            redfish::time_utils::getDateTimeUint(entry.Timestamp), messageId,
+            messageArgs, *entry.Resolution, entry.Resolved,
             std::to_string(entry.Id), deviceName, entry.Severity);
 
         origin_utils::convertDbusObjectToOriginOfCondition(

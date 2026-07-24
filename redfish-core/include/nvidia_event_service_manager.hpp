@@ -346,8 +346,8 @@ class EventUtil
         int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::system_clock::now().time_since_epoch())
                          .count();
-        std::string timestamp = redfish::time_utils::getDateTimeStdtime(
-            redfish::time_utils::getTimestamp(static_cast<uint64_t>(ms)));
+        std::string timestamp =
+            redfish::time_utils::getDateTimeUintMs(static_cast<uint64_t>(ms));
         event.eventTimestamp = timestamp;
 
         // Set message resource

@@ -152,7 +152,8 @@ inline void handleDeviceServiceConditions(
                             originOfCondition, std::to_string(*id), asyncResp,
                             asyncResp->res.jsonValue, deviceName,
                             (*severity).substr(prefix.length()), messageArgs,
-                            redfish::time_utils::getDateTimeStdtime(timestamp),
+                            redfish::time_utils::getDateTimeUint(
+                                static_cast<uint64_t>(timestamp)),
                             messageId);
                     }
                 }
@@ -270,7 +271,8 @@ inline void handleServiceConditionsURI(
                             originOfCondition, std::to_string(*id), asyncResp,
                             asyncResp->res.jsonValue, deviceName,
                             (*severity).substr(prefix.length()), messageArgs,
-                            redfish::time_utils::getDateTimeStdtime(timestamp),
+                            redfish::time_utils::getDateTimeUint(
+                                static_cast<uint64_t>(timestamp)),
                             messageId);
                     }
                 }

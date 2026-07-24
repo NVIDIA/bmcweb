@@ -12,7 +12,6 @@
 #include <string_view>
 #include <vector>
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace redfish::event_log
@@ -25,7 +24,8 @@ TEST(RedfishEventLog, GetUniqueEntryIDSuccess)
     bool success = false;
     std::string entryID;
     std::string example = "2000-01-02T03:04:05";
-    success = getUniqueEntryID(example, entryID);
+    UniqueEntryIDState state;
+    success = getUniqueEntryID(state, example, entryID);
 
     ASSERT_EQ(success, true);
 
@@ -35,22 +35,16 @@ TEST(RedfishEventLog, GetUniqueEntryIDSuccess)
 
 TEST(RedfishEventLog, GetUniqueEntryIDUnique)
 {
-    bool success = false;
     std::string entryID1;
-    std::string entryID2;
     std::string example = "2000-08-02T03:04:05";
 
-    success = getUniqueEntryID(example, entryID1);
-    ASSERT_EQ(success, true);
-    success = getUniqueEntryID(example, entryID2);
-    ASSERT_EQ(success, true);
+    UniqueEntryIDState state;
+    ASSERT_TRUE(getUniqueEntryID(state, example, entryID1));
+    ASSERT_EQ(entryID1, "965185445");
 
-    // when calling a second time with the same argument
-    // there should be an underscore
-    ASSERT_TRUE(entryID2.contains("_"));
-
-    // only one '_' allowed
-    ASSERT_THAT(entryID2, testing::MatchesRegex("^[0-9]+_[0-9]+$"));
+    std::string entryID2;
+    ASSERT_TRUE(getUniqueEntryID(state, example, entryID2));
+    ASSERT_EQ(entryID2, "965185445_1");
 }
 
 TEST(RedfishEventLog, GetUniqueEntryIDIndex)
@@ -60,9 +54,10 @@ TEST(RedfishEventLog, GetUniqueEntryIDIndex)
     std::string entryID3;
     std::string example = "2000-08-02T03:04:05";
 
-    getUniqueEntryID(example, entryID1);
-    getUniqueEntryID(example, entryID2);
-    getUniqueEntryID(example, entryID3);
+    UniqueEntryIDState state;
+    getUniqueEntryID(state, example, entryID1);
+    getUniqueEntryID(state, example, entryID2);
+    getUniqueEntryID(state, example, entryID3);
 
     const size_t index = entryID2.find('_');
 
@@ -82,6 +77,17 @@ TEST(RedfishEventLog, GetUniqueEntryIDIndex)
 
     // unique index is monotonic increasing
     ASSERT_TRUE(n2 > n1);
+}
+
+TEST(RedfishEventLog, GetUniqueEntryIDWithLogContents)
+{
+    std::string entryID;
+    std::string logEntry =
+        "2000-08-02T03:04:05 OpenBMC.0.1.PowerSupplyFanFailed,PSU 1";
+
+    UniqueEntryIDState state;
+    ASSERT_TRUE(getUniqueEntryID(state, logEntry, entryID));
+    ASSERT_TRUE(entryID.starts_with("965185445"));
 }
 
 TEST(RedfishEventLog, GetEventLogParamsSuccess)

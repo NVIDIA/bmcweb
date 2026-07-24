@@ -91,6 +91,7 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/pressure",
         "/xyz/openbmc_project/sensors/utilization",
         // Nvidia Added sensorPath
+        "/xyz/openbmc_project/sensors/charge",
         "/xyz/openbmc_project/sensors/frequency"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
@@ -286,6 +287,7 @@ void getObjectsWithConnection(
     // Make call to ObjectMapper to find all sensors objects
     dbus::utility::getSubTree(
         path, 2, interfaces,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
          sensorNames](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -448,6 +450,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Get the Chassis Collection
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), asyncResp,
          chassisIdStr{std::string(chassisId)},
          chassisSubNode{std::string(chassisSubNode)},
@@ -491,6 +494,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             // Get the list of all sensors for this Chassis element
             std::string sensorPath = *chassisPath + "/all_sensors";
             dbus::utility::getAssociationEndPoints(
+                // ast-grep-ignore: long-lambda
                 sensorPath, [asyncResp, chassisSubNode, sensorTypes,
                              callback = std::forward<Callback>(callback)](
                                 const boost::system::error_code& ec2,
@@ -552,6 +556,7 @@ inline void populateFanRedundancy(
         "xyz.openbmc_project.Control.FanRedundancy"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/control", 2, interfaces,
+        // ast-grep-ignore: long-lambda
         [sensorsAsyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& resp) {
@@ -573,6 +578,7 @@ inline void populateFanRedundancy(
                 const std::string& owner = objDict.begin()->first;
                 dbus::utility::getAssociationEndPoints(
                     path + "/chassis",
+                    // ast-grep-ignore: long-lambda
                     [path, owner, sensorsAsyncResp](
                         const boost::system::error_code& ec2,
                         const dbus::utility::MapperEndPoints& endpoints) {
@@ -596,6 +602,7 @@ inline void populateFanRedundancy(
                         dbus::utility::getAllProperties(
                             owner, path,
                             "xyz.openbmc_project.Control.FanRedundancy",
+                            // ast-grep-ignore: long-lambda
                             [path, sensorsAsyncResp](
                                 const boost::system::error_code& ec3,
                                 const dbus::utility::DBusPropertiesMap& ret) {
@@ -1043,6 +1050,7 @@ void getInventoryItemsData(
         sdbusplus::object_path path("/xyz/openbmc_project/inventory");
         dbus::utility::getManagedObjects(
             invConnection, path,
+            // ast-grep-ignore: long-lambda
             [sensorsAsyncResp, inventoryItems, invConnections,
              callback = std::forward<Callback>(callback), invConnectionsIndex](
                 const boost::system::error_code& ec,
@@ -1122,6 +1130,7 @@ void getInventoryItemsConnections(
     // Make call to ObjectMapper to find all inventory items
     dbus::utility::getSubTree(
         path, 0, interfaces,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
          inventoryItems](
             const boost::system::error_code& ec,
@@ -1199,6 +1208,7 @@ void getInventoryItemAssociations(
     sdbusplus::object_path path("/");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.ObjectMapper", path,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
          sensorNames](const boost::system::error_code& ec,
                       const dbus::utility::ManagedObjectType& resp) mutable {
@@ -1374,6 +1384,7 @@ void getInventoryLedData(
         const std::string& ledConnection = (*it).second;
         // Response handler for Get State property
         auto respHandler =
+            // ast-grep-ignore: long-lambda
             [sensorsAsyncResp, inventoryItems, ledConnections, ledPath,
              callback = std::forward<Callback>(callback),
              ledConnectionsIndex](const boost::system::error_code& ec,
@@ -1467,6 +1478,7 @@ void getInventoryLeds(
     // Make call to ObjectMapper to find all inventory items
     dbus::utility::getSubTree(
         path, 0, interfaces,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
          inventoryItems](
             const boost::system::error_code& ec,
@@ -1560,6 +1572,7 @@ void getPowerSupplyAttributesData(
     const std::string& psAttributesConnection = (*it).second;
 
     // Response handler for Get DeratingFactor property
+    // ast-grep-ignore: long-lambda
     auto respHandler = [sensorsAsyncResp, inventoryItems,
                         callback = std::forward<Callback>(callback)](
                            const boost::system::error_code& ec,
@@ -1643,6 +1656,7 @@ void getPowerSupplyAttributes(
     // Make call to ObjectMapper to find the PowerSupplyAttributes service
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces,
+        // ast-grep-ignore: long-lambda
         [callback = std::forward<Callback>(callback), sensorsAsyncResp,
          inventoryItems](
             const boost::system::error_code& ec,
@@ -1727,23 +1741,27 @@ inline void getInventoryItems(
 {
     BMCWEB_LOG_DEBUG("getInventoryItems enter");
     auto getInventoryItemAssociationsCb =
+        // ast-grep-ignore: long-lambda
         [sensorsAsyncResp, callback = std::forward<Callback>(callback)](
             const std::shared_ptr<std::vector<InventoryItem>>&
                 inventoryItems) mutable {
             BMCWEB_LOG_DEBUG("getInventoryItemAssociationsCb enter");
             auto getInventoryItemsConnectionsCb =
+                // ast-grep-ignore: long-lambda
                 [sensorsAsyncResp, inventoryItems,
                  callback = std::forward<Callback>(callback)](
                     const std::shared_ptr<std::set<std::string>>&
                         invConnections) mutable {
                     BMCWEB_LOG_DEBUG("getInventoryItemsConnectionsCb enter");
                     auto getInventoryItemsDataCb =
+                        // ast-grep-ignore: long-lambda
                         [sensorsAsyncResp, inventoryItems,
                          callback =
                              std::forward<Callback>(callback)]() mutable {
                             BMCWEB_LOG_DEBUG("getInventoryItemsDataCb enter");
 
                             auto getInventoryLedsCb =
+                                // ast-grep-ignore: long-lambda
                                 [sensorsAsyncResp, inventoryItems,
                                  callback = std::forward<Callback>(
                                      callback)]() mutable {
@@ -1897,6 +1915,7 @@ inline void getSensorData(
         sdbusplus::object_path sensorPath("/xyz/openbmc_project/sensors");
         dbus::utility::getManagedObjects(
             connection, sensorPath,
+            // ast-grep-ignore: long-lambda
             [sensorsAsyncResp, sensorNames,
              inventoryItems](const boost::system::error_code& ec,
                              const dbus::utility::ManagedObjectType& resp) {
@@ -2124,6 +2143,7 @@ inline void processSensorList(
     const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
     const std::shared_ptr<std::set<std::string>>& sensorNames)
 {
+    // ast-grep-ignore: long-lambda
     auto getConnectionCb = [sensorsAsyncResp, sensorNames](
                                const std::set<std::string>& connections) {
         BMCWEB_LOG_DEBUG("getConnectionCb enter");
@@ -2256,6 +2276,7 @@ inline void setSensorsOverride(
         }
     }
 
+    // ast-grep-ignore: long-lambda
     auto getChassisSensorListCb = [sensorAsyncResp, overrideMap,
                                    propertyValueNameStr =
                                        std::string(propertyValueName)](
@@ -2280,6 +2301,7 @@ inline void setSensorsOverride(
             }
         }
         // Get the connection to which the memberId belongs
+        // ast-grep-ignore: long-lambda
         auto getObjectsWithConnectionCb = [sensorAsyncResp, overrideMap,
                                            propertyValueNameStr](
                                               const std::set<
@@ -2470,7 +2492,8 @@ inline void getSensorFromDbus(
     BMCWEB_LOG_DEBUG("Path {}", sensorPath);
 
     ::dbus::utility::getAllProperties(
-        connectionName, sensorPath, "",
+        *crow::connections::systemBus, connectionName, sensorPath, "",
+        // ast-grep-ignore: long-lambda
         [asyncResp,
          sensorPath](const boost::system::error_code& ec,
                      const ::dbus::utility::DBusPropertiesMap& valuesDict) {
@@ -2519,6 +2542,7 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     // and get the path and service name associated with the sensor
     ::dbus::utility::getDbusObject(
         sensorPath, interfaces,
+        // ast-grep-ignore: long-lambda
         [asyncResp, sensorId,
          sensorPath](const boost::system::error_code& ec,
                      const ::dbus::utility::MapperGetObject& subtree) {

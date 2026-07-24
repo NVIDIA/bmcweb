@@ -404,6 +404,7 @@ inline void getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     dbus::utility::getProperty<std::string>(
         connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
             if (ec)
@@ -428,6 +429,7 @@ inline void managerGetLastResetTime(
     dbus::utility::getProperty<uint64_t>(
         "xyz.openbmc_project.State.BMC", "/xyz/openbmc_project/state/bmc0",
         "xyz.openbmc_project.State.BMC", "LastRebootTime",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const uint64_t lastResetTime) {
             if (ec)
@@ -481,6 +483,7 @@ inline void setActiveFirmwareImage(
     sdbusplus::object_path objPath("/xyz/openbmc_project/software");
     dbus::utility::getManagedObjects(
         getBMCUpdateServiceName(), objPath,
+        // ast-grep-ignore: long-lambda
         [asyncResp, firmwareId, runningFirmwareTarget](
             const boost::system::error_code& ec,
             const dbus::utility::ManagedObjectType& subtree) {
@@ -572,7 +575,7 @@ inline void afterSetDateTime(
                 BMCWEB_LOG_DEBUG("Setting conflict");
                 messages::propertyValueConflict(
                     asyncResp->res, "DateTime",
-                    "Managers/NetworkProtocol/NTPProcotolEnabled");
+                    "Managers/NetworkProtocol/NTPProtocolEnabled");
                 return;
             }
         }
@@ -660,6 +663,7 @@ inline void checkForQuiesced(
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1/unit/obmc-bmc-service-quiesce@0.target",
         "org.freedesktop.systemd1.Unit", "ActiveState",
+        // ast-grep-ignore: long-lambda
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& val) {
             if (!ec)
@@ -781,6 +785,20 @@ inline void getManagerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         }
     }
+}
+
+inline void getManagedChassis(
+    const std::string& chassisId,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    asyncResp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] = 1;
+    nlohmann::json::array_t managerForChassis;
+    nlohmann::json::object_t manager;
+    manager["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
+    managerForChassis.emplace_back(std::move(manager));
+    asyncResp->res.jsonValue["Links"]["ManagerForChassis"] =
+        std::move(managerForChassis);
 }
 
 inline void handleManagerGet(
@@ -912,21 +930,7 @@ inline void handleManagerGet(
     managerDiagnosticData["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/ManagerDiagnosticData", managerId);
 
-    getMainChassisId(
-        asyncResp, [](const std::string& chassisId,
-                      const std::shared_ptr<bmcweb::AsyncResp>& aRsp) {
-            aRsp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] = 1;
-            nlohmann::json::array_t managerForChassis;
-            nlohmann::json::object_t managerObj;
-            boost::urls::url chassiUrl =
-                boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-            managerObj["@odata.id"] = chassiUrl;
-            managerForChassis.emplace_back(std::move(managerObj));
-            aRsp->res.jsonValue["Links"]["ManagerForChassis"] =
-                std::move(managerForChassis);
-            aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
-                chassiUrl;
-        });
+    getMainChassisId(asyncResp, std::bind_front(getManagedChassis));
 
     dbus::utility::getProperty<double>(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",

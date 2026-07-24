@@ -417,7 +417,7 @@ TEST(OnHeadersComplete, InvalidApplyTimeReturnsSingleError)
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(
-        ctx->asyncResp->res.jsonValue["ApplyTime@Message.ExtendedInfo"].size(),
+        ctx->asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"].size(),
         1U);
 }
 
@@ -731,7 +731,7 @@ TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
-                  .jsonValue["UpdateFile@Message.ExtendedInfo"][0]["MessageId"],
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
               "Base.1.19.PropertyDuplicate");
 }
 
@@ -838,10 +838,9 @@ TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateParameters)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_FALSE(ctx->stagedUpdateFile);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
-    EXPECT_EQ(
-        ctx->asyncResp->res
-            .jsonValue["UpdateParameters@Message.ExtendedInfo"][0]["MessageId"],
-        "Base.1.19.PropertyDuplicate");
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "Base.1.19.PropertyDuplicate");
 }
 
 TEST(MultipartPartOrder, EmptyUpdateFileFirstCompletesAfterParameters)
