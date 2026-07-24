@@ -2511,63 +2511,64 @@ inline void handleDOTRecoverDOTAction(
 inline void requestRoutesNvidiaOemDOT(App& app)
 {
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT")
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleNvidiaOemTrustedComponentsDOT, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/InstallActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/InstallActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTInstallActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/LockActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/LockActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTLockActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/DisableActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/DisableActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTDisableActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/UnlockActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/UnlockActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTUnlockActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/CAKRotateActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/CAKRotateActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTCAKRotateActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/OverrideActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/OverrideActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTOverrideActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/UnlockChallengeActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/UnlockChallengeActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTUnlockChallengeActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/RecoverDOTActionInfo")
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/RecoverDOTActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDOTRecoverDOTActionInfo, std::ref(app)));
