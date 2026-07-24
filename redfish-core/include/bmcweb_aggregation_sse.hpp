@@ -10,12 +10,16 @@
 #include "sse_connection.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/http/fields.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <chrono>
 #include <cstddef>

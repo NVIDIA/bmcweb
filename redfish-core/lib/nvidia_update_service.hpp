@@ -2116,6 +2116,7 @@ inline void forwardCommitImagePost(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
     if (ec)
     {
         BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
@@ -2123,6 +2124,14 @@ inline void forwardCommitImagePost(
         return;
     }
 
+||||||| constructed merge base
+=======
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
@@ -2343,6 +2352,7 @@ inline void forwardCommitImageActionInfo(
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+<<<<<<< HEAD
     // Something went wrong while querying dbus
     if (ec)
     {
@@ -2351,6 +2361,14 @@ inline void forwardCommitImageActionInfo(
         return;
     }
 
+||||||| constructed merge base
+=======
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        return;
+    }
+>>>>>>> sseAggregator: Add SatMC Config load and refresh logic
     const auto& sat =
         satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
