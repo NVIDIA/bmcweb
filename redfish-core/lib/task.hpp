@@ -356,12 +356,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 }
                 self->match.reset();
                 sdbusplus::message_t msg;
-                self->finishTask();
                 self->state = "Cancelled";
-                self->status = "Warning";
                 self->messages.emplace_back(
                     messages::taskAborted(std::to_string(self->index)));
-                // Send event :TaskAborted
+                // append before finishing so setTaskStatus() sees Critical
+                self->finishTask();
+                // Send event :TaskCancelled
                 sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
             });
