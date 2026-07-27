@@ -217,6 +217,15 @@ inline void vmParseInterfaceObject(
                             *writeProtectedValue;
                     }
                 }
+                if (property == "VerifyCertificate")
+                {
+                    const bool* verifyCertValue = std::get_if<bool>(&value);
+                    if (verifyCertValue != nullptr)
+                    {
+                        asyncResp->res.jsonValue["VerifyCertificate"] =
+                            *verifyCertValue;
+                    }
+                }
             }
         }
         if (interface == "xyz.openbmc_project.VirtualMedia.Process")
@@ -254,7 +263,7 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}", name, resName);
 
-    item["@odata.type"] = "#VirtualMedia.v1_3_0.VirtualMedia";
+    item["@odata.type"] = "#VirtualMedia.v1_4_0.VirtualMedia";
     item["Name"] = "Virtual Removable Media";
     item["Id"] = resName;
     item["WriteProtected"] = true;
@@ -791,6 +800,12 @@ inline void handleManagersVirtualMediaActionInsertPost(
 
                 return;
             }
+            if (getObjectType.empty())
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper returned empty response");
+                messages::resourceNotFound(asyncResp->res, action, resName);
+                return;
+            }
 
             std::string service = getObjectType.begin()->first;
             BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
@@ -862,6 +877,12 @@ inline void handleManagersVirtualMediaActionEject(
 
                 return;
             }
+            if (getObjectType.empty())
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper returned empty response");
+                messages::internalError(asyncResp->res);
+                return;
+            }
             std::string service = getObjectType.begin()->first;
             BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
@@ -931,10 +952,193 @@ inline void handleManagersVirtualMediaCollectionGet(
 
                 return;
             }
+            if (getObjectType.empty())
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper returned empty response");
+                messages::internalError(asyncResp->res);
+                return;
+            }
             std::string service = getObjectType.begin()->first;
             BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
             getVmResourceList(asyncResp, service, name);
+        });
+}
+
+inline void afterSetVerifyCertificate(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    if (ec)
+    {
+        if (ec == boost::system::errc::operation_not_permitted)
+        {
+            messages::propertyNotWritable(asyncResp->res, "VerifyCertificate");
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Failed to set VerifyCertificate: {}", ec);
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+    asyncResp->res.result(boost::beast::http::status::no_content);
+}
+
+inline void doSetVerifyCertificate(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const sdbusplus::message::object_path& objPath,
+    bool verifyCertificate, const dbus::utility::DBusInterfacesMap& interfaces)
+{
+    // A mounted device is not in ReadyState, so the backend rejects the
+    // write without reporting a D-Bus error. Require a definite
+    // Active == false before attempting the write.
+    std::optional<bool> active;
+    for (const auto& [interface, values] : interfaces)
+    {
+        if (interface != "xyz.openbmc_project.VirtualMedia.Process")
+        {
+            continue;
+        }
+        for (const auto& [property, value] : values)
+        {
+            if (property == "Active")
+            {
+                const bool* activeValue = std::get_if<bool>(&value);
+                if (activeValue != nullptr)
+                {
+                    active = *activeValue;
+                }
+            }
+        }
+    }
+    if (!active)
+    {
+        BMCWEB_LOG_ERROR("Active property missing or not a bool on {}",
+                         objPath.str);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (*active)
+    {
+        messages::resourceInUse(asyncResp->res);
+        return;
+    }
+
+    dbus::utility::setProperty(
+        service, objPath.str, "xyz.openbmc_project.VirtualMedia.MountPoint",
+        "VerifyCertificate", verifyCertificate,
+        [asyncResp](const boost::system::error_code& ec) {
+            afterSetVerifyCertificate(asyncResp, ec);
+        });
+}
+
+inline void afterGetVerifyCertificateObjects(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& resName,
+    std::optional<bool> verifyCertificate, const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("GetManagedObjects failed: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    // Scan the whole subtree: a Proxy object may share its id with
+    // a Legacy object and ordering is not stable. Legacy wins.
+    const dbus::utility::ManagedObjectType::value_type* legacy = nullptr;
+    bool proxyFound = false;
+    for (const auto& object : subtree)
+    {
+        VmMode mode = parseObjectPathAndGetMode(object.first, resName);
+        if (mode == VmMode::Legacy && legacy == nullptr)
+        {
+            legacy = &object;
+        }
+        else if (mode == VmMode::Proxy)
+        {
+            proxyFound = true;
+        }
+    }
+
+    if (legacy == nullptr && !proxyFound)
+    {
+        messages::resourceNotFound(asyncResp->res, "VirtualMedia", resName);
+        return;
+    }
+    // Only return success for a no-op after resolving an existing resource.
+    if (!verifyCertificate)
+    {
+        asyncResp->res.result(boost::beast::http::status::no_content);
+        return;
+    }
+    if (legacy != nullptr)
+    {
+        doSetVerifyCertificate(asyncResp, service, legacy->first,
+                               *verifyCertificate, legacy->second);
+        return;
+    }
+    // Proxy devices are websocket connections with no writable
+    // VerifyCertificate property; EjectMedia is their disconnect path.
+    messages::propertyNotWritable(asyncResp->res, "VerifyCertificate");
+}
+
+inline void setVerifyCertificate(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& resName,
+    std::optional<bool> verifyCertificate)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    dbus::utility::getManagedObjects(
+        service, path,
+        std::bind_front(afterGetVerifyCertificateObjects, asyncResp, service,
+                        resName, verifyCertificate));
+}
+
+inline void handleVirtualMediaPatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& name, const std::string& resName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (name != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "VirtualMedia", resName);
+        return;
+    }
+
+    std::optional<bool> verifyCertificate;
+    if (!json_util::readJsonPatch(req, asyncResp->res, //
+                                  "VerifyCertificate", verifyCertificate))
+    {
+        return;
+    }
+
+    dbus::utility::getDbusObject(
+        "/xyz/openbmc_project/VirtualMedia", {},
+        // ast-grep-ignore: long-lambda
+        [asyncResp, resName, verifyCertificate](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& getObjectType) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (getObjectType.empty())
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper returned empty response");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            setVerifyCertificate(asyncResp, getObjectType.begin()->first,
+                                 resName, verifyCertificate);
         });
 }
 
@@ -964,6 +1168,12 @@ inline void handleVirtualMediaGet(
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
                 messages::internalError(asyncResp->res);
 
+                return;
+            }
+            if (getObjectType.empty())
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper returned empty response");
+                messages::internalError(asyncResp->res);
                 return;
             }
             std::string service = getObjectType.begin()->first;
@@ -998,6 +1208,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleVirtualMediaGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+        .privileges(redfish::privileges::patchVirtualMedia)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleVirtualMediaPatch, std::ref(app)));
 }
 
 } // namespace redfish

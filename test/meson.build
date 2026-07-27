@@ -67,6 +67,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/systems_logservices_postcode.cpp',
     'redfish-core/lib/thermal_subsystem_test.cpp',
     'redfish-core/lib/update_service_test.cpp',
+    'redfish-core/lib/virtual_media_test.cpp',
 ) + test_sources
 
 if get_option('nvidia-dot-keyd-support').allowed()
