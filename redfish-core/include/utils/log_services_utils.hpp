@@ -115,7 +115,6 @@ inline void downloadEntryCallback(
                                        bmcweb::EncodingType::Base64))
             {
                 messages::internalError(asyncResp->res);
-                close(fd);
                 return;
             }
             asyncResp->res.addHeader("Content-Transfer-Encoding", "Base64");
@@ -129,7 +128,6 @@ inline void downloadEntryCallback(
                                    bmcweb::EncodingType::Raw))
         {
             messages::internalError(asyncResp->res);
-            close(fd);
             return;
         }
         return;
@@ -138,7 +136,6 @@ inline void downloadEntryCallback(
     if (!asyncResp->res.openFd(DuplicatableFileHandle(fd)))
     {
         messages::internalError(asyncResp->res);
-        close(fd);
         return;
     }
     asyncResp->res.addHeader(boost::beast::http::field::content_type,
