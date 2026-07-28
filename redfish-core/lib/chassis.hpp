@@ -927,8 +927,18 @@ inline void handleChassisGetSubTree(
                 connectionName, path,
                 "xyz.openbmc_project.Inventory.Item.Chassis",
                 [asyncResp](
-                    const boost::system::error_code&,
+                    const boost::system::error_code& ecType,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    if (ecType)
+                    {
+                        // Co-owner without Item.Chassis answers EBADR; skip it.
+                        if (ecType.value() != EBADR)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error {}", ecType);
+                            messages::internalError(asyncResp->res);
+                        }
+                        return;
+                    }
                     handleChassisProperties(asyncResp, propertiesList);
                 });
 
