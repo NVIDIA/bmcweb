@@ -166,6 +166,7 @@ feature_options = [
     'tests',
     'tls-auth-opt-in',
     'use-efficient-expand-on-sensors',
+    'vhmc-host',
     'vm-nbdproxy',
     'vm-websocket',
     'xtoken-auth',

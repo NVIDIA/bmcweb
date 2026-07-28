@@ -505,7 +505,10 @@ inline void getDumpEntryCollection(
 
                 if (dumpType == "BMC")
                 {
-                    thisEntry["DiagnosticDataType"] = "Manager";
+                    // NVIDIA code starts here
+                    setBmcDumpDiagnosticFields(
+                        thisEntry, readBmcDumpAdditionalTypeName(object));
+                    // NVIDIA code ends here
                     thisEntry["AdditionalDataURI"] =
                         entriesPath + entryID + "/attachment";
                     thisEntry["AdditionalDataSizeBytes"] = size;
@@ -678,7 +681,11 @@ inline void getDumpEntryById(
                 // NVIDIA code ends here
                 if (dumpType == "BMC")
                 {
-                    asyncResp->res.jsonValue["DiagnosticDataType"] = "Manager";
+                    // NVIDIA code starts here
+                    setBmcDumpDiagnosticFields(
+                        asyncResp->res.jsonValue,
+                        readBmcDumpAdditionalTypeName(objectPath));
+                    // NVIDIA code ends here
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
                         entriesPath + entryID + "/attachment";
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
@@ -1193,6 +1200,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::optional<std::string> diagnosticDataType;
     std::optional<std::string> oemDiagnosticDataType;
     // NVIDIA code starts here
+    std::string requestedOemDiagnosticDataType;
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
     // NVIDIA code ends here
@@ -1273,7 +1281,18 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 asyncResp->res, "CollectDiagnosticData", "DiagnosticDataType");
             return;
         }
-        if (*diagnosticDataType != "Manager")
+        // NVIDIA code starts here
+        if (BMCWEB_VHMC_HOST && *diagnosticDataType == "OEM")
+        {
+            if (!parseBmcOemDumpRequest(asyncResp, oemDiagnosticDataType,
+                                        createDumpParamVec,
+                                        requestedOemDiagnosticDataType))
+            {
+                return;
+            }
+        }
+        else if (*diagnosticDataType != "Manager")
+        // NVIDIA code ends here
         {
             BMCWEB_LOG_ERROR(
                 "Wrong parameter value passed for 'DiagnosticDataType'");
@@ -1306,7 +1325,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp,
         // NVIDIA code starts here
         [asyncResp, payload(task::Payload(req)), dumpPath,
-         oemDiagnosticDataType](
+         requestedOemDiagnosticDataType](
             // NVIDIA code ends here
             const boost::system::error_code& ec,
             const sdbusplus::message_t& msg,
@@ -1356,9 +1375,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         "xyz.openbmc_project.Common.Error.InvalidArgument") ==
                     dbusError->name)
                 {
-                    messages::propertyValueIncorrect(asyncResp->res,
-                                                     "DiagnosticType",
-                                                     *oemDiagnosticDataType);
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "OEMDiagnosticDataType",
+                        requestedOemDiagnosticDataType);
                     return;
                 }
                 // NVIDIA code ends here
