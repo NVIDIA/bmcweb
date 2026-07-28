@@ -21,6 +21,7 @@
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/file_posix.hpp>
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/none.hpp>
 #include <boost/optional/optional.hpp>
@@ -474,13 +475,6 @@ class HttpBody::writer
                     ec = readEc;
                     return boost::none;
                 }
-                // Nvidia code starts here
-                if (read == 0)
-                {
-                    ec = readEc;
-                    return boost::none;
-                }
-                // Nvidia code ends here
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
@@ -489,7 +483,31 @@ class HttpBody::writer
             fileBytesRead += read;
             // Detect EOF by byte count; pipes can short-read.
             const auto* fb = std::get_if<FileBody>(&body.bodyData);
-            if (fb != nullptr && fb->fileSize)
+            // A zero-length read with no error is a terminal EOF: the pipe
+            // writer closed. Handle it explicitly - fileBytesRead stops
+            // advancing here, so the byte-count check below would report
+            // "more data coming" forever and the serializer would spin on
+            // empty buffers without ever completing the response.
+            // readReq == 0 means the caller asked for nothing, so a zero-length
+            // read carries no EOF information; fall through to the byte-count
+            // check below and let the caller retry.
+            if (read == 0 && readReq > 0)
+            {
+                if (fb != nullptr && fb->fileSize &&
+                    fileBytesRead < *fb->fileSize)
+                {
+                    // Upstream closed before delivering the declared
+                    // Content-Length. Fail the response so the client sees a
+                    // truncated transfer rather than a hung 200.
+                    BMCWEB_LOG_ERROR(
+                        "Upstream closed early: got {} of {} bytes, failing response",
+                        fileBytesRead, *fb->fileSize);
+                    ec = boost::beast::http::error::partial_message;
+                    return boost::none;
+                }
+                ret.second = false;
+            }
+            else if (fb != nullptr && fb->fileSize)
             {
                 ret.second = fileBytesRead < *fb->fileSize;
             }

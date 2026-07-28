@@ -4,6 +4,8 @@
 #include "http_body.hpp"
 
 #include <boost/beast/core/file_base.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 
 #include <array>
@@ -13,6 +15,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -191,6 +194,112 @@ TEST(HttpFileBodyValueType, ClearResetsToString)
     EXPECT_FALSE(value.file().is_open());
     EXPECT_EQ(value.str(), "");
     EXPECT_FALSE(value.streamingReceiver);
+}
+
+// ============================================================
+// Tests from Aishwary Joshi's review comments on MR !8824
+// ============================================================
+
+// BUG-2: writer::getWithMaxSize EAGAIN path
+// -----------------------------------------------------------------
+// The EAGAIN branch in HttpBody::writer::getWithMaxSize() previously contained
+// dead code: after path-B (EAGAIN with read > 0, readEc cleared), an
+// unreachable "if (read == 0)" block would have returned a confusing
+// "no-data, no-error" boost::none. The block has been removed.
+//
+// These two tests confirm:
+//   (a) the live EAGAIN + zero-bytes path (path-A) still propagates ec, and
+//   (b) a normal non-blocking read with data delivers its buffer correctly
+//       after the dead code was removed.
+
+TEST(HttpBodyWriter, EagainOnEmptyNonBlockingPipe_ReturnsNone)
+{
+    // path-A: read() = 0 + EAGAIN → writer must return boost::none with ec.
+    int pipeFds[2];
+    ASSERT_EQ(pipe2(pipeFds, O_NONBLOCK), 0);
+    const int writeFd =
+        pipeFds[1]; // keep write end open to avoid premature EOF
+
+    HttpBody::value_type value;
+    boost::system::error_code ec;
+    value.setFd(DuplicatableFileHandle(pipeFds[0]), ec);
+    ASSERT_FALSE(ec);
+
+    boost::beast::http::header<false> hdr;
+    HttpBody::writer w(hdr, value);
+    boost::beast::error_code writerEc;
+    HttpBody::writer::init(writerEc);
+
+    auto result = w.get(writerEc);
+
+    EXPECT_FALSE(result.has_value());
+    EXPECT_TRUE(
+        writerEc == boost::system::errc::resource_unavailable_try_again ||
+        writerEc == boost::system::errc::operation_would_block);
+
+    close(writeFd);
+}
+
+TEST(HttpBodyWriter, NonBlockingPipeWithData_ReturnsBuffer)
+{
+    // Verifies path-B flow after dead-code removal: a read returning bytes
+    // must surface those bytes to the caller without being discarded.
+    int pipeFds[2];
+    ASSERT_EQ(pipe2(pipeFds, O_NONBLOCK), 0);
+
+    const std::string_view payload = "stream_payload";
+    ASSERT_EQ(::write(pipeFds[1], payload.data(), payload.size()),
+              static_cast<ssize_t>(payload.size()));
+    close(pipeFds[1]); // signal EOF after the payload
+
+    HttpBody::value_type value;
+    boost::system::error_code ec;
+    value.setFd(DuplicatableFileHandle(pipeFds[0]), ec);
+    ASSERT_FALSE(ec);
+
+    boost::beast::http::header<false> hdr;
+    HttpBody::writer w(hdr, value);
+    boost::beast::error_code writerEc;
+
+    auto result = w.get(writerEc);
+
+    ASSERT_FALSE(writerEc);
+    ASSERT_TRUE(result.has_value());
+    auto [buf, more] = *result;
+    EXPECT_EQ(std::string_view(static_cast<const char*>(buf.data()),
+                               buf.size()),
+              payload);
+}
+
+// BUG-3: setFd unconditionally clears ec
+// -----------------------------------------------------------------
+// setFd() always sets ec = {} regardless of what the caller passed in.
+// Consequently openFd() (which calls setFd) can never return false today, and
+// the close(fd) calls on its error paths are stale: the RAII handle already
+// owns the fd and will close it on destruction. This test documents the current
+// behaviour as a regression anchor so that any future change making setFd
+// fallible is immediately visible.
+
+TEST(HttpFileBodyValueType, SetFd_AlwaysClearsPassedInErrorCode)
+{
+    DuplicatableFileHandle temporaryFile("test content");
+    DuplicatableFileHandle fh;
+    boost::system::error_code openEc;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, openEc);
+    ASSERT_FALSE(openEc);
+
+    HttpBody::value_type value;
+    // Pre-load ec with a non-zero error to verify setFd ignores it.
+    boost::system::error_code ec = boost::system::errc::make_error_code(
+        boost::system::errc::permission_denied);
+    ASSERT_TRUE(ec);
+
+    value.setFd(std::move(fh), ec);
+
+    // setFd always sets ec = {} — fstat errors are not propagated upward.
+    EXPECT_FALSE(ec);
+    EXPECT_TRUE(value.file().is_open());
 }
 
 } // namespace

@@ -588,10 +588,9 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             return;
         }
         BMCWEB_LOG_ERROR("afterReadHeader error: {} {}", ec, ec.message());
-        if (callback)
-        {
-            callback(false, connId, res);
-        }
+        timer.cancel();
+        state = ConnState::recvFailed;
+        waitAndRetry();
     }
 
     void readJsonBody()
@@ -817,6 +816,15 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         size_t remaining{streaming->contentLength - streaming->byteCount};
         size_t readLimit{
             std::min(buffer.max_size() - buffer.size(), remaining)};
+        if (readLimit == 0)
+        {
+            // Buffer is full; yield so the write side can drain it.
+            boost::asio::post(
+                sslConn ? sslConn->get_executor() : conn->get_executor(),
+                std::bind_front(&ConnectionInfo::scheduleStreamBodyRead,
+                                shared_from_this()));
+            return;
+        }
         if (sslConn)
         {
             sslConn->async_read_some(
@@ -887,7 +895,14 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         {
             BMCWEB_LOG_ERROR("afterStreamBodyRead upstream error: {} {}", ec,
                              ec.message());
-            flushLastChunkAndClose();
+            // Close write-end without flushing so the client receives a
+            // short EOF it can detect, rather than silently truncated data.
+            auto cb = std::move(streaming->onRelayDone);
+            streaming.reset();
+            if (cb)
+            {
+                cb();
+            }
             return;
         }
         bool hadEof = (ec == boost::asio::error::eof);
