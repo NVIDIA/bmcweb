@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
-<!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.9.0                                       -->
-<!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
-<!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
-<!--################################################################################       -->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.9.0                                                       -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
@@ -539,7 +539,61 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth on this port, expressed in bytes per second."/>
           <Annotation Term="Measures.Unit" String="By/s"/>
         </Property>
+        <Property Name="EarlyHealthIndication" Type="NvidiaPortMetrics.v1_9_0.EarlyHealthIndication">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An early health indication of this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an early health indication of this port."/>
+        </Property>
+        <Property Name="AttentionTriggerReason" Type="NvidiaPortMetrics.v1_9_0.AttentionTriggerReason">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The reason that caused the `EarlyHealthIndication` property to contain the value `Attention`."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the reason that caused the `EarlyHealthIndication` property to contain the value `Attention`.  This property shall be ignored when the `EarlyHealthIndication` property contains a value other than `Attention`."/>
+        </Property>
       </ComplexType>
+      <EnumType Name="EarlyHealthIndication">
+        <Member Name="Healthy">
+          <Annotation Term="OData.Description" String="The link is operating normally."/>
+        </Member>
+        <Member Name="Attention">
+          <Annotation Term="OData.Description" String="The link has detected a health condition and requires attention."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The early health indication is unavailable or not applicable."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="AttentionTriggerReason">
+        <Annotation Term="OData.Description" String="The possible reasons that caused the `EarlyHealthIndication` property to contain the value `Attention`."/>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The trigger reason is unknown or not applicable."/>
+        </Member>
+        <Member Name="RawBER">
+          <Annotation Term="OData.Description" String="The raw bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="EffectiveBER">
+          <Annotation Term="OData.Description" String="The effective bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="SymbolBER">
+          <Annotation Term="OData.Description" String="The symbol bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="PLRTXBandwidthLoss">
+          <Annotation Term="OData.Description" String="PLR transmit bandwidth loss was detected."/>
+        </Member>
+        <Member Name="PLRRXBandwidthLoss">
+          <Annotation Term="OData.Description" String="PLR receive bandwidth loss was detected."/>
+        </Member>
+        <Member Name="RecoveryBandwidthLoss">
+          <Annotation Term="OData.Description" String="Recovery bandwidth loss was detected."/>
+        </Member>
+        <Member Name="PortTotalBandwidthLoss">
+          <Annotation Term="OData.Description" String="Port total bandwidth loss was detected."/>
+        </Member>
+        <Member Name="LinkDownCount">
+          <Annotation Term="OData.Description" String="The link down count exceeded the threshold."/>
+        </Member>
+        <Member Name="SymbolErrorCount">
+          <Annotation Term="OData.Description" String="The symbol error count exceeded the threshold."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
-<!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaProcessor  v1.7.0                                         -->
-<!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
-<!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
-<!--################################################################################       -->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.7.0                                                         -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
@@ -539,17 +539,19 @@
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
         </Property>
       </ComplexType>
-      <ComplexType Name="NvidiaLPU">
-        <Property Name="VoltageBinNumber" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The voltage bin number."/>
-          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
-        </Property>
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.v1_0_0.NvidiaProcessor">
         <Property Name="BootStatusCode" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The boot status code."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain a boot status code."/>
           <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaLPU" BaseType="NvidiaProcessor.v1_7_0.NvidiaProcessor">
+        <Property Name="VoltageBinNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The voltage bin number."/>
+          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
         </Property>
       </ComplexType>
       <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
