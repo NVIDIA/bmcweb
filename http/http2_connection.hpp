@@ -466,6 +466,26 @@ class HTTP2Connection :
         auto headersAsyncResp = std::make_shared<bmcweb::AsyncResp>();
         stream.headersAsyncResp = headersAsyncResp;
         stream.bodyReadPending = true;
+        if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
+        {
+            if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
+                                                     thisReq.method()) &&
+                thisReq.session == nullptr)
+            {
+                BMCWEB_LOG_WARNING("Authentication failed");
+                if (!handler->handleAuthFailed(stream.req, headersAsyncResp))
+                {
+                    forward_unauthorized::sendUnauthorized(
+                        thisReq.url().encoded_path(),
+                        thisReq.getHeaderValue("X-Requested-With"),
+                        thisReq.getHeaderValue("Accept"),
+                        headersAsyncResp->res);
+                }
+                stream.headersRejected = true;
+                onHeadersHandlerComplete(streamId);
+                return 0;
+            }
+        }
         handler->handleHeaders(stream.req, headersAsyncResp,
                                [weakSelf = weak_from_this(), streamId]() {
                                    if (auto self = weakSelf.lock())

@@ -749,13 +749,37 @@ class Connection :
         {
             return;
         }
-        // The streamInput headers handler runs through the routing layer's
-        // privilege check, which short-circuits when session is null. Populate
-        // session and ipAddress now so the handler actually runs before body
-        // data is read.
+        // Populate request context before authentication and privilege checks
+        // run for the header phase.
         req->session = userSession;
         req->ipAddress = ip;
         requestAsyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+        if (authenticationEnabled &&
+            persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
+            !crow::authentication::isOnAllowlist(req->url().path(),
+                                                 req->method()) &&
+            req->session == nullptr)
+        {
+            BMCWEB_LOG_WARNING("Authentication failed");
+            accept = req->getHeaderValue(boost::beast::http::field::accept);
+            acceptEncoding =
+                req->getHeaderValue(boost::beast::http::field::accept_encoding);
+            keepAlive = parse.is_done() && req->keepAlive();
+            requestAsyncResp->res.setCompleteRequestHandler(
+                [self(shared_from_this())](crow::Response& thisRes) {
+                    self->completeRequest(thisRes);
+                });
+            if (!handler->handleAuthFailed(req, requestAsyncResp))
+            {
+                forward_unauthorized::sendUnauthorized(
+                    req->url().encoded_path(),
+                    req->getHeaderValue("X-Requested-With"),
+                    req->getHeaderValue("Accept"), requestAsyncResp->res);
+            }
+            requestAsyncResp.reset();
+            return;
+        }
 
         if (expectsContinue)
         {

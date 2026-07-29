@@ -50,7 +50,6 @@ struct FakeHandler
                        std::move_only_function<void()> headersCompleteCallback)
     {
         handleHeadersCalled = true;
-        headersAsyncResp = asyncResp;
         if (rejectHeaders)
         {
             asyncResp->res.result(boost::beast::http::status::bad_request);
@@ -76,8 +75,7 @@ struct FakeHandler
     bool handleAuthFailed(const std::shared_ptr<Request>& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
-        EXPECT_EQ(req->target(), "/redfish/v1/Systems");
-        authFailedUsedHeadersAsyncResp = headersAsyncResp.lock() == asyncResp;
+        authFailedTarget = req->target();
         asyncResp->res.result(boost::beast::http::status::unauthorized);
         asyncResp->res.addHeader(boost::beast::http::field::www_authenticate,
                                  "Basic");
@@ -88,10 +86,9 @@ struct FakeHandler
 
     bool called = false;
     bool authFailedCalled = false;
-    bool authFailedUsedHeadersAsyncResp = false;
     bool handleHeadersCalled = false;
     bool rejectHeaders = false;
-    std::weak_ptr<bmcweb::AsyncResp> headersAsyncResp;
+    std::string authFailedTarget;
 };
 
 struct ClockFake
@@ -198,7 +195,63 @@ TEST(http_connection, AuthFailedCallsHandler)
         outStr = out.str();
     }
     EXPECT_TRUE(handler.authFailedCalled);
-    EXPECT_TRUE(handler.authFailedUsedHeadersAsyncResp);
+    EXPECT_FALSE(handler.handleHeadersCalled);
+    EXPECT_EQ(handler.authFailedTarget, "/redfish/v1/Systems");
+    EXPECT_EQ(outStr, expected);
+    EXPECT_TRUE(clock.wascalled);
+}
+
+TEST(http_connection, AuthFailedBeforeStreamingRequestHandler)
+{
+    boost::asio::io_context io;
+    ClockFake clock;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+
+    out.write_some(boost::asio::buffer(
+        "POST /redfish/v1/UpdateService/update-multipart/ HTTP/1.1\r\n"
+        "Host: openbmc_project.xyz\r\n"
+        "Connection: close\r\n"
+        "Content-Type: multipart/form-data; boundary=x\r\n"
+        "Content-Length: 1\r\n\r\n"
+        "x"));
+
+    FakeHandler handler;
+    boost::asio::steady_timer timer(io);
+    std::function<std::string()> date(
+        std::bind_front(&ClockFake::getDateStr, &clock));
+
+    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
+    std::shared_ptr<crow::Connection<TestStream, FakeHandler>> conn =
+        std::make_shared<crow::Connection<TestStream, FakeHandler>>(
+            &handler, HttpType::HTTP, std::move(timer), date,
+            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
+    conn->start();
+
+    std::string expected =
+        "HTTP/1.1 401 Unauthorized\r\n"
+        "WWW-Authenticate: Basic\r\n"
+        "Connection: close\r\n"
+        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n"
+        "Pragma: no-cache\r\n"
+        "Cache-Control: no-store, max-age=0\r\n"
+        "X-Content-Type-Options: nosniff\r\n"
+        "Date: TestTime\r\n"
+        "Content-Length: 24\r\n\r\n"
+        "AuthFailedResponseString";
+    const size_t expectedTotal = expected.size();
+
+    std::string outStr;
+    while (outStr.size() < expectedTotal)
+    {
+        io.run_one();
+        outStr = out.str();
+    }
+    EXPECT_TRUE(handler.authFailedCalled);
+    EXPECT_FALSE(handler.handleHeadersCalled);
+    EXPECT_EQ(handler.authFailedTarget,
+              "/redfish/v1/UpdateService/update-multipart/");
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }
@@ -442,6 +495,48 @@ TEST(Http2Connection, RejectedStreamingHeadersSendOneResponse)
 
     ASSERT_EQ(handler.authFailedCalled, 0U);
     EXPECT_EQ(handler.headersCalled, 1U);
+    EXPECT_EQ(handler.bodyDispatchCount, 0U);
+    EXPECT_EQ(handler.updateStartCount, 0U);
+    EXPECT_EQ(frames.headers, 1U);
+    EXPECT_EQ(frames.final, 1U);
+    EXPECT_EQ(frames.body, "HeadersRejectedResponse");
+
+    conn->close();
+}
+
+TEST(Http2Connection, UnauthenticatedStreamingHeadersSendOneResponse)
+{
+    boost::asio::io_context io;
+    TestStream stream(io);
+    TestStream output(io);
+    stream.connect(output);
+
+    const std::string request = makeHttp2StreamingRequest(
+        "/redfish/v1/UpdateService/update-multipart/");
+    boost::asio::write(output, boost::asio::buffer(request));
+
+    Http2RejectedStreamHandler handler;
+    std::function<std::string()> date([]() { return "TestTime"; });
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+    auto conn = std::make_shared<
+        HTTP2Connection<TestStream, Http2RejectedStreamHandler>>(
+        boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
+        &handler, date, HttpType::HTTP, nullptr);
+    conn->start();
+
+    Http2ResponseFrames frames;
+    for (size_t operation = 0; operation < 100 && frames.final == 0;
+         operation++)
+    {
+        if (io.run_one() == 0)
+        {
+            break;
+        }
+        frames = parseHttp2ResponseFrames(output.str());
+    }
+
+    ASSERT_EQ(handler.authFailedCalled, 1U);
+    EXPECT_EQ(handler.headersCalled, 0U);
     EXPECT_EQ(handler.bodyDispatchCount, 0U);
     EXPECT_EQ(handler.updateStartCount, 0U);
     EXPECT_EQ(frames.headers, 1U);
