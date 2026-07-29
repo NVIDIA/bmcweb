@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -71,6 +72,7 @@ struct MultipartParserStreamingCallbacks
     std::function<void(std::string_view)> onDataAvailable;
     std::function<void()> onSectionComplete;
     std::function<void()> onParseComplete;
+    std::function<void(ParserError)> onParseError;
 };
 
 class MultipartParser

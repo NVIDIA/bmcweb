@@ -1221,6 +1221,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         releaseClientResponseIfReady();
     }
 
+    void onParseError(const SelfPtr& /*self*/, ParserError /*error*/)
+    {
+        if (state == State::UPDATE_COMPLETE_ERROR)
+        {
+            return;
+        }
+        messages::unrecognizedRequestBody(asyncResp->res);
+        failClientResponse();
+    }
+
     void onHttpClientDataSendComplete(
         const std::shared_ptr<UpdateCtx>& /*self*/, const std::string& prefix,
         bool /*keepAlive*/, int32_t /*connId*/, crow::Response& res)
@@ -1657,7 +1667,9 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
         .onSectionComplete = std::bind_front(&UpdateCtx::onSectionComplete,
                                              contextPtr.get(), contextPtr),
         .onParseComplete = std::bind_front(&UpdateCtx::onParseComplete,
-                                           contextPtr.get(), contextPtr)};
+                                           contextPtr.get(), contextPtr),
+        .onParseError = std::bind_front(&UpdateCtx::onParseError,
+                                        contextPtr.get(), contextPtr)};
     req.setMultipartParserCallbacks(std::move(callbacks));
 }
 

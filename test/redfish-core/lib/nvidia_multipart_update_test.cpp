@@ -5,13 +5,17 @@
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
+#include "http/http_body.hpp"
 #include "http/http_request.hpp"
+#include "multipart_parser.hpp"
 #include "nvidia_multipart_update.hpp"
 #include "task.hpp"
 
 #include <unistd.h>
 
+#include <boost/asio/buffer.hpp>
 #include <boost/beast/core/error.hpp>
+#include <boost/beast/http/field.hpp>
 #include <boost/system/errc.hpp>
 
 #include <format>
@@ -589,6 +593,57 @@ TEST(FailClientResponse, SetsErrorStateAndMarksResponseReady)
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_TRUE(ctx->responseReady);
+}
+
+TEST(OnParseError, ReturnsBadRequestAfterBodyIsConsumed)
+{
+    auto ctx = makeCtx();
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp = asyncResp;
+
+    ctx->onParseError(ctx, ParserError::ERROR_BOUNDARY_FORMAT);
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_TRUE(ctx->responseReady);
+    EXPECT_FALSE(ctx->parseComplete);
+    EXPECT_TRUE(ctx->asyncResp);
+
+    ctx->onParseComplete(ctx);
+
+    EXPECT_TRUE(ctx->parseComplete);
+    EXPECT_FALSE(ctx->asyncResp);
+}
+
+TEST(HandleMultipartHeaders, MalformedBodyReturnsBadRequest)
+{
+    constexpr std::string_view malformedBody = "--x--\r\n";
+    std::error_code reqEc;
+    crow::Request req("", reqEc);
+    req.addHeader(boost::beast::http::field::content_type,
+                  "multipart/form-data; boundary=x");
+    req.addHeader(boost::beast::http::field::content_length,
+                  std::to_string(malformedBody.size()));
+    size_t completionCount = 0;
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
+
+    handleUpdateServiceMultipartUpdatePostHeaders(req, asyncResp);
+    bmcweb::HttpBody::reader reader(req.req.base(), req.req.body());
+    boost::beast::error_code ec;
+    reader.init(malformedBody.size(), ec);
+    ASSERT_FALSE(ec);
+
+    EXPECT_EQ(reader.put(boost::asio::buffer(malformedBody), ec),
+              malformedBody.size());
+    EXPECT_FALSE(ec);
+    reader.finish(ec);
+    EXPECT_FALSE(ec);
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+
+    asyncResp.reset();
+    EXPECT_EQ(completionCount, 1U);
 }
 
 TEST(OnDataAvailable, DiscardsDataInTerminalState)
