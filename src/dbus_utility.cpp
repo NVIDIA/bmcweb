@@ -7,6 +7,7 @@
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -124,6 +125,13 @@ void getSubTreePaths(
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
+            // ObjectMapper reports no matching objects as io_error. Normalize
+            // that expected result to an empty subtree response.
+            if (ec == boost::system::errc::io_error)
+            {
+                callback({}, {});
+                return;
+            }
             callback(ec, subtreePaths);
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -160,6 +168,13 @@ void getAssociatedSubTreePaths(
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
+            // ObjectMapper reports no matching objects as io_error. Normalize
+            // that expected result to an empty subtree response.
+            if (ec == boost::system::errc::io_error)
+            {
+                callback({}, {});
+                return;
+            }
             callback(ec, subtreePaths);
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -198,6 +213,13 @@ void getAssociatedSubTreePathsById(
         [callback = std::move(callback)](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
+            // ObjectMapper reports no matching objects as io_error. Normalize
+            // that expected result to an empty subtree response.
+            if (ec == boost::system::errc::io_error)
+            {
+                callback({}, {});
+                return;
+            }
             callback(ec, subtreePaths);
         },
         "xyz.openbmc_project.ObjectMapper",
