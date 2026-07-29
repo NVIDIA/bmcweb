@@ -773,7 +773,7 @@ class Connection :
         // body reading starts after both header processing and the write have
         // completed.
 
-        if (expectsContinue)
+        if (expectsContinue && pendingContinue)
         {
             res.result(boost::beast::http::status::continue_);
             doWrite();
@@ -785,8 +785,16 @@ class Connection :
     {
         BMCWEB_LOG_DEBUG("afterHeadersComplete");
 
+        bool headersRejected = false;
         if (requestAsyncResp)
         {
+            const boost::beast::http::status_class responseClass =
+                boost::beast::http::to_status_class(
+                    requestAsyncResp->res.result());
+            headersRejected =
+                responseClass ==
+                    boost::beast::http::status_class::client_error ||
+                responseClass == boost::beast::http::status_class::server_error;
             requestAsyncResp->res.setCompleteRequestHandler(
                 [self(shared_from_this())](crow::Response& thisRes) {
                     self->completeRequest(thisRes);
@@ -795,6 +803,14 @@ class Connection :
 
         if (!parser)
         {
+            return;
+        }
+
+        if (headersRejected)
+        {
+            pendingContinue = false;
+            keepAlive = parser->is_done() && req && req->keepAlive();
+            requestAsyncResp.reset();
             return;
         }
 

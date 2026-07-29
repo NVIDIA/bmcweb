@@ -42,6 +42,11 @@ struct FakeHandler
     {
         handleHeadersCalled = true;
         headersAsyncResp = asyncResp;
+        if (rejectHeaders)
+        {
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            asyncResp->res.write("HeadersRejectedResponse");
+        }
         headersCompleteCallback();
     }
 
@@ -76,6 +81,7 @@ struct FakeHandler
     bool authFailedCalled = false;
     bool authFailedUsedHeadersAsyncResp = false;
     bool handleHeadersCalled = false;
+    bool rejectHeaders = false;
     std::weak_ptr<bmcweb::AsyncResp> headersAsyncResp;
 };
 
@@ -184,6 +190,65 @@ TEST(http_connection, AuthFailedCallsHandler)
     }
     EXPECT_TRUE(handler.authFailedCalled);
     EXPECT_TRUE(handler.authFailedUsedHeadersAsyncResp);
+    EXPECT_EQ(outStr, expected);
+    EXPECT_TRUE(clock.wascalled);
+}
+
+TEST(http_connection, RejectedHeadersReturnResponseBeforeBodyRead)
+{
+    boost::asio::io_context io;
+    ClockFake clock;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+
+    out.write_some(boost::asio::buffer(
+        "POST /redfish/v1/UpdateService/update-multipart/ HTTP/1.1\r\n"
+        "Host: openbmc_project.xyz\r\n"
+        "Connection: keep-alive\r\n"
+        "Content-Type: multipart/form-data; boundary=x\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "Expect: 100-continue\r\n\r\n"
+        "1\r\nx\r\n0\r\n\r\n"));
+
+    FakeHandler handler;
+    handler.rejectHeaders = true;
+    boost::asio::steady_timer timer(io);
+    std::function<std::string()> date(
+        std::bind_front(&ClockFake::getDateStr, &clock));
+
+    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
+    std::shared_ptr<crow::Connection<TestStream, FakeHandler>> conn =
+        std::make_shared<crow::Connection<TestStream, FakeHandler>>(
+            &handler, HttpType::HTTP, std::move(timer), date,
+            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
+    conn->disableAuth();
+    conn->start();
+
+    std::string expected =
+        "HTTP/1.1 400 Bad Request\r\n"
+        "Connection: close\r\n"
+        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n"
+        "Pragma: no-cache\r\n"
+        "Cache-Control: no-store, max-age=0\r\n"
+        "X-Content-Type-Options: nosniff\r\n"
+        "Date: TestTime\r\n"
+        "Content-Length: 23\r\n\r\n"
+        "HeadersRejectedResponse";
+    const size_t expectedTotal = expected.size();
+
+    std::string outStr;
+    for (size_t operation = 0; operation < 20 && outStr.size() < expectedTotal;
+         operation++)
+    {
+        if (io.run_one() == 0)
+        {
+            break;
+        }
+        outStr = out.str();
+    }
+    EXPECT_FALSE(handler.called);
+    EXPECT_TRUE(handler.handleHeadersCalled);
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
 }
