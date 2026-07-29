@@ -574,6 +574,52 @@ inline void getFwWriteProtectedStatus(
         });
 }
 
+// Nvidia code starts here
+inline void getFwWriteProtectedStatusFromSlot(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& slotPath)
+{
+    constexpr std::array<std::string_view, 1> settingsIfaces = {
+        "xyz.openbmc_project.Software.Settings"};
+    dbus::utility::getDbusObject(
+        slotPath, settingsIfaces,
+        [asyncResp, slotPath](const boost::system::error_code& objErrorCode,
+                              const dbus::utility::MapperGetObject& object) {
+            if (objErrorCode || object.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "WriteProtected: no Settings provider on slot {}, ec {}",
+                    slotPath, objErrorCode.message());
+                return;
+            }
+            getFwWriteProtectedStatus(asyncResp, slotPath,
+                                      object.begin()->first);
+        });
+}
+
+inline void getFwWriteProtectedStatusFromActiveSlot(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swObjPath)
+{
+    sdbusplus::message::object_path activeSlotAssoc =
+        sdbusplus::message::object_path(swObjPath) / "ActiveSlot";
+    dbus::utility::getAssociationEndPoints(
+        activeSlotAssoc.str,
+        [asyncResp,
+         swObjPath](const boost::system::error_code& errorCode,
+                    const dbus::utility::MapperEndPoints& endpoints) {
+            if (errorCode || endpoints.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "WriteProtected: no ActiveSlot association for {}, ec {}",
+                    swObjPath, errorCode.message());
+                return;
+            }
+            getFwWriteProtectedStatusFromSlot(asyncResp, endpoints[0]);
+        });
+}
+// Nvidia code ends here
+
 /**
  * @brief Populates the firmware slot information in the JSON response.
  *
