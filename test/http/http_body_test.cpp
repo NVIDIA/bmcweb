@@ -2,13 +2,16 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "duplicatable_file_handle.hpp"
 #include "http_body.hpp"
+#include "multipart_parser.hpp"
 
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <boost/asio/buffer.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/file_base.hpp>
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
@@ -275,6 +278,58 @@ TEST(HttpFileBodyValueType, SetFd_AlwaysClearsPassedInErrorCode)
 
     EXPECT_FALSE(ec);
     EXPECT_TRUE(value.file().is_open());
+}
+
+TEST(HttpBodyReader, StreamingMultipartReportsParseErrorAndConsumesBody)
+{
+    boost::beast::http::header<true> headers;
+    headers.set(boost::beast::http::field::content_type,
+                "multipart/form-data; boundary=x");
+    HttpBody::value_type body;
+    bool parseErrorCalled = false;
+    bool parseCompleteCalled = false;
+    MultipartParserStreamingCallbacks callbacks;
+    callbacks.onParseError = [&parseErrorCalled](ParserError error) {
+        EXPECT_EQ(error, ParserError::ERROR_BOUNDARY_FORMAT);
+        parseErrorCalled = true;
+    };
+    callbacks.onParseComplete = [&parseCompleteCalled]() {
+        parseCompleteCalled = true;
+    };
+    body.setMultipartParserCallbacks(std::move(callbacks));
+
+    HttpBody::reader reader(headers, body);
+    boost::beast::error_code ec;
+    constexpr std::string_view malformedBody = "--x--\r\n";
+    reader.init(malformedBody.size(), ec);
+    ASSERT_FALSE(ec);
+
+    size_t consumed = reader.put(boost::asio::buffer(malformedBody), ec);
+    EXPECT_FALSE(ec);
+    EXPECT_EQ(consumed, malformedBody.size());
+    EXPECT_TRUE(parseErrorCalled);
+
+    reader.finish(ec);
+    EXPECT_FALSE(ec);
+    EXPECT_TRUE(parseCompleteCalled);
+}
+
+TEST(HttpBodyReader, MultipartParseErrorWithoutCallbackIsReadError)
+{
+    boost::beast::http::header<true> headers;
+    headers.set(boost::beast::http::field::content_type,
+                "multipart/form-data; boundary=x");
+    HttpBody::value_type body;
+    HttpBody::reader reader(headers, body);
+    boost::beast::error_code ec;
+    constexpr std::string_view malformedBody = "--x--\r\n";
+    reader.init(malformedBody.size(), ec);
+    ASSERT_FALSE(ec);
+
+    size_t consumed = reader.put(boost::asio::buffer(malformedBody), ec);
+    EXPECT_EQ(ec, boost::system::errc::make_error_code(
+                      boost::system::errc::invalid_argument));
+    EXPECT_EQ(consumed, 0);
 }
 
 } // namespace
