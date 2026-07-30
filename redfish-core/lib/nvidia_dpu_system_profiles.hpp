@@ -425,23 +425,14 @@ inline bool updateTaskHandler(boost::system::error_code ec,
     if (activateProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*activateProgress);
-        taskData->messages.emplace_back(messages::taskProgressChanged(
-            std::to_string(taskData->index),
-            static_cast<uint64_t>(*activateProgress)));
     }
     else if (addProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*addProgress);
-        taskData->messages.emplace_back(
-            messages::taskProgressChanged(std::to_string(taskData->index),
-                                          static_cast<uint64_t>(*addProgress)));
     }
     else if (deleteProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*deleteProgress);
-        taskData->messages.emplace_back(messages::taskProgressChanged(
-            std::to_string(taskData->index),
-            static_cast<uint64_t>(*deleteProgress)));
     }
     return !task::completed;
 }
