@@ -462,6 +462,28 @@ class HTTP2Connection :
                     });
             }
         }
+        else if (stream.req && stream.req->streamInputRoute)
+        {
+            // Headers-phase rejection: deliver parked response and skip body
+            // dispatch.
+            stream.isStreamInput = true;
+            if (stream.headersAsyncResp)
+            {
+                stream.headersAsyncResp->res.setCompleteRequestHandler(
+                    [weakSelf = weak_from_this(),
+                     streamId](Response& completedRes) {
+                        if (auto self = weakSelf.lock())
+                        {
+                            if (self->sendResponse(completedRes, streamId) != 0)
+                            {
+                                self->close();
+                            }
+                        }
+                    });
+                stream.headersAsyncResp->res.end();
+                stream.headersAsyncResp.reset();
+            }
+        }
 
         stream.bodyReadPending = false;
 
@@ -508,7 +530,9 @@ class HTTP2Connection :
             return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
 
-        if (it->second.headersAsyncResp && it->second.isStreamInput)
+        // streamInput routes have already sent their response (via multipart
+        // callbacks or the headers-phase rejection path above).
+        if (it->second.isStreamInput)
         {
             return 0;
         }

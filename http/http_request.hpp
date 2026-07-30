@@ -43,6 +43,8 @@ struct Request
     std::shared_ptr<persistent_data::UserSession> session;
 
     std::string userRole;
+    // True when the matched route is a .streamInput() rule.
+    bool streamInputRoute = false;
     Request(Body&& reqIn, std::error_code& ec) : req(std::move(reqIn))
     {
         if (!setUrlInfo())
@@ -84,6 +86,7 @@ struct Request
         ipAddress = boost::asio::ip::address();
         session = nullptr;
         userRole = "";
+        streamInputRoute = false;
     }
 
     boost::beast::http::verb method() const
