@@ -258,8 +258,6 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             return !task::completed;
         }
         taskData->percentComplete = *progress;
-        taskData->messages.emplace_back(
-            messages::taskProgressChanged(index, *progress));
 
         // if we're getting status updates it's
         // still alive, update timer
