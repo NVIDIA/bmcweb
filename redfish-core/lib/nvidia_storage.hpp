@@ -556,11 +556,6 @@ inline void createSanitizeProgressTask(
                 return task::completed;
             }
             taskData->percentComplete = static_cast<int>(*progress);
-
-            BMCWEB_LOG_ERROR("{}", taskData->percentComplete);
-            taskData->messages.emplace_back(messages::taskProgressChanged(
-                index, static_cast<size_t>(*progress)));
-
             return !task::completed;
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
