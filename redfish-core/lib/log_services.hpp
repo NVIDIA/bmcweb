@@ -1143,10 +1143,6 @@ inline void createDumpTaskCallback(
                                 {
                                     taskData->percentComplete =
                                         static_cast<int>(*progress);
-                                    taskData->messages.emplace_back(
-                                        messages::taskProgressChanged(
-                                            std::to_string(taskData->index),
-                                            static_cast<size_t>(*progress)));
                                 }
                             }
                             // NVIDIA code ends here
