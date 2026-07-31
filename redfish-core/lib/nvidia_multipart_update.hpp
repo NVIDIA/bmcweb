@@ -1420,6 +1420,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         BMCWEB_LOG_DEBUG("Parse complete");
         parseComplete = true;
 
+        if (state == State::UPDATE_COMPLETE_ERROR)
+        {
+            return;
+        }
+
         if (state == State::WAITING_FOR_PART_HEADERS &&
             updateParametersReceived && stagedUpdateFile)
         {

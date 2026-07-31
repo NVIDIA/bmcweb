@@ -1022,7 +1022,7 @@ TEST(OnParseError, ReturnsBadRequestAfterBodyIsConsumed)
     ctx->onParseComplete(ctx);
 
     EXPECT_TRUE(ctx->parseComplete);
-    EXPECT_FALSE(ctx->asyncResp);
+    EXPECT_TRUE(ctx->asyncResp);
 }
 
 TEST(HandleMultipartHeaders, MalformedBodyReturnsBadRequest)
@@ -1369,6 +1369,37 @@ TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
               "NvidiaUpdate.1.3.MalformedMultipartRequest");
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
               "duplicate UpdateFile part");
+}
+
+TEST(OnParseComplete, DuplicateUpdateFileDoesNotStartUpdate)
+{
+    size_t completionCount = 0;
+    auto ctx = makeCtx();
+    std::weak_ptr<UpdateCtx> weakCtx = ctx;
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->asyncResp->res.setCompleteRequestHandler(
+        [&completionCount](crow::Response&) { completionCount++; });
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onSectionComplete(ctx);
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ASSERT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    ASSERT_TRUE(ctx->responseReady);
+    ASSERT_TRUE(ctx->updateFileHeadersSeen);
+    ASSERT_FALSE(ctx->updateStarted);
+
+    ctx->onParseComplete(ctx);
+
+    EXPECT_TRUE(ctx->parseComplete);
+    EXPECT_FALSE(ctx->updateStarted);
+    ASSERT_TRUE(ctx->asyncResp);
+    EXPECT_FALSE(ctx->asyncResp->res.isCompleted());
+    EXPECT_EQ(completionCount, 0U);
+
+    // The multipart parser releases its UpdateCtx owner after this callback.
+    ctx.reset();
+
+    EXPECT_TRUE(weakCtx.expired());
+    EXPECT_EQ(completionCount, 1U);
 }
 
 TEST(OnDataAvailable, StagesFileFirstDataToMemfd)
