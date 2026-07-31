@@ -71,7 +71,10 @@ inline void handleProcessorDiagActionPost(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    std::optional<nlohmann::json> processorDiagState;
+    // Not std::optional: ProcessorDiagState is a required action parameter
+    // (Nullable="false" in the CSDL), so readJsonAction must reject a body
+    // that omits it rather than silently returning 200 with no action taken.
+    nlohmann::json processorDiagState;
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -88,10 +91,7 @@ inline void handleProcessorDiagActionPost(
     {
         return;
     }
-    if (processorDiagState)
-    {
-        handleDiagPostReq(asyncResp, *processorDiagState);
-    }
+    handleDiagPostReq(asyncResp, processorDiagState);
 }
 
 inline void handleSystemProcessorDiagStateActionGet(
@@ -125,7 +125,7 @@ inline void handleSystemProcessorDiagStateActionGet(
     parameter["Required"] = true;
     parameter["DataType"] = "Object";
     parameter["ObjectDataType"] =
-        "#NvidiaComputerSystem.v1_10_0.ProcessorDiagState";
+        "#NvidiaComputerSystem.v1_10_0.ProcessorDiagStateRequest";
     parameters.emplace_back(std::move(parameter));
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
@@ -136,7 +136,8 @@ inline void handleProcessorDiagSysConfigActionPost(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    std::optional<nlohmann::json> processorDiagSysConfig;
+    // Required action parameter; see handleProcessorDiagActionPost.
+    nlohmann::json processorDiagSysConfig;
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -154,10 +155,7 @@ inline void handleProcessorDiagSysConfigActionPost(
     {
         return;
     }
-    if (processorDiagSysConfig)
-    {
-        handleDiagSysConfigPostReq(asyncResp, *processorDiagSysConfig);
-    }
+    handleDiagSysConfigPostReq(asyncResp, processorDiagSysConfig);
 }
 
 inline void handleSystemProcessorDiagSysConfigActionGet(
@@ -203,7 +201,8 @@ inline void handleProcessorDiagTidConfigActionPost(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    std::optional<nlohmann::json> processorDiagTidConfig;
+    // Required action parameter; see handleProcessorDiagActionPost.
+    nlohmann::json processorDiagTidConfig;
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -221,10 +220,7 @@ inline void handleProcessorDiagTidConfigActionPost(
     {
         return;
     }
-    if (processorDiagTidConfig)
-    {
-        handleDiagTidConfigPostReq(asyncResp, *processorDiagTidConfig);
-    }
+    handleDiagTidConfigPostReq(asyncResp, processorDiagTidConfig);
 }
 
 inline void handleSystemProcessorDiagTidConfigActionGet(

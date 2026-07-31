@@ -45,8 +45,10 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <format>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -56,6 +58,30 @@ namespace redfish
 
 constexpr auto diagServiceList = "cpu-diag-status.timer "
                                  "cpu-diag-status.service";
+
+// True when the JSON value is an unsigned number that survives narrowing to T.
+// nlohmann's get<T>() narrows with an unchecked static_cast, so an is_number_
+// unsigned() check alone lets an oversized persisted value through wrapped.
+template <typename T>
+inline bool fitsInUnsigned(const nlohmann::json& value)
+{
+    return value.is_number_unsigned() &&
+           value.get<uint64_t>() <= std::numeric_limits<T>::max();
+}
+
+// Bound OEM action names and their parameter names, as advertised in
+// NvidiaComputerSystem_v1.xml. Rejecting a request body is an action-parameter
+// failure, not a property failure, so the ActionParameter* messages below need
+// both names.
+constexpr std::string_view setProcessorDiagModeAction = "SetProcessorDiagMode";
+constexpr std::string_view processorDiagStateParam = "ProcessorDiagState";
+constexpr std::string_view configProcessorDiagAction = "ConfigProcessorDiag";
+constexpr std::string_view processorDiagSysConfigParam =
+    "ProcessorDiagSysConfig";
+constexpr std::string_view configProcessorDiagTidAction =
+    "ConfigProcessorDiagTid";
+constexpr std::string_view processorDiagTidConfigParam =
+    "ProcessorDiagTidConfig";
 
 enum class DiagStatus : uint8_t
 {
@@ -121,9 +147,18 @@ inline void handleDiagSysConfigGet(
             }
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
+            // Non-throwing parse: the daemon owns this property and a
+            // malformed value must fail the request, not abort the process.
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
-            json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = data;
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded())
+            {
+                BMCWEB_LOG_ERROR("Malformed DiagSystemConfig: {}", jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = std::move(data);
         });
 }
 
@@ -150,8 +185,15 @@ inline void handleDiagTidConfigGet(
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
-            json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = data;
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded())
+            {
+                BMCWEB_LOG_ERROR("Malformed DiagConfig: {}", jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = std::move(data);
         });
 }
 inline void handleDiagResultGet(
@@ -177,12 +219,48 @@ inline void handleDiagResultGet(
             BMCWEB_LOG_DEBUG("Get Diag result update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded() || !data.is_array())
+            {
+                BMCWEB_LOG_ERROR("Malformed DiagResult: {}", jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
             json["Oem"]["Nvidia"]["ProcessorDiagResult"] =
                 nlohmann::json::array();
 
             for (const auto& item : data)
             {
+                // Validate the persisted entry shape before extracting: the
+                // daemon owns this property, and get<>() on a missing or
+                // ill-typed member throws out of this callback. Range-check
+                // each field too: get<>() narrows with an unchecked cast, so
+                // an out-of-range value would otherwise be served wrapped
+                // rather than rejected.
+                if (!item.is_object() || !item.contains("Tid") ||
+                    !fitsInUnsigned<uint8_t>(item["Tid"]) ||
+                    !item.contains("Result") ||
+                    !fitsInUnsigned<uint16_t>(item["Result"]) ||
+                    !item.contains("ResultMask") ||
+                    !item["ResultMask"].is_array())
+                {
+                    BMCWEB_LOG_ERROR("Malformed DiagResult entry: {}",
+                                     item.dump());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                for (const auto& maskByte : item["ResultMask"])
+                {
+                    if (!fitsInUnsigned<uint8_t>(maskByte))
+                    {
+                        BMCWEB_LOG_ERROR("Malformed DiagResult entry: {}",
+                                         item.dump());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                }
+
                 uint8_t tid = item["Tid"].get<uint8_t>();
                 uint16_t result = item["Result"].get<uint16_t>();
                 std::vector<uint8_t> resultMask =
@@ -464,14 +542,33 @@ inline void setDiagModeProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         nlohmann::json& json, std::string_view prop)
 {
-    bool enable{};
-
-    if (!redfish::json_util::getValueFromJsonObject(json, std::string(prop),
-                                                    enable))
+    if (!json.is_object())
     {
-        BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json.dump());
+        BMCWEB_LOG_ERROR("{} is not an object: {}", processorDiagStateParam,
+                         json.dump());
+        messages::actionParameterValueTypeError(
+            aResp->res, json, processorDiagStateParam,
+            setProcessorDiagModeAction);
         return false;
     }
+
+    const auto propIt = json.find(std::string(prop));
+    if (propIt == json.end())
+    {
+        BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json.dump());
+        messages::actionParameterMissing(aResp->res, setProcessorDiagModeAction,
+                                         prop);
+        return false;
+    }
+    if (!propIt->is_boolean())
+    {
+        BMCWEB_LOG_ERROR("{} is not a boolean in JSON {}", prop, json.dump());
+        messages::actionParameterValueTypeError(aResp->res, *propIt, prop,
+                                                setProcessorDiagModeAction);
+        return false;
+    }
+
+    const bool enable = propIt->get<bool>();
     if constexpr (BMCWEB_PREBOOT_DIAG_SUPPORT)
     {
         // Vera path: D-Bus guards + prebootdiag property
@@ -551,6 +648,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             if (r != 0)
             {
                 BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to start {}", r);
+                messages::internalError(aResp->res);
                 return false;
             }
             setDiagModeProperty(aResp, true);
@@ -566,6 +664,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             if (r != 0)
             {
                 BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to stop {}", r);
+                messages::internalError(aResp->res);
                 return false;
             }
             setDiagModeProperty(aResp, false);
@@ -579,10 +678,12 @@ inline void handleDiagPostReq(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     nlohmann::json& procCap)
 {
+    // setDiagMode reports the specific failure into asyncResp: an
+    // ActionParameter* message for a bad request body, internalError for a
+    // failure to drive the diagnostic services. Don't overwrite it here.
     if (!setDiagMode(asyncResp, procCap, "DiagModeEnabled"))
     {
         BMCWEB_LOG_ERROR("DiagModeEnabled property error");
-        messages::propertyUnknown(asyncResp->res, "DiagModeEnabled");
         return;
     }
 }
@@ -594,7 +695,9 @@ inline bool validateDiagSysConfig(
     if (!diagSysConfigJson.is_array())
     {
         BMCWEB_LOG_ERROR("DiagSysConfig should be an array");
-        messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+        messages::actionParameterValueTypeError(
+            asyncResp->res, diagSysConfigJson, processorDiagSysConfigParam,
+            configProcessorDiagAction);
         return false;
     }
 
@@ -607,21 +710,44 @@ inline bool validateDiagSysConfig(
             !item.contains("DynamicData") || !item["DynamicData"].is_array())
         {
             BMCWEB_LOG_ERROR("Invalid item in DiagSysConfig");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueFormatError(
+                asyncResp->res, item, processorDiagSysConfigParam,
+                configProcessorDiagAction);
             return false;
         }
-        if (item["ConfigType"].get<unsigned>() > 1)
+        if (item["ConfigType"].get<uint64_t>() > 1)
         {
             BMCWEB_LOG_ERROR(
                 "Config Type value exceeds maximum allowed limit of 1");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["ConfigType"].dump(), "ConfigType",
+                configProcessorDiagAction);
             return false;
         }
-        if (item["TestDuration"].get<unsigned>() > 255)
+        if (item["TestDuration"].get<uint64_t>() > 255)
         {
             BMCWEB_LOG_ERROR(
                 "TestDuration value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["TestDuration"].dump(), "TestDuration",
+                configProcessorDiagAction);
+            return false;
+        }
+        // Cap DynamicData at 199, the bound this interface has advertised
+        // since the Grace-era implementation added it to the
+        // ConfigProcessorDiag ActionInfo as ArraySizeMaximum. No spec
+        // derivation for it is recorded anywhere; it is kept for
+        // compatibility with clients written against that ActionInfo. It is
+        // stricter than the transport allows -- libnsm caps the Cmd 0x80
+        // payload at NSM_DIAG_MAX_DYNAMIC_DATA_SIZE (251) in
+        // libnsm/diagnostics.h -- so arrays of 200..251 octets are rejected
+        // here even though the NSM stack would carry them. Not expressible
+        // in JSON Schema, so reject it here.
+        if (item["DynamicData"].size() > 199)
+        {
+            BMCWEB_LOG_ERROR(
+                "DynamicData exceeds maximum allowed length of 199");
+            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 199);
             return false;
         }
         // Validate DynamicData contains all unsigned numbers
@@ -630,16 +756,18 @@ inline bool validateDiagSysConfig(
             if (!dynamicDataVal.is_number_unsigned())
             {
                 BMCWEB_LOG_ERROR("Invalid type in 'DynamicData' array");
-                messages::propertyUnknown(asyncResp->res,
-                                          "Invalid Configuration");
+                messages::actionParameterValueTypeError(
+                    asyncResp->res, dynamicDataVal, "DynamicData",
+                    configProcessorDiagAction);
                 return false;
             }
-            if (dynamicDataVal.get<unsigned>() > 255)
+            if (dynamicDataVal.get<uint64_t>() > 255)
             {
                 BMCWEB_LOG_ERROR(
                     "DynamicData value exceeds maximum allowed limit of 255");
-                messages::propertyUnknown(asyncResp->res,
-                                          "Invalid Configuration");
+                messages::actionParameterValueOutOfRange(
+                    asyncResp->res, dynamicDataVal.dump(), "DynamicData",
+                    configProcessorDiagAction);
                 return false;
             }
         }
@@ -689,7 +817,9 @@ inline bool validateDiagTidConfig(
     if (!diagTidConfigJson.is_array())
     {
         BMCWEB_LOG_ERROR("DiagTidConfig should be an array");
-        messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+        messages::actionParameterValueTypeError(
+            asyncResp->res, diagTidConfigJson, processorDiagTidConfigParam,
+            configProcessorDiagTidAction);
         return false;
     }
 
@@ -705,51 +835,71 @@ inline bool validateDiagTidConfig(
             !item.contains("DynamicData") || !item["DynamicData"].is_array())
         {
             BMCWEB_LOG_ERROR("Invalid item in DiagTidConfig");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueFormatError(
+                asyncResp->res, item, processorDiagTidConfigParam,
+                configProcessorDiagTidAction);
             return false;
         }
 
-        if (item["Tid"].get<unsigned>() > 255)
+        if (item["Tid"].get<uint64_t>() > 255)
         {
             BMCWEB_LOG_ERROR("Tid value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["Tid"].dump(), "Tid",
+                configProcessorDiagTidAction);
             return false;
         }
-        if (item["TestDuration"].get<unsigned>() > 255)
+        if (item["TestDuration"].get<uint64_t>() > 255)
         {
             BMCWEB_LOG_ERROR(
                 "TestDuration value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["TestDuration"].dump(), "TestDuration",
+                configProcessorDiagTidAction);
             return false;
         }
-        if (item["Loops"].get<unsigned>() > 65535)
+        if (item["Loops"].get<uint64_t>() > 65535)
         {
             BMCWEB_LOG_ERROR(
                 "Loops value exceeds maximum allowed limit of 65535");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["Loops"].dump(), "Loops",
+                configProcessorDiagTidAction);
             return false;
         }
-        if (item["LogLevel"].get<unsigned>() > 255)
+        if (item["LogLevel"].get<uint64_t>() > 255)
         {
             BMCWEB_LOG_ERROR(
                 "LogLevel value exceeds maximum allowed limit of 255");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterValueOutOfRange(
+                asyncResp->res, item["LogLevel"].dump(), "LogLevel",
+                configProcessorDiagTidAction);
             return false;
         }
         unsigned tidValue = item["Tid"].get<unsigned>();
         if (!tidNumbers.insert(tidValue).second)
         {
             BMCWEB_LOG_ERROR("Duplicate TID");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::actionParameterDuplicate(
+                asyncResp->res, configProcessorDiagTidAction, "Tid");
             return false;
         }
-        // The ProcessorDiagTidConfigEntry schema caps DynamicData at 194
-        // bytes; enforce it here now that DynamicDataSize is gone.
+        // Cap DynamicData at 194, the bound this interface has advertised
+        // since the Grace-era implementation added it to the
+        // ConfigProcessorDiagTid ActionInfo as ArraySizeMaximum. No spec
+        // derivation for it is recorded anywhere; it is kept for
+        // compatibility with clients written against that ActionInfo. Note
+        // the Grace implementation never enforced 194 -- it validated
+        // DynamicDataSize against 244 -- and libnsm caps the Set Diag TID
+        // Config payload at NSM_DIAG_MAX_TID_DYNAMIC_DATA_SIZE (244) in
+        // libnsm/diagnostics.h, so arrays of 195..244 octets are rejected
+        // here even though the NSM stack would carry them. The check moved
+        // here when DynamicDataSize was removed.
         if (item["DynamicData"].size() > 194)
         {
             BMCWEB_LOG_ERROR(
                 "DynamicData exceeds maximum allowed length of 194");
-            messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
+            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 194);
             return false;
         }
         // Validate DynamicData contains all unsigned numbers
@@ -758,16 +908,18 @@ inline bool validateDiagTidConfig(
             if (!dynamicDataVal.is_number_unsigned())
             {
                 BMCWEB_LOG_ERROR("Invalid type in 'DynamicData' array");
-                messages::propertyUnknown(asyncResp->res,
-                                          "Invalid Configuration");
+                messages::actionParameterValueTypeError(
+                    asyncResp->res, dynamicDataVal, "DynamicData",
+                    configProcessorDiagTidAction);
                 return false;
             }
-            if (dynamicDataVal.get<unsigned>() > 255)
+            if (dynamicDataVal.get<uint64_t>() > 255)
             {
                 BMCWEB_LOG_ERROR(
                     "DynamicData value exceeds maximum allowed limit of 255");
-                messages::propertyUnknown(asyncResp->res,
-                                          "Invalid Configuration");
+                messages::actionParameterValueOutOfRange(
+                    asyncResp->res, dynamicDataVal.dump(), "DynamicData",
+                    configProcessorDiagTidAction);
                 return false;
             }
         }

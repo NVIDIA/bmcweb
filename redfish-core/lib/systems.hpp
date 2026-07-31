@@ -3854,6 +3854,22 @@ inline void afterPortRequest(
     }
 }
 
+// The Oem/Nvidia payload only reaches v1_10_0 (the pre-boot diagnostic
+// namespace) on platforms that build the CPU diag surface. Everywhere else the
+// emitted properties stop at v1_6_0, so advertising v1_10_0 there would claim a
+// namespace none of whose members appear in the response.
+constexpr std::string_view nvidiaComputerSystemType()
+{
+    if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
+    {
+        return "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
+    }
+    else
+    {
+        return "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+    }
+}
+
 inline void handleComputerSystemGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3922,7 +3938,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
+            nvidiaComputerSystemType();
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
@@ -4000,7 +4016,7 @@ inline void handleComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
+            nvidiaComputerSystemType();
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
