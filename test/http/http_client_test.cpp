@@ -2,19 +2,26 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http/http_body.hpp"
 #include "http/http_client.hpp"
+#include "ssl_key_handler.hpp"
 
 #include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/url.hpp>
 
 #include <algorithm>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -200,15 +207,77 @@ TEST(StreamingReadLimitBug4, FullBufferProducesZeroReadLimit)
 // doResolve() calls racing on the same ConnectionInfo.
 //
 // The fix mirrors afterRead(): cancel timer → state = recvFailed →
-// waitAndRetry. Full regression coverage requires a ConnectionInfo fixture with
-// a mock transport that can inject errors after async_read_header completes;
-// testing that fixture is deferred to an integration test.
+// waitAndRetry.
+//
+// Test: a loopback TCP acceptor sends "GARBAGE\r\n\r\n" for every connection.
+// Beast's async_read_header fails with a parse error on each attempt.
+// With maxRetryAttempts=1 the client makes two sequential connections (initial
+// + one retry), then fires the callback exactly once with bad_gateway.
+// connectionCount == 2 also proves no concurrent doResolve() was spawned
+// (the old bug would produce an extra connection from the stale timer firing).
 
-TEST(HttpClientBug1, HandleReadHeaderError_RequiresIntegrationFixture)
+TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
 {
-    GTEST_SKIP() << "BUG-1 requires a ConnectionInfo integration fixture with "
-                    "a mock socket to verify that timer.cancel() and "
-                    "waitAndRetry() are called instead of callback() directly.";
+    boost::asio::io_context ioc;
+
+    // --- Fake HMC: for every TCP connection send garbage then close ---
+    boost::asio::ip::tcp::acceptor acceptor(
+        ioc, boost::asio::ip::tcp::endpoint(
+                 boost::asio::ip::tcp::v4(), 0));
+    int connectionCount = 0;
+
+    std::function<void()> doAccept = [&]() {
+        auto sock =
+            std::make_shared<boost::asio::ip::tcp::socket>(ioc);
+        acceptor.async_accept(*sock, [&, sock](boost::system::error_code ec) {
+            if (ec)
+            {
+                return;
+            }
+            ++connectionCount;
+            auto garbage =
+                std::make_shared<std::string>("GARBAGE\r\n\r\n");
+            boost::asio::async_write(
+                *sock, boost::asio::buffer(*garbage),
+                [sock, garbage](boost::system::error_code, std::size_t) {
+                    sock->close();
+                });
+            doAccept();
+        });
+    };
+    doAccept();
+
+    uint16_t port = acceptor.local_endpoint().port();
+    boost::urls::url destUrl("http://127.0.0.1:" + std::to_string(port) +
+                             "/fdr");
+
+    auto policy = std::make_shared<ConnectionPolicy>();
+    policy->maxRetryAttempts = 1;
+    policy->retryIntervalSecs = std::chrono::seconds(0);
+    policy->retryPolicyAction = "TerminateAfterRetries";
+
+    HttpClient client(ioc, policy);
+
+    int callbackCount = 0;
+    boost::beast::http::status callbackStatus =
+        boost::beast::http::status::ok;
+
+    boost::beast::http::fields headers;
+    client.sendDataWithCallback(
+        "", destUrl, ensuressl::VerifyCertificate::NoVerify, headers,
+        boost::beast::http::verb::get,
+        [&](Response& res) {
+            ++callbackCount;
+            callbackStatus = res.result();
+            acceptor.close();
+            ioc.stop();
+        });
+
+    ioc.run();
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_EQ(callbackStatus, boost::beast::http::status::bad_gateway);
+    EXPECT_EQ(connectionCount, 2); // initial + 1 retry, never concurrent
 }
 
 } // namespace
