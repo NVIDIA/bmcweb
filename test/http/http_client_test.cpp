@@ -2,13 +2,17 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http/http_body.hpp"
 #include "http/http_client.hpp"
+#include "http_response.hpp"
 #include "ssl_key_handler.hpp"
 
 #include <fcntl.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/error.hpp>
+#include <boost/asio/impl/connect_pipe.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
@@ -18,6 +22,7 @@
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/url.hpp>
 
@@ -288,7 +293,7 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
 // it can be read with blocking read() after ioc.run() drains.
 // Must be called inside the sendDataWithCallback resHandler before it returns
 // (openStreamFdAndStart calls res.clear() immediately after the callback).
-static int dupStreamFd(Response& res)
+int dupStreamFd(Response& res)
 {
     int raw = res.response.body().file().native_handle();
     if (raw < 0)
@@ -306,7 +311,7 @@ static int dupStreamFd(Response& res)
 }
 
 // Helper: drain a blocking fd to a string until EOF.
-static std::string drainFd(int fd)
+std::string drainFd(int fd)
 {
     std::string out;
     char buf[4096];
@@ -323,7 +328,7 @@ static std::string drainFd(int fd)
 }
 
 // Helper: build a minimal HTTP/1.1 200 streaming response header.
-static std::string makeHmcHeader(size_t contentLength)
+std::string makeHmcHeader(size_t contentLength)
 {
     return "HTTP/1.1 200 OK\r\n"
            "Content-Type: application/octet-stream\r\n"
@@ -417,24 +422,6 @@ TEST(HmcTruncation, TcpDropMidStream_PipeGivesShortEof)
     EXPECT_LT(received.size(), claimedSize); // short of Content-Length
 }
 
-// Stall-timer path (DISABLED — requires ~120 s real time)
-// ---------------------------------------------------------------------------
-// HMC sends 1 MiB of body then holds the TCP socket open without sending
-// more data.  The chunk-stall timer in http_client.hpp fires after 120 s:
-//
-//   onChunkStallTimeout → streaming.reset() → writePipe RAII-closes →
-//   onRelayDone() unblocks sendNext().
-//
-// The downstream reader receives a short EOF (however many bytes fit in the
-// relay pipe before the timer fired) rather than blocking indefinitely.
-//
-// The stall timeout is hardcoded at 120 s; making it configurable via
-// ConnectionPolicy would require a source change.  This test is DISABLED so
-// normal CI runs skip it.  Enable with:
-//
-//   --gtest_also_run_disabled_tests \
-//   --gtest_filter=HmcTruncation.DISABLED_StallTimer120s_Integration
-
 TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
 {
     boost::asio::io_context ioc;
@@ -502,6 +489,101 @@ TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
     // However many bytes reached the pipe before the timer fired, the
     // transfer must be truncated relative to the claimed Content-Length.
     EXPECT_LT(received.size(), claimedSize);
+}
+
+// ============================================================
+// HMC 404 JSON response — buffered path, no pipe
+// ============================================================
+
+// When HMC returns a 404 with a JSON body, shouldStreamResponse() returns
+// false on two independent grounds:
+//   1. isJsonResponse() is true  → buffered unconditionally
+//   2. invalidResp(404) is truthy (default policy) → responseIsInvalid=true
+//
+// afterReadHeader() therefore calls readJsonBody() → afterRead().  No
+// StreamingState is created, so no relay pipe is opened.
+//
+// The test uses an all-pass invalidResp (like the real aggregationRetryHandler)
+// so that the 404 is forwarded to the caller rather than triggering retries
+// that would eventually return 502.  It verifies:
+//   - callback fires exactly once
+//   - status is 404 Not Found
+//   - JSON error body is present in the response
+//   - no pipe fd is open on the response (buffered body, not streamed)
+
+TEST(HmcBufferedPath, Http404Json_RoutedToBufferedPath_NoPipe)
+{
+    boost::asio::io_context ioc;
+
+    const std::string jsonBody =
+        R"({"error":{"code":"Base.1.0.ResourceNotFound","message":"The resource was not found"}})";
+
+    boost::asio::ip::tcp::acceptor acceptor(
+        ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0));
+
+    auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioc);
+    acceptor.async_accept(*sock, [&, sock](boost::system::error_code ec) {
+        if (ec)
+        {
+            return;
+        }
+        const std::string response =
+            "HTTP/1.1 404 Not Found\r\n"
+            "Content-Type: application/json\r\n"
+            "Content-Length: " +
+            std::to_string(jsonBody.size()) + "\r\n\r\n" + jsonBody;
+        auto buf = std::make_shared<std::string>(response);
+        boost::asio::async_write(
+            *sock, boost::asio::buffer(*buf),
+            [&acceptor, sock, buf](boost::system::error_code, std::size_t) {
+                sock->close();
+                acceptor.close();
+            });
+    });
+
+    uint16_t port = acceptor.local_endpoint().port();
+    boost::urls::url destUrl(
+        "http://127.0.0.1:" + std::to_string(port) + "/fdr");
+
+    auto policy = std::make_shared<ConnectionPolicy>();
+    policy->maxRetryAttempts = 0;
+    policy->retryIntervalSecs = std::chrono::seconds(0);
+    policy->retryPolicyAction = "TerminateAfterRetries";
+    // Allow all status codes through so 404 is forwarded to the caller,
+    // not retried until 502 (which is what the default handler does for
+    // any non-2xx code).
+    policy->invalidResp = [](unsigned int /*respCode*/) {
+        return boost::system::errc::make_error_code(
+            boost::system::errc::success);
+    };
+
+    HttpClient client(ioc, policy);
+
+    int callbackCount = 0;
+    boost::beast::http::status callbackStatus = boost::beast::http::status::ok;
+    std::string callbackBody;
+    bool pipeOpened = false;
+
+    boost::beast::http::fields hdrs;
+    client.sendDataWithCallback(
+        "", destUrl, ensuressl::VerifyCertificate::NoVerify, hdrs,
+        boost::beast::http::verb::get, [&](Response& res) {
+            ++callbackCount;
+            callbackStatus = res.result();
+            callbackBody = res.response.body().str();
+            // file().is_open() is true only on the streaming path where a
+            // dup'd pipe fd is placed in the response body.
+            pipeOpened = res.response.body().file().is_open();
+            acceptor.close();
+            ioc.stop();
+        });
+
+    ioc.run();
+
+    EXPECT_EQ(callbackCount, 1);
+    EXPECT_EQ(callbackStatus, boost::beast::http::status::not_found);
+    EXPECT_NE(callbackBody.find("ResourceNotFound"), std::string::npos);
+    EXPECT_FALSE(pipeOpened); // buffered JSON path: no relay pipe created
 }
 
 } // namespace
