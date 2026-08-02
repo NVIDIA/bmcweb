@@ -4,6 +4,9 @@
 #include "http/http_client.hpp"
 #include "ssl_key_handler.hpp"
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
@@ -19,6 +22,8 @@
 #include <boost/url/url.hpp>
 
 #include <algorithm>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -222,21 +227,18 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
 
     // --- Fake HMC: for every TCP connection send garbage then close ---
     boost::asio::ip::tcp::acceptor acceptor(
-        ioc, boost::asio::ip::tcp::endpoint(
-                 boost::asio::ip::tcp::v4(), 0));
+        ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0));
     int connectionCount = 0;
 
     std::function<void()> doAccept = [&]() {
-        auto sock =
-            std::make_shared<boost::asio::ip::tcp::socket>(ioc);
+        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioc);
         acceptor.async_accept(*sock, [&, sock](boost::system::error_code ec) {
             if (ec)
             {
                 return;
             }
             ++connectionCount;
-            auto garbage =
-                std::make_shared<std::string>("GARBAGE\r\n\r\n");
+            auto garbage = std::make_shared<std::string>("GARBAGE\r\n\r\n");
             boost::asio::async_write(
                 *sock, boost::asio::buffer(*garbage),
                 [sock, garbage](boost::system::error_code, std::size_t) {
@@ -248,8 +250,8 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
     doAccept();
 
     uint16_t port = acceptor.local_endpoint().port();
-    boost::urls::url destUrl("http://127.0.0.1:" + std::to_string(port) +
-                             "/fdr");
+    boost::urls::url destUrl(
+        "http://127.0.0.1:" + std::to_string(port) + "/fdr");
 
     auto policy = std::make_shared<ConnectionPolicy>();
     policy->maxRetryAttempts = 1;
@@ -259,14 +261,12 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
     HttpClient client(ioc, policy);
 
     int callbackCount = 0;
-    boost::beast::http::status callbackStatus =
-        boost::beast::http::status::ok;
+    boost::beast::http::status callbackStatus = boost::beast::http::status::ok;
 
     boost::beast::http::fields headers;
     client.sendDataWithCallback(
         "", destUrl, ensuressl::VerifyCertificate::NoVerify, headers,
-        boost::beast::http::verb::get,
-        [&](Response& res) {
+        boost::beast::http::verb::get, [&](Response& res) {
             ++callbackCount;
             callbackStatus = res.result();
             acceptor.close();
@@ -278,6 +278,230 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
     EXPECT_EQ(callbackCount, 1);
     EXPECT_EQ(callbackStatus, boost::beast::http::status::bad_gateway);
     EXPECT_EQ(connectionCount, 2); // initial + 1 retry, never concurrent
+}
+
+// ============================================================
+// HMC mid-stream truncation: stall / TCP-drop scenarios
+// ============================================================
+
+// Helper: dup the pipe fd from a streaming Response and clear O_NONBLOCK so
+// it can be read with blocking read() after ioc.run() drains.
+// Must be called inside the sendDataWithCallback resHandler before it returns
+// (openStreamFdAndStart calls res.clear() immediately after the callback).
+static int dupStreamFd(Response& res)
+{
+    int raw = res.response.body().file().native_handle();
+    if (raw < 0)
+    {
+        return -1;
+    }
+    int fd = ::dup(raw);
+    if (fd < 0)
+    {
+        return -1;
+    }
+    int flags = ::fcntl(fd, F_GETFL);
+    ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+    return fd;
+}
+
+// Helper: drain a blocking fd to a string until EOF.
+static std::string drainFd(int fd)
+{
+    std::string out;
+    char buf[4096];
+    for (;;)
+    {
+        ssize_t n = ::read(fd, buf, sizeof(buf));
+        if (n <= 0)
+        {
+            break;
+        }
+        out.append(buf, static_cast<size_t>(n));
+    }
+    return out;
+}
+
+// Helper: build a minimal HTTP/1.1 200 streaming response header.
+static std::string makeHmcHeader(size_t contentLength)
+{
+    return "HTTP/1.1 200 OK\r\n"
+           "Content-Type: application/octet-stream\r\n"
+           "Content-Length: " +
+           std::to_string(contentLength) + "\r\n\r\n";
+}
+
+// TCP-drop path (fast, < 1 s)
+// ---------------------------------------------------------------------------
+// HMC sends a valid header claiming claimedSize bytes, writes sentSize bytes
+// of body, then closes the TCP socket mid-transfer.
+//
+// Code path exercised:
+//   async_read_some → afterStreamBodyRawRead → afterStreamBodyRead
+//   (hadEof=true, done=false) → writeChunkToPipe → afterChunkWrite
+//   (hadEof=true) → streaming.reset() closes write-end of relay pipe →
+//   onRelayDone() unblocks sendNext().
+//
+// The relay pipe's write-end closes before contentLength bytes are written,
+// so the downstream reader receives a short EOF it can detect rather than
+// a silent corruption or an indefinite hang.
+//
+// sentSize is chosen to fit inside the relay pipe buffer (kernel default
+// ~64 KiB; expanded to 1 MiB by F_SETPIPE_SZ when permitted).
+// httpReadBufferSize (32 KiB) fits in either case.
+
+TEST(HmcTruncation, TcpDropMidStream_PipeGivesShortEof)
+{
+    boost::asio::io_context ioc;
+
+    constexpr size_t sentSize = httpReadBufferSize;
+    constexpr size_t claimedSize = sentSize * 2;
+
+    boost::asio::ip::tcp::acceptor acceptor(
+        ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0));
+
+    auto doHmcSession = [&]() {
+        auto sock = std::make_shared<boost::asio::ip::tcp::socket>(ioc);
+        acceptor.async_accept(*sock, [&, sock](boost::system::error_code ec) {
+            if (ec)
+            {
+                return;
+            }
+            auto hdr =
+                std::make_shared<std::string>(makeHmcHeader(claimedSize));
+            boost::asio::async_write(
+                *sock, boost::asio::buffer(*hdr),
+                [&, sock, hdr](boost::system::error_code, std::size_t) {
+                    auto body = std::make_shared<std::string>(sentSize, 'X');
+                    boost::asio::async_write(
+                        *sock, boost::asio::buffer(*body),
+                        [&acceptor, sock,
+                         body](boost::system::error_code, std::size_t) {
+                            sock->close();    // TCP drop mid-transfer
+                            acceptor.close(); // no further connections
+                        });
+                });
+        });
+    };
+    doHmcSession();
+
+    uint16_t port = acceptor.local_endpoint().port();
+    boost::urls::url destUrl(
+        "http://127.0.0.1:" + std::to_string(port) + "/fdr");
+
+    auto policy = std::make_shared<ConnectionPolicy>();
+    policy->maxRetryAttempts = 0;
+    policy->retryIntervalSecs = std::chrono::seconds(0);
+    policy->retryPolicyAction = "TerminateAfterRetries";
+
+    HttpClient client(ioc, policy);
+    int capturedFd = -1;
+
+    boost::beast::http::fields hdrs;
+    client.sendDataWithCallback(
+        "", destUrl, ensuressl::VerifyCertificate::NoVerify, hdrs,
+        boost::beast::http::verb::get, [&](Response& res) {
+            // Fires when headers arrive + pipe is ready, before body data.
+            // Do NOT stop ioc here; let body streaming run to completion.
+            capturedFd = dupStreamFd(res);
+        });
+
+    ioc.run(); // returns after streaming finishes + connection closes
+
+    ASSERT_GE(capturedFd, 0) << "header callback did not fire";
+
+    std::string received = drainFd(capturedFd);
+    ::close(capturedFd);
+
+    EXPECT_EQ(received.size(), sentSize);    // all sent bytes arrived
+    EXPECT_LT(received.size(), claimedSize); // short of Content-Length
+}
+
+// Stall-timer path (DISABLED — requires ~120 s real time)
+// ---------------------------------------------------------------------------
+// HMC sends 1 MiB of body then holds the TCP socket open without sending
+// more data.  The chunk-stall timer in http_client.hpp fires after 120 s:
+//
+//   onChunkStallTimeout → streaming.reset() → writePipe RAII-closes →
+//   onRelayDone() unblocks sendNext().
+//
+// The downstream reader receives a short EOF (however many bytes fit in the
+// relay pipe before the timer fired) rather than blocking indefinitely.
+//
+// The stall timeout is hardcoded at 120 s; making it configurable via
+// ConnectionPolicy would require a source change.  This test is DISABLED so
+// normal CI runs skip it.  Enable with:
+//
+//   --gtest_also_run_disabled_tests \
+//   --gtest_filter=HmcTruncation.DISABLED_StallTimer120s_Integration
+
+TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
+{
+    boost::asio::io_context ioc;
+
+    constexpr size_t sentSize = 1024UL * 1024; // 1 MiB
+    constexpr size_t claimedSize = sentSize * 2;
+
+    boost::asio::ip::tcp::acceptor acceptor(
+        ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0));
+
+    // stallSock is kept alive for the duration of the test so the TCP
+    // connection stays open after the body bytes are written.
+    auto stallSock = std::make_shared<boost::asio::ip::tcp::socket>(ioc);
+
+    acceptor.async_accept(*stallSock, [&, stallSock](
+                                          boost::system::error_code ec) {
+        if (ec)
+        {
+            return;
+        }
+        auto hdr = std::make_shared<std::string>(makeHmcHeader(claimedSize));
+        boost::asio::async_write(
+            *stallSock, boost::asio::buffer(*hdr),
+            [&, stallSock, hdr](boost::system::error_code, std::size_t) {
+                auto body = std::make_shared<std::string>(sentSize, 'X');
+                boost::asio::async_write(
+                    *stallSock, boost::asio::buffer(*body),
+                    [&acceptor, stallSock,
+                     body](boost::system::error_code, std::size_t) {
+                        // Body written; hold socket open to force stall.
+                        // Do NOT close stallSock here.
+                        acceptor.close();
+                    });
+            });
+    });
+
+    uint16_t port = acceptor.local_endpoint().port();
+    boost::urls::url destUrl(
+        "http://127.0.0.1:" + std::to_string(port) + "/fdr");
+
+    auto policy = std::make_shared<ConnectionPolicy>();
+    policy->maxRetryAttempts = 0;
+    policy->retryIntervalSecs = std::chrono::seconds(0);
+    policy->retryPolicyAction = "TerminateAfterRetries";
+
+    HttpClient client(ioc, policy);
+    int capturedFd = -1;
+
+    boost::beast::http::fields hdrs;
+    client.sendDataWithCallback(
+        "", destUrl, ensuressl::VerifyCertificate::NoVerify, hdrs,
+        boost::beast::http::verb::get,
+        [&](Response& res) { capturedFd = dupStreamFd(res); });
+
+    // Run for 135 s to allow the 120-second chunk-stall timer to fire.
+    ioc.run_for(std::chrono::seconds(135));
+
+    stallSock->close(); // release after ioc
+
+    ASSERT_GE(capturedFd, 0) << "header callback did not fire";
+
+    std::string received = drainFd(capturedFd);
+    ::close(capturedFd);
+
+    // However many bytes reached the pipe before the timer fired, the
+    // transfer must be truncated relative to the claimed Content-Length.
+    EXPECT_LT(received.size(), claimedSize);
 }
 
 } // namespace
