@@ -27,6 +27,7 @@
 #include <boost/url/url.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -141,20 +142,7 @@ TEST(ShouldStreamResponse, NoContentTypeWithBodyStreams)
     EXPECT_TRUE(shouldStreamResponse(res, 5000000, false));
 }
 
-// ============================================================
-// Tests from Aishwary Joshi's review comments on MR !8824
-// ============================================================
-
-// BUG-5: upstream error silently delivers truncated data
-// ---------------------------------------------------------------------------
-// When the HMC TCP connection drops mid-transfer, afterStreamBodyRead receives
-// a non-EOF error. The fix closes the write-end of the relay pipe immediately
-// without flushing any buffered bytes. The Redfish client then receives EOF
-// before Content-Length bytes and can detect the truncation — it is not
-// silently delivered a corrupt, partial FDR dump.
-//
-// This test validates the pipe-level semantics that the fix relies on: closing
-// the write end without flushing signals a short EOF to the reader.
+// BUG-5: closing write pipe without flush signals short EOF to reader
 
 TEST(StreamingPipeBug5, ClosingWritePipeWithoutFlush_SignalsShortEofToReader)
 {
@@ -165,16 +153,12 @@ TEST(StreamingPipeBug5, ClosingWritePipeWithoutFlush_SignalsShortEofToReader)
     boost::asio::connect_pipe(readPipe, writePipe, pipeEc);
     ASSERT_FALSE(pipeEc);
 
-    // Write partial data to simulate bytes flushed before the upstream error.
     const std::string partialData(128, 'X');
     boost::asio::write(writePipe, boost::asio::buffer(partialData), pipeEc);
     ASSERT_FALSE(pipeEc);
 
-    // BUG-5 fix: close write end immediately; do NOT flush more bytes.
     writePipe.close();
 
-    // Reader sees partial data followed by EOF — a short, detectable
-    // truncation.
     std::string buf(1024, '\0');
     boost::system::error_code readEc;
     size_t n = boost::asio::read(readPipe, boost::asio::buffer(buf), readEc);
@@ -183,18 +167,8 @@ TEST(StreamingPipeBug5, ClosingWritePipeWithoutFlush_SignalsShortEofToReader)
     EXPECT_EQ(n, partialData.size());
 }
 
-// BUG-4: zero readLimit causes a tight async loop when the read buffer is full
-// ---------------------------------------------------------------------------
-// scheduleStreamBodyRawRead() computes:
-//   readLimit = min(buffer.max_size() - buffer.size(), remaining)
-// When the flat_static_buffer<httpReadBufferSize> is completely full,
-// buffer.max_size() - buffer.size() == 0 and so readLimit == 0.
-// Calling async_read_some with a zero-length buffer returns immediately,
-// spinning until the 120-second stall timer kills the download.
-//
-// The fix posts() back to scheduleStreamBodyRead() when readLimit == 0 so the
-// write side can drain the buffer before another read is attempted.
-// This test documents the arithmetic that triggers the guard condition.
+// BUG-4: full buffer produces zero readLimit, documenting the busy-loop guard
+// arithmetic
 
 TEST(StreamingReadLimitBug4, FullBufferProducesZeroReadLimit)
 {
@@ -207,24 +181,8 @@ TEST(StreamingReadLimitBug4, FullBufferProducesZeroReadLimit)
     EXPECT_EQ(readLimit, 0U);
 }
 
-// BUG-1: handleReadHeaderError must follow the retry state machine
-// ---------------------------------------------------------------------------
-// Before the fix, handleReadHeaderError() called callback(false,...) directly
-// without cancelling the receive timer or updating ConnState. When the
-// 60-second timer later fired, waitAndRetry() ran with retryCount=0, scheduling
-// a fresh doResolve() — but sendNext() (invoked from the callback) had already
-// called doClose() + restartConnection(). The result was two concurrent
-// doResolve() calls racing on the same ConnectionInfo.
-//
-// The fix mirrors afterRead(): cancel timer → state = recvFailed →
-// waitAndRetry.
-//
-// Test: a loopback TCP acceptor sends "GARBAGE\r\n\r\n" for every connection.
-// Beast's async_read_header fails with a parse error on each attempt.
-// With maxRetryAttempts=1 the client makes two sequential connections (initial
-// + one retry), then fires the callback exactly once with bad_gateway.
-// connectionCount == 2 also proves no concurrent doResolve() was spawned
-// (the old bug would produce an extra connection from the stale timer firing).
+// BUG-1: malformed header exhausts retries sequentially and fires callback
+// exactly once
 
 TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
 {
@@ -282,17 +240,11 @@ TEST(HttpClientBug1, MalformedHmcHeader_CallbackOnceAtRetryExhaustion)
 
     EXPECT_EQ(callbackCount, 1);
     EXPECT_EQ(callbackStatus, boost::beast::http::status::bad_gateway);
-    EXPECT_EQ(connectionCount, 2); // initial + 1 retry, never concurrent
+    EXPECT_EQ(connectionCount, 2); // initial + 1 retry
 }
 
-// ============================================================
-// HMC mid-stream truncation: stall / TCP-drop scenarios
-// ============================================================
-
-// Helper: dup the pipe fd from a streaming Response and clear O_NONBLOCK so
-// it can be read with blocking read() after ioc.run() drains.
-// Must be called inside the sendDataWithCallback resHandler before it returns
-// (openStreamFdAndStart calls res.clear() immediately after the callback).
+// Helper: dup the streaming pipe fd and clear O_NONBLOCK for blocking reads
+// after ioc.run().
 int dupStreamFd(Response& res)
 {
     int raw = res.response.body().file().native_handle();
@@ -305,29 +257,31 @@ int dupStreamFd(Response& res)
     {
         return -1;
     }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     int flags = ::fcntl(fd, F_GETFL);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
     return fd;
 }
 
-// Helper: drain a blocking fd to a string until EOF.
+// Helper: read a blocking fd to string until EOF.
 std::string drainFd(int fd)
 {
     std::string out;
-    char buf[4096];
+    std::array<char, 4096> buf{};
     for (;;)
     {
-        ssize_t n = ::read(fd, buf, sizeof(buf));
+        ssize_t n = ::read(fd, buf.data(), buf.size());
         if (n <= 0)
         {
             break;
         }
-        out.append(buf, static_cast<size_t>(n));
+        out.append(buf.data(), static_cast<size_t>(n));
     }
     return out;
 }
 
-// Helper: build a minimal HTTP/1.1 200 streaming response header.
+// Helper: minimal HTTP/1.1 200 octet-stream response header.
 std::string makeHmcHeader(size_t contentLength)
 {
     return "HTTP/1.1 200 OK\r\n"
@@ -336,24 +290,8 @@ std::string makeHmcHeader(size_t contentLength)
            std::to_string(contentLength) + "\r\n\r\n";
 }
 
-// TCP-drop path (fast, < 1 s)
-// ---------------------------------------------------------------------------
-// HMC sends a valid header claiming claimedSize bytes, writes sentSize bytes
-// of body, then closes the TCP socket mid-transfer.
-//
-// Code path exercised:
-//   async_read_some → afterStreamBodyRawRead → afterStreamBodyRead
-//   (hadEof=true, done=false) → writeChunkToPipe → afterChunkWrite
-//   (hadEof=true) → streaming.reset() closes write-end of relay pipe →
-//   onRelayDone() unblocks sendNext().
-//
-// The relay pipe's write-end closes before contentLength bytes are written,
-// so the downstream reader receives a short EOF it can detect rather than
-// a silent corruption or an indefinite hang.
-//
-// sentSize is chosen to fit inside the relay pipe buffer (kernel default
-// ~64 KiB; expanded to 1 MiB by F_SETPIPE_SZ when permitted).
-// httpReadBufferSize (32 KiB) fits in either case.
+// TCP-drop mid-stream: HMC closes socket early; reader gets short EOF, not
+// silent corruption.
 
 TEST(HmcTruncation, TcpDropMidStream_PipeGivesShortEof)
 {
@@ -405,13 +343,10 @@ TEST(HmcTruncation, TcpDropMidStream_PipeGivesShortEof)
     boost::beast::http::fields hdrs;
     client.sendDataWithCallback(
         "", destUrl, ensuressl::VerifyCertificate::NoVerify, hdrs,
-        boost::beast::http::verb::get, [&](Response& res) {
-            // Fires when headers arrive + pipe is ready, before body data.
-            // Do NOT stop ioc here; let body streaming run to completion.
-            capturedFd = dupStreamFd(res);
-        });
+        boost::beast::http::verb::get,
+        [&](Response& res) { capturedFd = dupStreamFd(res); });
 
-    ioc.run(); // returns after streaming finishes + connection closes
+    ioc.run();
 
     ASSERT_GE(capturedFd, 0) << "header callback did not fire";
 
@@ -432,8 +367,8 @@ TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
     boost::asio::ip::tcp::acceptor acceptor(
         ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 0));
 
-    // stallSock is kept alive for the duration of the test so the TCP
-    // connection stays open after the body bytes are written.
+    // Keep stallSock alive so the TCP connection stays open after body bytes
+    // are written.
     auto stallSock = std::make_shared<boost::asio::ip::tcp::socket>(ioc);
 
     acceptor.async_accept(*stallSock, [&, stallSock](
@@ -451,8 +386,6 @@ TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
                     *stallSock, boost::asio::buffer(*body),
                     [&acceptor, stallSock,
                      body](boost::system::error_code, std::size_t) {
-                        // Body written; hold socket open to force stall.
-                        // Do NOT close stallSock here.
                         acceptor.close();
                     });
             });
@@ -476,40 +409,21 @@ TEST(HmcTruncation, DISABLED_StallTimer120s_Integration)
         boost::beast::http::verb::get,
         [&](Response& res) { capturedFd = dupStreamFd(res); });
 
-    // Run for 135 s to allow the 120-second chunk-stall timer to fire.
-    ioc.run_for(std::chrono::seconds(135));
+    ioc.run_for(
+        std::chrono::seconds(135)); // outlast the 120 s chunk-stall timer
 
-    stallSock->close(); // release after ioc
+    stallSock->close();
 
     ASSERT_GE(capturedFd, 0) << "header callback did not fire";
 
     std::string received = drainFd(capturedFd);
     ::close(capturedFd);
 
-    // However many bytes reached the pipe before the timer fired, the
-    // transfer must be truncated relative to the claimed Content-Length.
     EXPECT_LT(received.size(), claimedSize);
 }
 
-// ============================================================
-// HMC 404 JSON response — buffered path, no pipe
-// ============================================================
-
-// When HMC returns a 404 with a JSON body, shouldStreamResponse() returns
-// false on two independent grounds:
-//   1. isJsonResponse() is true  → buffered unconditionally
-//   2. invalidResp(404) is truthy (default policy) → responseIsInvalid=true
-//
-// afterReadHeader() therefore calls readJsonBody() → afterRead().  No
-// StreamingState is created, so no relay pipe is opened.
-//
-// The test uses an all-pass invalidResp (like the real aggregationRetryHandler)
-// so that the 404 is forwarded to the caller rather than triggering retries
-// that would eventually return 502.  It verifies:
-//   - callback fires exactly once
-//   - status is 404 Not Found
-//   - JSON error body is present in the response
-//   - no pipe fd is open on the response (buffered body, not streamed)
+// HMC 404 JSON: shouldStreamResponse returns false; body is buffered, no relay
+// pipe opened.
 
 TEST(HmcBufferedPath, Http404Json_RoutedToBufferedPath_NoPipe)
 {
@@ -549,9 +463,8 @@ TEST(HmcBufferedPath, Http404Json_RoutedToBufferedPath_NoPipe)
     policy->maxRetryAttempts = 0;
     policy->retryIntervalSecs = std::chrono::seconds(0);
     policy->retryPolicyAction = "TerminateAfterRetries";
-    // Allow all status codes through so 404 is forwarded to the caller,
-    // not retried until 502 (which is what the default handler does for
-    // any non-2xx code).
+    // Pass all status codes through so 404 reaches the caller rather than
+    // retrying to 502.
     policy->invalidResp = [](unsigned int /*respCode*/) {
         return boost::system::errc::make_error_code(
             boost::system::errc::success);
@@ -571,8 +484,6 @@ TEST(HmcBufferedPath, Http404Json_RoutedToBufferedPath_NoPipe)
             ++callbackCount;
             callbackStatus = res.result();
             callbackBody = res.response.body().str();
-            // file().is_open() is true only on the streaming path where a
-            // dup'd pipe fd is placed in the response body.
             pipeOpened = res.response.body().file().is_open();
             acceptor.close();
             ioc.stop();
@@ -583,7 +494,7 @@ TEST(HmcBufferedPath, Http404Json_RoutedToBufferedPath_NoPipe)
     EXPECT_EQ(callbackCount, 1);
     EXPECT_EQ(callbackStatus, boost::beast::http::status::not_found);
     EXPECT_NE(callbackBody.find("ResourceNotFound"), std::string::npos);
-    EXPECT_FALSE(pipeOpened); // buffered JSON path: no relay pipe created
+    EXPECT_FALSE(pipeOpened);
 }
 
 } // namespace

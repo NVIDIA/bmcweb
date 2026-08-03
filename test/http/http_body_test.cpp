@@ -3,6 +3,11 @@
 #include "duplicatable_file_handle.hpp"
 #include "http_body.hpp"
 
+#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/system/errc.hpp>
@@ -31,7 +36,6 @@ namespace
 TEST(HttpHttpBodyValueType, MoveString)
 {
     HttpBody::value_type value("teststring");
-    // Move constructor
     HttpBody::value_type value2(std::move(value));
     EXPECT_EQ(value2.encodingType, EncodingType::Raw);
     EXPECT_EQ(value2.str(), "teststring");
@@ -42,7 +46,6 @@ TEST(HttpHttpBodyValueType, MoveOperatorString)
 {
     HttpBody::value_type value;
     value.str() = "teststring";
-    // Move constructor
     HttpBody::value_type value2 = std::move(value);
     EXPECT_EQ(value2.encodingType, EncodingType::Raw);
     EXPECT_EQ(value2.str(), "teststring");
@@ -53,7 +56,6 @@ TEST(HttpHttpBodyValueType, copysignl)
 {
     HttpBody::value_type value;
     value.str() = "teststring";
-    // Move constructor
     HttpBody::value_type value2(value);
     EXPECT_EQ(value2.encodingType, EncodingType::Raw);
     EXPECT_EQ(value2.str(), "teststring");
@@ -80,7 +82,6 @@ TEST(HttpHttpBodyValueType, MoveFile)
     value.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
                ec);
     ASSERT_FALSE(ec);
-    // Move constructor
     HttpBody::value_type value2(std::move(value));
     std::array<char, 11> buffer{};
     size_t out = value2.file().read(buffer.data(), buffer.size(), ec);
@@ -105,7 +106,6 @@ TEST(HttpHttpBodyValueType, MoveOperatorFile)
     value.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
                ec);
     ASSERT_FALSE(ec);
-    // Move constructor
     HttpBody::value_type value2 = std::move(value);
     std::array<char, 11> buffer{};
     size_t out = value2.file().read(buffer.data(), buffer.size(), ec);
@@ -166,7 +166,6 @@ TEST(HttpFileBodyValueType, SetFileSizeOverridesFstat)
     value.setFd(std::move(fh), ec);
     ASSERT_FALSE(ec);
 
-    // Override the fstat-derived size with an explicit value.
     value.setFileSize(99);
     std::optional<std::uint64_t> size = value.payloadSize();
     ASSERT_TRUE(size.has_value());
@@ -196,27 +195,13 @@ TEST(HttpFileBodyValueType, ClearResetsToString)
     EXPECT_FALSE(value.streamingReceiver);
 }
 
-// ============================================================
-// Tests from Aishwary Joshi's review comments on MR !8824
-// ============================================================
-
-// BUG-2: writer::getWithMaxSize EAGAIN path
-// -----------------------------------------------------------------
-// The EAGAIN branch in HttpBody::writer::getWithMaxSize() previously contained
-// dead code: after path-B (EAGAIN with read > 0, readEc cleared), an
-// unreachable "if (read == 0)" block would have returned a confusing
-// "no-data, no-error" boost::none. The block has been removed.
-//
-// These two tests confirm:
-//   (a) the live EAGAIN + zero-bytes path (path-A) still propagates ec, and
-//   (b) a normal non-blocking read with data delivers its buffer correctly
-//       after the dead code was removed.
+// BUG-2: EAGAIN path — path-A propagates ec; path-B delivers data after
+// dead-code removal.
 
 TEST(HttpBodyWriter, EagainOnEmptyNonBlockingPipe_ReturnsNone)
 {
-    // path-A: read() = 0 + EAGAIN → writer must return boost::none with ec.
-    int pipeFds[2];
-    ASSERT_EQ(pipe2(pipeFds, O_NONBLOCK), 0);
+    std::array<int, 2> pipeFds{};
+    ASSERT_EQ(pipe2(pipeFds.data(), O_NONBLOCK), 0);
     const int writeFd =
         pipeFds[1]; // keep write end open to avoid premature EOF
 
@@ -242,10 +227,8 @@ TEST(HttpBodyWriter, EagainOnEmptyNonBlockingPipe_ReturnsNone)
 
 TEST(HttpBodyWriter, NonBlockingPipeWithData_ReturnsBuffer)
 {
-    // Verifies path-B flow after dead-code removal: a read returning bytes
-    // must surface those bytes to the caller without being discarded.
-    int pipeFds[2];
-    ASSERT_EQ(pipe2(pipeFds, O_NONBLOCK), 0);
+    std::array<int, 2> pipeFds{};
+    ASSERT_EQ(pipe2(pipeFds.data(), O_NONBLOCK), 0);
 
     const std::string_view payload = "stream_payload";
     ASSERT_EQ(::write(pipeFds[1], payload.data(), payload.size()),
@@ -271,14 +254,8 @@ TEST(HttpBodyWriter, NonBlockingPipeWithData_ReturnsBuffer)
               payload);
 }
 
-// BUG-3: setFd unconditionally clears ec
-// -----------------------------------------------------------------
-// setFd() always sets ec = {} regardless of what the caller passed in.
-// Consequently openFd() (which calls setFd) can never return false today, and
-// the close(fd) calls on its error paths are stale: the RAII handle already
-// owns the fd and will close it on destruction. This test documents the current
-// behaviour as a regression anchor so that any future change making setFd
-// fallible is immediately visible.
+// BUG-3: setFd always clears ec; regression anchor for when setFd becomes
+// fallible.
 
 TEST(HttpFileBodyValueType, SetFd_AlwaysClearsPassedInErrorCode)
 {
@@ -290,14 +267,12 @@ TEST(HttpFileBodyValueType, SetFd_AlwaysClearsPassedInErrorCode)
     ASSERT_FALSE(openEc);
 
     HttpBody::value_type value;
-    // Pre-load ec with a non-zero error to verify setFd ignores it.
     boost::system::error_code ec = boost::system::errc::make_error_code(
         boost::system::errc::permission_denied);
     ASSERT_TRUE(ec);
 
     value.setFd(std::move(fh), ec);
 
-    // setFd always sets ec = {} — fstat errors are not propagated upward.
     EXPECT_FALSE(ec);
     EXPECT_TRUE(value.file().is_open());
 }

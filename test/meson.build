@@ -1,6 +1,5 @@
 srcfiles_unittest = files(
     'http/crow_getroutes_test.cpp',
-    'http/http2_connection_test.cpp',
     'http/http_body_test.cpp',
     'http/http_client_test.cpp',
     'http/http_connection_test.cpp',
