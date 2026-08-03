@@ -3608,6 +3608,14 @@ inline void getProcessorSettingsData(
                                 getEgmModePendingData(aResp, processorId,
                                                       service, path);
                         }
+                        if (std::ranges::find(interfaces,
+                                              "com.nvidia.AdaptiveTGPMode") !=
+                            interfaces.end())
+                        {
+                            redfish::nvidia_processor_utils::
+                                getAdaptiveTGPModePendingData(
+                                    aResp, processorId, service, path);
+                        }
                     }
                     if (std::find(interfaces.begin(), interfaces.end(),
                                   "xyz.openbmc_project.Software.ApplyTime") !=
@@ -4033,6 +4041,11 @@ inline void handleNvidiaProcessorInterface(
         else if (interface == "com.nvidia.EgmMode")
         {
             redfish::nvidia_processor_utils::getEgmModeData(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.AdaptiveTGPMode")
+        {
+            redfish::nvidia_processor_utils::getAdaptiveTGPModeData(
                 asyncResp, processorId, serviceName, objectPath);
         }
         else if (interface == "com.nvidia.NVLink.MNNVLinkTopology")

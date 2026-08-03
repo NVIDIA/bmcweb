@@ -530,7 +530,13 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_7_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_6_0.NvidiaGPU"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_6_0.NvidiaGPU">
+        <Property Name="AdaptiveTGPMode" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether adaptive Total GPU Power mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if adaptive Total GPU Power mode is enabled for this processor."/>
+        </Property>
+      </ComplexType>
       <ComplexType Name="MNNVLinkTopology" BaseType="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
         <Property Name="LsbIBGUID" Type="Edm.String" Nullable="true">
           <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
@@ -553,6 +559,11 @@
         </Property>
       </ComplexType>
       <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
+        <Property Name="AdaptiveTGPMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for adaptive Total GPU Power mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for adaptive Total GPU Power mode."/>
+        </Property>
         <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The DOE settings for Runtime In System Test (RIST)."/>
@@ -560,6 +571,11 @@
         </Property>
       </ComplexType>
       <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.InbandReconfigPermissions">
+        <Property Name="AdaptiveTGPMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for adaptive Total GPU Power mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for adaptive Total GPU Power mode."/>
+        </Property>
         <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The in-band settings for Runtime In System Test (RIST)."/>

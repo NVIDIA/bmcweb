@@ -108,6 +108,7 @@ inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
         {"EGMMode", {}},
         {"InfoROMFileSystemRecreate", {}},
         {"RISTDiagnostic", {}},
+        {"AdaptiveTGPMode", {}},
     };
 
     if (redfish::json_util::readJson(
@@ -136,7 +137,8 @@ inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
             features["PowerSmoothingPrivilegeLevel2"], "EGMMode",
             features["EGMMode"], "InfoROMFileSystemRecreate",
             features["InfoROMFileSystemRecreate"], "RISTDiagnostic",
-            features["RISTDiagnostic"]))
+            features["RISTDiagnostic"], "AdaptiveTGPMode",
+            features["AdaptiveTGPMode"]))
     {
         for (auto& [featureName, feature] : features)
         {
@@ -2560,6 +2562,154 @@ inline void getEgmModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                        const OperatingConfigProperties& properties) {
             getEgmModeDataHandler(aResp, ec, properties);
         });
+}
+
+// Function to handle the getAdaptiveTGPModeData async method call response
+inline void getAdaptiveTGPModeDataHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const boost::system::error_code& ec,
+    const OperatingConfigProperties& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error");
+        messages::internalError(aResp->res);
+        return;
+    }
+    nlohmann::json& json = aResp->res.jsonValue;
+    for (const auto& property : properties)
+    {
+        json["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaProcessor.v1_7_0.NvidiaGPU";
+        if (property.first == "AdaptiveTGPModeEnabled")
+        {
+            const bool* adaptiveTGPModeEnabled =
+                std::get_if<bool>(&property.second);
+            if (adaptiveTGPModeEnabled == nullptr)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            json["Oem"]["Nvidia"]["AdaptiveTGPMode"] = *adaptiveTGPModeEnabled;
+        }
+    }
+}
+
+/**
+ * @brief Fill out processor AdaptiveTGPMode info by
+ * requesting data from the given D-Bus object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       cpuId       Processor ID.
+ * @param[in]       service     D-Bus service to query.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getAdaptiveTGPModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get adaptiveTGPMode path:{}, id:{}", objPath, cpuId);
+
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.AdaptiveTGPMode",
+        [aResp, cpuId](const boost::system::error_code& ec,
+                       const OperatingConfigProperties& properties) {
+            getAdaptiveTGPModeDataHandler(aResp, ec, properties);
+        });
+}
+
+/**
+ * @brief Fill out the pending AdaptiveTGPMode of a processor by requesting
+ * data from the given D-Bus object. Serves the Settings sub-resource, so the
+ * pending D-Bus state is reported under the same "AdaptiveTGPMode" property
+ * name the main resource uses for the current state.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       cpuId       Processor ID.
+ * @param[in]       service     D-Bus service to query.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getAdaptiveTGPModePendingData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get pending adaptiveTGPMode path:{}, id:{}", objPath,
+                     cpuId);
+
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.AdaptiveTGPMode",
+        [aResp, cpuId](const boost::system::error_code& ec,
+                       const OperatingConfigProperties& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
+                return;
+            }
+            nlohmann::json& json = aResp->res.jsonValue;
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessor.v1_7_0.NvidiaGPU";
+            for (const auto& property : properties)
+            {
+                if (property.first == "PendingAdaptiveTGPMode")
+                {
+                    const bool* pendingAdaptiveTGPMode =
+                        std::get_if<bool>(&property.second);
+                    if (pendingAdaptiveTGPMode == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Get PendingAdaptiveTGPMode property failed");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    json["Oem"]["Nvidia"]["AdaptiveTGPMode"] =
+                        *pendingAdaptiveTGPMode;
+                }
+            }
+        });
+}
+
+/**
+ * Handle the PATCH operation of the AdaptiveTGPMode property.
+ * Validates input data and sets the D-Bus property directly.
+ *
+ * @param[in,out]   resp            Async HTTP response.
+ * @param[in]       processorId     Processor's Id.
+ * @param[in]       adaptiveTGPMode New property value to apply.
+ * @param[in]       cpuObjectPath   Path of CPU object to modify.
+ * @param[in]       serviceMap      Service map for CPU object.
+ */
+inline void patchAdaptiveTGPMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    [[maybe_unused]] const std::string& processorId, const bool adaptiveTGPMode,
+    const std::string& cpuObjectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+
+    BMCWEB_LOG_DEBUG("patchAdaptiveTGPMode path:{} mode:{}", cpuObjectPath,
+                     adaptiveTGPMode);
+
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::ranges::find(interfaceList, "com.nvidia.AdaptiveTGPMode") !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_ERROR("AdaptiveTGPMode interface not found on {}",
+                         cpuObjectPath);
+        messages::internalError(resp->res);
+        return;
+    }
+
+    nvidia_async_operation_utils::patch(
+        resp, *inventoryService, cpuObjectPath, "com.nvidia.AdaptiveTGPMode",
+        "AdaptiveTGPModeEnabled", adaptiveTGPMode);
 }
 
 } // namespace nvidia_processor_utils
