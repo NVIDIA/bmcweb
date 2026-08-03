@@ -746,6 +746,19 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             shutdownConn(false);
             return false;
         }
+        // Close the original read-end now that the dup'd FD is handed to the
+        // HTTP/2 data source.  This makes the dup'd FD the sole reader: when
+        // the downstream session closes it (client disconnect / stream cancel),
+        // the kernel delivers EPIPE to writePipe immediately instead of waiting
+        // for the 1 MB pipe buffer to fill up.
+        boost::system::error_code closeEc;
+        streaming->readPipe.close(closeEc);
+        if (closeEc)
+        {
+            BMCWEB_LOG_WARNING(
+                "openStreamFdAndStart: readPipe close failed: {}",
+                closeEc.message());
+        }
         res.openFd(std::move(dupHandle), bmcweb::EncodingType::Raw);
         // fstat on a pipe returns 0; set fileSize from the Content-Length
         // header so Beast emits Content-Length instead of chunked encoding.
@@ -1047,8 +1060,18 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             {
                 return;
             }
-            BMCWEB_LOG_ERROR("afterStreamBodyRead pipe write error: {}",
-                             writeEc);
+            if (writeEc == boost::system::errc::broken_pipe)
+            {
+                BMCWEB_LOG_ERROR(
+                    "afterChunkWrite: client disconnected mid-download "
+                    "(EPIPE after {} bytes); closing HMC relay",
+                    streaming->byteCount);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("afterStreamBodyRead pipe write error: {}",
+                                 writeEc);
+            }
             auto cb = std::move(streaming->onRelayDone);
             streaming.reset();
             if (cb)
