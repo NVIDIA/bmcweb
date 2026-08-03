@@ -228,6 +228,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSystemFDRCreate(app);
         requestRoutesSystemFDRClear(app);
         requestRoutesSystemFDRGenBirthCert(app);
+        requestRoutesSystemFDRCollectDiagnosticDataActionInfo(app);
     }
 
     requestRoutesEventLogServicePatch(app);

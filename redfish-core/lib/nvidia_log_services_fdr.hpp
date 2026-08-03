@@ -269,7 +269,10 @@ inline void handleFDRServiceGet(
     asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"] = {
         {"target",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-             "/LogServices/FDR/Actions/LogService.CollectDiagnosticData"}};
+             "/LogServices/FDR/Actions/LogService.CollectDiagnosticData"},
+        {"@Redfish.ActionInfo",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/LogServices/FDR/CollectDiagnosticDataActionInfo"}};
 
     getFDRServiceState(asyncResp);
 }
@@ -421,6 +424,66 @@ inline void requestRoutesSystemFDRService(App& app)
         .privileges(redfish::privileges::patchLogService)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleFDRServicePatch, std::ref(app)));
+}
+
+inline void handleFDRCollectDiagnosticDataActionInfoGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/LogServices/FDR/CollectDiagnosticDataActionInfo",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
+    asyncResp->res.jsonValue["Id"] = "CollectDiagnosticDataActionInfo";
+    asyncResp->res.jsonValue["Name"] = "CollectDiagnosticData Action Info";
+
+    nlohmann::json::array_t parameters;
+
+    nlohmann::json::object_t diagDataType;
+    diagDataType["Name"] = "DiagnosticDataType";
+    diagDataType["Required"] = true;
+    diagDataType["DataType"] = "String";
+    diagDataType["AllowableValues"] = nlohmann::json::array_t({"OEM"});
+    parameters.emplace_back(std::move(diagDataType));
+
+    nlohmann::json::object_t oemDiagDataType;
+    oemDiagDataType["Name"] = "OEMDiagnosticDataType";
+    oemDiagDataType["Required"] = true;
+    oemDiagDataType["DataType"] = "String";
+    oemDiagDataType["AllowableValues"] = nlohmann::json::array_t{};
+    parameters.emplace_back(std::move(oemDiagDataType));
+
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+
+    // Fetch FDR AllowableValues from PDC; always returns 200 (empty list if
+    // PDC unavailable — NVDebug treats empty as no selective filters).
+    redfish::getOEMDiagnosticAllowableValues(
+        "FDR", [asyncResp](const std::vector<std::string>& oemAllowableValues) {
+            asyncResp->res.jsonValue["Parameters"][1]["AllowableValues"] =
+                oemAllowableValues;
+        });
+}
+
+inline void requestRoutesSystemFDRCollectDiagnosticDataActionInfo(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/FDR/CollectDiagnosticDataActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleFDRCollectDiagnosticDataActionInfoGet, std::ref(app)));
 }
 
 void inline requestRoutesSystemFDRGenBirthCert(App& app)
