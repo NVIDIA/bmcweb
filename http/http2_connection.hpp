@@ -339,8 +339,16 @@ class HTTP2Connection :
             static constexpr std::chrono::minutes streamAbortTimeout{15};
             stream.streamAbortTimer.emplace(adaptor.get_executor());
             stream.streamAbortTimer->expires_after(streamAbortTimeout);
-            stream.streamAbortTimer->async_wait(std::bind_front(
-                &self_type::onStreamAbortTimer, this, streamId));
+            stream.streamAbortTimer->async_wait(
+                [weakSelf = weak_from_this(),
+                 streamId](boost::system::error_code ec) {
+                    auto self = weakSelf.lock();
+                    if (!self)
+                    {
+                        return;
+                    }
+                    self->onStreamAbortTimer(streamId, ec);
+                });
         }
         // NVIDIA code end
 

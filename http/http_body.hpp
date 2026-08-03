@@ -483,14 +483,8 @@ class HttpBody::writer
             fileBytesRead += read;
             // Detect EOF by byte count; pipes can short-read.
             const auto* fb = std::get_if<FileBody>(&body.bodyData);
-            // A zero-length read with no error is a terminal EOF: the pipe
-            // writer closed. Handle it explicitly - fileBytesRead stops
-            // advancing here, so the byte-count check below would report
-            // "more data coming" forever and the serializer would spin on
-            // empty buffers without ever completing the response.
-            // readReq == 0 means the caller asked for nothing, so a zero-length
-            // read carries no EOF information; fall through to the byte-count
-            // check below and let the caller retry.
+            // Zero-length read with a pending request is EOF; skip if
+            // readReq==0 (caller retry).
             if (read == 0 && readReq > 0)
             {
                 if (fb != nullptr && fb->fileSize &&
