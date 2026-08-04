@@ -172,7 +172,7 @@ inline size_t parseStreamingContentLength(
         response.find(boost::beast::http::field::content_length);
     if (contentLengthIt == response.end())
     {
-        BMCWEB_LOG_WARNING(
+        BMCWEB_LOG_DEBUG(
             "afterReadHeader: HMC response has no Content-Length header; "
             "will not stream");
         return 0;
@@ -675,13 +675,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         }
         const auto& response = parser->get();
         size_t contentLength = parseStreamingContentLength(response);
-        BMCWEB_LOG_WARNING(
-            "afterReadHeader() content_length={} type={}", contentLength,
-            response.find(boost::beast::http::field::content_type) !=
-                    response.end()
-                ? response.find(boost::beast::http::field::content_type)
-                      ->value()
-                : "(none)");
+        auto ctIt = response.find(boost::beast::http::field::content_type);
+        BMCWEB_LOG_DEBUG("afterReadHeader() content_length={} type={}",
+                         contentLength,
+                         ctIt != response.end() ? ctIt->value() : "(none)");
         // Route to the buffered-JSON path or the streamed-pipe path.
         if (!shouldStreamResponse(response, contentLength,
                                   static_cast<bool>(connPolicy->invalidResp(
@@ -869,10 +866,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         }
         // Post to break synchronous recursion when the full body is already
         // buffered.
-        boost::asio::post(conn->get_executor(),
-                          [self = shared_from_this(), ec, consumed]() {
-                              self->afterStreamBodyRead(self, ec, consumed);
-                          });
+        boost::asio::post(
+            sslConn ? sslConn->get_executor() : conn->get_executor(),
+            [self = shared_from_this(), ec, consumed]() {
+                self->afterStreamBodyRead(self, ec, consumed);
+            });
         return true;
     }
 
@@ -976,69 +974,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             streaming->writePipe, boost::asio::buffer(*chunk),
             std::bind_front(&ConnectionInfo::afterChunkWrite, this,
                             shared_from_this(), chunk, done, hadEof));
-    }
-
-    void writeLastChunkAndClose(const std::shared_ptr<std::string>& lastChunk)
-    {
-        if (!streaming)
-        {
-            BMCWEB_LOG_ERROR(
-                "writeLastChunkAndClose: writePipe not initialised");
-            return;
-        }
-        streaming->byteCount += lastChunk->size();
-        boost::asio::async_write(
-            streaming->writePipe, boost::asio::buffer(*lastChunk),
-            [self = shared_from_this(),
-             lastChunk](boost::system::error_code /*writeEc*/, size_t) {
-                if (!self->streaming)
-                {
-                    return;
-                }
-                auto cb = std::move(self->streaming->onRelayDone);
-                self->streaming.reset();
-                if (cb)
-                {
-                    cb();
-                }
-            });
-    }
-
-    void flushLastChunkAndClose()
-    {
-        // Beast's partial_message fires after the final bytes are already
-        // in body.str(); flush them so the client sees a complete transfer.
-        if (!streaming)
-        {
-            return;
-        }
-        if (!parser)
-        {
-            auto cb = std::move(streaming->onRelayDone);
-            streaming.reset();
-            if (cb)
-            {
-                cb();
-            }
-            return;
-        }
-        auto lastChunk = drainParserBodyChunk(parser.value());
-        if (!lastChunk->empty())
-        {
-            BMCWEB_LOG_DEBUG(
-                "flushLastChunkAndClose: flushing {} trailing bytes before close",
-                lastChunk->size());
-            writeLastChunkAndClose(lastChunk);
-        }
-        else
-        {
-            auto cb = std::move(streaming->onRelayDone);
-            streaming.reset();
-            if (cb)
-            {
-                cb();
-            }
-        }
     }
 
     void afterChunkWrite(const std::shared_ptr<ConnectionInfo>& /*self*/,

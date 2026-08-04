@@ -179,7 +179,7 @@ struct nghttp2_session
                                                      windowSize);
     }
 
-    // Nvidiae code start
+    // NVIDIA code start
     // Resume sending data for a stream that previously returned
     int resumeData(int32_t streamId)
     {

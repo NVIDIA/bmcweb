@@ -1125,6 +1125,11 @@ class Connection :
         if (ec)
         {
             writeGen.reset();
+            if (streamAbortTimer)
+            {
+                streamAbortTimer->cancel();
+                streamAbortTimer.reset();
+            }
             BMCWEB_LOG_DEBUG("{} write error: {}", logPtr(this), ec.message());
             return;
         }

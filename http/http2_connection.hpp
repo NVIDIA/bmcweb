@@ -173,6 +173,10 @@ class HTTP2Connection :
         {
             return false;
         }
+        if (ec == boost::asio::error::operation_aborted)
+        {
+            return false;
+        }
         if (ec)
         {
             BMCWEB_LOG_ERROR("body data-ready notifier error: {}", ec);
