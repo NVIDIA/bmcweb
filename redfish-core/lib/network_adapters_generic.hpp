@@ -1039,6 +1039,96 @@ inline void handlePortsCollectionGetGeneric(
                         chassisId, networkAdapterId));
 }
 
+inline void applyPortLocationProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& propertyName,
+    const dbus::utility::DbusVariantType& propertyValue)
+{
+    if (propertyName != "LocationCode" && propertyName != "LocationType" &&
+        propertyName != "LocationContext" &&
+        propertyName != "LocationReference")
+    {
+        return;
+    }
+
+    const std::string* value = std::get_if<std::string>(&propertyValue);
+    if (value == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Invalid type for optional port {} property",
+                         propertyName);
+        return;
+    }
+
+    if (propertyName == "LocationCode")
+    {
+        asyncResp->res.jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
+            *value;
+    }
+    else if (propertyName == "LocationType")
+    {
+        asyncResp->res.jsonValue["Location"]["PartLocation"]["LocationType"] =
+            dbus_utils::toLocationType(*value);
+    }
+    else if (propertyName == "LocationContext")
+    {
+        asyncResp->res.jsonValue["Location"]["PartLocationContext"] = *value;
+    }
+    else
+    {
+        asyncResp->res.jsonValue["Location"]["PartLocation"]["Reference"] =
+            dbus_utils::toReference(*value);
+    }
+}
+
+inline void handlePortLocationData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("Unable to get optional port location properties: {}",
+                         ec);
+        return;
+    }
+
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        applyPortLocationProperty(asyncResp, propertyName, propertyValue);
+    }
+}
+
+inline void getPortLocationData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
+{
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        std::bind_front(handlePortLocationData, asyncResp));
+}
+
+// Location decorators are exposed on the inventory port. Dynamic port
+// data can be exposed on a differently named associated state object.
+inline void populatePortLocationData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
+{
+    dbus::utility::getDbusObject(
+        objPath,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Port"},
+        [asyncResp, objPath](const boost::system::error_code ec,
+                             const dbus::utility::MapperServiceMap& object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("Unable to resolve port location object {}",
+                                 objPath);
+                return;
+            }
+            getPortLocationData(asyncResp, object.front().first, objPath);
+        });
+}
+
 inline void getPortData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath,
@@ -1394,6 +1484,8 @@ inline void getPortDataByAssociation(
                     continue;
                 }
 
+                populatePortLocationData(asyncResp, sensorPath);
+
                 dbus::utility::getProperty<std::vector<std::string>>(
                     "xyz.openbmc_project.ObjectMapper",
                     sensorPath + "/associated_port",
@@ -1432,10 +1524,7 @@ inline void getPortDataByAssociation(
                                     return;
                                 }
 
-                                sdbusplus::message::object_path path(
-                                    objectPathToGetPortData);
-                                if (path.filename() != portId ||
-                                    object.size() != 1)
+                                if (object.size() != 1)
                                 {
                                     return;
                                 }
