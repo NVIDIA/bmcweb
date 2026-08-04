@@ -25,6 +25,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_processor_utils.hpp"
 #include "utils/pcie_util.hpp"
 
 #include <asm-generic/errno.h>
@@ -4615,32 +4616,55 @@ inline void getFabricsPortMetricsData(
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                // Pick Oem.Nvidia @odata.type by the properties emitted, not
-                // by a numeric "max version": NvidiaNVLinkPortMetrics and the
-                // base NvidiaPortMetrics are PARALLEL complex-type families
-                // (the NVLink type branches off NvidiaPortMetrics.v1_1_0), so
-                // comparing versions could cross families and drop property
-                // coverage. Discipline (matches the inline-stamp practice
-                // across redfish-core; no version parsing, no extra D-Bus
-                // call):
-                //  - Floor: stamp the NVLink default ONLY if no branch has
-                //    already set a more-specific type (the !contains guard).
-                //    The per-lane CDR callback (handleLaneCDRErrorCallback)
-                //    and the PCIe branch below run on separate async chains
-                //    and may land first.
-                //  - Each branch stamps its family's highest constant (CDR/
-                //    PCIe -> v1_8_0.NvidiaPortMetrics). A family chain is a
-                //    strict superset, so bump that constant when a newer
-                //    version is added.
-                // An unconditional write here would race and re-stamp a
-                // lane-bearing (PCIe) port with the NVLink type that lacks
-                // CDRErrorsPerLane (NVBug 6403426).
+                // Stamp the NVLink family type only if no branch has set a
+                // more-specific one; an unconditional write would re-stamp a
+                // lane-bearing PCIe port.
                 nlohmann::json& nvidiaOem =
                     asyncResp->res.jsonValue["Oem"]["Nvidia"];
                 if (!nvidiaOem.contains("@odata.type"))
                 {
                     nvidiaOem["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                        "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
+                }
+
+                // Early-health enums are published only on NVLink ports that
+                // nsmd polls; extract defensively so a non-string skips just
+                // that property.
+                for (const auto& property : properties)
+                {
+                    if (property.first == "EarlyHealthIndication")
+                    {
+                        const std::string* value =
+                            std::get_if<std::string>(&property.second);
+                        if (value != nullptr)
+                        {
+                            auto healthStr = nvidia_processor_utils::
+                                getEarlyHealthIndication(*value);
+                            // "Unknown" is a schema-defined state; only an
+                            // unmappable value yields "" and is omitted.
+                            if (!healthStr.empty())
+                            {
+                                asyncResp->res
+                                    .jsonValue["Oem"]["Nvidia"]
+                                              ["EarlyHealthIndication"] =
+                                    healthStr;
+                            }
+                        }
+                    }
+                    else if (property.first == "AttentionTriggerReason")
+                    {
+                        const std::string* value =
+                            std::get_if<std::string>(&property.second);
+                        if (value != nullptr)
+                        {
+                            // Converter whitelists to schema-valid members, so
+                            // the result is always emittable.
+                            asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                    ["AttentionTriggerReason"] =
+                                nvidia_processor_utils::
+                                    getAttentionTriggerReason(*value);
+                        }
+                    }
                 }
             }
 

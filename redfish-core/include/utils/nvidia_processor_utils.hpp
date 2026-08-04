@@ -1814,6 +1814,56 @@ inline std::string getLinkDownReasonCode(const std::string& linkDownReasonCode)
     return "Unknown";
 }
 
+inline std::string getEarlyHealthIndication(
+    const std::string& earlyHealthIndication)
+{
+    if (earlyHealthIndication ==
+        "com.nvidia.NVLink.PortHealthMetrics.EarlyHealthIndicationValues"
+        ".Unknown")
+    {
+        return "Unknown";
+    }
+    if (earlyHealthIndication ==
+        "com.nvidia.NVLink.PortHealthMetrics.EarlyHealthIndicationValues"
+        ".Attention")
+    {
+        return "Attention";
+    }
+    if (earlyHealthIndication ==
+        "com.nvidia.NVLink.PortHealthMetrics.EarlyHealthIndicationValues"
+        ".Healthy")
+    {
+        return "Healthy";
+    }
+    return "";
+}
+
+inline std::string getAttentionTriggerReason(
+    const std::string& attentionTriggerReason)
+{
+    static constexpr std::string_view prefix =
+        "com.nvidia.NVLink.PortHealthMetrics.AttentionTriggerReasonValues.";
+    if (!attentionTriggerReason.starts_with(prefix))
+    {
+        return "Unknown";
+    }
+    std::string value(attentionTriggerReason.substr(prefix.size()));
+    // D-Bus and Redfish both use "Unknown" for the not-applicable state
+    if (value == "Unknown")
+    {
+        return "Unknown";
+    }
+    // Whitelist schema-valid enum members; unknown values → Unknown
+    if (value == "RawBER" || value == "EffectiveBER" || value == "SymbolBER" ||
+        value == "PLRTXBandwidthLoss" || value == "PLRRXBandwidthLoss" ||
+        value == "RecoveryBandwidthLoss" || value == "PortTotalBandwidthLoss" ||
+        value == "LinkDownCount" || value == "SymbolErrorCount")
+    {
+        return value;
+    }
+    return "Unknown";
+}
+
 inline void getWorkLoadPowerInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& processorId)

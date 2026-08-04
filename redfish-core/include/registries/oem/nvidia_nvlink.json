@@ -1,0 +1,22 @@
+{
+    "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
+    "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
+    "Description": "This registry defines messages for NVIDIA platform events.",
+    "Id": "NvidiaMessageRegistry.1.0.0",
+    "Language": "en",
+    "Messages": {
+        "NVLinkPortHealthStateChanged": {
+            "Description": "Indicates that the NVLink early health state of a port has changed.",
+            "Message": "NVLink port '%1' health state changed to '%2' (trigger: '%3').",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "If health state is Attention, review the AttentionTriggerReason and monitor port performance. Contact NVIDIA support if the condition persists.",
+            "Severity": "Warning"
+        }
+    },
+    "Name": "NVIDIA Message Registry",
+    "OwningEntity": "Nvidia",
+    "RegistryPrefix": "NvidiaMessageRegistry",
+    "RegistryVersion": "1.0.0"
+}
