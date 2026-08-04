@@ -155,8 +155,8 @@ class HttpBody::value_type
         encodingType(enc), compressionType(comp)
     {}
 
-    value_type(const value_type& other) noexcept = default;
-    value_type& operator=(const value_type& other) noexcept = default;
+    value_type(const value_type& other) = default;
+    value_type& operator=(const value_type& other) = default;
     value_type(value_type&& other) noexcept = default;
     value_type& operator=(value_type&& other) noexcept = default;
 
