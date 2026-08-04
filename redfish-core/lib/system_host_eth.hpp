@@ -31,6 +31,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/port_utils.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace redfish
@@ -356,48 +357,13 @@ inline void getNetworkAdapterLinkStatusForNDF(
 }
 
 /**
- * @brief Process NetworkAdapter paths and populate EthernetInterface response
- *
- * ifaceId has the format {adapterId}_{ndfFilename}. Finds the adapter whose
- * D-Bus filename is a prefix of ifaceId, extracts the NDF filename, and
- * populates the EthernetInterface data for that specific NDF.
- * Must be defined before onNetworkAdapterPathsForGet.
+ * @brief Populate an EthernetInterface from the resolved NetworkAdapter.
  */
-inline void processNetworkAdapterEthInterface(
+inline void populateNetworkAdapterEthInterface(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& ifaceId,
-    const dbus::utility::MapperGetSubTreePathsResponse& networkAdapterPaths)
+    const std::string& ifaceId, const std::string& adapterId,
+    const std::string& ndfFilename, const std::string& networkAdapterPath)
 {
-    std::optional<std::string> matchedAdapterPath;
-    std::string ndfFilename;
-    std::string adapterId;
-    size_t matchedPrefixLen = 0;
-
-    for (const std::string& networkAdapterPath : networkAdapterPaths)
-    {
-        sdbusplus::object_path path(networkAdapterPath);
-        std::string candidateId = path.filename();
-        if (candidateId.empty())
-        {
-            continue;
-        }
-        std::string prefix = candidateId + "_";
-        if (ifaceId.starts_with(prefix) && prefix.size() > matchedPrefixLen)
-        {
-            matchedAdapterPath = networkAdapterPath;
-            adapterId = std::move(candidateId);
-            ndfFilename = ifaceId.substr(prefix.size());
-            matchedPrefixLen = prefix.size();
-        }
-    }
-
-    if (!matchedAdapterPath || ndfFilename.empty())
-    {
-        messages::resourceNotFound(asyncResp->res, "EthernetInterface",
-                                   ifaceId);
-        return;
-    }
-
     asyncResp->res.jsonValue["@odata.type"] =
         "#EthernetInterface.v1_6_0.EthernetInterface";
     asyncResp->res.jsonValue["@odata.id"] =
@@ -413,10 +379,93 @@ inline void processNetworkAdapterEthInterface(
     asyncResp->res.jsonValue["InterfaceEnabled"] = true;
     asyncResp->res.jsonValue["SpeedMbps"] = 0;
 
-    getNetworkAdapterMACAddressForNDF(asyncResp, *matchedAdapterPath,
+    getNetworkAdapterMACAddressForNDF(asyncResp, networkAdapterPath,
                                       ndfFilename);
-    getNetworkAdapterLinkStatusForNDF(asyncResp, *matchedAdapterPath,
+    getNetworkAdapterLinkStatusForNDF(asyncResp, networkAdapterPath,
                                       ndfFilename);
+}
+
+/**
+ * @brief Populate from the NetworkAdapter associated with the requested NDF.
+ */
+inline void onAssociatedNetworkAdaptersForEthInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ifaceId, const std::string& adapterId,
+    const std::string& ndfFilename, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& networkAdapterPaths)
+{
+    if (ec)
+    {
+        messages::resourceNotFound(asyncResp->res, "EthernetInterface",
+                                   ifaceId);
+        return;
+    }
+
+    auto networkAdapter = std::ranges::find_if(
+        networkAdapterPaths, [&adapterId](const std::string& path) {
+            return sdbusplus::object_path(path).filename() == adapterId;
+        });
+    if (networkAdapter == networkAdapterPaths.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "EthernetInterface",
+                                   ifaceId);
+        return;
+    }
+
+    populateNetworkAdapterEthInterface(asyncResp, ifaceId, adapterId,
+                                       ndfFilename, *networkAdapter);
+}
+
+/**
+ * @brief Process NetworkAdapter paths and populate EthernetInterface response
+ *
+ * ifaceId has the format {adapterId}_{ndfFilename}. Finds the adapter ID that
+ * is a prefix of ifaceId, then resolves the adapter through the NDF's
+ * parent_device association.
+ * Must be defined before onNetworkAdapterPathsForGet.
+ */
+inline void processNetworkAdapterEthInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ifaceId,
+    const dbus::utility::MapperGetSubTreePathsResponse& networkAdapterPaths)
+{
+    std::string ndfFilename;
+    std::string adapterId;
+    size_t matchedPrefixLen = 0;
+
+    for (const std::string& networkAdapterPath : networkAdapterPaths)
+    {
+        sdbusplus::object_path path(networkAdapterPath);
+        std::string candidateId = path.filename();
+        if (candidateId.empty())
+        {
+            continue;
+        }
+        std::string prefix = candidateId + "_";
+        if (ifaceId.starts_with(prefix) && prefix.size() > matchedPrefixLen)
+        {
+            adapterId = std::move(candidateId);
+            ndfFilename = ifaceId.substr(prefix.size());
+            matchedPrefixLen = prefix.size();
+        }
+    }
+
+    if (adapterId.empty() || ndfFilename.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "EthernetInterface",
+                                   ifaceId);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> ndfInterfaces = {
+        "xyz.openbmc_project.Network.LinkType"};
+    constexpr std::array<std::string_view, 1> networkAdapterInterfaces = {
+        "xyz.openbmc_project.Inventory.Item.NetworkInterface"};
+    dbus::utility::getAssociatedSubTreePathsById(
+        ndfFilename, "/xyz/openbmc_project/inventory", ndfInterfaces,
+        "parent_device", networkAdapterInterfaces,
+        std::bind_front(onAssociatedNetworkAdaptersForEthInterface, asyncResp,
+                        ifaceId, adapterId, ndfFilename));
 }
 
 /**
