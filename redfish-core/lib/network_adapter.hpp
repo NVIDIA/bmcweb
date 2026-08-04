@@ -18,6 +18,7 @@
 
 #include "app.hpp"
 #include "generated/enums/resource.hpp"
+#include "nvidia_network_adapters.hpp"
 #include "nvidia_oem_device_reset.hpp"
 #include "ports.hpp"
 #include "query.hpp"
@@ -1395,6 +1396,8 @@ inline void getPortDataByAssociation(
                 return;
             }
 
+            redfish::nvidia::populatePortLocationData(asyncResp, sensorPath);
+
             dbus::utility::getProperty<std::vector<std::string>>(
                 "xyz.openbmc_project.ObjectMapper",
                 sensorPath + "/associated_port",
@@ -1433,9 +1436,7 @@ inline void getPortDataByAssociation(
                                 return;
                             }
 
-                            sdbusplus::object_path path(
-                                objectPathToGetPortData);
-                            if (path.filename() != portId || object.size() != 1)
+                            if (object.size() != 1)
                             {
                                 messages::resourceNotFound(asyncResp->res,
                                                            "Port", portId);
@@ -2043,7 +2044,7 @@ inline void getPortMetricsData(
                             return;
                         }
                         asyncResp->res.jsonValue["PCIeErrors"][propertyName] =
-                            nvidia::nsm_utils::tryConvertToInt64(*value);
+                            ::nvidia::nsm_utils::tryConvertToInt64(*value);
                     }
                 }
             }
