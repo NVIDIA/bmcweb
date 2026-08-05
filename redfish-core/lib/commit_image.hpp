@@ -192,8 +192,8 @@ class CommitImageAggregationContext :
 
         for (const auto& result : results)
         {
-            // Skip successful results - we'll add one standard success message
-            if (result.success)
+            // Successful results without a specific message
+            if (result.success && result.message.empty())
             {
                 continue;
             }
@@ -219,8 +219,8 @@ class CommitImageAggregationContext :
             extendedInfo.push_back(std::move(msg));
         }
 
-        // Add one standard success message if there were any successful results
-        if (successCount > 0)
+        // Per DSP0266, only add Success when nothing else was reported.
+        if (successCount > 0 && extendedInfo.empty())
         {
             messages::addMessageToJsonRoot(asyncResp->res.jsonValue,
                                            messages::success());
@@ -1086,10 +1086,12 @@ class ImageCopyStatusMonitor :
         else if (status ==
                  "com.nvidia.ImageCopy.ImageCopyRequestStatus.Rejected")
         {
-            BMCWEB_LOG_ERROR(
-                "Commit image failed for chassis {} object paths: {}",
+            // readErrorCode() will further classify the outcome,
+            // may be benign "already completed" case.
+            BMCWEB_LOG_WARNING(
+                "Image copy rejected for chassis {} object paths: {}; reading ErrorCode",
                 chassisName, join(objectPaths, ", "));
-            // Read ErrorCode property
+
             readErrorCode();
         }
         else
@@ -1128,10 +1130,23 @@ class ImageCopyStatusMonitor :
                     return;
                 }
 
-                BMCWEB_LOG_ERROR(
-                    "CommitImage: ErrorCode for chassis {} object paths {}: {}",
-                    self->chassisName, join(self->objectPaths, ", "),
-                    errorCode);
+                bool alreadyCompleted =
+                    errorCode.find("ImageCopyCompleted") != std::string::npos;
+
+                if (alreadyCompleted)
+                {
+                    BMCWEB_LOG_INFO(
+                        "CommitImage: image copy already completed for chassis {} object paths {}: {}",
+                        self->chassisName, join(self->objectPaths, ", "),
+                        errorCode);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR(
+                        "CommitImage: ErrorCode for chassis {} object paths {}: {}",
+                        self->chassisName, join(self->objectPaths, ", "),
+                        errorCode);
+                }
 
                 // Map error code to user-friendly message using centralized
                 // error message registry
@@ -1147,8 +1162,8 @@ class ImageCopyStatusMonitor :
                     errorMsg.value("MessageSeverity", "Critical");
                 std::string resolution = errorMsg.value("Resolution", "None.");
 
-                ctx->reportResult(self->objectPaths, false, messageId, severity,
-                                  message, resolution);
+                ctx->reportResult(self->objectPaths, alreadyCompleted,
+                                  messageId, severity, message, resolution);
             });
     }
 
