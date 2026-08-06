@@ -1142,6 +1142,50 @@ inline void processNvidiaRoTProtectedComponentSettings(
     updatePendingProperties(asyncResp, chassisId, fwTypeStr);
 }
 
+// Gate a sub-resource handler on component existence: do a getSubTree scoped
+// to chassisId, verify componentId is present, then invoke callback().
+template <typename Callback>
+inline void validateRoTComponent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    Callback&& callback)
+{
+    dbus::utility::getSubTree(
+        chassisDbusPath + chassisId, 0,
+        std::array<std::string_view, 1>{softwareSlotInterface},
+        [asyncResp, chassisId, componentId,
+         cb = std::forward<Callback>(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
+            if (ec)
+            {
+                if (ec == boost::system::errc::host_unreachable)
+                {
+                    BMCWEB_LOG_ERROR("Service not available {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                BMCWEB_LOG_ERROR("D-Bus error: {}, {}", ec, ec.message());
+                messages::resourceNotFound(
+                    asyncResp->res, "NvidiaRoTProtectedComponent", componentId);
+                return;
+            }
+            auto dbusId = componentId == "Self" ? chassisId : componentId;
+            bool found =
+                std::ranges::any_of(subtree, [&dbusId](const auto& item) {
+                    return sdbusplus::object_path(item.first).filename() ==
+                           dbusId;
+                });
+            if (!found)
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "NvidiaRoTProtectedComponent", componentId);
+                return;
+            }
+            cb();
+        });
+}
+
 inline void handleNvidiaRoTProtectedComponentSettings(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1151,7 +1195,11 @@ inline void handleNvidiaRoTProtectedComponentSettings(
     {
         return;
     }
-    processNvidiaRoTProtectedComponentSettings(asyncResp, chassisId, fwTypeStr);
+    validateRoTComponent(asyncResp, chassisId, fwTypeStr,
+                         [asyncResp, chassisId, fwTypeStr]() {
+                             processNvidiaRoTProtectedComponentSettings(
+                                 asyncResp, chassisId, fwTypeStr);
+                         });
 }
 
 /**
@@ -1593,23 +1641,29 @@ inline void handleUpdateMinSecVersionActionInfo(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}"
-        "/UpdateMinimumSecurityVersionActionInfo",
-        chassisId, componentId);
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["Id"] = "UpdateMinimumSecurityVersionActionInfo";
-    asyncResp->res.jsonValue["Name"] =
-        "Update MinimumSecurityVersion ActionInfo";
-    nlohmann::json parameter1;
-    parameter1["Name"] = "Nonce";
-    parameter1["Required"] = true;
-    parameter1["DataType"] = "String";
-    nlohmann::json parameter2;
-    parameter2["Name"] = "MinimumSecurityVersion";
-    parameter2["Required"] = false;
-    parameter2["DataType"] = "Number";
-    asyncResp->res.jsonValue["Parameters"] = {parameter1, parameter2};
+    validateRoTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents"
+                "/{}/UpdateMinimumSecurityVersionActionInfo",
+                chassisId, componentId);
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ActionInfo.v1_2_0.ActionInfo";
+            asyncResp->res.jsonValue["Id"] =
+                "UpdateMinimumSecurityVersionActionInfo";
+            asyncResp->res.jsonValue["Name"] =
+                "Update MinimumSecurityVersion ActionInfo";
+            nlohmann::json parameter1;
+            parameter1["Name"] = "Nonce";
+            parameter1["Required"] = true;
+            parameter1["DataType"] = "String";
+            nlohmann::json parameter2;
+            parameter2["Name"] = "MinimumSecurityVersion";
+            parameter2["Required"] = false;
+            parameter2["DataType"] = "Number";
+            asyncResp->res.jsonValue["Parameters"] = {parameter1, parameter2};
+        });
 }
 
 inline void handleupdateMinSecVersionResponse(
@@ -1822,30 +1876,38 @@ inline void handleUpdateMinSecVersionAction(
 inline void handleRevokeKeysActionInfo(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*unused*/, const std::string& /*unused*/)
+    const std::string& chassisId, const std::string& componentId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.id"] = req.url();
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["Id"] = "RevokeKeysActionInfo";
-    asyncResp->res.jsonValue["Name"] = "Revoke Keys ActionInfo";
+    validateRoTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents"
+                "/{}/RevokeKeysActionInfo",
+                chassisId, componentId);
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ActionInfo.v1_2_0.ActionInfo";
+            asyncResp->res.jsonValue["Id"] = "RevokeKeysActionInfo";
+            asyncResp->res.jsonValue["Name"] = "Revoke Keys ActionInfo";
 
-    nlohmann::json::array_t parameters;
-    nlohmann::json::object_t nonce;
-    nonce["Name"] = "Nonce";
-    nonce["Required"] = true;
-    nonce["DataType"] = "String";
-    parameters.emplace_back(std::move(nonce));
-    nlohmann::json::object_t keyIndexes;
-    keyIndexes["Name"] = "KeyIndexes";
-    keyIndexes["Required"] = false;
-    keyIndexes["DataType"] = "NumberArray";
-    parameters.emplace_back(std::move(keyIndexes));
+            nlohmann::json::array_t parameters;
+            nlohmann::json::object_t nonce;
+            nonce["Name"] = "Nonce";
+            nonce["Required"] = true;
+            nonce["DataType"] = "String";
+            parameters.emplace_back(std::move(nonce));
+            nlohmann::json::object_t keyIndexes;
+            keyIndexes["Name"] = "KeyIndexes";
+            keyIndexes["Required"] = false;
+            keyIndexes["DataType"] = "NumberArray";
+            parameters.emplace_back(std::move(keyIndexes));
 
-    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+            asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+        });
 }
 
 inline void handleRevokeKeysResponse(
