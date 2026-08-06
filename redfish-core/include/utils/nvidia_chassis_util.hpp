@@ -24,6 +24,7 @@
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/conditions_utils.hpp"
+#include "utils/health_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
@@ -3553,6 +3554,21 @@ inline void checkIndicatorChassis(const std::string& connectionName,
 
             callback(indicatorChassis);
         });
+}
+
+inline void populateDeviceHealthFromFile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+    {
+        /** NOTES: This is a temporary solution to avoid performance
+         * issues may impact other Redfish services. Please call for
+         * architecture decisions from all NvBMC teams if want to use it
+         * in other places.
+         */
+        health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
+    }
 }
 
 template <typename InterfacesContainer>

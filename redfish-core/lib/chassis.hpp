@@ -26,6 +26,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -724,6 +725,8 @@ inline void handleChassisGetSubTree(
             // get debug token resource
             redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
         }
+        redfish::nvidia_chassis_utils::populateDeviceHealthFromFile(
+            asyncResp, chassisId);
         // Nvidia: added code end
 
         if (connectionNames.empty())

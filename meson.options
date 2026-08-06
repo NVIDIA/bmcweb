@@ -707,7 +707,6 @@ option(
     'nvidia-oem-device-status-from-file',
     type: 'feature',
     value: 'disabled',
-    deprecated: true,
     description: 'Enable OEM Nvidia device status properties from file.',
 )
 option(

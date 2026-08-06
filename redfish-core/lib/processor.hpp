@@ -530,7 +530,7 @@ inline void getAcceleratorDataByService(
             asyncResp->res.jsonValue["Name"] = "Processor";
             asyncResp->res.jsonValue["Status"]["State"] = state;
             asyncResp->res.jsonValue["Status"]["Health"] = health;
-            nvidia_processor::populatePowerState(asyncResp, accType,
+            nvidia_processor::populatePowerState(asyncResp, acclrtrId, accType,
                                                  operationalState);
         });
 }

@@ -27,6 +27,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/health_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
@@ -4199,8 +4200,19 @@ inline void populateNvidiaProcessorPostData(
 
 inline void populatePowerState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string* accType, const std::string* operationalState)
+    const std::string& acceleratorId, const std::string* accType,
+    const std::string* operationalState)
 {
+    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+    {
+        /** NOTES: This is a temporary solution to avoid performance
+         * issues may impact other Redfish services. Please call for
+         * architecture decisions from all NvBMC teams if want to use it
+         * in other places.
+         */
+        health_utils::getDeviceHealthInfo(asyncResp->res, acceleratorId);
+    }
+
     if (accType != nullptr && !accType->empty())
     {
         asyncResp->res.jsonValue["ProcessorType"] =

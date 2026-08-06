@@ -1,0 +1,96 @@
+/*!
+ * @file    health_utils.cpp
+ * @brief   Source code for utility functions of handling Health.
+ */
+
+#pragma once
+
+#include "async_resp.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "utils/file_utils.hpp"
+
+#include <nlohmann/json.hpp>
+
+#include <string>
+
+namespace redfish
+{
+
+namespace health_utils
+{
+
+/** NOTES: This is a temporary solution to avoid performance issues may impact
+ *  other Redfish services. Please call for architecture decisions from all
+ *  NvBMC teams if want to use it in other places.
+ */
+
+/**
+ * @brief Get Device Health from file
+ *
+ */
+inline void getDeviceHealthInfo(crow::Response& resp,
+                                const std::string& chassisId)
+{
+    std::string deviceId = chassisId;
+    if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
+    {
+        // NOLINTNEXTLINE(clang-diagnostic-unreachable-code)
+        if (chassisId.starts_with(BMCWEB_PLATFORM_DEVICE_PREFIX))
+        {
+            deviceId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());
+        }
+    }
+
+    if (deviceId.empty())
+    {
+        BMCWEB_LOG_ERROR("No device {} health info!", deviceId);
+        return;
+    }
+
+    static const std::string deviceStatusFSPath = bmcwebDeviceStatusFSPath;
+
+    std::string deviceStatusPath = deviceStatusFSPath + "/" + deviceId;
+
+    nlohmann::json jStatus{};
+
+    // "OK" by default if get can't get info
+    std::string health = "OK";
+
+    int rc = file_utils::readFile2Json(deviceStatusPath, jStatus);
+    if (rc != 0)
+    {
+        BMCWEB_LOG_WARNING("Health: read {} status file failed!", deviceId);
+        // No need to report error since no status file means device is OK.
+        resp.jsonValue["Status"]["Health"] = health;
+        return;
+    }
+
+    auto j = jStatus.find("Status");
+    if (j == jStatus.end())
+    {
+        BMCWEB_LOG_ERROR("Health: No Status in status file of {}!", deviceId);
+        messages::internalError(resp);
+        return;
+    }
+
+    auto h = j->find("Health");
+    if (h != j->end())
+    {
+        std::string value = h->get<std::string>();
+        if (value.empty())
+        {
+            BMCWEB_LOG_WARNING("Get {} Health failed!", deviceId);
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("Get {} Health {}!", deviceId, value);
+            health = value;
+        }
+    }
+
+    resp.jsonValue["Status"]["Health"] = health;
+}
+
+} // namespace health_utils
+} // namespace redfish
