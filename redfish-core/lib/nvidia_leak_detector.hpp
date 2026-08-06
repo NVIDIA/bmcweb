@@ -305,6 +305,7 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
         "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors/{}",
         chassisId, leakDetectorId);
     resp.jsonValue["Status"]["State"] = "Enabled";
+    resp.jsonValue["Status"]["Health"] = "OK";
 
     std::string leakDetectorName(leakDetectorId);
     std::ranges::replace(leakDetectorName, '_', ' ');
@@ -361,10 +362,11 @@ inline void afterDetectorStatusPropertyGet(
     }
 
     const std::string* detectorOpStatus = nullptr;
+    const bool* functional = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "State",
-        detectorOpStatus);
+        detectorOpStatus, "Functional", functional);
 
     if (!success)
     {
@@ -376,6 +378,12 @@ inline void afterDetectorStatusPropertyGet(
     {
         std::string mappedStatus = getOperationalStatus(*detectorOpStatus);
         asyncResp->res.jsonValue["Status"]["State"] = mappedStatus;
+    }
+
+    if (functional != nullptr)
+    {
+        asyncResp->res.jsonValue["Status"]["Health"] =
+            *functional ? "OK" : "Critical";
     }
 }
 
