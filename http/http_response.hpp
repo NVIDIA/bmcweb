@@ -334,6 +334,11 @@ struct Response
         expectedHash = hash;
     }
 
+    void setExpectedEtag(std::string_view etag)
+    {
+        expectedHash = etag;
+    }
+
     OpenCode openFile(
         const std::filesystem::path& path,
         bmcweb::EncodingType enc = bmcweb::EncodingType::Raw,
