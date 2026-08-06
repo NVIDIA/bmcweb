@@ -8,7 +8,6 @@
 #include "multipart_parser.hpp"
 // Nvidia code ends here
 #include "utility.hpp"
-#include "zstd_compressor.hpp"
 #include "zstd_decompressor.hpp"
 
 #include <fcntl.h>
@@ -381,7 +380,6 @@ class HttpBody::writer
     crow::utility::Base64Encoder encoder;
 
     std::optional<ZstdDecompressor> zstdDecompressor;
-    std::optional<ZstdCompressor> zstdCompressor;
 
     value_type& body;
     size_t sent = 0;
@@ -404,22 +402,6 @@ class HttpBody::writer
             body.clientCompressionType != CompressionType::Zstd)
         {
             zstdDecompressor.emplace();
-        }
-        if (body.compressionType == CompressionType::Raw &&
-            body.clientCompressionType == CompressionType::Zstd)
-        {
-            std::optional<size_t> size = body.payloadSize();
-            if (size)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Body is raw, client supports zstd, and paylod is not streaming.  Compressing.");
-                zstdCompressor.emplace();
-                if (!zstdCompressor->init(*size))
-                {
-                    BMCWEB_LOG_ERROR("Failed to initialize Zstd Compressor");
-                    zstdCompressor = std::nullopt;
-                }
-            }
         }
     }
 
@@ -538,20 +520,6 @@ class HttpBody::writer
                 return boost::none;
             }
             ret.first = *decompressed;
-        }
-        if (zstdCompressor)
-        {
-            BMCWEB_LOG_DEBUG("Compressing body more={}", ret.second);
-            std::span<const uint8_t> spanIn(
-                static_cast<const uint8_t*>(ret.first.data()),
-                ret.first.size());
-            std::optional<std::span<const uint8_t>> compressed =
-                zstdCompressor->compress(spanIn, ret.second);
-            if (!compressed)
-            {
-                return boost::none;
-            }
-            ret.first = *compressed;
         }
         // Nvidia code starts here
         BMCWEB_LOG_DEBUG("Returning {} bytes more={}", ret.first.size(),
