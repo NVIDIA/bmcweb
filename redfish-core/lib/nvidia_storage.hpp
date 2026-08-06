@@ -32,6 +32,16 @@
 namespace redfish
 {
 
+inline bool hasNvmeSecureErase(
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    return std::ranges::any_of(serviceMap, [](const auto& service) {
+        return std::ranges::find(service.second,
+                                 "xyz.openbmc_project.Nvme.SecureErase") !=
+               service.second.end();
+    });
+}
+
 // task uri for long-run drive operation
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<std::string, std::string> taskUri;
@@ -429,12 +439,14 @@ inline void getDriveOperation(
 // suitable for the case of Drives under sub-chassis Need to ensure this
 // Chassis includes the drive endpoints
 inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& driveId, const std::string& path)
+                         const std::string& driveId, const std::string& path,
+                         bool secureEraseSupported)
 {
     dbus::utility::getAssociationEndPoints(
         path + "/chassis",
-        [asyncResp, driveId](const boost::system::error_code& ec3,
-                             const dbus::utility::MapperEndPoints& resp) {
+        [asyncResp, driveId,
+         secureEraseSupported](const boost::system::error_code& ec3,
+                               const dbus::utility::MapperEndPoints& resp) {
             if (ec3)
             {
                 BMCWEB_LOG_ERROR("Error in chassis ID association ");
@@ -454,16 +466,19 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
                 "/redfish/v1/Chassis/" + chassisId;
 
-            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
-                                    ["target"] = boost::urls::format(
-                "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
-                chassisId, driveId);
-
-            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
-                                    ["@Redfish.ActionInfo"] =
-                boost::urls::format(
-                    "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo",
+            if (secureEraseSupported)
+            {
+                asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                        ["target"] = boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
                     chassisId, driveId);
+
+                asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                        ["@Redfish.ActionInfo"] =
+                    boost::urls::format(
+                        "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo",
+                        chassisId, driveId);
+            }
         });
 }
 

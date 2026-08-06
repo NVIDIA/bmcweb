@@ -683,7 +683,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
     asyncResp->res.jsonValue["Name"] = driveId;
     asyncResp->res.jsonValue["Id"] = driveId;
 
-    getChassisID(asyncResp, driveId, path);
+    getChassisID(asyncResp, driveId, path, hasNvmeSecureErase(connectionNames));
 
     // default it to Absent
     asyncResp->res.jsonValue["Status"]["State"] = "Absent";
