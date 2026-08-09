@@ -642,6 +642,7 @@ inline void processNvidiaRoTProtectedComponentCollectionSubtree(
     asyncResp->res.jsonValue["Name"] =
         std::format("{} RoTProtectedComponent Collection", chassisId);
     asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
     std::vector<std::pair<std::string, std::string>> cachedPathServices;
     for (const auto& [objectPath, serviceMap] : subtree)
