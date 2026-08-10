@@ -722,71 +722,6 @@ inline void getPowerReadings(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void getDefaultPowerCap(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objPath)
-{
-    const std::array<const char*, 1> clearPowerCapInterfaces = {
-        "com.nvidia.Common.ClearPowerCap"};
-    dbus::utility::async_method_call(
-        [asyncResp, objPath](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
-            if (errorno)
-            {
-                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
-                                 errorno);
-                return;
-            }
-
-            for (const auto& element : objInfo)
-            {
-                dbus::utility::async_method_call(
-                    [asyncResp,
-                     objPath](const boost::system::error_code& ec,
-                              const std::vector<std::pair<
-                                  std::string, std::variant<uint32_t, bool>>>&
-                                  propertiesList) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("DBUS response error for "
-                                             "Chassis properties");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        for (const std::pair<std::string,
-                                             std::variant<uint32_t, bool>>&
-                                 property : propertiesList)
-                        {
-                            const std::string& propertyName = property.first;
-                            if (propertyName == "DefaultPowerCap")
-                            {
-                                const uint32_t* value =
-                                    std::get_if<uint32_t>(&property.second);
-                                if (value == nullptr)
-                                {
-                                    BMCWEB_LOG_ERROR("Null value returned "
-                                                     "for type");
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                asyncResp->res.jsonValue["PowerLimitWatts"]
-                                                        ["DefaultSetPoint"] =
-                                    *value;
-                            }
-                        }
-                    },
-                    element.first, objPath, "org.freedesktop.DBus.Properties",
-                    "GetAll", "com.nvidia.Common.ClearPowerCap");
-            }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-        clearPowerCapInterfaces);
-}
-
 inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& chassisID,
                         const std::string& objPath)
@@ -921,7 +856,6 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
         powerCapInterfaces);
-    getDefaultPowerCap(asyncResp, objPath);
 }
 
 inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2550,7 +2484,6 @@ inline void getProcessorBasePowerLimitByServicePath(
                 for (const auto& interface : element.second)
                 {
                     if (interface == "xyz.openbmc_project.Control.Power.Cap" ||
-                        interface == "com.nvidia.Common.ClearPowerCap" ||
                         interface ==
                             "xyz.openbmc_project.Control.Power.Persistency")
                     {
