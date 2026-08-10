@@ -128,6 +128,11 @@ const std::string virtualMediaLegacyUSB2PrefixDbus =
 const std::string virtualMediaUSB2Prefix =
     std::format("/redfish/v1/Managers/{}/VirtualMedia/USB2",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
+const std::string virtualMediaProxySlot0PrefixDbus =
+    "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_0";
+const std::string virtualMediaProxySlot0Prefix =
+    std::format("/redfish/v1/Managers/{}/VirtualMedia/Proxy0",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string sessionServiceServicePrefix = "/redfish/v1/";
 const std::string networkPrefixDbus = "/xyz/openbmc_project/network/";
 const std::string networkPrefix =
@@ -188,6 +193,7 @@ inline static const std::unordered_map<std::string, std::string>
         {userPrefixDbus, userPrefix},
         {virtualMediaLegacyUSB1PrefixDbus, virtualMediaUSB1Prefix},
         {virtualMediaLegacyUSB2PrefixDbus, virtualMediaUSB2Prefix},
+        {virtualMediaProxySlot0PrefixDbus, virtualMediaProxySlot0Prefix},
         {accountPolicyPrefixDbus, accountPolicyPrefix},
         {networkPrefixDbus, networkPrefix},
         {ldapCertificateDbusPrefix, ldapCertificatePrefix},
