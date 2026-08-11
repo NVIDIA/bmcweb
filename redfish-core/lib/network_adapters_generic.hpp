@@ -781,6 +781,8 @@ inline void doNetworkAdapterGeneric(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
         redfish::nvidia_network_adapters_utils::populateProtectionOptions(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
+        redfish::nvidia_network_adapters_utils::populateProtectionOptionsMode(
+            asyncResp, *validNetworkAdapterPath);
         redfish::nvidia_network_adapters_utils::populateDeviceModeSettings(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath,
             true);
@@ -874,6 +876,10 @@ inline void doNetworkAdapterPatchGeneric(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& networkAdapterId,
     const std::optional<std::string>& protectionOption,
+    const std::optional<bool>& preventFirmwareUpdates,
+    const std::optional<bool>& preventConfigurationChanges,
+    const std::optional<bool>& preventTransceiverFirmwareUpdates,
+    const std::optional<bool>& preventTransceiverConfigurationChanges,
     const std::optional<std::string>& validNetworkAdapterPath)
 {
     if (!validNetworkAdapterPath)
@@ -906,12 +912,29 @@ inline void doNetworkAdapterPatchGeneric(
                     serviceMap);
             });
     }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (preventFirmwareUpdates || preventConfigurationChanges ||
+            preventTransceiverFirmwareUpdates ||
+            preventTransceiverConfigurationChanges)
+        {
+            redfish::nvidia_network_adapters_utils::patchProtectionOptionsMode(
+                asyncResp, *validNetworkAdapterPath, preventFirmwareUpdates,
+                preventConfigurationChanges, preventTransceiverFirmwareUpdates,
+                preventTransceiverConfigurationChanges);
+        }
+    }
 }
 
 inline void handleNetworkAdapterPatchNext(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& networkAdapterId,
     const std::optional<std::string>& protectionOption,
+    const std::optional<bool>& preventFirmwareUpdates,
+    const std::optional<bool>& preventConfigurationChanges,
+    const std::optional<bool>& preventTransceiverFirmwareUpdates,
+    const std::optional<bool>& preventTransceiverConfigurationChanges,
     const std::vector<std::string>& chassisIntfList,
     const std::optional<std::string>& validChassisPath)
 {
@@ -925,7 +948,10 @@ inline void handleNetworkAdapterPatchNext(
     getValidNetworkAdapterPath(
         asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
         std::bind_front(doNetworkAdapterPatchGeneric, asyncResp,
-                        networkAdapterId, protectionOption));
+                        networkAdapterId, protectionOption,
+                        preventFirmwareUpdates, preventConfigurationChanges,
+                        preventTransceiverFirmwareUpdates,
+                        preventTransceiverConfigurationChanges));
 }
 
 inline void handleNetworkAdapterPatchGeneric(
@@ -939,23 +965,42 @@ inline void handleNetworkAdapterPatchGeneric(
     }
 
     std::optional<std::string> protectionOption;
-    if (!redfish::json_util::readJsonPatch(req, asyncResp->res,
-                                           "Oem/Nvidia/ProtectionOption",
-                                           protectionOption))
+    std::optional<bool> preventFirmwareUpdates;
+    std::optional<bool> preventConfigurationChanges;
+    std::optional<bool> preventTransceiverFirmwareUpdates;
+    std::optional<bool> preventTransceiverConfigurationChanges;
+
+    if (!redfish::json_util::readJsonPatch(
+            req, asyncResp->res, "Oem/Nvidia/ProtectionOption",
+            protectionOption,
+            "Oem/Nvidia/ProtectionOptions/PreventHostFirmwareUpdates",
+            preventFirmwareUpdates,
+            "Oem/Nvidia/ProtectionOptions/PreventHostConfigurationChanges",
+            preventConfigurationChanges,
+            "Oem/Nvidia/ProtectionOptions/PreventHostTransceiverFirmwareUpdates",
+            preventTransceiverFirmwareUpdates,
+            "Oem/Nvidia/ProtectionOptions/PreventHostTransceiverConfigurationChanges",
+            preventTransceiverConfigurationChanges))
     {
         return;
     }
 
-    if (!protectionOption)
+    if (!protectionOption && !preventFirmwareUpdates &&
+        !preventConfigurationChanges && !preventTransceiverFirmwareUpdates &&
+        !preventTransceiverConfigurationChanges)
     {
-        BMCWEB_LOG_ERROR("No ProtectionOption field provided for PATCH");
+        BMCWEB_LOG_ERROR(
+            "No patchable field provided for NetworkAdapter PATCH");
         return;
     }
 
     redfish::chassis_utils::getValidChassisPathAndInterfaces(
         asyncResp, chassisId,
         std::bind_front(handleNetworkAdapterPatchNext, asyncResp, chassisId,
-                        networkAdapterId, protectionOption));
+                        networkAdapterId, protectionOption,
+                        preventFirmwareUpdates, preventConfigurationChanges,
+                        preventTransceiverFirmwareUpdates,
+                        preventTransceiverConfigurationChanges));
 }
 
 inline void doPortCollectionWithValidChassisId(
