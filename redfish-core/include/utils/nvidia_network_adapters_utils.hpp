@@ -293,6 +293,229 @@ inline void patchProtectionOption(
         nvidia_async_operation_utils::PatchGenericCallback{resp});
 }
 
+// ---------------------------------------------------------------------------
+// ProtectionOptionsMode GET helper chain
+// ---------------------------------------------------------------------------
+
+constexpr std::string_view protectionOptionsModeIntf =
+    "com.nvidia.Software.ProtectionOptionsMode";
+
+inline void afterGetProtectionOptionsModeProps(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to read ProtectionOptionsMode properties: {}",
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    bool fw = false;
+    bool cfg = false;
+    bool transceiverFw = false;
+    bool transceiverCfg = false;
+
+    const bool* fwPtr = nullptr;
+    const bool* cfgPtr = nullptr;
+    const bool* transceiverFwPtr = nullptr;
+    const bool* transceiverCfgPtr = nullptr;
+
+    if (!sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties,
+            "HostFirmwareUpdateRestrictionEnabled", fwPtr,
+            "HostConfigurationChangeRestrictionEnabled", cfgPtr,
+            "HostTransceiverFirmwareUpdateRestrictionEnabled", transceiverFwPtr,
+            "HostTransceiverConfigurationChangeRestrictionEnabled",
+            transceiverCfgPtr))
+    {
+        BMCWEB_LOG_ERROR("Failed to read ProtectionOptionsMode properties.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (fwPtr != nullptr)
+    {
+        fw = *fwPtr;
+    }
+    if (cfgPtr != nullptr)
+    {
+        cfg = *cfgPtr;
+    }
+    if (transceiverFwPtr != nullptr)
+    {
+        transceiverFw = *transceiverFwPtr;
+    }
+    if (transceiverCfgPtr != nullptr)
+    {
+        transceiverCfg = *transceiverCfgPtr;
+    }
+
+    auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oem["@odata.type"] = "#NvidiaNetworkAdapter.v1_4_0.NvidiaNetworkAdapter";
+    auto& po = oem["ProtectionOptions"];
+    po["PreventHostFirmwareUpdates"] = fw;
+    po["PreventHostConfigurationChanges"] = cfg;
+    po["PreventHostTransceiverFirmwareUpdates"] = transceiverFw;
+    po["PreventHostTransceiverConfigurationChanges"] = transceiverCfg;
+}
+
+inline void afterGetProtectionOptionsModeService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint, const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("No service for ProtectionOptionsMode on {}: {}",
+                         endpoint, ec.message());
+        return;
+    }
+
+    const std::string& service = serviceMap.front().first;
+    dbus::utility::getAllProperties(
+        service, endpoint, std::string(protectionOptionsModeIntf),
+        std::bind_front(afterGetProtectionOptionsModeProps, asyncResp));
+}
+
+inline void afterGetProtectionOptionsModeEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_DEBUG("No protection_options_mode association endpoint: {}",
+                         ec.message());
+        return;
+    }
+
+    const std::string& endpoint = endpoints.front();
+    dbus::utility::getDbusObject(
+        endpoint, std::array<std::string_view, 1>{protectionOptionsModeIntf},
+        std::bind_front(afterGetProtectionOptionsModeService, asyncResp,
+                        endpoint));
+}
+
+inline void populateProtectionOptionsMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath)
+{
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/protection_options_mode",
+        std::bind_front(afterGetProtectionOptionsModeEndpoints, asyncResp));
+}
+
+// ---------------------------------------------------------------------------
+// ProtectionOptionsMode PATCH helper chain
+// ---------------------------------------------------------------------------
+// Uses the standard AsyncOperationManager dispatcher (same as DPU/PCIe device
+// modes). nsmd registers one handler per boolean flag via addAsyncSetOperation;
+// bmcweb calls doGenericSetAsyncAndGatherResult once per changed flag.
+// No read-modify-write needed: each nsmd handler reads the three unchanged
+// current values directly from the D-Bus object.
+
+inline void afterGetProtectionOptionsModeServiceForPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint, const std::optional<bool>& patchFw,
+    const std::optional<bool>& patchCfg,
+    const std::optional<bool>& patchTransceiverFw,
+    const std::optional<bool>& patchTransceiverCfg,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    if (ec || serviceMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("No service for ProtectionOptionsMode on {} for PATCH"
+                         " (optional capability absent): {}",
+                         endpoint, ec.message());
+        return;
+    }
+
+    const std::string& service = serviceMap.front().first;
+
+    if (patchFw)
+    {
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            asyncResp, std::chrono::seconds(60), service, endpoint,
+            std::string(protectionOptionsModeIntf),
+            "HostFirmwareUpdateRestrictionEnabled",
+            std::variant<bool>(*patchFw),
+            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+    }
+    if (patchCfg)
+    {
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            asyncResp, std::chrono::seconds(60), service, endpoint,
+            std::string(protectionOptionsModeIntf),
+            "HostConfigurationChangeRestrictionEnabled",
+            std::variant<bool>(*patchCfg),
+            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+    }
+    if (patchTransceiverFw)
+    {
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            asyncResp, std::chrono::seconds(60), service, endpoint,
+            std::string(protectionOptionsModeIntf),
+            "HostTransceiverFirmwareUpdateRestrictionEnabled",
+            std::variant<bool>(*patchTransceiverFw),
+            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+    }
+    if (patchTransceiverCfg)
+    {
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            asyncResp, std::chrono::seconds(60), service, endpoint,
+            std::string(protectionOptionsModeIntf),
+            "HostTransceiverConfigurationChangeRestrictionEnabled",
+            std::variant<bool>(*patchTransceiverCfg),
+            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+    }
+}
+
+inline void afterGetProtectionOptionsModeEndpointsForPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<bool>& patchFw, const std::optional<bool>& patchCfg,
+    const std::optional<bool>& patchTransceiverFw,
+    const std::optional<bool>& patchTransceiverCfg,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "No protection_options_mode association for PATCH (optional"
+            " capability absent): {}",
+            ec.message());
+        return;
+    }
+
+    const std::string& endpoint = endpoints.front();
+    dbus::utility::getDbusObject(
+        endpoint, std::array<std::string_view, 1>{protectionOptionsModeIntf},
+        std::bind_front(afterGetProtectionOptionsModeServiceForPatch, asyncResp,
+                        endpoint, patchFw, patchCfg, patchTransceiverFw,
+                        patchTransceiverCfg));
+}
+
+inline void patchProtectionOptionsMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterPath,
+    const std::optional<bool>& preventFirmwareUpdates,
+    const std::optional<bool>& preventConfigurationChanges,
+    const std::optional<bool>& preventTransceiverFirmwareUpdates,
+    const std::optional<bool>& preventTransceiverConfigurationChanges)
+{
+    dbus::utility::getAssociationEndPoints(
+        networkAdapterPath + "/protection_options_mode",
+        std::bind_front(afterGetProtectionOptionsModeEndpointsForPatch,
+                        asyncResp, preventFirmwareUpdates,
+                        preventConfigurationChanges,
+                        preventTransceiverFirmwareUpdates,
+                        preventTransceiverConfigurationChanges));
+}
+
 /*
  * Device mode settings — D-Bus interfaces and Redfish OEM mapping.
  *
@@ -403,6 +626,17 @@ inline std::optional<uint32_t> bifurcationModeRedfishToRaw(int64_t redfishValue)
     return static_cast<uint32_t>(redfishValue);
 }
 
+inline void setOemNvidiaTypeIfHigher(nlohmann::json& oemNvidiaJson,
+                                     const std::string& candidateType)
+{
+    auto it = oemNvidiaJson.find("@odata.type");
+    if (it == oemNvidiaJson.end() || !it->is_string() ||
+        it->get<std::string>() < candidateType)
+    {
+        oemNvidiaJson["@odata.type"] = candidateType;
+    }
+}
+
 using DbusToRedfishFn = bool (*)(nlohmann::json&, const std::string&);
 
 struct DeviceModeDescriptor
@@ -453,8 +687,8 @@ inline void afterGetEnumDeviceModeProperties(
     }
 
     nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oemNvidiaJson["@odata.type"] =
-        "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter";
+    setOemNvidiaTypeIfHigher(
+        oemNvidiaJson, "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter");
 
     if (isReadOnly)
     {
@@ -497,8 +731,8 @@ inline void afterGetByteDeviceModeProperties(
     }
 
     nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oemNvidiaJson["@odata.type"] =
-        "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter";
+    setOemNvidiaTypeIfHigher(
+        oemNvidiaJson, "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter");
 
     if (isReadOnly)
     {
@@ -804,7 +1038,8 @@ inline void afterGetLldpModeProperties(
     }
 
     nlohmann::json& oemNvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oemNvidiaJson["@odata.type"] = nvidiaNetworkAdapterOdataType;
+    setOemNvidiaTypeIfHigher(oemNvidiaJson,
+                             std::string(nvidiaNetworkAdapterOdataType));
     nlohmann::json& lldpJson = oemNvidiaJson["LLDP"];
     if (txMode != nullptr)
     {
