@@ -38,6 +38,32 @@ namespace port_utils
 {
 
 const std::string nvlinkToken = "NVLink";
+
+/**
+ * @brief Find a port object path from all_states association endpoints.
+ *
+ * @param[in] portPaths  Endpoints from all_states association.
+ * @param[in] portId     Port identifier to match against path filename.
+ *
+ * @return Matching port path, or empty string if not found.
+ */
+inline std::string getPortPathByPortId(
+    const std::vector<std::string>& portPaths, const std::string& portId)
+{
+    for (const std::string& portPath : portPaths)
+    {
+        const std::size_t slashPos = portPath.find_last_of('/');
+        const std::string filename = slashPos == std::string::npos
+                                         ? portPath
+                                         : portPath.substr(slashPos + 1);
+        if (filename == portId)
+        {
+            return portPath;
+        }
+    }
+    return {};
+}
+
 // Get PCIe device link speed generation
 /*inline std::string getLinkSpeedGeneration(double currentSpeed, size_t width)
 {
