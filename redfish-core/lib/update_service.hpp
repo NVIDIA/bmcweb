@@ -1827,10 +1827,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     if (!foundVersionObject and !foundStatusObject)
     {
         BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
-        messages::resourceMissingAtURI(
-            asyncResp->res,
-            boost::urls::format(
-                "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId));
+        messages::resourceNotFound(asyncResp->res, "SoftwareInventory", *swId);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(

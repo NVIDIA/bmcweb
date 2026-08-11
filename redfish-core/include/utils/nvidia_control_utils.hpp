@@ -23,7 +23,13 @@
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 
+#include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+
 #include <algorithm>
+#include <cerrno>
+#include <format>
+#include <functional>
 namespace redfish
 {
 namespace nvidia_control_utils
@@ -194,6 +200,70 @@ inline void getChassisClockLimit(
         });
 }
 
+inline void populateClockLimitControlMatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& controlID,
+    const std::string& processorName, const std::string& object,
+    const std::string& validChassisPath)
+{
+    asyncResp->res.jsonValue["Name"] =
+        std::format("Control for {} {}", processorName, controlID);
+    asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
+    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+
+    nlohmann::json& relatedItemsArray = asyncResp->res.jsonValue["RelatedItem"];
+    relatedItemsArray = nlohmann::json::array();
+    nlohmann::json relatedItem;
+    relatedItem["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Processors/{}",
+        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME), processorName);
+    relatedItemsArray.push_back(std::move(relatedItem));
+
+    boost::urls::url target = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Controls/{}", chassisID, controlID);
+    target.segments().push_back("Actions");
+    target.segments().push_back("Control.ResetToDefaults");
+    asyncResp->res.jsonValue["Actions"]["#Control.ResetToDefaults"]["target"] =
+        target;
+    redfish::nvidia_control_utils::getChassisClockLimit(asyncResp, object,
+                                                        validChassisPath);
+}
+
+inline void afterGetClockLimitControlEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& controlID,
+    const std::string& processorName, const std::string& validChassisPath,
+    const boost::system::error_code& ec, const std::vector<std::string>& resp)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+            return;
+        }
+        BMCWEB_LOG_ERROR(
+            "ObjectMapper::Get Associated clock control object call failed: {}",
+            ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& object : resp)
+    {
+        sdbusplus::object_path objPath(object);
+        if (objPath.filename() == controlID)
+        {
+            populateClockLimitControlMatch(asyncResp, chassisID, controlID,
+                                           processorName, object,
+                                           validChassisPath);
+            return;
+        }
+    }
+    BMCWEB_LOG_ERROR("control id resource not found");
+    messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+}
+
 inline void getClockLimitControl(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& controlID,
@@ -217,61 +287,9 @@ inline void getClockLimitControl(
         "xyz.openbmc_project.ObjectMapper",
         *validChassisPath + "/clock_controls",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, chassisID, controlID, validChassisPath,
-         processorName](const boost::system::error_code& ec,
-                        const std::vector<std::string>& resp) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "ObjectMapper::Get Associated clock control object call failed: {}",
-                    ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            auto validendpoint = false;
-            for (const auto& object : resp)
-            {
-                sdbusplus::object_path objPath(object);
-                if (objPath.filename() == controlID)
-                {
-                    std::string name = "Control for ";
-                    name += processorName;
-                    name += " ";
-                    name += controlID;
-                    asyncResp->res.jsonValue["Name"] = name;
-                    asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
-                    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                    nlohmann::json& relatedItemsArray =
-                        asyncResp->res.jsonValue["RelatedItem"];
-                    relatedItemsArray = nlohmann::json::array();
-                    relatedItemsArray.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Processors/" + processorName}});
-
-                    std::string target = "/redfish/v1/Chassis/";
-                    target += chassisID;
-                    target += "/Controls/";
-                    target += controlID;
-                    target += "/Actions/Control.ResetToDefaults";
-                    asyncResp->res
-                        .jsonValue["Actions"]["#Control.ResetToDefaults"]
-                                  ["target"] = target;
-                    redfish::nvidia_control_utils::getChassisClockLimit(
-                        asyncResp, object, *validChassisPath);
-                    validendpoint = true;
-                    break;
-                }
-            }
-            if (!validendpoint)
-            {
-                BMCWEB_LOG_ERROR("control id resource not found");
-                messages::resourceNotFound(asyncResp->res, "ControlID",
-                                           controlID);
-            }
-        });
+        std::bind_front(afterGetClockLimitControlEndpoints, asyncResp,
+                        chassisID, controlID, processorName,
+                        *validChassisPath));
 };
 
 inline void changeClockLimitControl(

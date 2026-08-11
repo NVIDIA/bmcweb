@@ -27,6 +27,9 @@
 #include "utils/dbus_utils.hpp"
 
 #include <algorithm>
+#include <cerrno>
+#include <functional>
+
 namespace redfish
 {
 static constexpr auto leakDetectorStateInterface =
@@ -178,6 +181,40 @@ inline leak_detector::ReactionType translateReactionTypeString(
     return leak_detector::ReactionType::Invalid;
 }
 
+inline void afterGetValidLeakDetectorPathObject(
+    const sdbusplus::object_path& leakDetectorPath,
+    const std::string& leakDetectorId,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<void(const std::string& leakDetectorPath,
+                             const std::string& service)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            messages::resourceNotFound(asyncResp->res, "LeakDetector",
+                                       leakDetectorId);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("DBUS response error on getDbusObject {}",
+                             ec.value());
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+    if (object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "LeakDetector",
+                                   leakDetectorId);
+        return;
+    }
+
+    callback(leakDetectorPath, object.begin()->first);
+}
+
 inline void getValidLeakDetectorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& leakDetectorId,
@@ -190,19 +227,8 @@ inline void getValidLeakDetectorPath(
 
     dbus::utility::getDbusObject(
         leakDetectorPath, leakDetectorInventoryInterfaces,
-        [leakDetectorPath, leakDetectorId, asyncResp,
-         callback](const boost::system::error_code& ec,
-                   const dbus::utility::MapperGetObject& object) {
-            if (ec || object.empty())
-            {
-                BMCWEB_LOG_ERROR("DBUS response error on getDbusObject {}",
-                                 ec.value());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            callback(leakDetectorPath, object.begin()->first);
-        });
+        std::bind_front(afterGetValidLeakDetectorPathObject, leakDetectorPath,
+                        leakDetectorId, asyncResp, callback));
 }
 
 inline void afterGetLeakDetectorName(
@@ -571,16 +597,6 @@ inline void afterLeakDetectorPolicyProperties(
     }
 }
 
-inline void afterGetValidLeakDetectorPath(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& leakDetectorId,
-    const std::string& leakDetectorPath, const std::string& service)
-{
-    addLeakDetectorCommonProperties(asyncResp->res, chassisId, leakDetectorId);
-    getLeakDetectorState(asyncResp, leakDetectorPath, service);
-    getLeakDetectorItem(asyncResp, leakDetectorPath, service);
-}
-
 inline void afterGetValidLeakDetectorPolicyPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& leakDetectorConfigPath, const std::string& service,
@@ -593,6 +609,24 @@ inline void afterGetValidLeakDetectorPolicyPath(
             afterLeakDetectorPolicyProperties(asyncResp, ec, propertiesList);
         });
 }
+
+namespace nvidia
+{
+
+inline void afterGetValidLeakDetectorPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& leakDetectorId,
+    const std::string& leakDetectorPath, const std::string& service)
+{
+    addLeakDetectorCommonProperties(asyncResp->res, chassisId, leakDetectorId);
+    getLeakDetectorState(asyncResp, leakDetectorPath, service);
+    getLeakDetectorItem(asyncResp, leakDetectorPath, service);
+    getValidLeakDetectorPolicyPath(
+        asyncResp, leakDetectorId,
+        std::bind_front(afterGetValidLeakDetectorPolicyPath, asyncResp));
+}
+
+} // namespace nvidia
 
 inline void doLeakDetectorGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -607,12 +641,8 @@ inline void doLeakDetectorGet(
 
     getValidLeakDetectorPath(
         asyncResp, leakDetectorId,
-        std::bind_front(afterGetValidLeakDetectorPath, asyncResp, chassisId,
-                        leakDetectorId));
-
-    getValidLeakDetectorPolicyPath(
-        asyncResp, leakDetectorId,
-        std::bind_front(afterGetValidLeakDetectorPolicyPath, asyncResp));
+        std::bind_front(nvidia::afterGetValidLeakDetectorPath, asyncResp,
+                        chassisId, leakDetectorId));
 }
 
 inline void handleLeakDetectorGet(

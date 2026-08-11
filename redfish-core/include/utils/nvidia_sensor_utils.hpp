@@ -13,6 +13,7 @@
 #include <utils/nvidia_chassis_util.hpp>
 
 #include <array>
+#include <cerrno>
 #include <functional>
 #include <variant>
 #include <vector>
@@ -550,6 +551,69 @@ inline void handleSensorGetUsingPath(
         });
 }
 
+inline void handleChassisSensorMatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId,
+    const std::string& sensorPath,
+    const std::function<
+        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
+             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
+{
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        asyncResp->res.jsonValue["Status"]["Conditions"] =
+            nlohmann::json::array();
+    }
+
+    nvidia_sensor_utils::handleSensorGetUsingPath(
+        asyncResp, chassisId, sensorId, sensorPath, handleMapperResponse);
+    // Add related item data
+    nvidia_sensor_utils::getRelatedItemData(asyncResp, sensorPath);
+}
+
+inline void afterGetAllChassisSensors(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorName, const std::string& chassisId,
+    const std::function<
+        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
+             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& variantEndpoints)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
+            return;
+        }
+        BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const std::string& sensorPath : variantEndpoints)
+    {
+        sdbusplus::object_path path(sensorPath);
+        const std::string& sensorId = path.filename();
+        if (sensorId.empty())
+        {
+            BMCWEB_LOG_ERROR("Failed to find '/' in {}", sensorPath);
+            continue;
+        }
+        if (sensorId != sensorName)
+        {
+            continue;
+        }
+
+        handleChassisSensorMatch(asyncResp, chassisId, sensorId, sensorPath,
+                                 handleMapperResponse);
+        return;
+    }
+    messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
+}
+
 inline void getChassisSensors(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& chassisPath,
@@ -559,52 +623,11 @@ inline void getChassisSensors(
              const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
 {
     // Find the sensor on the chassis
-    auto getAllChassisSensors =
-        [asyncResp, sensorName, chassisId, handleMapperResponse](
-            const boost::system::error_code& ec,
-            const std::vector<std::string>& variantEndpoints) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            for (const std::string& sensorPath : variantEndpoints)
-            {
-                sdbusplus::object_path path(sensorPath);
-                const std::string& sensorId = path.filename();
-                if (sensorId.empty())
-                {
-                    BMCWEB_LOG_ERROR("Failed to find '/' in {}", sensorPath);
-                    continue;
-                }
-                if (sensorId != sensorName)
-                {
-                    continue;
-                }
-
-                asyncResp->res.jsonValue["Status"]["Health"] =
-                    resource::Health::OK;
-                if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-                {
-                    asyncResp->res.jsonValue["Status"]["Conditions"] =
-                        nlohmann::json::array();
-                }
-
-                nvidia_sensor_utils::handleSensorGetUsingPath(
-                    asyncResp, chassisId, sensorId, sensorPath,
-                    handleMapperResponse);
-                // Add related item data
-                nvidia_sensor_utils::getRelatedItemData(
-                    asyncResp, std::string(sensorPath));
-                return;
-            }
-            messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
-        };
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_sensors",
-        "xyz.openbmc_project.Association", "endpoints", getAllChassisSensors);
+        "xyz.openbmc_project.Association", "endpoints",
+        std::bind_front(afterGetAllChassisSensors, asyncResp, sensorName,
+                        chassisId, handleMapperResponse));
 }
 
 inline void handleSensorGetAfterSetup(

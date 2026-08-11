@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <functional>
 
 namespace redfish
 {
@@ -892,6 +893,98 @@ inline void requestRoutesChassisControlsCollection(App& app)
             });
 }
 
+inline void afterGetSystemPowerControlEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& controlID,
+    const std::string& validChassisPath, const boost::system::error_code& ec,
+    const std::vector<std::string>& resp)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            // No power_controls association: the control is not configured
+            // on this platform, so report it as not found, not an error.
+            BMCWEB_LOG_DEBUG("Control {} not configured on this chassis",
+                             controlID);
+            messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+            return;
+        }
+        BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& object : resp)
+    {
+        sdbusplus::object_path objPath(object);
+        if (objPath.filename() == controlID)
+        {
+            asyncResp->res.jsonValue["Name"] = "System Power Control";
+            asyncResp->res.jsonValue["ControlType"] = "Power";
+            asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+
+            getChassisPower(asyncResp, object, validChassisPath);
+            getTotalPower(asyncResp, chassisID);
+            return;
+        }
+    }
+    BMCWEB_LOG_ERROR("control id resource not found");
+    messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+}
+
+inline void populateCpuPowerControlMatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& controlID,
+    const std::string& validChassisPath, const std::string& object)
+{
+    if (controlID.find("_CPU_") != std::string::npos)
+    {
+        asyncResp->res.jsonValue["Name"] = "Cpu Power Control";
+    }
+    else
+    {
+        asyncResp->res.jsonValue["Name"] = "Module Power Control";
+        // Automatic mode from H100 8-GPU Redfish SMBPBI Supplement
+        asyncResp->res.jsonValue["ControlMode"] = "Automatic";
+    }
+    asyncResp->res.jsonValue["ControlType"] = "Power";
+    getControlSettings(asyncResp, object);
+    getPowerReading(asyncResp, chassisID, validChassisPath);
+}
+
+inline void afterGetCpuPowerControlEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& controlID,
+    const std::string& validChassisPath, const boost::system::error_code& ec2,
+    const std::vector<std::string>& resp)
+{
+    if (ec2)
+    {
+        if (ec2.value() == EBADR)
+        {
+            messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+            return;
+        }
+        BMCWEB_LOG_ERROR("Get Related Items failed: {}", ec2);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    for (const auto& object : resp)
+    {
+        sdbusplus::object_path objPath(object);
+        if (objPath.filename() == controlID)
+        {
+            populateCpuPowerControlMatch(asyncResp, chassisID, controlID,
+                                         validChassisPath, object);
+            return;
+        }
+    }
+    BMCWEB_LOG_ERROR("control id resource not found");
+    messages::resourceNotFound(asyncResp->res, "ControlID", controlID);
+}
+
 inline void requestRoutesChassisControls(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Controls/<str>/")
@@ -906,149 +999,61 @@ inline void requestRoutesChassisControls(App& app)
             {
                 return;
             }
-            auto getControlSystem = [asyncResp, chassisID, controlID](
-                                        const std::optional<std::string>&
-                                            validChassisPath) {
-                if (!validChassisPath)
-                {
-                    BMCWEB_LOG_ERROR("Not a valid chassis ID:{}", chassisID);
-                    messages::resourceNotFound(asyncResp->res, "Chassis",
-                                               chassisID);
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#Control.v1_3_0.Control";
-                asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits();
-                asyncResp->res.jsonValue["Id"] = controlID;
-                asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
-                    controlID;
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, chassisID, controlID,
-                     validChassisPath](const boost::system::error_code& ec,
-                                       const std::vector<std::string>& resp) {
-                        if (ec)
-                        {
-                            if (ec.value() == EBADR)
-                            {
-                                // No power_controls association: the control
-                                // is not configured on this platform, so
-                                // report it as not found, not an error.
-                                BMCWEB_LOG_DEBUG(
-                                    "Control {} not configured on this chassis",
-                                    controlID);
-                                messages::resourceNotFound(
-                                    asyncResp->res, "ControlID", controlID);
-                                return;
-                            }
-                            BMCWEB_LOG_ERROR(
-                                "ObjectMapper::GetObject call failed: {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
+            auto getControlSystem =
+                [asyncResp, chassisID, controlID](
+                    const std::optional<std::string>& validChassisPath) {
+                    if (!validChassisPath)
+                    {
+                        BMCWEB_LOG_ERROR("Not a valid chassis ID:{}",
+                                         chassisID);
+                        messages::resourceNotFound(asyncResp->res, "Chassis",
+                                                   chassisID);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#Control.v1_3_0.Control";
+                    asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits();
+                    asyncResp->res.jsonValue["Id"] = controlID;
+                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+                    asyncResp->res.jsonValue["@odata.id"] =
+                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
+                        controlID;
+                    dbus::utility::getProperty<std::vector<std::string>>(
+                        "xyz.openbmc_project.ObjectMapper",
+                        *validChassisPath + "/power_controls",
+                        "xyz.openbmc_project.Association", "endpoints",
+                        std::bind_front(afterGetSystemPowerControlEndpoints,
+                                        asyncResp, chassisID, controlID,
+                                        *validChassisPath));
+                };
 
-                        auto validendpoint = false;
-                        for (const auto& object : resp)
-                        {
-                            sdbusplus::object_path objPath(object);
-                            if (objPath.filename() == controlID)
-                            {
-                                asyncResp->res.jsonValue["Name"] =
-                                    "System Power Control";
-                                asyncResp->res.jsonValue["ControlType"] =
-                                    "Power";
-                                asyncResp->res.jsonValue["Status"]["Health"] =
-                                    resource::Health::OK;
-
-                                getChassisPower(asyncResp, object,
-                                                *validChassisPath);
-                                getTotalPower(asyncResp, chassisID);
-                                validendpoint = true;
-                                break;
-                            }
-                        }
-                        if (!validendpoint)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                        }
-                    });
-            };
-
-            auto getControlCpu = [asyncResp, chassisID, controlID](
-                                     const std::optional<std::string>&
-                                         validChassisPath) {
-                if (!validChassisPath)
-                {
-                    BMCWEB_LOG_ERROR("Not a valid chassis ID:{}", chassisID);
-                    messages::resourceNotFound(asyncResp->res, "Chassis",
-                                               chassisID);
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#Control.v1_3_0.Control";
-                asyncResp->res.jsonValue["SetPointUnits"] = "W";
-                asyncResp->res.jsonValue["Id"] = controlID;
-                asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
-                    controlID;
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, chassisID, controlID,
-                     validChassisPath](const boost::system::error_code& ec2,
-                                       const std::vector<std::string>& resp) {
-                        if (ec2)
-                        {
-                            BMCWEB_LOG_ERROR("Get Related Items failed: {}",
-                                             ec2);
-                            return;
-                        }
-                        auto validendpoint = false;
-                        for (const auto& object : resp)
-                        {
-                            sdbusplus::object_path objPath(object);
-                            if (objPath.filename() == controlID)
-                            {
-                                if (controlID.find("_CPU_") !=
-                                    std::string::npos)
-                                {
-                                    asyncResp->res.jsonValue["Name"] =
-                                        "Cpu Power Control";
-                                }
-                                else
-                                {
-                                    asyncResp->res.jsonValue["Name"] =
-                                        "Module Power Control";
-                                    // Automatic mode from H100 8-GPU
-                                    // Redfish SMBPBI Supplement
-                                    asyncResp->res.jsonValue["ControlMode"] =
-                                        "Automatic";
-                                }
-                                asyncResp->res.jsonValue["ControlType"] =
-                                    "Power";
-                                getControlSettings(asyncResp, object);
-                                getPowerReading(asyncResp, chassisID,
-                                                *validChassisPath);
-                                validendpoint = true;
-                                break;
-                            }
-                        }
-                        if (!validendpoint)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                        }
-                    });
-            };
+            auto getControlCpu =
+                [asyncResp, chassisID, controlID](
+                    const std::optional<std::string>& validChassisPath) {
+                    if (!validChassisPath)
+                    {
+                        BMCWEB_LOG_ERROR("Not a valid chassis ID:{}",
+                                         chassisID);
+                        messages::resourceNotFound(asyncResp->res, "Chassis",
+                                                   chassisID);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#Control.v1_3_0.Control";
+                    asyncResp->res.jsonValue["SetPointUnits"] = "W";
+                    asyncResp->res.jsonValue["Id"] = controlID;
+                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+                    asyncResp->res.jsonValue["@odata.id"] =
+                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
+                        controlID;
+                    dbus::utility::getProperty<std::vector<std::string>>(
+                        "xyz.openbmc_project.ObjectMapper",
+                        *validChassisPath + "/power_controls",
+                        "xyz.openbmc_project.Association", "endpoints",
+                        std::bind_front(afterGetCpuPowerControlEndpoints,
+                                        asyncResp, chassisID, controlID,
+                                        *validChassisPath));
+                };
 
             auto getChassisControl = [asyncResp, chassisID, controlID,
                                       getControlSystem](
