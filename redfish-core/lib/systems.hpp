@@ -354,10 +354,6 @@ inline void afterGetInventory(
 
     if constexpr (BMCWEB_BIOS)
     {
-        // Schema defaults for interop validator
-        asyncResp->res.jsonValue["BiosVersion"] = "";
-        asyncResp->res.jsonValue["AssetTag"] = "";
-        // Grab the bios version
         sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose,
                                              "BiosVersion", false);
     }
