@@ -1,6 +1,19 @@
+# OpenBMCAccountService is always installed: the AccountService payload
+# unconditionally emits Oem/OpenBMC (#OpenBMCAccountService.v1_0_0.AccountService),
+# so its schema must always be served (matches upstream).
+install_data(
+    'csdl/OpenBMCAccountService_v1.xml',
+    install_dir: 'share/www/redfish/v1/schema',
+    follow_symlinks: true,
+)
+install_data(
+    'json-schema/OpenBMCAccountService.v1_0_0.json',
+    install_dir: 'share/www/redfish/v1/JsonSchemas',
+    follow_symlinks: true,
+)
+
 # Mapping from option key name to schemas that should be installed if that option is enabled
 schemas = {
-    'insecure-disable-auth': 'OpenBMCAccountService',
     'redfish-oem-manager-fan-data': 'OpenBMCManager',
     'redfish-provisioning-feature': 'OpenBMCComputerSystem',
     'vm-nbdproxy': 'OpenBMCVirtualMedia',
