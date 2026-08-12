@@ -44,9 +44,30 @@ enum class TargetType
     SatelliteOmitTargets
 };
 
+/**
+ * @brief Translate a StartUpdate D-Bus error into a Redfish response
+ *
+ * @param[in] asyncResp - Async response object
+ * @param[in] errName - D-Bus error name from the StartUpdate reply
+ */
+inline void handleStartUpdateError(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view errName)
+{
+    if (errName == "xyz.openbmc_project.Software.Update.Error.InvalidImage")
+    {
+        messages::missingOrMalformedPart(asyncResp->res);
+    }
+    else
+    {
+        messages::internalError(asyncResp->res);
+    }
+}
+
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload payload,
     const std::string& target, const boost::system::error_code& ec,
+    const sdbusplus::message_t& msg,
     const sdbusplus::message::object_path& retPath,
     const std::function<void()>& onResponseReady)
 {
@@ -57,7 +78,17 @@ inline void handleStartUpdate(
         // StartUpdate failed; release the guard (handleCreateTask() clears it
         // on success).
         redfish::fwUpdateInProgress = false;
-        messages::internalError(asyncResp->res);
+        const sd_bus_error* dbusError = msg.get_error();
+        if (dbusError != nullptr)
+        {
+            BMCWEB_LOG_ERROR("StartUpdate D-Bus error: {} - {}",
+                             dbusError->name, dbusError->message);
+            handleStartUpdateError(asyncResp, dbusError->name);
+        }
+        else
+        {
+            messages::internalError(asyncResp->res);
+        }
         onResponseReady();
         return;
     }
@@ -100,10 +131,10 @@ inline void startSoftwareUpdate(
         asyncResp,
         [asyncResp, payload = std::move(payload), target,
          onResponseReady = std::move(onResponseReady)](
-            const boost::system::error_code& ec1,
+            const boost::system::error_code& ec1, sdbusplus::message_t& msg,
             const sdbusplus::message::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
-                                      ec1, retPath, onResponseReady);
+                                      ec1, msg, retPath, onResponseReady);
         },
         serviceName, target, updateInterface, "StartUpdate", fd, applyTime);
 }
@@ -238,9 +269,10 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
              fileGetSocket{std::move(fileGetSocket)}, objectPath,
              onResponseReady{onResponseReady}](
                 const boost::system::error_code& ec1,
+                sdbusplus::message_t& msg,
                 const sdbusplus::message::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
-                                          objectPath, ec1, retPath,
+                                          objectPath, ec1, msg, retPath,
                                           onResponseReady);
             },
             serviceName, objectPath, updateInterface, "StartUpdate", fd,
