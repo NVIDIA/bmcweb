@@ -72,6 +72,8 @@
 #include "nvidia_sensors.hpp"
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
+#include "nvidia_switch_ltx_mode.hpp"
+#include "nvidia_switch_uphy_recovery_mode.hpp"
 #include "nvidia_system.hpp"
 #include "nvidia_system_processor_power_limits.hpp"
 #include "nvidia_systems_logservices_hostlogger.hpp"
@@ -169,6 +171,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesSwitchPowerMode(app);
         requestRoutesSwitchPowerCappingMode(app);
+        requestRoutesSwitchLTXMode(app);
+        requestRoutesSwitchUPhyRecoveryMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
