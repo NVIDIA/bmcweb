@@ -125,8 +125,17 @@ inline void handleDiagSysConfigGet(
             }
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to parse DiagSystemConfig JSON payload: {}",
+                    jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = data;
         });
 }
@@ -153,8 +162,16 @@ inline void handleDiagTidConfigGet(
             }
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded())
+            {
+                BMCWEB_LOG_ERROR("Failed to parse DiagConfig JSON payload: {}",
+                                 jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = data;
         });
 }
@@ -180,8 +197,16 @@ inline void handleDiagResultGet(
             }
             BMCWEB_LOG_DEBUG("Get Diag result update done.");
 
+            nlohmann::json data =
+                nlohmann::json::parse(jsonString, nullptr, false);
+            if (data.is_discarded())
+            {
+                BMCWEB_LOG_ERROR("Failed to parse DiagResult JSON payload: {}",
+                                 jsonString);
+                messages::internalError(asyncResp->res);
+                return;
+            }
             nlohmann::json& json = asyncResp->res.jsonValue;
-            nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagResult"] =
                 nlohmann::json::array();
 

@@ -565,6 +565,11 @@ inline void getProcessorPortData(
 
                     redfish::port_utils::getCpuPortData(
                         aResp, object.front().first, sensorpath);
+                    // Link speed/width live on a separate telemetry inventory
+                    // object (pldm OEM 0xF4), keyed by the same CPU + port id.
+                    redfish::port_utils::getCpuPortTelemetry(
+                        aResp, object.front().first,
+                        cpuInventoryPath + "/Ports/" + portId);
                     getProcessorPortLinks(aResp, sensorpath, processorId,
                                           portId);
                 });
@@ -1064,9 +1069,6 @@ inline void getProcessorPortMetricsData(
                             return;
                         }
                         asyncResp->res
-                            .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaPortMetrics.v1_7_0.NvidiaNVLinkPortMetrics";
-                        asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["RXNoProtocolBytes"] =
                             *value;
                     }
@@ -1276,6 +1278,9 @@ inline void getProcessorPortMetricsData(
                     }
                     else if (property.first == "RXErrorsPerLane")
                     {
+                        // RXErrorsPerLane is PCIe-only, so it identifies the
+                        // base family. Correct the route-level NVLink stamp
+                        // here, or a PCIe port advertises the NVLink type.
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                             "#NvidiaPortMetrics.v1_7_0.NvidiaPortMetrics";
@@ -1293,6 +1298,44 @@ inline void getProcessorPortMetricsData(
                             asyncResp->res
                                 .jsonValue["Oem"]["Nvidia"]["RXErrorsPerLane"] =
                                 *value;
+                        }
+                    }
+                    else if (property.first == "EarlyHealthIndication")
+                    {
+                        // Optional OEM health property. If it is somehow not a
+                        // string, skip it rather than failing the entire port
+                        // metrics response -- not worth an ERROR log or a 500.
+                        const std::string* value =
+                            std::get_if<std::string>(&property.second);
+                        if (value != nullptr)
+                        {
+                            auto healthStr = nvidia_processor_utils::
+                                getEarlyHealthIndication(*value);
+                            // "Unknown" is a schema-defined state; only an
+                            // unmappable value yields "" and is omitted.
+                            if (!healthStr.empty())
+                            {
+                                asyncResp->res
+                                    .jsonValue["Oem"]["Nvidia"]
+                                              ["EarlyHealthIndication"] =
+                                    healthStr;
+                            }
+                        }
+                    }
+                    else if (property.first == "AttentionTriggerReason")
+                    {
+                        // Optional OEM health property; skip on an unexpected
+                        // type rather than failing the whole response.
+                        const std::string* value =
+                            std::get_if<std::string>(&property.second);
+                        if (value != nullptr)
+                        {
+                            // Converter whitelists to schema-valid members, so
+                            // the result is always emittable.
+                            asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                    ["AttentionTriggerReason"] =
+                                nvidia_processor_utils::
+                                    getAttentionTriggerReason(*value);
                         }
                     }
                 }

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
-<!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.14.0                                          -->
-<!--#                                                                                      -->
-<!--# Copyright 2021-2026 NVIDIA.                                                          -->
-<!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
-<!--################################################################################       -->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.14.0                                                          -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
@@ -1028,6 +1028,16 @@
           <Annotation Term="OData.Description" String="ARM Shutdown"/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_15_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_14_0.NvidiaChassis">
+        <Property Name="LastIntrusionDetected" Type="Edm.DateTimeOffset">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The date and time when the last chassis intrusion was detected."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the last physical intrusion of the chassis was detected on this chassis."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

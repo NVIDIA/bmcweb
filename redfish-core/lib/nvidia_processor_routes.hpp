@@ -176,11 +176,13 @@ inline void requestRoutesProcessorSettings(App& app)
                     std::optional<bool> ccMode;
                     std::optional<bool> ccDevMode;
                     std::optional<bool> egmMode;
+                    std::optional<bool> adaptiveTGPMode;
                     if (oemNvidiaObject &&
                         redfish::json_util::readJson(
                             *oemNvidiaObject, asyncResp->res, "CCModeEnabled",
                             ccMode, "CCDevModeEnabled", ccDevMode,
-                            "EGMModeEnabled", egmMode))
+                            "EGMModeEnabled", egmMode, "AdaptiveTGPMode",
+                            adaptiveTGPMode))
                     {
                         if (ccMode && ccDevMode)
                         {
@@ -240,6 +242,25 @@ inline void requestRoutesProcessorSettings(App& app)
                                         patchEgmMode(asyncResp1, processorId1,
                                                      *egmMode, objectPath,
                                                      serviceMap);
+                                });
+                        }
+                        if (adaptiveTGPMode)
+                        {
+                            redfish::processor_utils::getProcessorObject(
+                                asyncResp, processorId,
+                                [adaptiveTGPMode](
+                                    const std::shared_ptr<bmcweb::AsyncResp>&
+                                        asyncResp1,
+                                    const std::string& processorId1,
+                                    const std::string& objectPath,
+                                    const MapperServiceMap& serviceMap,
+                                    [[maybe_unused]] const std::string&
+                                        deviceType) {
+                                    redfish::nvidia_processor_utils::
+                                        patchAdaptiveTGPMode(
+                                            asyncResp1, processorId1,
+                                            *adaptiveTGPMode, objectPath,
+                                            serviceMap);
                                 });
                         }
                     }

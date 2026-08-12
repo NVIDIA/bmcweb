@@ -269,7 +269,6 @@ inline void checkInitialActivationState(
                     {
                         std::string index = std::to_string(task->index);
                         task->state = "Exception";
-                        task->status = "Warning";
                         task->messages.emplace_back(
                             messages::taskAborted(index));
                         task->timer.cancel();

@@ -49,6 +49,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -917,10 +918,27 @@ class Connection :
                       const boost::system::error_code& ec,
                       std::size_t bytesTransferred)
     {
-        BMCWEB_LOG_DEBUG("{} async_write wrote {} bytes, ec={}", logPtr(this),
+        BMCWEB_LOG_DEBUG("{} afterDoWrite {} bytes ec={}", logPtr(this),
                          bytesTransferred, ec);
 
         cancelDeadlineTimer();
+
+        if (responseWasStreaming)
+        {
+            // NVIDIA code start
+            if (streamAbortTimer)
+            {
+                streamAbortTimer->cancel();
+                streamAbortTimer.reset();
+            }
+            // NVIDIA code end
+            BMCWEB_LOG_DEBUG(
+                "{} Streaming response complete; closing socket without "
+                "reading next request",
+                logPtr(this));
+            gracefulClose();
+            return;
+        }
 
         if (ec == boost::system::errc::operation_would_block ||
             ec == boost::system::errc::resource_unavailable_try_again)
@@ -1009,6 +1027,33 @@ class Connection :
         }
         res.preparePayload(urlView, chunked);
 
+        // Per-chunk loop resets the stall timer; async_write would time out.
+        if (res.response.body().file().is_open())
+        {
+            responseWasStreaming = true;
+            // NVIDIA code start
+            // 15-min hard cap; guards against slow-read attacks.
+            static constexpr std::chrono::minutes streamAbortTimeout{15};
+            streamAbortTimer.emplace(adaptor.get_executor());
+            streamAbortTimer->expires_after(streamAbortTimeout);
+            streamAbortTimer->async_wait([self = shared_from_this(),
+                                          this](boost::system::error_code ec) {
+                if (ec == boost::asio::error::operation_aborted)
+                {
+                    return;
+                }
+                BMCWEB_LOG_WARNING("{} streamAbortTimer fired; hard close",
+                                   logPtr(this));
+                hardClose();
+            });
+            // NVIDIA code end
+            writeGen = std::make_unique<boost::beast::http::message_generator>(
+                std::move(res.response));
+            doWriteStreamChunk();
+            return;
+        }
+
+        // Buffered in-memory (string/JSON) response: single composed write.
         startDeadline(DeadlineTimerType::Default);
         if (httpType == HttpType::HTTP)
         {
@@ -1026,6 +1071,106 @@ class Connection :
                 std::bind_front(&self_type::afterDoWrite, this,
                                 shared_from_this()));
         }
+    }
+
+    void doWriteStreamChunk()
+    {
+        if (!writeGen || writeGen->is_done())
+        {
+            writeGen.reset();
+            afterDoWrite(shared_from_this(), {}, 0);
+            return;
+        }
+        if (writeActive)
+        {
+            return;
+        }
+        // Per-chunk stall timer: resets on each write to allow slow clients.
+        cancelDeadlineTimer();
+        startDeadline(DeadlineTimerType::Default);
+
+        boost::system::error_code prepEc{};
+        auto buf = writeGen->prepare(prepEc);
+        if (prepEc)
+        {
+            if (prepEc == boost::system::errc::operation_would_block ||
+                prepEc == boost::system::errc::resource_unavailable_try_again)
+            {
+                boost::asio::post(
+                    adaptor.get_executor(),
+                    std::bind_front(&self_type::doWriteStreamChunk,
+                                    shared_from_this()));
+                return;
+            }
+            cancelDeadlineTimer();
+            writeGen.reset();
+            BMCWEB_LOG_ERROR("{} write prepare error: {}", logPtr(this),
+                             prepEc.message());
+            hardClose();
+            return;
+        }
+        if (boost::asio::buffer_size(buf) == 0)
+        {
+            cancelDeadlineTimer();
+            writeGen.reset();
+            afterDoWrite(shared_from_this(), {}, 0);
+            return;
+        }
+
+        writeActive = true;
+        auto afterWrite =
+            [self = shared_from_this(),
+             this](boost::system::error_code ec, std::size_t transferred) {
+                writeActive = false;
+                if (transferred > 0)
+                {
+                    writeGen->consume(transferred);
+                }
+                afterWriteSome(self, ec, transferred);
+            };
+        if (httpType == HttpType::HTTP)
+        {
+            adaptor.next_layer().async_write_some(buf, std::move(afterWrite));
+        }
+        else
+        {
+            adaptor.async_write_some(buf, std::move(afterWrite));
+        }
+    }
+
+    void afterWriteSome(const std::shared_ptr<self_type>& /*self*/,
+                        const boost::system::error_code& ec,
+                        std::size_t /*bytesTransferred*/)
+    {
+        cancelDeadlineTimer();
+
+        if (ec == boost::system::errc::operation_would_block ||
+            ec == boost::system::errc::resource_unavailable_try_again)
+        {
+            doWriteStreamChunk();
+            return;
+        }
+
+        if (ec)
+        {
+            writeGen.reset();
+            if (streamAbortTimer)
+            {
+                streamAbortTimer->cancel();
+                streamAbortTimer.reset();
+            }
+            BMCWEB_LOG_DEBUG("{} write error: {}", logPtr(this), ec.message());
+            return;
+        }
+
+        if (writeGen && !writeGen->is_done())
+        {
+            doWriteStreamChunk();
+            return;
+        }
+
+        writeGen.reset();
+        afterDoWrite(shared_from_this(), {}, 0);
     }
 
     void cancelDeadlineTimer()
@@ -1137,6 +1282,13 @@ class Connection :
     std::shared_ptr<persistent_data::UserSession> mtlsSession;
 
     boost::asio::steady_timer timer;
+
+    std::optional<boost::asio::steady_timer> streamAbortTimer;
+    bool responseWasStreaming = false;
+
+    std::unique_ptr<boost::beast::http::message_generator> writeGen;
+
+    bool writeActive = false;
 
     bool keepAlive = true;
 

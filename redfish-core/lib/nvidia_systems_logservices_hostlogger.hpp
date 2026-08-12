@@ -89,10 +89,9 @@ inline void downloadArchiveCallback(
         return;
     }
 
-    if (!asyncResp->res.openFd(fd))
+    if (!asyncResp->res.openFd(DuplicatableFileHandle(fd)))
     {
         BMCWEB_LOG_ERROR("Failed to open file descriptor for streaming");
-        close(fd);
         messages::internalError(asyncResp->res);
         return;
     }

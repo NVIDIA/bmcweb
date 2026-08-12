@@ -402,7 +402,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
     asyncResp->res.jsonValue["Name"] = driveId;
     asyncResp->res.jsonValue["Id"] = driveId;
 
-    getChassisID(asyncResp, driveId, path);
+    getChassisID(asyncResp, driveId, path, hasNvmeSecureErase(connectionNames));
 
     // default it to Absent
     asyncResp->res.jsonValue["Status"]["State"] = "Absent";
@@ -550,14 +550,18 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         linkChassisNav["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Links"]["Chassis"] = linkChassisNav;
-        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]["target"] =
-            boost::urls::format(
+        if (hasNvmeSecureErase(connectionNames))
+        {
+            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                    ["target"] = boost::urls::format(
                 "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
                 chassisId, driveName);
-        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo", chassisId,
-            driveName);
+            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                    ["@Redfish.ActionInfo"] =
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo",
+                    chassisId, driveName);
+        }
 
         for (const auto& [connectionName, connInterfaces] : connectionNames)
         {

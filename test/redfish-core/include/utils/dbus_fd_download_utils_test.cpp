@@ -215,6 +215,21 @@ TEST_F(ProcessProgressPropertiesTest, BothProgressAndStatusProcessed)
     EXPECT_FALSE(taskData->messages.empty());
 }
 
+TEST_F(ProcessProgressPropertiesTest,
+       HandleTaskMessage_ErrorCodeAddsInternalError)
+{
+    std::shared_ptr<task::TaskData> taskData = createTestTask();
+    boost::system::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+    // msg is not accessed when ec is set; default-constructed is safe here.
+    sdbusplus::message_t msg;
+
+    bool result = handleTaskMessage(ec, msg, taskData);
+
+    EXPECT_TRUE(result);
+    EXPECT_FALSE(taskData->messages.empty());
+}
+
 TEST(StreamFdResponseTest, EnoentReturns404)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();

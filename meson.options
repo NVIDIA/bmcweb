@@ -1438,6 +1438,14 @@ option(
     description: 'Enable Redfish OEM action to issue an L1 SW main reset to a Vera CPU.',
 )
 
+# BMCWEB_NVIDIA_PCORE_DUMP
+option(
+    'nvidia-pcore-dump',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the Redfish OEM Processor action to collect raw per-PCore dumps from a Vera CPU.',
+)
+
 # BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
 option(
     'enable-unused-upstream-code',

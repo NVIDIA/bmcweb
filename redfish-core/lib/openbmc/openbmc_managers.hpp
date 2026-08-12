@@ -89,20 +89,20 @@ inline void afterAsyncPopulatePid(
     }
     nlohmann::json& configRoot = asyncResp->res.jsonValue["Fan"];
     nlohmann::json& fans = configRoot["FanControllers"];
-    fans["@odata.type"] = "#OpenBMCManager.v1_1_0.Manager.FanControllers";
+    fans["@odata.type"] = "#OpenBMCManager.v1_1_0.FanControllers";
     fans["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     nlohmann::json& pids = configRoot["PidControllers"];
-    pids["@odata.type"] = "#OpenBMCManager.v1_1_0.Manager.PidControllers";
+    pids["@odata.type"] = "#OpenBMCManager.v1_1_0.PidControllers";
     pids["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     nlohmann::json& stepwise = configRoot["StepwiseControllers"];
     stepwise["@odata.type"] =
-        "#OpenBMCManager.v1_1_0.Manager.StepwiseControllers";
+        "#OpenBMCManager.v1_1_0.StepwiseControllers";
     stepwise["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -111,11 +111,11 @@ inline void afterAsyncPopulatePid(
     zones["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    zones["@odata.type"] = "#OpenBMCManager.v1_1_0.Manager.FanZones";
+    zones["@odata.type"] = "#OpenBMCManager.v1_1_0.FanZones";
     configRoot["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    configRoot["@odata.type"] = "#OpenBMCManager.v1_1_0.Manager.Fan";
+    configRoot["@odata.type"] = "#OpenBMCManager.v1_1_0.Fan";
     configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
     if (!currentProfile.empty())
@@ -197,7 +197,7 @@ inline void afterAsyncPopulatePid(
                     ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                         .to_string());
                 zone["@odata.id"] = std::move(url);
-                zone["@odata.type"] = "#OpenBMCManager.v1_1_0.Manager.FanZone";
+                zone["@odata.type"] = "#OpenBMCManager.v1_1_0.FanZone";
                 config = &zone;
             }
 
@@ -217,7 +217,7 @@ inline void afterAsyncPopulatePid(
                         .to_string());
                 controller["@odata.id"] = std::move(url);
                 controller["@odata.type"] =
-                    "#OpenBMCManager.v1_1_0.Manager.StepwiseController";
+                    "#OpenBMCManager.v1_1_0.StepwiseController";
 
                 controller["Direction"] = *classPtr;
             }
@@ -241,7 +241,7 @@ inline void afterAsyncPopulatePid(
                             .to_string());
                     element["@odata.id"] = std::move(url);
                     element["@odata.type"] =
-                        "#OpenBMCManager.v1_1_0.Manager.FanController";
+                        "#OpenBMCManager.v1_1_0.FanController";
                 }
                 else
                 {
@@ -250,7 +250,7 @@ inline void afterAsyncPopulatePid(
                             .to_string());
                     element["@odata.id"] = std::move(url);
                     element["@odata.type"] =
-                        "#OpenBMCManager.v1_1_0.Manager.PidController";
+                        "#OpenBMCManager.v1_1_0.PidController";
                 }
             }
             else

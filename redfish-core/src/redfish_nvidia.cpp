@@ -58,6 +58,7 @@
 #include "nvidia_oem_psc_state.hpp"
 #include "nvidia_oem_psu_redundancy.hpp"
 #include "nvidia_oem_psu_state.hpp"
+#include "nvidia_pcore_dump.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_power_smoothing.hpp"
@@ -190,6 +191,10 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NETWORK_ADAPTERS_GENERIC)
     {
         requestRoutesChassisNetworkAdapter(app);
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            requestRoutesNetworkAdapterPortHistogramLegacy(app);
+        }
     }
 
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
@@ -391,6 +396,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
         requestRoutesSystemsCPUDiag(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_PCORE_DUMP)
+    {
+        requestRoutesCollectPCoreDump(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)

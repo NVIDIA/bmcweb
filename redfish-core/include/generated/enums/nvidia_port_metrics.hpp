@@ -62,6 +62,27 @@ enum class LinkDownReasonCodeTypes{
     PeerResetEvent,
 };
 
+enum class EarlyHealthIndication{
+    Invalid,
+    Healthy,
+    Attention,
+    Unknown,
+};
+
+enum class AttentionTriggerReason{
+    Invalid,
+    Unknown,
+    RawBER,
+    EffectiveBER,
+    SymbolBER,
+    PLRTXBandwidthLoss,
+    PLRRXBandwidthLoss,
+    RecoveryBandwidthLoss,
+    PortTotalBandwidthLoss,
+    LinkDownCount,
+    SymbolErrorCount,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(PCIeCounterType, {
     {PCIeCounterType::Invalid, "Invalid"},
     {PCIeCounterType::CorrectableErrorCount, "CorrectableErrorCount"},
@@ -115,6 +136,27 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LinkDownReasonCodeTypes, {
     {LinkDownReasonCodeTypes::PeerThermalEvent, "PeerThermalEvent"},
     {LinkDownReasonCodeTypes::PeerForcedEvent, "PeerForcedEvent"},
     {LinkDownReasonCodeTypes::PeerResetEvent, "PeerResetEvent"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(EarlyHealthIndication, {
+    {EarlyHealthIndication::Invalid, "Invalid"},
+    {EarlyHealthIndication::Healthy, "Healthy"},
+    {EarlyHealthIndication::Attention, "Attention"},
+    {EarlyHealthIndication::Unknown, "Unknown"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(AttentionTriggerReason, {
+    {AttentionTriggerReason::Invalid, "Invalid"},
+    {AttentionTriggerReason::Unknown, "Unknown"},
+    {AttentionTriggerReason::RawBER, "RawBER"},
+    {AttentionTriggerReason::EffectiveBER, "EffectiveBER"},
+    {AttentionTriggerReason::SymbolBER, "SymbolBER"},
+    {AttentionTriggerReason::PLRTXBandwidthLoss, "PLRTXBandwidthLoss"},
+    {AttentionTriggerReason::PLRRXBandwidthLoss, "PLRRXBandwidthLoss"},
+    {AttentionTriggerReason::RecoveryBandwidthLoss, "RecoveryBandwidthLoss"},
+    {AttentionTriggerReason::PortTotalBandwidthLoss, "PortTotalBandwidthLoss"},
+    {AttentionTriggerReason::LinkDownCount, "LinkDownCount"},
+    {AttentionTriggerReason::SymbolErrorCount, "SymbolErrorCount"},
 });
 
 // clang-format on

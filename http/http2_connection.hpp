@@ -22,7 +22,9 @@
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/fields.hpp>
@@ -36,6 +38,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <map>
 #include <memory>
@@ -69,7 +72,11 @@ struct Http2StreamData
     bool isStreamInput = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
-    // Nvidia code ends here
+    // 15-min hard cap for fd-backed streaming responses.
+    std::optional<boost::asio::steady_timer> streamAbortTimer;
+    // Armed on EAGAIN; fires resumeData() when pipe data is available.
+    std::optional<boost::asio::posix::stream_descriptor> watchSd;
+    // NVIDIA code end
 };
 
 template <typename Adaptor, typename Handler>
@@ -158,6 +165,33 @@ class HTTP2Connection :
         return 0;
     }
 
+    // NVIDIA code start
+    // Resumes a DEFERRED stream when the pipe signals more data is available.
+    static bool onDataReady(const std::weak_ptr<self_type>& selfWeak,
+                            int32_t streamId, boost::system::error_code ec)
+    {
+        auto s = selfWeak.lock();
+        if (!s)
+        {
+            return false;
+        }
+        if (ec == boost::asio::error::operation_aborted)
+        {
+            return false;
+        }
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("body data-ready notifier error: {}", ec);
+            s->ngSession.resumeData(streamId);
+            s->writeBuffer();
+            return false;
+        }
+        s->ngSession.resumeData(streamId);
+        s->writeBuffer();
+        return true;
+    }
+    // NVIDIA code end
+
     static ssize_t fileReadCallback(
         nghttp2_session* /* session */, int32_t streamId, uint8_t* buf,
         size_t length, uint32_t* dataFlags, nghttp2_data_source* /*source*/,
@@ -181,7 +215,49 @@ class HTTP2Connection :
             stream.writer->getWithMaxSize(ec, length);
         if (ec)
         {
-            BMCWEB_LOG_CRITICAL("Failed to get buffer");
+            // NVIDIA code start
+            if (ec == boost::system::errc::operation_would_block ||
+                ec == boost::system::errc::resource_unavailable_try_again)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "fileReadCallback: no body data ready, deferring "
+                    "stream {}",
+                    streamId);
+                if (!stream.watchSd)
+                {
+                    int pipeFd =
+                        stream.res.response.body().file().native_handle();
+                    int watchFd = ::dup(pipeFd);
+                    if (watchFd < 0)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "dup() failed for pipe fd {}: {}", pipeFd,
+                            std::generic_category().message(errno));
+                        return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+                    }
+                    stream.watchSd.emplace(self.adaptor.get_executor(),
+                                           watchFd);
+                    stream.watchSd->async_wait(
+                        boost::asio::posix::stream_descriptor::wait_read,
+                        [selfWeak = self.weak_from_this(),
+                         streamId](boost::system::error_code waitEc) {
+                            auto s = selfWeak.lock();
+                            if (!s)
+                            {
+                                return;
+                            }
+                            auto it = s->streams.find(streamId);
+                            if (it != s->streams.end())
+                            {
+                                it->second.watchSd.reset();
+                            }
+                            onDataReady(selfWeak, streamId, waitEc);
+                        });
+                }
+                return NGHTTP2_ERR_DEFERRED;
+            }
+            // NVIDIA code end
+            BMCWEB_LOG_CRITICAL("Failed to get buffer: {}", ec);
             return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
         if (!out)
@@ -261,6 +337,26 @@ class HTTP2Connection :
         }
         http::response<bmcweb::HttpBody>& fbody = res.response;
         stream.writer.emplace(fbody.base(), fbody.body());
+
+        // NVIDIA code start
+        // Abort streaming after 15 minutes to resist slow-read attacks.
+        if (fbody.body().file().is_open())
+        {
+            static constexpr std::chrono::minutes streamAbortTimeout{15};
+            stream.streamAbortTimer.emplace(adaptor.get_executor());
+            stream.streamAbortTimer->expires_after(streamAbortTimeout);
+            stream.streamAbortTimer->async_wait(
+                [weakSelf = weak_from_this(),
+                 streamId](boost::system::error_code ec) {
+                    auto self = weakSelf.lock();
+                    if (!self)
+                    {
+                        return;
+                    }
+                    self->onStreamAbortTimer(streamId, ec);
+                });
+        }
+        // NVIDIA code end
 
         nghttp2_data_provider dataPrd{
             .source = {.fd = 0},
@@ -368,6 +464,28 @@ class HTTP2Connection :
                     });
             }
         }
+        else if (stream.req && stream.req->streamInputRoute)
+        {
+            // Headers-phase rejection: deliver parked response and skip body
+            // dispatch.
+            stream.isStreamInput = true;
+            if (stream.headersAsyncResp)
+            {
+                stream.headersAsyncResp->res.setCompleteRequestHandler(
+                    [weakSelf = weak_from_this(),
+                     streamId](Response& completedRes) {
+                        if (auto self = weakSelf.lock())
+                        {
+                            if (self->sendResponse(completedRes, streamId) != 0)
+                            {
+                                self->close();
+                            }
+                        }
+                    });
+                stream.headersAsyncResp->res.end();
+                stream.headersAsyncResp.reset();
+            }
+        }
 
         stream.bodyReadPending = false;
 
@@ -414,7 +532,9 @@ class HTTP2Connection :
             return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
         }
 
-        if (it->second.headersAsyncResp && it->second.isStreamInput)
+        // streamInput routes have already sent their response (via multipart
+        // callbacks or the headers-phase rejection path above).
+        if (it->second.isStreamInput)
         {
             return 0;
         }
@@ -643,10 +763,28 @@ class HTTP2Connection :
             BMCWEB_LOG_CRITICAL("user data was null?");
             return NGHTTP2_ERR_CALLBACK_FAILURE;
         }
-        if (userPtrToSelf(userData).streams.erase(streamId) <= 0)
+        auto& self = userPtrToSelf(userData);
+        auto it = self.streams.find(streamId);
+        if (it == self.streams.end())
         {
+            BMCWEB_LOG_ERROR("onStreamCloseCallback: stream {} not found",
+                             streamId);
             return -1;
         }
+        // NVIDIA code start
+        // Cancel before erase to prevent resumeData() on a recycled stream id.
+        if (it->second.watchSd)
+        {
+            it->second.watchSd->cancel();
+            it->second.watchSd.reset();
+        }
+        if (it->second.streamAbortTimer)
+        {
+            it->second.streamAbortTimer->cancel();
+            it->second.streamAbortTimer.reset();
+        }
+        // NVIDIA code end
+        self.streams.erase(it);
         return 0;
     }
 
@@ -787,6 +925,19 @@ class HTTP2Connection :
             return NGHTTP2_ERR_CALLBACK_FAILURE;
         }
         return userPtrToSelf(userData).onBeginHeadersCallback(*frame);
+    }
+
+    void onStreamAbortTimer(int32_t streamId,
+                            const boost::system::error_code& ec)
+    {
+        if (ec == boost::asio::error::operation_aborted)
+        {
+            return;
+        }
+        BMCWEB_LOG_WARNING(
+            "HTTP/2 stream {} streamAbortTimer fired; RST_STREAM", streamId);
+        ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
+        writeBuffer();
     }
 
     static void afterWriteBuffer(const std::shared_ptr<self_type>& self,

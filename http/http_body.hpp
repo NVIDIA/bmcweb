@@ -12,6 +12,8 @@
 #include "zstd_decompressor.hpp"
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
 #include <boost/beast/core/buffer_traits.hpp>
@@ -19,6 +21,7 @@
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/file_posix.hpp>
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/none.hpp>
 #include <boost/optional/optional.hpp>
@@ -134,6 +137,9 @@ class HttpBody::value_type
     // Nvidia code ends here
 
   public:
+    // Skips the Content-Length DoS guard for trusted internal streaming.
+    bool streamingReceiver = false;
+
     value_type() = default;
     // Nvidia code starts here
     explicit value_type(std::string_view s) : bodyData(std::string(s)) {}
@@ -149,8 +155,8 @@ class HttpBody::value_type
         encodingType(enc), compressionType(comp)
     {}
 
-    value_type(const value_type& other) noexcept = default;
-    value_type& operator=(const value_type& other) noexcept = default;
+    value_type(const value_type& other) = default;
+    value_type& operator=(const value_type& other) = default;
     value_type(value_type&& other) noexcept = default;
     value_type& operator=(value_type&& other) noexcept = default;
 
@@ -165,6 +171,22 @@ class HttpBody::value_type
         return emptyFile;
         // Nvidia code ends here
     }
+
+    // NVIDIA code start
+    void setStreamingReceiver(bool enable)
+    {
+        streamingReceiver = enable;
+    }
+
+    // Set file size when fstat cannot determine it (e.g. pipes).
+    void setFileSize(size_t size)
+    {
+        if (auto* fileBody = std::get_if<FileBody>(&bodyData))
+        {
+            fileBody->fileSize = size;
+        }
+    }
+    // NVIDIA code end
 
     std::string& str()
     {
@@ -232,6 +254,7 @@ class HttpBody::value_type
         bodyData = std::string{};
         // Nvidia code ends here
         encodingType = EncodingType::Raw;
+        streamingReceiver = false;
     }
 
     void open(const char* path, boost::beast::file_mode mode,
@@ -276,11 +299,11 @@ class HttpBody::value_type
         ec = {};
     }
 
-    void setFd(int fd, boost::system::error_code& ec)
+    void setFd(DuplicatableFileHandle handle, boost::system::error_code& ec)
     {
         // Nvidia code starts here
         FileBody& fileBody = bodyData.emplace<FileBody>();
-        fileBody.fileHandle.fileHandle.native_handle(fd);
+        fileBody.fileHandle = std::move(handle);
         // Nvidia code ends here
 
         boost::system::error_code ec2;
@@ -362,6 +385,7 @@ class HttpBody::writer
 
     value_type& body;
     size_t sent = 0;
+    size_t fileBytesRead = 0;
     // 64KB This number is arbitrary, and selected to try to optimize for larger
     // files and fewer loops over per-connection reduction in memory usage.
     // Nginx uses 16-32KB here, so we're in the range of what other webservers
@@ -433,29 +457,58 @@ class HttpBody::writer
             size_t read = body.file().read(fileReadBuf.data(), readReq, readEc);
             if (readEc)
             {
-                if (readEc != boost::system::errc::operation_would_block &&
-                    readEc !=
+                if (readEc == boost::system::errc::operation_would_block ||
+                    readEc ==
                         boost::system::errc::resource_unavailable_try_again)
+                {
+                    if (read == 0)
+                    {
+                        ec = readEc;
+                        return boost::none;
+                    }
+                    readEc = {};
+                }
+                else
                 {
                     BMCWEB_LOG_CRITICAL("Failed to read from file {}",
                                         readEc.message());
                     ec = readEc;
                     return boost::none;
                 }
-                // Nvidia code starts here
-                if (read == 0)
-                {
-                    ec = readEc;
-                    return boost::none;
-                }
-                // Nvidia code ends here
             }
 
             std::string_view chunkView(fileReadBuf.data(), read);
             // Nvidia code starts here
             BMCWEB_LOG_DEBUG("Read {} bytes from file", read);
-
-            ret.second = read != 0;
+            fileBytesRead += read;
+            // Detect EOF by byte count; pipes can short-read.
+            const auto* fb = std::get_if<FileBody>(&body.bodyData);
+            // Zero-length read with a pending request is EOF; skip if
+            // readReq==0 (caller retry).
+            if (read == 0 && readReq > 0)
+            {
+                if (fb != nullptr && fb->fileSize &&
+                    fileBytesRead < *fb->fileSize)
+                {
+                    // Upstream closed before delivering the declared
+                    // Content-Length. Fail the response so the client sees a
+                    // truncated transfer rather than a hung 200.
+                    BMCWEB_LOG_ERROR(
+                        "Upstream closed early: got {} of {} bytes, failing response",
+                        fileBytesRead, *fb->fileSize);
+                    ec = boost::beast::http::error::partial_message;
+                    return boost::none;
+                }
+                ret.second = false;
+            }
+            else if (fb != nullptr && fb->fileSize)
+            {
+                ret.second = fileBytesRead < *fb->fileSize;
+            }
+            else
+            {
+                ret.second = read != 0;
+            }
             // Nvidia code ends here
             if (body.encodingType == EncodingType::Base64)
             {
@@ -589,7 +642,8 @@ class HttpBody::reader
         }
 
         // Nvidia code ends here
-        if (contentLength)
+        if (contentLength && !value.file().is_open() &&
+            !value.streamingReceiver)
         {
             constexpr size_t maxReserveSize =
                 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
@@ -603,10 +657,8 @@ class HttpBody::reader
                 return;
             }
 
-            if (!value.file().is_open())
-            {
-                value.str().reserve(static_cast<size_t>(*contentLength));
-            }
+            value.str().reserve(
+                std::min(static_cast<size_t>(*contentLength), maxReserveSize));
         }
         ec = {};
     }

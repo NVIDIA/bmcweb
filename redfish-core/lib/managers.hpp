@@ -24,6 +24,7 @@
 #include "redfish.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/etag_utils.hpp"
@@ -787,20 +788,6 @@ inline void getManagerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 }
 
-inline void getManagedChassis(
-    const std::string& chassisId,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    asyncResp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] = 1;
-    nlohmann::json::array_t managerForChassis;
-    nlohmann::json::object_t manager;
-    manager["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-    managerForChassis.emplace_back(std::move(manager));
-    asyncResp->res.jsonValue["Links"]["ManagerForChassis"] =
-        std::move(managerForChassis);
-}
-
 inline void handleManagerGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -930,7 +917,41 @@ inline void handleManagerGet(
     managerDiagnosticData["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/ManagerDiagnosticData", managerId);
 
-    getMainChassisId(asyncResp, std::bind_front(getManagedChassis));
+    // ManagerInChassis is set authoritatively by extendManagerGet via the
+    // ManagementService/chassis association; no second writer here.
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("getSubTree for ManagerForChassis failed: {}",
+                                 ec);
+                return;
+            }
+            if (subtree.empty())
+            {
+                return;
+            }
+            nlohmann::json::array_t managerForChassis;
+            for (const auto& [path, serviceMap] : subtree)
+            {
+                std::size_t idPos = path.rfind('/');
+                if (idPos == std::string::npos || idPos + 1 >= path.size())
+                {
+                    continue;
+                }
+                nlohmann::json::object_t obj;
+                obj["@odata.id"] = boost::urls::format("/redfish/v1/Chassis/{}",
+                                                       path.substr(idPos + 1));
+                managerForChassis.emplace_back(std::move(obj));
+            }
+            asyncResp->res.jsonValue["Links"]["ManagerForChassis@odata.count"] =
+                managerForChassis.size();
+            asyncResp->res.jsonValue["Links"]["ManagerForChassis"] =
+                std::move(managerForChassis);
+        });
 
     dbus::utility::getProperty<double>(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
@@ -1087,6 +1108,11 @@ inline void handleManagerCollectionGet(
     bmc["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+
+    // NVIDIA code starts here
+    // Call NVIDIA extension function to add NVIDIA specific managers
+    redfish::nvidia::getManagementServiceCollectionMembers(asyncResp);
+    // NVIDIA code ends here
 }
 
 inline void requestRoutesManager(App& app)

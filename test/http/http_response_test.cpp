@@ -8,13 +8,12 @@
 
 #include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/file_base.hpp>
-#include <boost/beast/core/file_posix.hpp>
 #include <boost/beast/http/serializer.hpp>
 #include <boost/beast/http/status.hpp>
 
-#include <cstdio>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 #include "gtest/gtest.h"
 namespace crow
@@ -111,11 +110,13 @@ TEST(HttpResponse, HttpBodyWithFd)
     Response res;
     addHeaders(res);
     DuplicatableFileHandle temporaryFile("sample text");
-    FILE* fd = fopen(temporaryFile.filePath.c_str(), "r+");
-    ASSERT_NE(fd, nullptr);
-    res.openFd(fileno(fd));
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh));
     verifyHeaders(res);
-    fclose(fd);
 }
 
 TEST(HttpResponse, Base64HttpBodyWithFd)
@@ -123,11 +124,13 @@ TEST(HttpResponse, Base64HttpBodyWithFd)
     Response res;
     addHeaders(res);
     DuplicatableFileHandle temporaryFile("sample text");
-    FILE* fd = fopen(temporaryFile.filePath.c_str(), "r");
-    ASSERT_NE(fd, nullptr);
-    res.openFd(fileno(fd), bmcweb::EncodingType::Base64);
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
     verifyHeaders(res);
-    fclose(fd);
 }
 
 TEST(HttpResponse, BodyTransitions)
@@ -166,11 +169,13 @@ TEST(HttpResponse, Base64HttpBodyWriter)
     Response res;
     std::string data = "sample text";
     DuplicatableFileHandle temporaryFile(data);
-    FILE* f = fopen(temporaryFile.filePath.c_str(), "r+");
-    ASSERT_NE(f, nullptr);
-    res.openFd(fileno(f), bmcweb::EncodingType::Base64);
+    boost::system::error_code ec;
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
+    ASSERT_FALSE(ec);
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
     EXPECT_EQ(getData(res.response), "c2FtcGxlIHRleHQ=");
-    fclose(f);
 }
 
 TEST(HttpResponse, Base64HttpBodyWriterLarge)
@@ -178,13 +183,12 @@ TEST(HttpResponse, Base64HttpBodyWriterLarge)
     Response res;
     std::string data = generateBigdata();
     DuplicatableFileHandle temporaryFile(data);
-
-    boost::beast::file_posix file;
     boost::system::error_code ec;
-    file.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
-              ec);
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
     EXPECT_EQ(ec.value(), 0);
-    res.openFd(file.native_handle(), bmcweb::EncodingType::Base64);
+    res.openFd(std::move(fh), bmcweb::EncodingType::Base64);
     EXPECT_EQ(getData(res.response), utility::base64encode(data));
 }
 
@@ -193,13 +197,12 @@ TEST(HttpResponse, HttpBodyWriterLarge)
     Response res;
     std::string data = generateBigdata();
     DuplicatableFileHandle temporaryFile(data);
-
-    boost::beast::file_posix file;
     boost::system::error_code ec;
-    file.open(temporaryFile.filePath.c_str(), boost::beast::file_mode::read,
-              ec);
+    DuplicatableFileHandle fh;
+    fh.fileHandle.open(temporaryFile.filePath.c_str(),
+                       boost::beast::file_mode::read, ec);
     EXPECT_EQ(ec.value(), 0);
-    res.openFd(file.native_handle());
+    res.openFd(std::move(fh));
     EXPECT_EQ(getData(res.response), data);
 }
 
