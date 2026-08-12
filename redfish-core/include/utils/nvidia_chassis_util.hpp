@@ -2560,17 +2560,16 @@ inline void handleChassisGetAllProperties(
         return;
     }
 
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
-                             partNumber);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "SerialNumber",
-                             serialNumber);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Manufacturer",
-                             manufacturer);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Model", model);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "PartNumber", partNumber);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "SerialNumber",
+                            serialNumber);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                            manufacturer);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "Model", model);
     // SparePartNumber is optional on D-Bus
     // so skip if it is empty
-    redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SparePartNumber",
-                             sparePartNumber);
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SparePartNumber",
+                            sparePartNumber);
 
     if (uuid != nullptr)
     {
@@ -2869,13 +2868,13 @@ inline void getChassisAssetData(
                 return;
             }
 
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SerialNumber",
-                                     serialNumber);
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Model", model);
-            redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
-                                     partNumber);
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Manufacturer",
-                                     manufacturer);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SerialNumber",
+                                    serialNumber);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "Model", model);
+            redfish::mapValidOrNull(asyncResp->res.jsonValue, "PartNumber",
+                                    partNumber);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "Manufacturer",
+                                    manufacturer);
         });
 }
 

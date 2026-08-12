@@ -860,8 +860,8 @@ inline void updateSwitchData(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    redfish::mapStringOrNull(asyncResp->res.jsonValue,
-                                             propertyName, value);
+                    redfish::mapValidOrNull(asyncResp->res.jsonValue,
+                                            propertyName, value);
                 }
                 else if (propertyName == "CurrentBandwidth")
                 {
