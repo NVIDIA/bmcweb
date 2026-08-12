@@ -2,42 +2,80 @@
  * SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES.
  * SPDX-License-Identifier: Apache-2.0
  *
- * Mapping D-Bus string properties to Redfish JSON.
- * Backend tombstone values (empty, "NOT_SUPPORTED") are converted
- * based on the property's Redfish schema type:
+ * Mapping D-Bus properties to Redfish JSON with tombstone handling.
  *
- * Public API:
- *   mapStringOrEmpty -- empty -> "" (user-writable, spec 9.5.3)
- *   mapStringOrNull  -- empty -> null (device-reported, nullable)
- *   mapStringOrOmit  -- empty -> omit key (optional, non-nullable)
+ * A "tombstone" is the out-of-domain marker a backend stamps on a property
+ * when it has no genuine reading to report. This utility translates that
+ * marker into the representation the property's Redfish schema allows, so a
+ * stale or default value is never mistaken for a real reading.
  *
- * In all cases, NOT_SUPPORTED -> omit key.
+ * Each D-Bus type has type-specific tombstone values:
+ *   string   : "" (empty) and "NOT_SUPPORTED"
+ *   enum     : determined by EnumTranslator return value
+ *   uint32_t : numeric_limits<uint32_t>::max()
+ *   uint64_t : numeric_limits<uint64_t>::max()
+ *   size_t   : numeric_limits<size_t>::max()
+ *   double   : NaN
+ *
+ * Numeric markers are stamped by nsmd's Sentinel<T> - keep the values here in
+ * lock-step with nsmd/common/telemetryTombstone.hpp.
+ *
+ * Public API - all named mapValidOr*:
+ *   mapValidOrNull (json, key, value)        -- string / numeric
+ *   mapValidOrNull (json, key, value, xlate) -- enum
+ *   mapValidOrOmit (json, key, value)        -- string / numeric
+ *   mapValidOrOmit (json, key, value, xlate) -- enum
+ *   mapValidOrEmpty(json, key, value)        -- string only
+ *
+ * For strings, NOT_SUPPORTED always omits the key.
+ *
+ * For enums, the EnumTranslator decides the tombstone state: the utility does
+ * not inspect D-Bus enum strings directly. Translators should return "" for
+ * .Unknown (policy decides null vs omit) and std::nullopt for .Unsupported
+ * (always omit).
  */
 
 #pragma once
 
 #include <nlohmann/json.hpp>
 
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <limits>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace redfish
 {
 
 constexpr std::string_view propertyNotSupported = "NOT_SUPPORTED";
 
+using EnumTranslator =
+    std::function<std::optional<std::string>(const std::string&)>;
+
 namespace details
 {
 
-enum class EmptyStringPolicy
+enum class TombstonePolicy
 {
     allowEmpty,
     schemaAllowsNull,
     omitResponse
 };
 
+/**
+ * @brief Map a string D-Bus value to JSON, handling "" and "NOT_SUPPORTED".
+ * @param[in,out] json Response object to populate.
+ * @param[in] key      Redfish property name.
+ * @param[in] value    D-Bus string value (may be nullptr).
+ * @param[in] policy   How to represent an empty string.
+ */
 inline void mapString(nlohmann::json& json, const std::string& key,
-                      const std::string* value, EmptyStringPolicy emptyPolicy)
+                      const std::string* value, TombstonePolicy policy)
 {
     if (value == nullptr)
     {
@@ -49,15 +87,15 @@ inline void mapString(nlohmann::json& json, const std::string& key,
     }
     if (value->empty())
     {
-        switch (emptyPolicy)
+        switch (policy)
         {
-            case EmptyStringPolicy::allowEmpty:
+            case TombstonePolicy::allowEmpty:
                 json[key] = "";
                 return;
-            case EmptyStringPolicy::schemaAllowsNull:
+            case TombstonePolicy::schemaAllowsNull:
                 json[key] = nullptr;
                 return;
-            case EmptyStringPolicy::omitResponse:
+            case TombstonePolicy::omitResponse:
             default:
                 return;
         }
@@ -65,27 +103,180 @@ inline void mapString(nlohmann::json& json, const std::string& key,
     json[key] = *value;
 }
 
+/**
+ * @brief Map a D-Bus enum to JSON via an EnumTranslator.
+ *
+ * Translator returns "" for unknown, std::nullopt for unsupported.
+ * @param[in,out] json Response object to populate.
+ * @param[in] key      Redfish property name.
+ * @param[in] value    D-Bus enum string (may be nullptr).
+ * @param[in] translate Maps a D-Bus enum to its Redfish value / tombstone.
+ * @param[in] policy   How to represent the unknown ("") state.
+ */
+inline void mapEnum(nlohmann::json& json, const std::string& key,
+                    const std::string* value, const EnumTranslator& translate,
+                    TombstonePolicy policy)
+{
+    if (value == nullptr)
+    {
+        return;
+    }
+    std::optional<std::string> redfishValue = translate(*value);
+    if (!redfishValue)
+    {
+        return;
+    }
+    if (redfishValue->empty())
+    {
+        if (policy == TombstonePolicy::schemaAllowsNull)
+        {
+            json[key] = nullptr;
+        }
+        return;
+    }
+    json[key] = *redfishValue;
+}
+
+/**
+ * @brief True if a numeric value is the backend "no reading" marker.
+ *
+ * Integer type-max (uint16/int32/int64/size_t/...) or NaN for double.
+ * @tparam T Numeric type (integral non-bool, or double).
+ * @param[in] value Value to test.
+ */
+template <typename T>
+inline bool isTombstone(const T& value)
+{
+    if constexpr (std::is_same_v<T, double>)
+    {
+        return std::isnan(value);
+    }
+    else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
+    {
+        return value == std::numeric_limits<T>::max();
+    }
+    else
+    {
+        static_assert(
+            !sizeof(T),
+            "Unsupported type for generating redfish response using isTombstone");
+    }
+}
+
+/**
+ * @brief Map a numeric D-Bus value to JSON, converting the "no reading" marker.
+ * @tparam T Numeric type.
+ * @param[in,out] json Response object to populate.
+ * @param[in] key      Redfish property name.
+ * @param[in] value    D-Bus numeric value (may be nullptr).
+ * @param[in] policy   How to represent the marker (null vs omit).
+ */
+template <typename T>
+inline void mapNumeric(nlohmann::json& json, const std::string& key,
+                       const T* value, TombstonePolicy policy)
+{
+    if (value == nullptr)
+    {
+        return;
+    }
+    if (isTombstone(*value))
+    {
+        if (policy == TombstonePolicy::schemaAllowsNull)
+        {
+            json[key] = nullptr;
+        }
+        return;
+    }
+    json[key] = *value;
+}
+
 } // namespace details
 
-inline void mapStringOrEmpty(nlohmann::json& json, const std::string& key,
-                             const std::string* value)
+/*
+ * Public API - tombstone -> null (nullable Redfish schema)
+ *
+ * Usage:
+ *   mapValidOrNull(json, "SerialNumber", strPtr);
+ *   mapValidOrNull(json, "SpeedGbps", doublePtr);
+ *   mapValidOrNull(json, "PortType", enumPtr, translator);
+ */
+
+/** @brief Nullable string property: "" -> null, "NOT_SUPPORTED" -> omit. */
+inline void mapValidOrNull(nlohmann::json& json, const std::string& key,
+                           const std::string* value)
 {
     details::mapString(json, key, value,
-                       details::EmptyStringPolicy::allowEmpty);
+                       details::TombstonePolicy::schemaAllowsNull);
 }
 
-inline void mapStringOrNull(nlohmann::json& json, const std::string& key,
-                            const std::string* value)
+/** @brief Nullable numeric property: type-max/NaN -> null. @tparam T type. */
+template <typename T>
+inline void mapValidOrNull(nlohmann::json& json, const std::string& key,
+                           const T* value)
 {
-    details::mapString(json, key, value,
-                       details::EmptyStringPolicy::schemaAllowsNull);
+    details::mapNumeric(json, key, value,
+                        details::TombstonePolicy::schemaAllowsNull);
 }
 
-inline void mapStringOrOmit(nlohmann::json& json, const std::string& key,
-                            const std::string* value)
+/** @brief Nullable enum property: translator "" -> null, nullopt -> omit. */
+inline void mapValidOrNull(nlohmann::json& json, const std::string& key,
+                           const std::string* value,
+                           const EnumTranslator& translate)
+{
+    details::mapEnum(json, key, value, translate,
+                     details::TombstonePolicy::schemaAllowsNull);
+}
+
+/*
+ * Public API - tombstone -> omit key (non-nullable Redfish schema)
+ *
+ * Usage:
+ *   mapValidOrOmit(json, "Location", strPtr);
+ *   mapValidOrOmit(json, "PortCount", uint32Ptr);
+ *   mapValidOrOmit(json, "LinkState", enumPtr, translator);
+ */
+
+/** @brief Non-nullable string property: "" or "NOT_SUPPORTED" -> omit. */
+inline void mapValidOrOmit(nlohmann::json& json, const std::string& key,
+                           const std::string* value)
 {
     details::mapString(json, key, value,
-                       details::EmptyStringPolicy::omitResponse);
+                       details::TombstonePolicy::omitResponse);
+}
+
+/**
+ * @brief Non-nullable numeric property: type-max/NaN -> omit.
+ * @tparam T Numeric type.
+ */
+template <typename T>
+inline void mapValidOrOmit(nlohmann::json& json, const std::string& key,
+                           const T* value)
+{
+    details::mapNumeric(json, key, value,
+                        details::TombstonePolicy::omitResponse);
+}
+
+/** @brief Non-nullable enum property: translator "" or nullopt -> omit. */
+inline void mapValidOrOmit(nlohmann::json& json, const std::string& key,
+                           const std::string* value,
+                           const EnumTranslator& translate)
+{
+    details::mapEnum(json, key, value, translate,
+                     details::TombstonePolicy::omitResponse);
+}
+
+/*
+ * Public API - tombstone -> "" (string only, user-writable fields)
+ *
+ * Usage:
+ *   mapValidOrEmpty(json, "AssetTag", strPtr);
+ */
+
+/** @brief User-writable string property: "" -> "", "NOT_SUPPORTED" -> omit. */
+inline void mapValidOrEmpty(nlohmann::json& json, const std::string& key,
+                            const std::string* value)
+{
+    details::mapString(json, key, value, details::TombstonePolicy::allowEmpty);
 }
 
 } // namespace redfish

@@ -46,6 +46,7 @@ srcfiles_unittest = files(
     'redfish-core/include/utils/nvidia_processor_utils_test.cpp',
     'redfish-core/include/utils/nvidia_utils_test.cpp',
     'redfish-core/include/utils/query_param_test.cpp',
+    'redfish-core/include/utils/redfish_response_utils_test.cpp',
     'redfish-core/include/utils/sensor_utils_test.cpp',
     'redfish-core/include/utils/stl_utils_test.cpp',
     'redfish-core/include/utils/time_utils_test.cpp',

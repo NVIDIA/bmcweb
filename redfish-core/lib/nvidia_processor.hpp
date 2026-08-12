@@ -35,6 +35,7 @@
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/port_utils.hpp"
 #include "utils/processor_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
@@ -2774,7 +2775,9 @@ inline void getProcessorDataByService(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["OperatingSpeedMHz"] = *value;
+                    // Nullable: render nsmd's unavailable marker as null.
+                    redfish::mapValidOrNull(aResp->res.jsonValue,
+                                            "OperatingSpeedMHz", value);
                 }
                 else if (property.first == "Utilization")
                 {
