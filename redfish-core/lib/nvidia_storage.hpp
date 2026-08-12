@@ -470,8 +470,8 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
                                         ["target"] = boost::urls::format(
-                    "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
-                    chassisId, driveId);
+                    "/redfish/v1/Systems/{}/Storage/1/Drives/{}/Actions/Drive.SecureErase",
+                    BMCWEB_REDFISH_SYSTEM_URI_NAME, driveId);
 
                 asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
                                         ["@Redfish.ActionInfo"] =
