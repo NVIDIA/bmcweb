@@ -350,10 +350,23 @@ inline void getErrorInjectionData(
         });
 }
 
+/**
+ * @brief Applies an error injection PATCH. Every inventory type exposing these
+ *        capabilities also exposes the aggregate property, so capability
+ *        writes batch into one request on every route.
+ */
 inline void patchErrorInjectionData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& path, const ErrorInjectionPatchMap& properties)
 {
+    using CapabilityVariant =
+        std::variant<bool, uint32_t, double, std::vector<uint8_t>>;
+
+    // Collected here and sent as one aggregate write. The device command is a
+    // whole-mask write, so a D-Bus write per capability made each one rebuild
+    // the mask from stale state and only the last survived.
+    std::vector<std::tuple<std::string, CapabilityVariant>> capabilities;
+
     for (const auto& [name, value] : properties)
     {
         if (name == "ErrorInjectionModeEnabled")
@@ -415,15 +428,25 @@ inline void patchErrorInjectionData(
                     messages::internalError(aResp->res);
                     return;
                 }
-                std::string errorPath = path;
-                errorPath += "/";
-                errorPath += errorInjectionType;
-                nvidia_async_operation_utils::patch(
-                    aResp, service, errorPath,
-                    "com.nvidia.ErrorInjection.ErrorInjectionCapability",
-                    property, *enabled);
+                capabilities.emplace_back(errorInjectionType,
+                                          CapabilityVariant{*enabled});
             }
         }
+    }
+
+    if (!capabilities.empty())
+    {
+        // Not nvidia_async_operation_utils::patch(): it falls back to a plain
+        // Set when com.nvidia.Async.Set is absent, which would update the
+        // daemon's local property without reaching the device.
+        redfish::nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            aResp, std::chrono::seconds(60), service, path,
+            "com.nvidia.ErrorInjection.ErrorInjection",
+            "ErrorInjectionCapabilitiesEnabled",
+            std::variant<
+                std::vector<std::tuple<std::string, CapabilityVariant>>>{
+                capabilities},
+            redfish::nvidia_async_operation_utils::PatchGenericCallback{aResp});
     }
 }
 
