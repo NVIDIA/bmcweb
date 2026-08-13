@@ -724,7 +724,10 @@ inline void handleChassisGetSubTree(
         asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-        asyncResp->res.jsonValue["Name"] = "Chassis Collection";
+        asyncResp->res.jsonValue["Name"] = chassisId;
+        asyncResp->res.jsonValue["Id"] = chassisId;
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
         getChassisConnectivity(asyncResp, chassisId, path);
 

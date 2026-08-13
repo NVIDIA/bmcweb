@@ -2531,7 +2531,6 @@ inline void handleChassisGetAllProperties(
     const std::string* locationCode = nullptr;
     const std::string* locationType = nullptr;
     const std::string* locationContext = nullptr;
-    const std::string* prettyName = nullptr;
     const std::string* type = nullptr;
     const double* height = nullptr;
     const double* width = nullptr;
@@ -2550,14 +2549,14 @@ inline void handleChassisGetAllProperties(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
         partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
         "Model", model, "SparePartNumber", sparePartNumber, "UUID", uuid,
-        "LocationCode", locationCode, "LocationType", locationType,
-        "PrettyName", prettyName, "Type", type, "Height", height, "Width",
-        width, "Depth", depth, "MinPowerWatts", minPowerWatts, "MaxPowerWatts",
-        maxPowerWatts, "AssetTag", assetTag, "WriteProtected", writeProtected,
-        "WriteProtectedControl", writeProtectedControl,
-        "PCIeReferenceClockCount", pCIeReferenceClockCount, "LocationContext",
-        locationContext, "LocationReference", reference, "Orientation",
-        orientation, "LocationOrdinalValue", locationOrdinalValue);
+        "LocationCode", locationCode, "LocationType", locationType, "Type",
+        type, "Height", height, "Width", width, "Depth", depth, "MinPowerWatts",
+        minPowerWatts, "MaxPowerWatts", maxPowerWatts, "AssetTag", assetTag,
+        "WriteProtected", writeProtected, "WriteProtectedControl",
+        writeProtectedControl, "PCIeReferenceClockCount",
+        pCIeReferenceClockCount, "LocationContext", locationContext,
+        "LocationReference", reference, "Orientation", orientation,
+        "LocationOrdinalValue", locationOrdinalValue);
 
     if (!success)
     {
@@ -2614,10 +2613,6 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["Location"]["PartLocationContext"] =
             *locationContext;
-    }
-    if (prettyName != nullptr)
-    {
-        asyncResp->res.jsonValue["Name"] = *prettyName;
     }
     if (height != nullptr)
     {
@@ -2703,8 +2698,7 @@ inline void handleChassisGetAllProperties(
             }
         }
     }
-    asyncResp->res.jsonValue["Name"] = chassisId;
-    asyncResp->res.jsonValue["Id"] = chassisId;
+
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL &&
                   BMCWEB_HOST_OS_FEATURES)
     {
@@ -2715,6 +2709,7 @@ inline void handleChassisGetAllProperties(
         asyncResp->res.jsonValue["Power"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
+
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
@@ -2727,6 +2722,7 @@ inline void handleChassisGetAllProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
                                 chassisId);
     }
+
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -3430,25 +3426,6 @@ inline void getChassisUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
             asyncResp->res.jsonValue["UUID"] = chassisUUID;
-        });
-}
-
-inline void getChassisName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& connectionName,
-                           const std::string& path)
-{
-    dbus::utility::getProperty<std::string>(
-        connectionName, path, "xyz.openbmc_project.Inventory.Item",
-        "PrettyName",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& chassisName) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for chassis name");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Name"] = chassisName;
         });
 }
 

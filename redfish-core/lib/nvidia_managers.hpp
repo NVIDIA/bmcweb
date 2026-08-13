@@ -1502,9 +1502,10 @@ inline void extendManagerGet(
 
                             // ManagementService association identifies the
                             // chassis that physically contains this manager.
-                            // Only ManagerInChassis is set here; ManagerForChassis
-                            // is populated from the full chassis subtree in
-                            // handleManagerGet so all managed chassis are listed.
+                            // Only ManagerInChassis is set here;
+                            // ManagerForChassis is populated from the full
+                            // chassis subtree in handleManagerGet so all
+                            // managed chassis are listed.
                             for (const std::string& p : property)
                             {
                                 sdbusplus::message::object_path objPath(p);
