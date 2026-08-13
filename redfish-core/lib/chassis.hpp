@@ -715,6 +715,17 @@ inline void handleChassisGetSubTree(
             continue;
         }
 
+        if (connectionNames.empty())
+        {
+            BMCWEB_LOG_ERROR("Got 0 Connection names");
+            continue;
+        }
+
+        asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
+        asyncResp->res.jsonValue["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
+        asyncResp->res.jsonValue["Name"] = "Chassis Collection";
+
         getChassisConnectivity(asyncResp, chassisId, path);
 
         // Nvidia: added code start
@@ -728,17 +739,6 @@ inline void handleChassisGetSubTree(
         redfish::nvidia_chassis_utils::populateDeviceHealthFromFile(
             asyncResp, chassisId);
         // Nvidia: added code end
-
-        if (connectionNames.empty())
-        {
-            BMCWEB_LOG_ERROR("Got 0 Connection names");
-            continue;
-        }
-
-        asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
-        asyncResp->res.jsonValue["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-        asyncResp->res.jsonValue["Name"] = "Chassis Collection";
 
         // Nvidia added if condition for Host OS Features
         if constexpr (BMCWEB_HOST_OS_FEATURES)
