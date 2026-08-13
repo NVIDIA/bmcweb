@@ -94,10 +94,6 @@ inline void getCpuDataByInterface(
 {
     BMCWEB_LOG_DEBUG("Get CPU resources by interface.");
 
-    // Set the default value of state
-    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-
     for (const auto& interface : cpuInterfacesProperties)
     {
         for (const auto& property : interface.second)
@@ -255,6 +251,19 @@ inline void getCpuDataByService(
             asyncResp->res.jsonValue["Name"] = "Processor";
             asyncResp->res.jsonValue["ProcessorType"] =
                 processor::ProcessorType::CPU;
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Enabled;
+            asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+
+            if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+            {
+                /** NOTES: This is a temporary solution to avoid performance
+                 * issues may impact other Redfish services. Please call for
+                 * architecture decisions from all NvBMC teams if want to use it
+                 * in other places.
+                 */
+                health_utils::getDeviceHealthInfo(asyncResp->res, cpuId);
+            }
 
             for (const auto& object : dbusData)
             {

@@ -2730,8 +2730,6 @@ inline void handleChassisGetAllProperties(
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
-    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
     // Assembly collection
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
