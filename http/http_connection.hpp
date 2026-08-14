@@ -301,10 +301,25 @@ class Connection :
 
     void upgradeToHttp2()
     {
-        if (getConnectionCount() >= maxHttp2Connections)
+        // getConnectionCount() already includes this HTTP/1.1 wrapper, which
+        // is still alive at this point and will be replaced by the
+        // HTTP2Connection created below (its destructor decrements the
+        // shared count once the upgrade completes). Exclude that
+        // self-contribution so a connection isn't rejected for an upgrade
+        // that would leave the count within the limit.
+        if (getConnectionCount() - 1 >= maxHttp2Connections)
         {
             BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
                                 getConnectionCount());
+            // gracefulClose() removes any mTLS session created during the
+            // handshake (verification happens before ALPN/h2c selection is
+            // known, so a session may already exist) and, for TLS
+            // connections, sends a TLS close_notify instead of abruptly
+            // dropping the socket. That matters for the h2c race where
+            // doUpgrade()'s pre-check already let a 101 Switching Protocols
+            // response be written before this recheck rejects the upgrade:
+            // the client should see a clean shutdown, not a bare reset.
+            gracefulClose();
             return;
         }
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
@@ -319,6 +334,22 @@ class Connection :
             http2->startFromSettings(http2settings);
         }
     }
+
+    // Nvidia code starts here
+    // requestAsyncResp's completion handler owns a shared_ptr back to this
+    // connection, so leaving it armed keeps the connection alive forever (and
+    // its slot in getConnectionCount() taken). Any path that finishes the
+    // response itself must drop the handler before reset(), otherwise
+    // ~AsyncResp -> res.end() would fire completeRequest() a second time.
+    void releaseRequestAsyncResp()
+    {
+        if (requestAsyncResp)
+        {
+            requestAsyncResp->res.releaseCompleteRequestHandler();
+            requestAsyncResp.reset();
+        }
+    }
+    // Nvidia code ends here
 
     // returns whether connection was upgraded
     bool doUpgrade(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -347,13 +378,17 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
-            if (getConnectionCount() >= maxHttp2Connections)
+            // getConnectionCount() already includes this connection itself;
+            // see the matching comment in upgradeToHttp2().
+            if (getConnectionCount() - 1 >= maxHttp2Connections)
             {
                 BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
                                     getConnectionCount());
                 res.result(boost::beast::http::status::service_unavailable);
                 keepAlive = false;
-                return false;
+                releaseRequestAsyncResp();
+                completeRequest(res);
+                return true;
             }
             std::string_view base64settings = req->req["HTTP2-Settings"];
             if (utility::base64Decode<true>(base64settings, http2settings))
@@ -361,6 +396,14 @@ class Connection :
                 res.result(boost::beast::http::status::switching_protocols);
                 res.addHeader(boost::beast::http::field::connection, "Upgrade");
                 res.addHeader(boost::beast::http::field::upgrade, "h2c");
+                // This branch must own completion of the response: setting
+                // switching_protocols on `res` here has no effect unless we
+                // actually write it and stop normal route dispatch.
+                // afterDoWrite() detects switching_protocols and calls
+                // upgradeToHttp2() once the 101 response has been written.
+                releaseRequestAsyncResp();
+                completeRequest(res);
+                return true;
             }
         }
 
@@ -470,11 +513,7 @@ class Connection :
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
                     // Nvidia code starts here
-                    if (requestAsyncResp)
-                    {
-                        requestAsyncResp->res.releaseCompleteRequestHandler();
-                        requestAsyncResp.reset();
-                    }
+                    releaseRequestAsyncResp();
                     // Nvidia code ends here
                     return;
                 }
