@@ -28,8 +28,10 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 
+#include <array>
 #include <cerrno>
 #include <string>
+#include <string_view>
 #include <variant>
 namespace redfish
 {
@@ -112,8 +114,14 @@ inline void getNvidiaPowerSupplyMetrics(
             // Iterate through the sensor paths to extract relevant data
             for (const std::string& sensorPath : sensorPaths)
             {
+                constexpr std::array<std::string_view, 1>
+                    sensorValueInterface = {
+                        "xyz.openbmc_project.Sensor.Value"};
+                // Filter on Sensor.Value so the mapper cannot be returned as
+                // the owning service: it reports itself on sensor paths that
+                // carry associations, but serves no properties there.
                 dbus::utility::getDbusObject(
-                    sensorPath, {},
+                    sensorPath, sensorValueInterface,
                     [asyncResp, chassisId,
                      sensorPath](const boost::system::error_code& ec2,
                                  const dbus::utility::MapperGetObject& object) {
@@ -128,7 +136,8 @@ inline void getNvidiaPowerSupplyMetrics(
                         const std::string& serviceName = object.begin()->first;
                         // Fetch sensor data
                         dbus::utility::getAllProperties(
-                            serviceName, sensorPath, "",
+                            serviceName, sensorPath,
+                            "xyz.openbmc_project.Sensor.Value",
                             [asyncResp, chassisId,
                              sensorPath](const boost::system::error_code& ec3,
                                          const dbus::utility::DBusPropertiesMap&
