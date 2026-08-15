@@ -504,8 +504,8 @@
         </Property>
         <Property Name="DynamicData" Type="Collection(NvidiaComputerSystem.v1_10_0.DiagDataByte)" Nullable="false">
           <Annotation Term="Redfish.Required"/>
-          <Annotation Term="OData.Description" String="Config-type-specific octet array. The service rejects arrays longer than 199 entries."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the config-type-specific payload octets of the NSM Set Diag System Config (Cmd 0x80) request. The service shall reject a request whose array contains more than 199 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the bound this interface has advertised since the Grace-era implementation and is stricter than the 251 octets the NSM command payload accommodates."/>
+          <Annotation Term="OData.Description" String="Config-type-specific octet array. The service rejects arrays longer than 251 entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the config-type-specific payload octets of the NSM Set Diag System Config (Cmd 0x80) request. The service shall reject a request whose array contains more than 251 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the maximum the NSM command encoder accepts, and sits inside the ceiling implied by the 8-bit request Data Size field less the two fixed octets Cmd 0x80 carries ahead of the payload."/>
         </Property>
       </ComplexType>
       <ComplexType Name="ProcessorDiagTidConfigEntry">
@@ -542,8 +542,8 @@
         </Property>
         <Property Name="DynamicData" Type="Collection(NvidiaComputerSystem.v1_10_0.DiagDataByte)" Nullable="false">
           <Annotation Term="Redfish.Required"/>
-          <Annotation Term="OData.Description" String="TID-specific parameter octet array. The service rejects arrays longer than 194 entries."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the TID-specific parameter octets forwarded to the CPU for the test identified by Tid. The service shall reject a request whose array contains more than 194 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the bound this interface has advertised since the Grace-era implementation and is stricter than the 244 octets the NSM Set Diag TID Config command payload accommodates."/>
+          <Annotation Term="OData.Description" String="TID-specific parameter octet array. The service rejects arrays longer than 244 entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the TID-specific parameter octets forwarded to the CPU for the test identified by Tid. The service shall reject a request whose array contains more than 244 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the maximum the NSM Set Diag TID Config command payload accommodates, and is far above the largest configuration payload defined for any Test ID; the transport ceiling is enforced rather than the per-Test-ID sizes so that a newly defined Test ID requires no service change."/>
         </Property>
       </ComplexType>
       <ComplexType Name="ProcessorDiagResultEntry">

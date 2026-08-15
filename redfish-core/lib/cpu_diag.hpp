@@ -733,21 +733,13 @@ inline bool validateDiagSysConfig(
                 configProcessorDiagAction);
             return false;
         }
-        // Cap DynamicData at 199, the bound this interface has advertised
-        // since the Grace-era implementation added it to the
-        // ConfigProcessorDiag ActionInfo as ArraySizeMaximum. No spec
-        // derivation for it is recorded anywhere; it is kept for
-        // compatibility with clients written against that ActionInfo. It is
-        // stricter than the transport allows -- libnsm caps the Cmd 0x80
-        // payload at NSM_DIAG_MAX_DYNAMIC_DATA_SIZE (251) in
-        // libnsm/diagnostics.h -- so arrays of 200..251 octets are rejected
-        // here even though the NSM stack would carry them. Not expressible
-        // in JSON Schema, so reject it here.
-        if (item["DynamicData"].size() > 199)
+        // NSM_DIAG_MAX_DYNAMIC_DATA_SIZE (libnsm/diagnostics.h): reject
+        // here what the Cmd 0x80 encoder would reject as a length error.
+        if (item["DynamicData"].size() > 251)
         {
             BMCWEB_LOG_ERROR(
-                "DynamicData exceeds maximum allowed length of 199");
-            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 199);
+                "DynamicData exceeds maximum allowed length of 251");
+            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 251);
             return false;
         }
         // Validate DynamicData contains all unsigned numbers
@@ -884,22 +876,13 @@ inline bool validateDiagTidConfig(
                 asyncResp->res, configProcessorDiagTidAction, "Tid");
             return false;
         }
-        // Cap DynamicData at 194, the bound this interface has advertised
-        // since the Grace-era implementation added it to the
-        // ConfigProcessorDiagTid ActionInfo as ArraySizeMaximum. No spec
-        // derivation for it is recorded anywhere; it is kept for
-        // compatibility with clients written against that ActionInfo. Note
-        // the Grace implementation never enforced 194 -- it validated
-        // DynamicDataSize against 244 -- and libnsm caps the Set Diag TID
-        // Config payload at NSM_DIAG_MAX_TID_DYNAMIC_DATA_SIZE (244) in
-        // libnsm/diagnostics.h, so arrays of 195..244 octets are rejected
-        // here even though the NSM stack would carry them. The check moved
-        // here when DynamicDataSize was removed.
-        if (item["DynamicData"].size() > 194)
+        // NSM_DIAG_MAX_TID_DYNAMIC_DATA_SIZE (libnsm/diagnostics.h): reject
+        // here what the Cmd 0x81 encoder would reject as a length error.
+        if (item["DynamicData"].size() > 244)
         {
             BMCWEB_LOG_ERROR(
-                "DynamicData exceeds maximum allowed length of 194");
-            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 194);
+                "DynamicData exceeds maximum allowed length of 244");
+            messages::arraySizeTooLong(asyncResp->res, "DynamicData", 244);
             return false;
         }
         // Validate DynamicData contains all unsigned numbers
