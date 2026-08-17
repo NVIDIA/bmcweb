@@ -14,14 +14,18 @@
 #include <openssl/x509.h>
 #include <systemd/sd-bus.h>
 
+#include <boost/beast/core/file_posix.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/message.hpp>
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <iterator>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <variant>
@@ -40,13 +44,14 @@ inline void installCertificate(const std::filesystem::path& certPath)
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Replace Certificate Fail..");
-                return;
             }
-
-            BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
-                            "remove temporary certificate file..");
+            else
+            {
+                BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
+                                "remove temporary certificate file..");
+            }
             std::error_code ec2;
-            std::filesystem::remove(certPath.c_str(), ec2);
+            std::filesystem::remove(certPath, ec2);
             if (ec2)
             {
                 BMCWEB_LOG_ERROR("Failed to remove certificate");
@@ -55,6 +60,57 @@ inline void installCertificate(const std::filesystem::path& certPath)
         "xyz.openbmc_project.Certs.Manager.Server.Https",
         "/xyz/openbmc_project/certs/server/https/1",
         "xyz.openbmc_project.Certs.Replace", "Replace", certPath.string());
+}
+
+inline std::optional<std::filesystem::path> writeCertToUniqueTempFile(
+    const std::string& certData)
+{
+    std::error_code tempDirEc;
+    std::filesystem::path tempDir =
+        std::filesystem::temp_directory_path(tempDirEc);
+    if (tempDirEc)
+    {
+        BMCWEB_LOG_ERROR("Failed to resolve temp directory");
+        return std::nullopt;
+    }
+    std::string pathBuf = (tempDir / "hostname_cert_XXXXXX").string();
+
+    int fd = ::mkstemp(pathBuf.data());
+    if (fd == -1)
+    {
+        BMCWEB_LOG_ERROR("Failed to create temporary certificate file");
+        return std::nullopt;
+    }
+
+    // file_posix used for managing RAII-close
+    boost::beast::file_posix file;
+    file.native_handle(fd);
+
+    boost::system::error_code ec;
+    size_t written = file.write(certData.data(), certData.size(), ec);
+    bool writeFailed = ec || written != certData.size();
+
+    boost::system::error_code closeEc;
+    file.close(closeEc);
+    if (closeEc)
+    {
+        writeFailed = true;
+    }
+
+    if (writeFailed)
+    {
+        BMCWEB_LOG_ERROR("Failed to write certificate to temp file");
+        std::error_code ec2;
+        std::filesystem::remove(pathBuf, ec2);
+        if (ec2)
+        {
+            BMCWEB_LOG_ERROR("Failed to remove temp certificate file: {}",
+                             ec2.message());
+        }
+        return std::nullopt;
+    }
+
+    return std::filesystem::path(pathBuf);
 }
 
 inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
@@ -145,10 +201,15 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                 BMCWEB_LOG_ERROR("Failed to generate cert");
                 return 0;
             }
-            ensuressl::writeCertificateToFile("/tmp/hostname_cert.tmp",
-                                              certData);
 
-            installCertificate("/tmp/hostname_cert.tmp");
+            std::optional<std::filesystem::path> certPath =
+                writeCertToUniqueTempFile(certData);
+            if (!certPath)
+            {
+                return 0;
+            }
+
+            installCertificate(*certPath);
         }
         ASN1_STRING_free(asn1);
     }
