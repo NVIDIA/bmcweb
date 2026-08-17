@@ -144,16 +144,17 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                 return 0;
             }
 
-            auto certFile = std::make_shared<DuplicatableFileHandle>(certData);
-            if (certFile->filePath.empty() ||
-                !std::filesystem::exists(certFile->filePath))
+            auto tempCertFile =
+                std::make_shared<DuplicatableFileHandle>(certData);
+            if (tempCertFile->filePath.empty() ||
+                !std::filesystem::exists(tempCertFile->filePath))
             {
                 BMCWEB_LOG_ERROR("Failed to create temporary certificate "
                                  "file");
                 return 0;
             }
 
-            installCertificate(certFile);
+            installCertificate(tempCertFile);
         }
         ASN1_STRING_free(asn1);
     }
