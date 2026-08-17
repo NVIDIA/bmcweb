@@ -301,24 +301,15 @@ class Connection :
 
     void upgradeToHttp2()
     {
-        // getConnectionCount() already includes this HTTP/1.1 wrapper, which
-        // is still alive at this point and will be replaced by the
-        // HTTP2Connection created below (its destructor decrements the
-        // shared count once the upgrade completes). Exclude that
-        // self-contribution so a connection isn't rejected for an upgrade
-        // that would leave the count within the limit.
+        // -1: this HTTP/1.1 wrapper is still alive and counted, but is about
+        // to be replaced by the HTTP2Connection created below.
         if (getConnectionCount() - 1 >= maxHttp2Connections)
         {
             BMCWEB_LOG_CRITICAL("max http2 connection limit, count={}",
                                 getConnectionCount());
-            // gracefulClose() removes any mTLS session created during the
-            // handshake (verification happens before ALPN/h2c selection is
-            // known, so a session may already exist) and, for TLS
-            // connections, sends a TLS close_notify instead of abruptly
-            // dropping the socket. That matters for the h2c race where
-            // doUpgrade()'s pre-check already let a 101 Switching Protocols
-            // response be written before this recheck rejects the upgrade:
-            // the client should see a clean shutdown, not a bare reset.
+            // Clears any mTLS session and sends a clean TLS close_notify
+            // instead of a bare reset, in case doUpgrade() already wrote a
+            // 101 response before this recheck rejected the upgrade.
             gracefulClose();
             return;
         }
@@ -336,11 +327,9 @@ class Connection :
     }
 
     // Nvidia code starts here
-    // requestAsyncResp's completion handler owns a shared_ptr back to this
-    // connection, so leaving it armed keeps the connection alive forever (and
-    // its slot in getConnectionCount() taken). Any path that finishes the
-    // response itself must drop the handler before reset(), otherwise
-    // ~AsyncResp -> res.end() would fire completeRequest() a second time.
+    // requestAsyncResp's completion handler holds a shared_ptr back to this
+    // connection; drop it before reset() or ~AsyncResp fires
+    // completeRequest() a second time.
     void releaseRequestAsyncResp()
     {
         if (requestAsyncResp)
@@ -396,11 +385,9 @@ class Connection :
                 res.result(boost::beast::http::status::switching_protocols);
                 res.addHeader(boost::beast::http::field::connection, "Upgrade");
                 res.addHeader(boost::beast::http::field::upgrade, "h2c");
-                // This branch must own completion of the response: setting
-                // switching_protocols on `res` here has no effect unless we
-                // actually write it and stop normal route dispatch.
-                // afterDoWrite() detects switching_protocols and calls
-                // upgradeToHttp2() once the 101 response has been written.
+                // Must complete the response ourselves; afterDoWrite() spots
+                // switching_protocols and calls upgradeToHttp2() once it's
+                // written.
                 releaseRequestAsyncResp();
                 completeRequest(res);
                 return true;
