@@ -3,6 +3,7 @@
 #pragma once
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "duplicatable_file_handle.hpp"
 #include "include/dbus_utility.hpp"
 #include "logging.hpp"
 #include "ssl_key_handler.hpp"
@@ -14,20 +15,16 @@
 #include <openssl/x509.h>
 #include <systemd/sd-bus.h>
 
-#include <boost/beast/core/file_posix.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/message.hpp>
 
 #include <array>
 #include <cstddef>
-#include <cstdlib>
 #include <filesystem>
 #include <iterator>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <variant>
 
 namespace crow
@@ -37,80 +34,25 @@ namespace hostname_monitor
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> hostnameSignalMonitor;
 
-inline void installCertificate(const std::filesystem::path& certPath)
+inline void installCertificate(
+    const std::shared_ptr<DuplicatableFileHandle>& certFile)
 {
     dbus::utility::async_method_call(
-        [certPath](const boost::system::error_code& ec) {
+        // certFile is kept alive until the callback runs, so its
+        // destructor removes the temp file on both success and failure.
+        [certFile](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Replace Certificate Fail..");
             }
             else
             {
-                BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
-                                "remove temporary certificate file..");
-            }
-            std::error_code ec2;
-            std::filesystem::remove(certPath, ec2);
-            if (ec2)
-            {
-                BMCWEB_LOG_ERROR("Failed to remove certificate");
+                BMCWEB_LOG_INFO("Replace HTTPs Certificate Success");
             }
         },
         "xyz.openbmc_project.Certs.Manager.Server.Https",
         "/xyz/openbmc_project/certs/server/https/1",
-        "xyz.openbmc_project.Certs.Replace", "Replace", certPath.string());
-}
-
-inline std::optional<std::filesystem::path> writeCertToUniqueTempFile(
-    const std::string& certData)
-{
-    std::error_code tempDirEc;
-    std::filesystem::path tempDir =
-        std::filesystem::temp_directory_path(tempDirEc);
-    if (tempDirEc)
-    {
-        BMCWEB_LOG_ERROR("Failed to resolve temp directory");
-        return std::nullopt;
-    }
-    std::string pathBuf = (tempDir / "hostname_cert_XXXXXX").string();
-
-    int fd = ::mkstemp(pathBuf.data());
-    if (fd == -1)
-    {
-        BMCWEB_LOG_ERROR("Failed to create temporary certificate file");
-        return std::nullopt;
-    }
-
-    // file_posix used for managing RAII-close
-    boost::beast::file_posix file;
-    file.native_handle(fd);
-
-    boost::system::error_code ec;
-    size_t written = file.write(certData.data(), certData.size(), ec);
-    bool writeFailed = ec || written != certData.size();
-
-    boost::system::error_code closeEc;
-    file.close(closeEc);
-    if (closeEc)
-    {
-        writeFailed = true;
-    }
-
-    if (writeFailed)
-    {
-        BMCWEB_LOG_ERROR("Failed to write certificate to temp file");
-        std::error_code ec2;
-        std::filesystem::remove(pathBuf, ec2);
-        if (ec2)
-        {
-            BMCWEB_LOG_ERROR("Failed to remove temp certificate file: {}",
-                             ec2.message());
-        }
-        return std::nullopt;
-    }
-
-    return std::filesystem::path(pathBuf);
+        "xyz.openbmc_project.Certs.Replace", "Replace", certFile->filePath);
 }
 
 inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
@@ -202,14 +144,16 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                 return 0;
             }
 
-            std::optional<std::filesystem::path> certPath =
-                writeCertToUniqueTempFile(certData);
-            if (!certPath)
+            auto certFile = std::make_shared<DuplicatableFileHandle>(certData);
+            if (certFile->filePath.empty() ||
+                !std::filesystem::exists(certFile->filePath))
             {
+                BMCWEB_LOG_ERROR("Failed to create temporary certificate "
+                                 "file");
                 return 0;
             }
 
-            installCertificate(*certPath);
+            installCertificate(certFile);
         }
         ASN1_STRING_free(asn1);
     }
