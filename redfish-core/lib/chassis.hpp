@@ -695,110 +695,109 @@ inline void handleChassisGetSubTree(
         return;
     }
 
+    using ChassisEntry =
+        std::pair<std::string, dbus::utility::MapperServiceMap>;
+
+    std::vector<std::reference_wrapper<const ChassisEntry>> matchingChassis;
+    // Iterate over all retrieved ObjectPaths.
+    for (const ChassisEntry& entry : subtree)
+    {
+        const auto& [path, connections] = entry;
+        sdbusplus::message::object_path objPath(path);
+        if (objPath.filename() == chassisId && !connections.empty())
+        {
+            matchingChassis.emplace_back(entry);
+        }
+    }
+
+    if (matchingChassis.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    // Perform one time operations, set defaults
+    asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
+    asyncResp->res.jsonValue["Name"] = chassisId;
+    asyncResp->res.jsonValue["Id"] = chassisId;
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+
     // Nvidia: added code start
-    bool isFoundChassisObject = false;
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        // get debug token resource
+        redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
+    }
     // Nvidia: added code end
 
-    // Iterate over all retrieved ObjectPaths.
-    for (const std::pair<
-             std::string,
-             std::vector<std::pair<std::string, std::vector<std::string>>>>&
-             object : subtree)
+    redfish::nvidia_chassis_utils::populateDeviceHealthFromFile(
+        asyncResp, chassisId);
+
+    // Nvidia added if condition for Host OS Features
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
-        const std::string& path = object.first;
-        const std::vector<std::pair<std::string, std::vector<std::string>>>&
-            connectionNames = object.second;
+        asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
+                                chassisId);
+        asyncResp->res
+            .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
+                                chassisId);
+    }
 
+    // Nvidia Added code start
+    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+    {
+        if (chassisId == BMCWEB_PLATFORM_CHASSIS_NAME)
+        {
+            asyncResp->res.jsonValue["Actions"]["Oem"]
+                                    ["#NvidiaChassis.AuxPowerReset"]["target"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Actions/Oem/NvidiaChassis.AuxPowerReset";
+            asyncResp->res
+                .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                          ["@Redfish.ActionInfo"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Oem/Nvidia/AuxPowerResetActionInfo";
+        }
+    }
+
+    // Add CPU recovery mode OEM action if supported
+    nvidia_chassis::addCpuRecoveryModeAction(asyncResp, chassisId);
+    addChassisResetOemAction(asyncResp, chassisId);
+    // Nvidia Added code end
+
+    asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices", chassisId);
+    if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
+    {
+        asyncResp->res.jsonValue["LogServices"] = {
+            {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/LogServices"}};
+    }
+
+    // Connection specific properties
+    for (const ChassisEntry& entry : matchingChassis)
+    {
+        const auto& [path, connections] = entry;
         sdbusplus::message::object_path objPath(path);
-        if (objPath.filename() != chassisId)
-        {
-            continue;
-        }
-
-        if (connectionNames.empty())
-        {
-            BMCWEB_LOG_ERROR("Got 0 Connection names");
-            continue;
-        }
-
-        asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
-        asyncResp->res.jsonValue["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
-        asyncResp->res.jsonValue["Name"] = chassisId;
-        asyncResp->res.jsonValue["Id"] = chassisId;
-        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-
         getChassisConnectivity(asyncResp, chassisId, path);
 
-        // Nvidia: added code start
         redfish::nvidia_chassis_utils::handleFruAssetInformation(
             asyncResp, chassisId, path);
-        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-        {
-            // get debug token resource
-            redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
-            redfish::nvidia_chassis_utils::
-                populateHardwareWriteProtectedControl(asyncResp, path);
-        }
-        redfish::nvidia_chassis_utils::populateDeviceHealthFromFile(
-            asyncResp, chassisId);
-        // Nvidia: added code end
-
-        // Nvidia added if condition for Host OS Features
-        if constexpr (BMCWEB_HOST_OS_FEATURES)
-        {
-            asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-                boost::urls::format(
-                    "/redfish/v1/Chassis/{}/Actions/Chassis.Reset", chassisId);
-            asyncResp->res
-                .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
-                                    chassisId);
-        }
-
-        // Nvidia Added code start
-        if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
-        {
-            if (chassisId == BMCWEB_PLATFORM_CHASSIS_NAME)
-            {
-                asyncResp->res
-                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                              ["target"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/Actions/Oem/NvidiaChassis.AuxPowerReset";
-                asyncResp->res
-                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                              ["@Redfish.ActionInfo"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/Oem/Nvidia/AuxPowerResetActionInfo";
-            }
-        }
-
-        // Add CPU recovery mode OEM action if supported
-        nvidia_chassis::addCpuRecoveryModeAction(asyncResp, chassisId);
-
-        addChassisResetOemAction(asyncResp, chassisId);
-
-        // Nvidia Added code end
-
-        asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices",
-                                chassisId);
-        if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
-        {
-            asyncResp->res.jsonValue["LogServices"] = {
-                {"@odata.id",
-                 "/redfish/v1/Chassis/" + chassisId + "/LogServices"}};
-        }
+        redfish::nvidia_chassis_utils::populateHardwareWriteProtectedControl(
+            asyncResp, path);
 
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
-            [asyncResp, chassisId](const boost::system::error_code& ec3,
+            [asyncResp, chassisId](const boost::system::error_code& ec2,
                                    const dbus::utility::MapperEndPoints& resp) {
-                if (ec3 || resp.empty())
+                if (ec2 || resp.empty())
                 {
-                    return; // no drives = no failures
+                    // no drives = no failures
+                    return;
                 }
 
                 nlohmann::json reference;
@@ -807,8 +806,12 @@ inline void handleChassisGetSubTree(
                 asyncResp->res.jsonValue["Drives"] = std::move(reference);
             });
 
-        // Nvidia modified code to handle multiple services on same chassis
-        for (const auto& [connectionName, interfaces2] : connectionNames)
+        getStorageLink(asyncResp, objPath);
+
+        redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
+            asyncResp, path, chassisId);
+
+        for (const auto& [connectionName, interfaces] : connections)
         {
             const std::array<const char*, 3> hasIndicatorLed = {
                 "xyz.openbmc_project.Inventory.Item.Chassis",
@@ -822,20 +825,20 @@ inline void handleChassisGetSubTree(
             const std::string revisionInterface =
                 "xyz.openbmc_project.Inventory.Decorator.Revision";
 
-            for (const auto& interface : interfaces2)
+            for (const auto& interface : interfaces)
             {
                 if (interface == assetTagInterface)
                 {
                     dbus::utility::getProperty<std::string>(
                         connectionName, path, assetTagInterface, "AssetTag",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec3,
+                         chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
-                            if (ec3)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_ERROR(
                                     "DBus response error for AssetTag: {}",
-                                    ec3);
+                                    ec2);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -853,13 +856,13 @@ inline void handleChassisGetSubTree(
                         connectionName, path, replaceableInterface,
                         "HotPluggable",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec3,
+                         chassisId](const boost::system::error_code& ec2,
                                     const bool property) {
-                            if (ec3)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_DEBUG(
                                     "DBus response error for HotPluggable: {}",
-                                    ec3);
+                                    ec2);
                                 // not abort the resource display
                             }
                             else
@@ -874,12 +877,12 @@ inline void handleChassisGetSubTree(
                     dbus::utility::getProperty<std::string>(
                         connectionName, path, revisionInterface, "Version",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec3,
+                         chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
-                            if (ec3)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_ERROR(
-                                    "DBus response error for Version: {}", ec3);
+                                    "DBus response error for Version: {}", ec2);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -890,8 +893,8 @@ inline void handleChassisGetSubTree(
 
             for (const char* interface : hasIndicatorLed)
             {
-                if (std::ranges::find(interfaces2, interface) !=
-                    interfaces2.end())
+                if (std::ranges::find(interfaces, interface) !=
+                    interfaces.end())
                 {
                     redfish::nvidia_chassis_utils::checkIndicatorChassis(
                         connectionName, path,
@@ -909,24 +912,23 @@ inline void handleChassisGetSubTree(
             dbus::utility::getAllProperties(
                 connectionName, path,
                 "xyz.openbmc_project.Inventory.Decorator.Asset",
-                [asyncResp, chassisId, path, connectionName, interfaces2](
+                [asyncResp, chassisId, path, connectionName, interfaces](
                     const boost::system::error_code&,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
                     redfish::nvidia_chassis_utils::
                         handleChassisGetAllProperties(
                             asyncResp, chassisId, path, propertiesList,
-                            connectionName, interfaces2);
+                            connectionName, interfaces);
                     // Nvidia: added code start
                     getChassisStateWrapper(asyncResp, propertiesList,
                                            connectionName, path);
-                    getStorageLink(asyncResp, path);
                     // Nvidia: added code end
                 });
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 redfish::nvidia_chassis_utils::maybePopulateStaticPowerHint(
-                    asyncResp, path, interfaces2);
+                    asyncResp, path, interfaces);
             }
 
             // Read ChassisType from the Chassis interface only; a merged
@@ -952,25 +954,21 @@ inline void handleChassisGetSubTree(
 
             dbus::utility::getAllProperties(
                 connectionName, path, "",
-                [asyncResp, chassisId, connectionName, path, interfaces2](
-                    [[maybe_unused]] const boost::system::error_code& ec3,
+                [asyncResp, chassisId, connectionName, path, interfaces](
+                    [[maybe_unused]] const boost::system::error_code& ec2,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
                     redfish::nvidia_chassis_utils::
                         handleChassisGetAllProperties(
                             asyncResp, chassisId, path, propertiesList,
-                            connectionName, interfaces2);
+                            connectionName, interfaces);
                     getChassisStateWrapper(asyncResp, propertiesList,
                                            connectionName, path);
-                    getStorageLink(asyncResp, path);
-                    redfish::nvidia_chassis_utils::
-                        populateErrorInjectionChassis(asyncResp, path,
-                                                      chassisId);
                     redfish::nvidia_chassis_utils::
                         populatePowerSmoothingChassisIfPresent(
-                            asyncResp, chassisId, interfaces2);
+                            asyncResp, chassisId, interfaces);
                 });
 
-            for (const auto& interface : interfaces2)
+            for (const auto& interface : interfaces)
             {
                 if (interface == "xyz.openbmc_project.Common.UUID")
                 {
@@ -1002,26 +1000,15 @@ inline void handleChassisGetSubTree(
                 // Nvidia: added code end
             }
 
-            // Nvidia: added code start
             redfish::nvidia_chassis_utils::populateChassisLinksOemAndStatus(
-                asyncResp, objPath, path, interfaces2, chassisId);
+                asyncResp, objPath, path, interfaces, chassisId);
 
             // Always check for SKU (either direct or via associated_SKU)
             // OEM SKU is also checked and added within getChassisSKU if
             // Async.Set interface is present
             redfish::nvidia_chassis_utils::getChassisSKU(asyncResp,
                                                          connectionName, path);
-            // Nvidia: added code end
         }
-        isFoundChassisObject = true;
-        // need to check all objpath because a few configs are set by
-        // another service
-    }
-
-    if (!isFoundChassisObject)
-    {
-        // Couldn't find an object with that name.  return an error
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
     }
 }
 // Nvidia renamed param to chassisId
