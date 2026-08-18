@@ -361,11 +361,6 @@ class Connection :
 
         if (BMCWEB_HTTP2 && isH2c)
         {
-<<<<<<< HEAD
-            std::string_view base64settings = req->req[field::http2_settings];
-||||||| constructed merge base
-            std::string_view base64settings = req->req["HTTP2-Settings"];
-=======
             // getConnectionCount() already includes this connection itself;
             // see the matching comment in upgradeToHttp2().
             if (getConnectionCount() - 1 >= maxHttp2Connections)
@@ -378,8 +373,7 @@ class Connection :
                 completeRequest(res);
                 return true;
             }
-            std::string_view base64settings = req->req["HTTP2-Settings"];
->>>>>>> http: Add idle timeout and connection limit for HTTP/2
+            std::string_view base64settings = req->req[field::http2_settings];
             if (utility::base64Decode<true>(base64settings, http2settings))
             {
                 res.result(boost::beast::http::status::switching_protocols);
@@ -499,25 +493,7 @@ class Connection :
                             req->getHeaderValue("X-Requested-With"),
                             req->getHeaderValue("Accept"), asyncResp->res);
                     }
-<<<<<<< HEAD
-                    if (requestAsyncResp)
-                    {
-                        requestAsyncResp->res.releaseCompleteRequestHandler();
-                        requestAsyncResp.reset();
-                    }
-||||||| constructed merge base
-                    // Nvidia code starts here
-                    if (requestAsyncResp)
-                    {
-                        requestAsyncResp->res.releaseCompleteRequestHandler();
-                        requestAsyncResp.reset();
-                    }
-                    // Nvidia code ends here
-=======
-                    // Nvidia code starts here
                     releaseRequestAsyncResp();
-                    // Nvidia code ends here
->>>>>>> http: Add idle timeout and connection limit for HTTP/2
                     return;
                 }
             }
