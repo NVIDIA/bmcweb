@@ -21,11 +21,14 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utils/json_utils.hpp"
+
+#include <xyz/openbmc_project/State/Decorator/Health/server.hpp>
 
 #include <algorithm>
 #include <map>
@@ -358,6 +361,52 @@ inline void getDriveStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 asyncResp->res.jsonValue["StatusIndicator"] = "OK";
                 asyncResp->res.jsonValue["FailurePredicted"] = false;
             }
+        });
+}
+
+using DriveHealthType = sdbusplus::xyz::openbmc_project::State::Decorator::
+    server::Health::HealthType;
+
+inline void setDriveHealthStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const DriveHealthType health)
+{
+    if (health == DriveHealthType::OK)
+    {
+        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    }
+    else if (health == DriveHealthType::Warning)
+    {
+        asyncResp->res.jsonValue["Status"]["Health"] =
+            resource::Health::Warning;
+    }
+    else if (health == DriveHealthType::Critical)
+    {
+        asyncResp->res.jsonValue["Status"]["Health"] =
+            resource::Health::Critical;
+    }
+    else
+    {
+        BMCWEB_LOG_WARNING("Unsupported drive health value: {}",
+                           sdbusplus::message::convert_to_string(health));
+    }
+}
+
+inline void getDriveHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& connectionName,
+                           const std::string& path)
+{
+    dbus::utility::getProperty<DriveHealthType>(
+        connectionName, path, "xyz.openbmc_project.State.Decorator.Health",
+        "Health",
+        [asyncResp](const boost::system::error_code& ec,
+                    const DriveHealthType& health) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("fail to get drive health");
+                return;
+            }
+            setDriveHealthStatus(asyncResp, health);
         });
 }
 
@@ -883,6 +932,10 @@ inline void extendAllDriveInfo(
     else if (interface == "xyz.openbmc_project.Nvme.Status")
     {
         getDriveSmartWarning(asyncResp, connectionName, path);
+    }
+    else if (interface == "xyz.openbmc_project.State.Decorator.Health")
+    {
+        getDriveHealth(asyncResp, connectionName, path);
     }
     else if (interface ==
              "xyz.openbmc_project.Inventory.Decorator.LocationContext")
