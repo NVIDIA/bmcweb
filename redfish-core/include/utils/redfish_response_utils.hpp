@@ -27,6 +27,10 @@
  *   mapValidOrOmit (json, key, value, xlate) -- enum
  *   mapValidOrEmpty(json, key, value)        -- string only
  *
+ * Aggregate helpers (numeric, nullable) - a marker in any operand yields null,
+ * so a "no reading" is never hidden inside an arithmetic result:
+ *   mapSumOrNull         -- N distinct readings added at once
+ *
  * For strings, NOT_SUPPORTED always omits the key.
  *
  * For enums, the EnumTranslator decides the tombstone state: the utility does
@@ -40,8 +44,6 @@
 #include <nlohmann/json.hpp>
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -277,6 +279,42 @@ inline void mapValidOrEmpty(nlohmann::json& json, const std::string& key,
                             const std::string* value)
 {
     details::mapString(json, key, value, details::TombstonePolicy::allowEmpty);
+}
+
+/*
+ * Public API - aggregate helper (numeric, nullable schema)
+ *
+ * A marker in any operand collapses the whole result to null, so a "no reading"
+ * is never buried inside a summed value, and a raw type-max never enters the
+ * arithmetic.
+ */
+
+/**
+ * @brief Sum of N distinct readings available at once; any marker -> null.
+ *
+ * Every operand is a reading, so every operand is marker-checked. An absent
+ * (nullptr) or marker operand yields null, which also avoids type-max + x
+ * overflow.
+ * @tparam T Numeric reading type.
+ * @param[in,out] json    Response object to populate.
+ * @param[in] key         Redfish property name.
+ * @param[in] readings    Pointers to each reading (any may be nullptr).
+ */
+template <typename T>
+inline void mapSumOrNull(nlohmann::json& json, const std::string& key,
+                         std::initializer_list<const T*> readings)
+{
+    T total = 0;
+    for (const T* reading : readings)
+    {
+        if (reading == nullptr || details::isTombstone(*reading))
+        {
+            json[key] = nullptr;
+            return;
+        }
+        total += *reading;
+    }
+    json[key] = total;
 }
 
 } // namespace redfish
