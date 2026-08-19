@@ -21,11 +21,13 @@
  * lock-step with nsmd/common/telemetryTombstone.hpp.
  *
  * Public API - all named mapValidOr*:
- *   mapValidOrNull (json, key, value)        -- string / numeric
- *   mapValidOrNull (json, key, value, xlate) -- enum
- *   mapValidOrOmit (json, key, value)        -- string / numeric
- *   mapValidOrOmit (json, key, value, xlate) -- enum
- *   mapValidOrEmpty(json, key, value)        -- string only
+ *   mapValidOrNull (json, key, value)              -- string / numeric
+ *   mapValidOrNull (json, key, value, xlate)       -- enum -> string
+ *   mapValidOrNull (json, key, value, boolXlate)   -- enum -> bool
+ *   mapValidOrOmit (json, key, value)              -- string / numeric
+ *   mapValidOrOmit (json, key, value, xlate)       -- enum -> string
+ *   mapValidOrOmit (json, key, value, boolXlate)   -- enum -> bool
+ *   mapValidOrEmpty(json, key, value)              -- string only
  *
  * Aggregate helpers (numeric, nullable) - a marker in any operand yields null,
  * so a "no reading" is never hidden inside an arithmetic result:
@@ -58,6 +60,13 @@ constexpr std::string_view propertyNotSupported = "NOT_SUPPORTED";
 
 using EnumTranslator =
     std::function<std::optional<std::string>(const std::string&)>;
+
+// Same idea as EnumTranslator, but the Redfish property is a boolean: the
+// translator maps a D-Bus enum to true/false, or std::nullopt for the
+// tombstone (no reading / unsupported). Lets a property stay a schema boolean
+// while flowing through the same enum tombstone pipeline (no schema change).
+using BoolEnumTranslator =
+    std::function<std::optional<bool>(const std::string&)>;
 
 namespace details
 {
@@ -129,6 +138,39 @@ inline void mapEnum(nlohmann::json& json, const std::string& key,
         return;
     }
     if (redfishValue->empty())
+    {
+        if (policy == TombstonePolicy::schemaAllowsNull)
+        {
+            json[key] = nullptr;
+        }
+        return;
+    }
+    json[key] = *redfishValue;
+}
+
+/**
+ * @brief Map a D-Bus enum to a boolean Redfish property via a translator.
+ *
+ * Same shape as mapEnum, but assigns a JSON bool: the translator returns
+ * true/false for the meaningful states, or std::nullopt for the tombstone
+ * (no reading / unsupported), which @p policy renders as null or omit.
+ * @param[in,out] json Response object to populate.
+ * @param[in] key       Redfish property name.
+ * @param[in] value     D-Bus enum string (may be nullptr).
+ * @param[in] translate Maps a D-Bus enum to true/false or nullopt.
+ * @param[in] policy    How to represent the tombstone (null vs omit).
+ */
+inline void mapEnumBool(nlohmann::json& json, const std::string& key,
+                        const std::string* value,
+                        const BoolEnumTranslator& translate,
+                        TombstonePolicy policy)
+{
+    if (value == nullptr)
+    {
+        return;
+    }
+    std::optional<bool> redfishValue = translate(*value);
+    if (!redfishValue)
     {
         if (policy == TombstonePolicy::schemaAllowsNull)
         {
@@ -229,6 +271,16 @@ inline void mapValidOrNull(nlohmann::json& json, const std::string& key,
                      details::TombstonePolicy::schemaAllowsNull);
 }
 
+/** @brief Nullable enum-as-bool: translator true/false -> bool,
+ *         nullopt (no reading / unsupported) -> null. */
+inline void mapValidOrNull(nlohmann::json& json, const std::string& key,
+                           const std::string* value,
+                           const BoolEnumTranslator& translate)
+{
+    details::mapEnumBool(json, key, value, translate,
+                         details::TombstonePolicy::schemaAllowsNull);
+}
+
 /*
  * Public API - tombstone -> omit key (non-nullable Redfish schema)
  *
@@ -265,6 +317,16 @@ inline void mapValidOrOmit(nlohmann::json& json, const std::string& key,
 {
     details::mapEnum(json, key, value, translate,
                      details::TombstonePolicy::omitResponse);
+}
+
+/** @brief Non-nullable enum-as-bool: translator true/false -> bool,
+ *         nullopt (no reading / unsupported) -> omit. */
+inline void mapValidOrOmit(nlohmann::json& json, const std::string& key,
+                           const std::string* value,
+                           const BoolEnumTranslator& translate)
+{
+    details::mapEnumBool(json, key, value, translate,
+                         details::TombstonePolicy::omitResponse);
 }
 
 /*

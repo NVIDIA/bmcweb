@@ -455,8 +455,8 @@ inline void assembleDimmProperties(
     /* Nvidia Added Properties Start*/
     const std::string* locationType = nullptr;
     const std::string* locationContext = nullptr;
-    const bool* rowMappingFailureState = nullptr;
-    const bool* rowMappingPendingState = nullptr;
+    const std::string* rowMappingFailureState = nullptr;
+    const std::string* rowMappingPendingState = nullptr;
     /* Nvidia Added Properties End*/
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -672,18 +672,16 @@ inline void assembleDimmProperties(
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        if (rowMappingFailureState != nullptr)
-        {
-            asyncResp->res
-                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingFailed"] =
-                *rowMappingFailureState;
-        }
-        if (rowMappingPendingState != nullptr)
-        {
-            asyncResp->res
-                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingPending"] =
-                *rowMappingPendingState;
-        }
+        // Enum -> bool via a translator; Unknown/unspecified -> omit the
+        // property; the schema stays Boolean.
+        redfish::mapValidOrOmit(
+            asyncResp->res.jsonValue[jsonPtr]["Oem"]["Nvidia"],
+            "RowRemappingFailed", rowMappingFailureState,
+            nvidia_memory::translateRowRemappingFailure);
+        redfish::mapValidOrOmit(
+            asyncResp->res.jsonValue[jsonPtr]["Oem"]["Nvidia"],
+            "RowRemappingPending", rowMappingPendingState,
+            nvidia_memory::translateRowRemappingPending);
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
