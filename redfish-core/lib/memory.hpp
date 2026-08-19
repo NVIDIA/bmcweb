@@ -20,6 +20,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -582,11 +583,8 @@ inline void assembleDimmProperties(
         asyncResp->res.jsonValue[jsonPtr]["RankCount"] = *memoryAttributes;
     }
 
-    if (memoryConfiguredSpeedInMhz != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["OperatingSpeedMhz"] =
-            *memoryConfiguredSpeedInMhz;
-    }
+    redfish::mapValidOrNull(asyncResp->res.jsonValue[jsonPtr],
+                            "OperatingSpeedMhz", memoryConfiguredSpeedInMhz);
 
     if (memoryType != nullptr)
     {
