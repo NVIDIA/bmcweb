@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -39,8 +40,43 @@ namespace redfish
 {
 using DimmProperties =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+
 namespace nvidia_memory
 {
+
+// Map the RowRemappingFailureState enum to bool; Unknown/unspecified ->
+// nullopt so the caller omits the property.
+inline std::optional<bool> translateRowRemappingFailure(
+    const std::string& value)
+{
+    if (value == "com.nvidia.MemoryRowRemapping.RowRemappingFailureStates.True")
+    {
+        return true;
+    }
+    if (value ==
+        "com.nvidia.MemoryRowRemapping.RowRemappingFailureStates.False")
+    {
+        return false;
+    }
+    return std::nullopt;
+}
+
+// Map the RowRemappingPendingState enum to bool; Unknown/unspecified ->
+// nullopt so the caller omits the property.
+inline std::optional<bool> translateRowRemappingPending(
+    const std::string& value)
+{
+    if (value == "com.nvidia.MemoryRowRemapping.RowRemappingPendingStates.True")
+    {
+        return true;
+    }
+    if (value ==
+        "com.nvidia.MemoryRowRemapping.RowRemappingPendingStates.False")
+    {
+        return false;
+    }
+    return std::nullopt;
+}
 
 /**
  * @brief Fill out links association to parent processor by
