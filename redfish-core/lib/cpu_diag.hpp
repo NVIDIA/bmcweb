@@ -391,6 +391,12 @@ inline void handleDiagModeGet(
 // handler calls only this one helper (mirroring
 // advertiseSetProcessorPowerLimits). The BMCWEB_CPU_DIAG_SUPPORT gating
 // remains at the systems.hpp call site.
+//
+// systemId is this build's own BMCWEB_REDFISH_SYSTEM_URI_NAME, so the surface
+// lands on whichever ComputerSystem the image serves. On a tray carrying more
+// than one manager, build cpu-diag-support only into the one that owns the
+// diagnostic path; a second image would advertise the same actions over a
+// D-Bus backend that is not there.
 inline void advertiseProcessorDiagActions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::string_view systemId)
