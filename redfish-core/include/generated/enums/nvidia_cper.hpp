@@ -32,6 +32,25 @@ enum class EventOriginator{
     VF_DRIVER,
 };
 
+enum class RecordFlag{
+    Invalid,
+    Simulated,
+    PreviousError,
+    Recovered,
+};
+
+enum class SectionFlag{
+    Invalid,
+    Primary,
+    ContainmentWarning,
+    Reset,
+    ErrorThresholdExceeded,
+    ResourceNotAccessible,
+    LatentError,
+    Propagated,
+    Overflow,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(SourceDeviceType, {
     {SourceDeviceType::Invalid, "Invalid"},
     {SourceDeviceType::CPU, "CPU"},
@@ -55,6 +74,25 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EventOriginator, {
     {EventOriginator::VF_GSP_FW, "VF_GSP_FW"},
     {EventOriginator::PF_DRIVER, "PF_DRIVER"},
     {EventOriginator::VF_DRIVER, "VF_DRIVER"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(RecordFlag, {
+    {RecordFlag::Invalid, "Invalid"},
+    {RecordFlag::Simulated, "Simulated"},
+    {RecordFlag::PreviousError, "PreviousError"},
+    {RecordFlag::Recovered, "Recovered"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(SectionFlag, {
+    {SectionFlag::Invalid, "Invalid"},
+    {SectionFlag::Primary, "Primary"},
+    {SectionFlag::ContainmentWarning, "ContainmentWarning"},
+    {SectionFlag::Reset, "Reset"},
+    {SectionFlag::ErrorThresholdExceeded, "ErrorThresholdExceeded"},
+    {SectionFlag::ResourceNotAccessible, "ResourceNotAccessible"},
+    {SectionFlag::LatentError, "LatentError"},
+    {SectionFlag::Propagated, "Propagated"},
+    {SectionFlag::Overflow, "Overflow"},
 });
 
 }
