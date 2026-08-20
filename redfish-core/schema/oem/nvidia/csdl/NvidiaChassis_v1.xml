@@ -1029,15 +1029,5 @@
         </Member>
       </EnumType>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_15_0">
-      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_14_0.NvidiaChassis">
-        <Property Name="LastIntrusionDetected" Type="Edm.DateTimeOffset">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The date and time when the last chassis intrusion was detected."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the last physical intrusion of the chassis was detected on this chassis."/>
-        </Property>
-      </ComplexType>
-    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

@@ -71,6 +71,15 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The protection option for the network adapter."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the protection option for the network adapter, indicating whether firmware updates and configuration changes are prevented."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_3_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `ProtectionOptions` property, which allows more configuration options through various flags."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
       </ComplexType>
       <EnumType Name="ProtectionOption">
@@ -167,6 +176,39 @@
           <Annotation Term="OData.Description" String="All TLVs processed."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkAdapter.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkAdapter" BaseType="NvidiaNetworkAdapter.v1_3_0.NvidiaNetworkAdapter">
+        <Property Name="ProtectionOptions" Type="NvidiaNetworkAdapter.v1_4_0.ProtectionOptions" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host protection settings for the network adapter."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host protection settings for the network adapter expressed as boolean flags. Each flag indicates whether the corresponding host protection is enabled."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ProtectionOptions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Property Name="PreventHostFirmwareUpdates" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether host firmware updates are prevented."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host firmware updates are prevented."/>
+        </Property>
+        <Property Name="PreventHostConfigurationChanges" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether host configuration changes are prevented."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host configuration changes are prevented."/>
+        </Property>
+        <Property Name="PreventHostTransceiverFirmwareUpdates" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether host firmware updates to transceivers are prevented."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host firmware updates to transceivers are prevented."/>
+        </Property>
+        <Property Name="PreventHostTransceiverConfigurationChanges" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether host transceiver configuration changes are prevented."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host transceiver configuration changes are prevented, including raw I2C and CMIS access."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
