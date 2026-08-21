@@ -725,6 +725,12 @@ inline void handleChassisGetSubTree(
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             chassisId);
+    }
+
     // Nvidia: added code start
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {

@@ -3489,11 +3489,6 @@ inline void populateChassisLinksOemAndStatus(
     const std::string& objPath, const std::string& path,
     const InterfacesContainer& interfaces2, const std::string& chassisId)
 {
-    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-    {
-        redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                             chassisId);
-    }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         // Baseboard Chassis OEM properties if exist, search by
