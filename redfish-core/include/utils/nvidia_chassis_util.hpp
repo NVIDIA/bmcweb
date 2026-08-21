@@ -2484,17 +2484,29 @@ inline void handleChassisGetAllProperties(
     const uint64_t* locationOrdinalValue = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
-        partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "Model", model, "SparePartNumber", sparePartNumber, "UUID", uuid,
-        "LocationCode", locationCode, "LocationType", locationType, "Type",
-        type, "Height", height, "Width", width, "Depth", depth, "MinPowerWatts",
-        minPowerWatts, "MaxPowerWatts", maxPowerWatts, "AssetTag", assetTag,
-        "WriteProtected", writeProtected, "WriteProtectedControl",
-        writeProtectedControl, "PCIeReferenceClockCount",
-        pCIeReferenceClockCount, "LocationContext", locationContext,
-        "LocationReference", reference, "Orientation", orientation,
-        "LocationOrdinalValue", locationOrdinalValue);
+        dbus_utils::UnpackErrorPrinter(), propertiesList,   //
+        "AssetTag", assetTag,                               //
+        "Depth", depth,                                     //
+        "Height", height,                                   //
+        "LocationCode", locationCode,                       //
+        "LocationContext", locationContext,                 //
+        "LocationOrdinalValue", locationOrdinalValue,       //
+        "LocationReference", reference,                     //
+        "LocationType", locationType,                       //
+        "Manufacturer", manufacturer,                       //
+        "MaxPowerWatts", maxPowerWatts,                     //
+        "MinPowerWatts", minPowerWatts,                     //
+        "Model", model,                                     //
+        "Orientation", orientation,                         //
+        "PCIeReferenceClockCount", pCIeReferenceClockCount, //
+        "PartNumber", partNumber,                           //
+        "SerialNumber", serialNumber,                       //
+        "SparePartNumber", sparePartNumber,                 //
+        "Type", type,                                       //
+        "UUID", uuid,                                       //
+        "Width", width,                                     //
+        "WriteProtected", writeProtected,                   //
+        "WriteProtectedControl", writeProtectedControl);
 
     if (!success)
     {
