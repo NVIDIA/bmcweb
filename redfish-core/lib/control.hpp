@@ -141,8 +141,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     if (propertyName == "MaxPowerCapValue")
                                     {
                                         propertyName = "AllowableMax";
-                                        const auto* value = std::get_if<size_t>(
-                                            &property.second);
+                                        const auto* value =
+                                            std::get_if<uint32_t>(
+                                                &property.second);
                                         if (value == nullptr)
                                         {
                                             BMCWEB_LOG_ERROR(
@@ -158,8 +159,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     if (propertyName == "MinPowerCapValue")
                                     {
                                         propertyName = "AllowableMin";
-                                        const auto* value = std::get_if<size_t>(
-                                            &property.second);
+                                        const auto* value =
+                                            std::get_if<uint32_t>(
+                                                &property.second);
                                         if (value == nullptr)
                                         {
                                             BMCWEB_LOG_ERROR(
@@ -175,8 +177,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     if (propertyName == setPointPropName())
                                     {
                                         propertyName = "SetPoint";
-                                        const auto* value = std::get_if<size_t>(
-                                            &property.second);
+                                        const auto* value =
+                                            std::get_if<uint32_t>(
+                                                &property.second);
                                         if (value == nullptr)
                                         {
                                             BMCWEB_LOG_ERROR(
@@ -192,8 +195,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     if (propertyName == "DefaultPowerCap")
                                     {
                                         propertyName = "DefaultSetPoint";
-                                        const auto* value = std::get_if<size_t>(
-                                            &property.second);
+                                        const auto* value =
+                                            std::get_if<uint32_t>(
+                                                &property.second);
                                         if (value == nullptr)
                                         {
                                             BMCWEB_LOG_ERROR(
