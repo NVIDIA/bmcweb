@@ -101,8 +101,7 @@ inline void afterAsyncPopulatePid(
         BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-    stepwise["@odata.type"] =
-        "#OpenBMCManager.v1_1_0.StepwiseControllers";
+    stepwise["@odata.type"] = "#OpenBMCManager.v1_1_0.StepwiseControllers";
     stepwise["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
