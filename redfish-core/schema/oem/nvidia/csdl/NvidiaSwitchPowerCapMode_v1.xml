@@ -26,7 +26,7 @@
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <EntityType Name="NvidiaSwitchPowerCapMode" BaseType="Resource.v1_0_0.Resource" Abstract="true">
         <Annotation Term="OData.Description" String="This is the schema definition for the power capping mode of a switch."/>
-        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the enable/disable power capping mode of a switch.  This resource controls only whether power capping is enabled or disabled; the enforced power cap limit is managed internally by the device firmware and is not client-configurable through this resource.  Because a change to the mode requires a device reset to take effect, the pending value shall be updated through the associated settings resource referenced by the `@Redfish.Settings` annotation."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the enable or disable power capping mode of a switch.  The enforced power cap limit is managed internally and is not client-configurable through this resource.  Pending mode changes are applied through the associated settings resource referenced by the `@Redfish.Settings` annotation and take effect on the next device reset."/>
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="Capabilities.InsertRestrictions">
           <Record>
@@ -51,19 +51,23 @@
           </Collection>
         </Annotation>
       </EntityType>
+      <Action Name="ResetToDefaults" IsBound="true">
+        <Annotation Term="OData.Description" String="Reset the power capping mode to the default."/>
+        <Annotation Term="OData.LongDescription" String="This action shall request the default power capping mode.  The resolved pending mode shall be reported in the settings resource and shall take effect on the next device reset."/>
+        <Parameter Name="NvidiaSwitchPowerCapMode" Type="NvidiaSwitchPowerCapMode.v1_0_0.Actions"/>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitchPowerCapMode.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <EntityType Name="NvidiaSwitchPowerCapMode" BaseType="NvidiaSwitchPowerCapMode.NvidiaSwitchPowerCapMode">
+        <Property Name="Actions" Type="NvidiaSwitchPowerCapMode.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
         <Property Name="PowerCapMode" Type="NvidiaSwitchPowerCapMode.v1_0_0.PowerCapMode">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The power capping mode of the switch."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the power capping mode of the switch, indicating only whether power capping is enabled or disabled.  The enforced power cap limit is managed internally by the device firmware and is not configurable through this property.  On the active resource this value is read-only and reflects the currently effective mode.  To change the mode, a client shall PATCH this property on the associated settings resource; the new value is applied on the next device reset."/>
-        </Property>
-        <Property Name="DefaultPowerCapMode" Type="NvidiaSwitchPowerCapMode.v1_0_0.PowerCapMode">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The firmware default power capping mode of the switch."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the firmware default power capping mode of the switch, which is the mode that applies by default."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the power capping mode of the switch as `Enabled` or `Disabled`.  On the active resource this property is read-only and reflects the currently effective mode.  On the settings resource a client may PATCH `Enabled` or `Disabled`; use the `ResetToDefaults` action to request the default.  The settings resource reports the resolved pending mode that applies on the next device reset."/>
         </Property>
       </EntityType>
       <EnumType Name="PowerCapMode">
@@ -76,6 +80,11 @@
           <Annotation Term="OData.LongDescription" String="This value shall indicate that power capping is disabled."/>
         </Member>
       </EnumType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

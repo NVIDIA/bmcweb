@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
-#include "app.hpp"
 #include "async_resp.hpp"
 #include "chassis.hpp"
 #include "dbus_utility.hpp"
 #include "generated/enums/chassis.hpp"
-#include "http_request.hpp"
 #include "http_response.hpp"
+#include "nvidia_chassis.hpp"
 
-#include <boost/beast/core/string_type.hpp>
 #include <boost/beast/http/status.hpp>
-#include <boost/beast/http/verb.hpp>
 #include <nlohmann/json.hpp>
 
 #include <functional>
 #include <memory>
 #include <string>
-#include <system_error>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -49,19 +45,15 @@ void assertChassisResetActionInfoGet(const std::string& chassisId,
     EXPECT_EQ(res.jsonValue["Parameters"], parameters);
 }
 
-TEST(HandleChassisResetActionInfoGet, StaticAttributesAreExpected)
+TEST(PopulateChassisResetActionInfo, StaticAttributesAreExpected)
 {
     auto response = std::make_shared<bmcweb::AsyncResp>();
-    std::error_code err;
-    crow::Request request{{boost::beast::http::verb::get, "/whatever", 11},
-                          err};
 
     std::string fakeChassis = "fakeChassis";
     response->res.setCompleteRequestHandler(
         std::bind_front(assertChassisResetActionInfoGet, fakeChassis));
 
-    crow::App app;
-    handleChassisResetActionInfoGet(app, request, response, fakeChassis);
+    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis);
 }
 
 TEST(TranslateChassisTypeToRedfish, TranslationsAreExpected)

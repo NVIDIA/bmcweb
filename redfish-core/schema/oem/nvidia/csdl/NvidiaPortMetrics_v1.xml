@@ -550,6 +550,14 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the reason that caused the `EarlyHealthIndication` property to contain the value `Attention`.  This property shall be ignored when the `EarlyHealthIndication` property contains a value other than `Attention`."/>
         </Property>
       </ComplexType>
+      <ComplexType Name="NvidiaNetworkPortMetrics" BaseType="NvidiaPortMetrics.v1_7_0.NvidiaNetworkPortMetrics">
+        <Property Name="SignalToNoiseRatioPerLane" Type="Collection(Edm.Decimal)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of signal-to-noise ratio, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of signal-to-noise ratio in decibels (dB), indexed by the lane number."/>
+          <Annotation Term="Measures.Unit" String="dB"/>
+        </Property>
+      </ComplexType>
       <EnumType Name="EarlyHealthIndication">
         <Member Name="Healthy">
           <Annotation Term="OData.Description" String="The link is operating normally."/>

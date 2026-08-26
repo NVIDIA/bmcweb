@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <variant>
 
 namespace redfish
@@ -780,7 +781,7 @@ inline void updateSwitchData(
                         }
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+                            "#NvidiaSwitch.v1_6_0.NvidiaSwitch";
                     }
                     else if (propertyName == "VendorId")
                     {
@@ -860,8 +861,8 @@ inline void updateSwitchData(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    redfish::mapStringOrNull(asyncResp->res.jsonValue,
-                                             propertyName, value);
+                    redfish::mapValidOrNull(asyncResp->res.jsonValue,
+                                            propertyName, value);
                 }
                 else if (propertyName == "CurrentBandwidth")
                 {
@@ -1649,6 +1650,18 @@ inline void requestRoutesSwitch(App& app)
                                                     getSwitchPowerModeLink(
                                                         asyncResp, path,
                                                         switchURI);
+                                                redfish::nvidia_fabric_utils::
+                                                    getSwitchPowerCappingModeLink(
+                                                        asyncResp, path,
+                                                        switchURI);
+                                                redfish::nvidia_fabric_utils::
+                                                    getSwitchLTXModeLink(
+                                                        asyncResp, path,
+                                                        switchURI);
+                                                redfish::nvidia_fabric_utils::
+                                                    getSwitchUPhyRecoveryModeLink(
+                                                        asyncResp, path,
+                                                        switchURI);
                                                 if (std::ranges::find(
                                                         object2.front().second,
                                                         "com.nvidia.SwitchIsolation") !=
@@ -1719,7 +1732,7 @@ inline void requestRoutesSwitch(App& app)
                                         redfish::nvidia_histogram_utils::
                                             getHistogramLink(
                                                 asyncResp, switchURI, path,
-                                                "#NvidiaSwitch.v1_4_0.NvidiaSwitch");
+                                                "#NvidiaSwitch.v1_6_0.NvidiaSwitch");
                                     }
                                     return;
                                 }

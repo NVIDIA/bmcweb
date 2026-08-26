@@ -22,6 +22,7 @@
 #include "error_messages.hpp"
 #include "logging.hpp"
 #include "utils/nvidia_memory.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <sdbusplus/message.hpp>
@@ -30,6 +31,7 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -38,8 +40,43 @@ namespace redfish
 {
 using DimmProperties =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+
 namespace nvidia_memory
 {
+
+// Map the RowRemappingFailureState enum to bool; Unknown/unspecified ->
+// nullopt so the caller omits the property.
+inline std::optional<bool> translateRowRemappingFailure(
+    const std::string& value)
+{
+    if (value == "com.nvidia.MemoryRowRemapping.RowRemappingFailureStates.True")
+    {
+        return true;
+    }
+    if (value ==
+        "com.nvidia.MemoryRowRemapping.RowRemappingFailureStates.False")
+    {
+        return false;
+    }
+    return std::nullopt;
+}
+
+// Map the RowRemappingPendingState enum to bool; Unknown/unspecified ->
+// nullopt so the caller omits the property.
+inline std::optional<bool> translateRowRemappingPending(
+    const std::string& value)
+{
+    if (value == "com.nvidia.MemoryRowRemapping.RowRemappingPendingStates.True")
+    {
+        return true;
+    }
+    if (value ==
+        "com.nvidia.MemoryRowRemapping.RowRemappingPendingStates.False")
+    {
+        return false;
+    }
+    return std::nullopt;
+}
 
 /**
  * @brief Fill out links association to parent processor by
@@ -150,7 +187,8 @@ inline void getMemoryDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["OperatingSpeedMHz"] = *value;
+                    redfish::mapValidOrNull(aResp->res.jsonValue,
+                                            "OperatingSpeedMHz", value);
                 }
                 else if (property.first == "Utilization")
                 {
@@ -194,9 +232,8 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["LifeTime"]["CorrectableECCErrorCount"] =
-                        *value;
+                    redfish::mapValidOrNull(aResp->res.jsonValue["LifeTime"],
+                                            "CorrectableECCErrorCount", value);
                 }
                 else if (property.first == "ueCount")
                 {
@@ -207,9 +244,9 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["LifeTime"]["UncorrectableECCErrorCount"] =
-                        *value;
+                    redfish::mapValidOrNull(aResp->res.jsonValue["LifeTime"],
+                                            "UncorrectableECCErrorCount",
+                                            value);
                 }
             }
         });
@@ -279,9 +316,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["CorrectableRowRemappingCount"] =
-                        *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "CorrectableRowRemappingCount", value);
                 }
                 else if (property.first == "ueRowRemappingCount")
                 {
@@ -294,9 +331,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["UncorrectableRowRemappingCount"] =
-                        *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "UncorrectableRowRemappingCount", value);
                 }
                 else if (property.first == "HighRemappingAvailablityBankCount")
                 {
@@ -309,8 +346,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["HighAvailabilityBankCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "HighAvailabilityBankCount", value);
                 }
                 else if (property.first == "LowRemappingAvailablityBankCount")
                 {
@@ -323,8 +361,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["LowAvailabilityBankCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "LowAvailabilityBankCount", value);
                 }
                 else if (property.first == "MaxRemappingAvailablityBankCount")
                 {
@@ -337,8 +376,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["MaxAvailabilityBankCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "MaxAvailabilityBankCount", value);
                 }
                 else if (property.first == "NoRemappingAvailablityBankCount")
                 {
@@ -351,8 +391,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["NoAvailabilityBankCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "NoAvailabilityBankCount", value);
                 }
                 else if (property.first ==
                          "PartialRemappingAvailablityBankCount")
@@ -366,9 +407,9 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["PartialAvailabilityBankCount"] =
-                        *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"],
+                        "PartialAvailabilityBankCount", value);
                 }
             }
         });

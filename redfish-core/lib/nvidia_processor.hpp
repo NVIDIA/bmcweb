@@ -34,6 +34,7 @@
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/port_utils.hpp"
 #include "utils/processor_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
@@ -2770,7 +2771,9 @@ inline void getProcessorDataByService(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["OperatingSpeedMHz"] = *value;
+                    // Nullable: render nsmd's unavailable marker as null.
+                    redfish::mapValidOrNull(aResp->res.jsonValue,
+                                            "OperatingSpeedMHz", value);
                 }
                 else if (property.first == "Utilization")
                 {
@@ -2814,8 +2817,9 @@ inline void getProcessorMemoryECCData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"]
-                                        ["CorrectableECCErrorCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"],
+                        "CorrectableECCErrorCount", value);
                 }
                 else if (property.first == "ueCount")
                 {
@@ -2826,8 +2830,9 @@ inline void getProcessorMemoryECCData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"]
-                                        ["UncorrectableECCErrorCount"] = *value;
+                    redfish::mapValidOrNull(
+                        aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"],
+                        "UncorrectableECCErrorCount", value);
                 }
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
@@ -3294,8 +3299,9 @@ inline void getProcessorMemoryDataByService(
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    aResp->res.jsonValue["OperatingSpeedMHz"] =
-                                        *value;
+                                    redfish::mapValidOrNull(
+                                        aResp->res.jsonValue,
+                                        "OperatingSpeedMHz", value);
                                 }
                                 else if (property.first == "Utilization")
                                 {
@@ -3318,10 +3324,12 @@ inline void getProcessorMemoryDataByService(
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    aResp->res
-                                        .jsonValue["LifeTime"]
-                                                  ["CorrectableECCErrorCount"] =
-                                        *value + processorCECount;
+                                    // null if either operand is a marker
+                                    // (avoids max+x overflow).
+                                    redfish::mapSumOrNull(
+                                        aResp->res.jsonValue["LifeTime"],
+                                        "CorrectableECCErrorCount",
+                                        {value, &processorCECount});
                                 }
                                 else if (property.first == "ueCount")
                                 {
@@ -3332,10 +3340,10 @@ inline void getProcessorMemoryDataByService(
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    aResp->res.jsonValue
-                                        ["LifeTime"]
-                                        ["UncorrectableECCErrorCount"] =
-                                        *value + processorUECount;
+                                    redfish::mapSumOrNull(
+                                        aResp->res.jsonValue["LifeTime"],
+                                        "UncorrectableECCErrorCount",
+                                        {value, &processorUECount});
                                 }
                             }
                         },

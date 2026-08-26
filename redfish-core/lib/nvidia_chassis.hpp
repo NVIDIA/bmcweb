@@ -8,14 +8,31 @@
 #include "dbus_utility.hpp"
 #include "erot_chassis.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/action_info.hpp"
+#include "http_request.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/types.hpp>
+
+#include <algorithm>
+#include <array>
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -155,6 +172,226 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     }
                 });
         });
+}
+
+/**
+ * @brief Validate whether the chassis reset action is available.
+ *
+ * Rejects unknown chassis IDs and EROT chassis, then invokes the supplied
+ * callback for supported chassis.
+ *
+ * @tparam Callback Function type called after the availability checks pass.
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ * @param validChassisPath Chassis inventory path if the chassis exists.
+ * @param callback Continuation to run when reset is supported.
+ */
+template <typename Callback>
+inline void getChassisResetCapabilities(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath, Callback&& callback)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        redfish::nvidia_chassis_utils::isEROTChassis(
+            chassisId,
+            [asyncResp, chassisId, callback = std::forward<Callback>(callback)](
+                bool isEROT, [[maybe_unused]] bool isCpuEROT) {
+                if (isEROT)
+                {
+                    BMCWEB_LOG_DEBUG("EROT chassis");
+                    messages::resourceNotFound(asyncResp->res, "Chassis",
+                                               chassisId);
+                    return;
+                }
+
+                callback();
+            });
+    }
+    else
+    {
+        callback();
+    }
+}
+
+/**
+ * @brief Parse and execute the chassis reset action payload.
+ *
+ * Reconstructs a request from the saved body and content type so the common
+ * JSON action parser can preserve normal content-type validation.
+ *
+ * @param asyncResp Async response object.
+ * @param requestBody HTTP request body containing the ResetType parameter.
+ * @param contentType HTTP Content-Type header from the original request.
+ */
+inline void runChassisResetAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& requestBody, const std::string& contentType)
+{
+    std::error_code ec;
+    crow::Request req(requestBody, ec);
+    req.addHeader(boost::beast::http::field::content_type, contentType);
+    std::string resetType{};
+    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
+    {
+        return;
+    }
+
+    if (resetType == "PowerCycle")
+    {
+        powerCycle(asyncResp);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
+    messages::actionParameterValueNotInList(asyncResp->res, resetType,
+                                            "ResetType", "Chassis.Reset");
+}
+
+/**
+ * @brief Continue chassis reset POST handling after chassis path validation.
+ *
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ * @param requestBody HTTP request body captured before the async lookup.
+ * @param contentType HTTP Content-Type header captured before the async lookup.
+ * @param validChassisPath Chassis inventory path if the chassis exists.
+ */
+inline void doChassisResetActionPost(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& requestBody,
+    const std::string& contentType,
+    const std::optional<std::string>& validChassisPath)
+{
+    getChassisResetCapabilities(
+        asyncResp, chassisId, validChassisPath,
+        [asyncResp, contentType, requestBody]() {
+            runChassisResetAction(asyncResp, requestBody, contentType);
+        });
+}
+
+/**
+ * @brief Handle POST requests to the Chassis.Reset action.
+ *
+ * Validates route access and feature availability, then checks that the target
+ * chassis exists before parsing and executing the reset action.
+ *
+ * @param app Crow application.
+ * @param req Incoming HTTP request.
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ */
+inline void nvidiaChassisResetActionInfoPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Post Chassis Reset.");
+
+    if constexpr (!BMCWEB_HOST_OS_FEATURES)
+    {
+        BMCWEB_LOG_DEBUG("BMCWEB_HOST_OS_FEATURES is disabled");
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    std::string requestBody = req.body();
+    std::string contentType = std::string(
+        req.getHeaderValue(boost::beast::http::field::content_type));
+    chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doChassisResetActionPost, asyncResp, chassisId,
+                        requestBody, contentType));
+}
+
+/**
+ * @brief Populate the ResetActionInfo response body for chassis reset.
+ *
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ */
+inline void populateChassisResetActionInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/ResetActionInfo", chassisId);
+    asyncResp->res.jsonValue["Name"] = "Reset Action Info";
+    asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
+
+    nlohmann::json::array_t parameters;
+    nlohmann::json::object_t parameter;
+    parameter["Name"] = "ResetType";
+    parameter["Required"] = true;
+    parameter["DataType"] = action_info::ParameterTypes::String;
+    nlohmann::json::array_t allowed;
+    allowed.emplace_back("PowerCycle");
+    parameter["AllowableValues"] = std::move(allowed);
+    parameters.emplace_back(std::move(parameter));
+
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
+/**
+ * @brief Continue ResetActionInfo GET handling after chassis path validation.
+ *
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ * @param validChassisPath Chassis inventory path if the chassis exists.
+ */
+inline void doChassisResetActionInfoGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    getChassisResetCapabilities(
+        asyncResp, chassisId, validChassisPath, [asyncResp, chassisId]() {
+            populateChassisResetActionInfo(asyncResp, chassisId);
+        });
+}
+
+/**
+ * @brief Handle GET requests for chassis ResetActionInfo.
+ *
+ * Validates route access and feature availability, then checks that the target
+ * chassis supports the reset action before returning the ActionInfo body.
+ *
+ * @param app Crow application.
+ * @param req Incoming HTTP request.
+ * @param asyncResp Async response object.
+ * @param chassisId Chassis identifier from the Redfish URI.
+ */
+inline void nvidiaChassisResetActionInfoGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if constexpr (!BMCWEB_HOST_OS_FEATURES)
+    {
+        BMCWEB_LOG_DEBUG("BMCWEB_HOST_OS_FEATURES is disabled");
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doChassisResetActionInfoGet, asyncResp, chassisId));
 }
 
 inline void afterChassisSpiInterfacesFound(

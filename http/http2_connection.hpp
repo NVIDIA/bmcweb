@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -36,6 +37,7 @@
 
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -52,6 +54,24 @@
 
 namespace crow
 {
+
+// Total number of simultaneous connections, shared between HTTP/1.1
+// Connection (http_connection.hpp) and HTTP2Connection. A function-local
+// static (rather than a namespace-scope variable) guarantees a single
+// instance even though this header is included by multiple translation
+// units.
+inline int& getConnectionCount()
+{
+    static int count = 0;
+    return count;
+}
+
+enum class DeadlineTimerType
+{
+    Default,
+    Keepalive,
+    Multipart,
+};
 
 struct Http2StreamData
 {
@@ -70,6 +90,11 @@ struct Http2StreamData
     // privilege check is buffered here, not the full upload.
     bool bodyReadPending = false;
     bool isStreamInput = false;
+    // Set once when multipart callbacks are detected in
+    // onHeadersHandlerComplete() and held until the stream closes. Durable,
+    // unlike req->req.body().multipartParserCallbacks, which is moved out
+    // (and reset) by HttpBody::reader::init() on the first body chunk.
+    bool multipartActive = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
     // 15-min hard cap for fd-backed streaming responses.
@@ -95,8 +120,21 @@ class HTTP2Connection :
         httpType(httpTypeIn), adaptor(std::move(adaptorIn)),
         ngSession(initializeNghttp2Session()), handler(handlerIn),
         ip(std::move(ipIn)), getCachedDateStr(getCachedDateStrF),
-        mtlsSession(mtlsSessionIn)
-    {}
+        mtlsSession(mtlsSessionIn), timer(adaptor.get_executor())
+    {
+        getConnectionCount()++;
+    }
+
+    ~HTTP2Connection()
+    {
+        cancelDeadlineTimer();
+        getConnectionCount()--;
+    }
+
+    HTTP2Connection(const HTTP2Connection&) = delete;
+    HTTP2Connection(HTTP2Connection&&) = delete;
+    HTTP2Connection& operator=(const HTTP2Connection&) = delete;
+    HTTP2Connection& operator=(HTTP2Connection&&) = delete;
 
     void start()
     {
@@ -109,6 +147,7 @@ class HTTP2Connection :
             return;
         }
         readClientIp();
+        startDeadline(DeadlineTimerType::Keepalive);
         doRead();
     }
 
@@ -130,6 +169,7 @@ class HTTP2Connection :
             return;
         }
         readClientIp();
+        startDeadline(DeadlineTimerType::Keepalive);
         doRead();
     }
 
@@ -449,6 +489,7 @@ class HTTP2Connection :
         if (stream.req && stream.req->req.body().multipartParserCallbacks)
         {
             stream.isStreamInput = true;
+            stream.multipartActive = true;
             if (stream.headersAsyncResp)
             {
                 stream.headersAsyncResp->res.setCompleteRequestHandler(
@@ -785,6 +826,9 @@ class HTTP2Connection :
         }
         // NVIDIA code end
         self.streams.erase(it);
+        // streams map always has stream 0 (control); if only that remains,
+        // the connection is idle -- switch to the longer keepalive timeout
+        self.refreshDeadline();
         return 0;
     }
 
@@ -905,6 +949,7 @@ class HTTP2Connection :
             {
                 BMCWEB_LOG_ERROR("Failed to set local window size");
             }
+            refreshDeadline();
         }
         return 0;
     }
@@ -951,6 +996,7 @@ class HTTP2Connection :
             self->close();
             return;
         }
+        self->refreshDeadline();
         self->writeBuffer();
     }
 
@@ -983,6 +1029,7 @@ class HTTP2Connection :
 
     void close()
     {
+        cancelDeadlineTimer();
         adaptor.next_layer().close();
     }
 
@@ -1015,9 +1062,134 @@ class HTTP2Connection :
             close();
             return;
         }
+        refreshDeadline();
         writeBuffer();
 
         doRead();
+    }
+
+    void cancelDeadlineTimer()
+    {
+        timer.cancel();
+        timerStarted = false;
+        activeDeadlineType.reset();
+        // Bump the generation so a completion for the just-canceled wait
+        // (delivered asynchronously, possibly after a new timer has already
+        // been armed) is recognized as stale in afterTimerWait().
+        ++timerGeneration;
+    }
+
+    bool isMultipartActive() const
+    {
+        for (const auto& [id, stream] : streams)
+        {
+            if (stream.multipartActive)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Push the deadline back on read/write progress, so a long-running
+    // transfer over an open stream isn't killed by the Default timeout
+    // just because no new stream has opened or closed recently.
+    void refreshDeadline()
+    {
+        // If a multipart upload is in progress and the Multipart timer is
+        // already running, let it run to its absolute 1-hour deadline rather
+        // than sliding it forward on each received chunk (mirrors HTTP/1
+        // behaviour). The armed type must be checked too: multipart is only
+        // detected once handleHeaders() completes, which can be after a
+        // shorter Keepalive/Default timer was armed for this connection.
+        // Skipping the refresh then would leave that shorter deadline in
+        // place and kill a valid long upload.
+        if (timerStarted && isMultipartActive() &&
+            activeDeadlineType == DeadlineTimerType::Multipart)
+        {
+            return;
+        }
+
+        cancelDeadlineTimer();
+        // streams map always has stream 0 (control); if only that remains,
+        // the connection is idle -- use the longer keepalive timeout
+        if (streams.size() <= 1)
+        {
+            startDeadline(DeadlineTimerType::Keepalive);
+            return;
+        }
+        if (isMultipartActive())
+        {
+            startDeadline(DeadlineTimerType::Multipart);
+            return;
+        }
+        startDeadline(DeadlineTimerType::Default);
+    }
+
+    void afterTimerWait(const boost::system::error_code& ec,
+                        uint64_t generation)
+    {
+        if (generation != timerGeneration)
+        {
+            // Stale callback for a timer arm that has since been canceled
+            // and replaced; ignore it so it can't clobber the state of the
+            // active timer.
+            BMCWEB_LOG_DEBUG("{} HTTP2 stale timer callback ignored",
+                             logPtr(this));
+            return;
+        }
+
+        timerStarted = false;
+
+        if (ec)
+        {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_DEBUG("{} HTTP2 timer canceled", logPtr(this));
+                return;
+            }
+            BMCWEB_LOG_CRITICAL("{} HTTP2 timer failed {}", logPtr(this), ec);
+        }
+
+        BMCWEB_LOG_WARNING("{} HTTP2 connection timed out, closing",
+                           logPtr(this));
+        close();
+    }
+
+    void startDeadline(DeadlineTimerType timerType)
+    {
+        if (timerStarted)
+        {
+            return;
+        }
+
+        int timeoutDurationSeconds = BMCWEB_HTTP_RESPONSE_TIMEOUT;
+        if (timerType == DeadlineTimerType::Keepalive)
+        {
+            timeoutDurationSeconds = 15 * 60;
+        }
+        else if (timerType == DeadlineTimerType::Multipart)
+        {
+            timeoutDurationSeconds = 60 * 60;
+        }
+
+        std::chrono::seconds timeout(timeoutDurationSeconds);
+
+        uint64_t generation = ++timerGeneration;
+        timer.expires_after(timeout);
+        timer.async_wait([weakSelf = weak_from_this(),
+                          generation](const boost::system::error_code& ec) {
+            std::shared_ptr<self_type> self = weakSelf.lock();
+            if (!self)
+            {
+                return;
+            }
+            self->afterTimerWait(ec, generation);
+        });
+        timerStarted = true;
+        activeDeadlineType = timerType;
+        BMCWEB_LOG_DEBUG("{} HTTP2 timer started ({} seconds)", logPtr(this),
+                         timeoutDurationSeconds);
     }
 
     void doRead()
@@ -1062,6 +1234,11 @@ class HTTP2Connection :
     std::function<std::string()>& getCachedDateStr;
 
     std::shared_ptr<persistent_data::UserSession> mtlsSession;
+
+    boost::asio::steady_timer timer;
+    bool timerStarted = false;
+    std::optional<DeadlineTimerType> activeDeadlineType;
+    uint64_t timerGeneration = 0;
 
     using std::enable_shared_from_this<
         HTTP2Connection<Adaptor, Handler>>::shared_from_this;

@@ -33,6 +33,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systems_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -356,10 +357,6 @@ inline void afterGetInventory(
 
     if constexpr (BMCWEB_BIOS)
     {
-        // Schema defaults for interop validator
-        asyncResp->res.jsonValue["BiosVersion"] = "";
-        asyncResp->res.jsonValue["AssetTag"] = "";
-        // Grab the bios version
         sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose,
                                              "BiosVersion", false);
     }
@@ -1381,6 +1378,25 @@ inline computer_system::LastResetCauses dbusToRfLastResetCause(
 }
 
 /**
+ * @brief Adapts dbusToRfLastResetCause() for mapValidOrOmit's
+ *        EnumTranslator signature: returns std::nullopt for the
+ *        Unsupported D-Bus value so the property is omitted, and
+ *        otherwise stringifies the LastResetCauses enum via its
+ *        NLOHMANN_JSON_SERIALIZE_ENUM mapping.
+ */
+inline std::optional<std::string> dbusToRfLastResetCauseString(
+    const std::string& dbusRestartCause)
+{
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.Unsupported")
+    {
+        return std::nullopt;
+    }
+    nlohmann::json j = dbusToRfLastResetCause(dbusRestartCause);
+    return j.get<std::string>();
+}
+
+/**
  * @brief Retrieves the Last Reset Cause
  *
  * @param[in] asyncResp  Shared pointer for generating response message.
@@ -1403,8 +1419,8 @@ inline void getLastResetCause(
                 return;
             }
 
-            asyncResp->res.jsonValue["LastResetCause"] =
-                dbusToRfLastResetCause(restartCause);
+            mapValidOrOmit(asyncResp->res.jsonValue, "LastResetCause",
+                           &restartCause, dbusToRfLastResetCauseString);
         });
 }
 

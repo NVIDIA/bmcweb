@@ -23,6 +23,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -1271,10 +1272,8 @@ inline void getOperatingConfigData(
             {
                 json["MinSpeedMHz"] = *minSpeed;
             }
-            if (operatingSpeed != nullptr)
-            {
-                json["OperatingSpeedMHz"] = *operatingSpeed;
-            }
+            // Nullable: render nsmd's unavailable marker as null.
+            redfish::mapValidOrNull(json, "OperatingSpeedMHz", operatingSpeed);
             if (speedConfig != nullptr)
             {
                 const auto& [speedLock, speed] = *speedConfig;

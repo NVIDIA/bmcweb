@@ -1809,6 +1809,7 @@ inline void getPortMetricsData(
             }
 
             auto addNvidiaType = BMCWEB_NVIDIA_OEM_PROPERTIES;
+            bool hasSNRType = false;
             auto linkTypePtr =
                 std::ranges::find_if(properties, [](const auto& property) {
                     return property.first == "LinkType";
@@ -1960,6 +1961,68 @@ inline void getPortMetricsData(
                                                 ["RawErrorsPerLane"] = *value;
                         addNvidiaType = true;
                     }
+                    else if (property.first == "RXInputPowerMilliWatts" ||
+                             property.first == "TXOutputPowerMilliWatts" ||
+                             property.first == "TXBiasCurrentMilliAmps")
+                    {
+                        const auto* values =
+                            std::get_if<std::vector<double>>(&property.second);
+                        if (values == nullptr || values->size() != 8)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Invalid optical module power/current"
+                                " property: {}",
+                                property.first);
+                            continue;
+                        }
+                        std::string rfFieldName;
+                        if (property.first == "RXInputPowerMilliWatts")
+                        {
+                            rfFieldName = "RXInputPowerMilliWatts";
+                        }
+                        else if (property.first == "TXOutputPowerMilliWatts")
+                        {
+                            rfFieldName = "TXOutputPowerMilliWatts";
+                        }
+                        else
+                        {
+                            rfFieldName = "TXBiasCurrentMilliAmps";
+                        }
+                        nlohmann::json& transceivers =
+                            asyncResp->res.jsonValue["Transceivers"];
+                        if (transceivers.empty())
+                        {
+                            transceivers = nlohmann::json::array();
+                            transceivers.push_back(
+                                {{"ByLane", nlohmann::json::array()}});
+                            for (uint8_t lane = 0; lane < 8; ++lane)
+                            {
+                                transceivers[0]["ByLane"].push_back(
+                                    {{"LaneId", lane}});
+                            }
+                        }
+                        for (size_t lane = 0; lane < values->size(); ++lane)
+                        {
+                            transceivers[0]["ByLane"][lane][rfFieldName] =
+                                (*values)[lane];
+                        }
+                    }
+                    else if (property.first == "SignalToNoiseRatioPerLane")
+                    {
+                        const auto* values =
+                            std::get_if<std::vector<double>>(&property.second);
+                        if (values == nullptr || values->size() != 8)
+                        {
+                            BMCWEB_LOG_ERROR("Invalid SignalToNoiseRatioPerLane"
+                                             " property");
+                            continue;
+                        }
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["SignalToNoiseRatioPerLane"] =
+                            *values;
+                        hasSNRType = true;
+                        addNvidiaType = true;
+                    }
                 }
 
                 for (const auto& [pdiPropertyName, fixedPropertyName] :
@@ -1989,13 +2052,17 @@ inline void getPortMetricsData(
                 if (addNvidiaType)
                 {
                     // ECC (SymbolErrorRXBytes/CorrectedBits/RawErrorsPerLane)
-                    // is defined on NvidiaNetworkPortMetrics as of v1_7_0, not
-                    // on NvidiaNVLinkPortMetrics. This is a ConnectX
-                    // network-adapter port, so advertise the type that actually
-                    // defines the emitted OEM properties (DMTF RSV failure,
-                    // NVBug 6403426).
+                    // is defined on NvidiaNetworkPortMetrics as of v1_7_0.
+                    // SignalToNoiseRatioPerLane requires v1_9_0. When SNR is
+                    // present advertise the higher version; otherwise use
+                    // v1_7_0. This is a ConnectX network-adapter port, so
+                    // advertise the type that actually defines the emitted
+                    // OEM properties (DMTF RSV failure, NVBug 6403426).
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_7_0.NvidiaNetworkPortMetrics";
+                        hasSNRType ? "#NvidiaPortMetrics.v1_9_0"
+                                     ".NvidiaNetworkPortMetrics"
+                                   : "#NvidiaPortMetrics.v1_7_0"
+                                     ".NvidiaNetworkPortMetrics";
                 }
             }
         });

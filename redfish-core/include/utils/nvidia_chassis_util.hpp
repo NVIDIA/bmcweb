@@ -17,6 +17,8 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/nvidia_chassis.hpp"
@@ -1449,70 +1451,6 @@ inline void getOemAssemblyAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getOemHdwWriteProtectInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get Baseboard Hardware write protect info");
-    dbus::utility::async_method_call(
-        [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string, bool, uint64_t>>>&
-                    propertiesList) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for "
-                                 "Baseboard Hardware write protect info");
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            for (const auto& property : propertiesList)
-            {
-                if (property.first == "WriteProtected")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for hardware write protected");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res
-                        .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtected"] =
-                        *value;
-                }
-
-                if (property.first == "WriteProtectedControl")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "Null value returned "
-                            "for hardware write protected control");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["HardwareWriteProtectedControl"] =
-                        *value;
-                }
-            }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Software.Settings");
-}
-
-/**
- * @brief Fill out chassis nvidia specific info by
- * requesting data from the given D-Bus object.
- *
- * @param[in,out]   aResp       Async HTTP response.
- * @param[in]       service     D-Bus service to query.
- * @param[in]       objPath     D-Bus object to query.
- */
 inline void getOemPCIeDeviceClockReferenceInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
@@ -2129,7 +2067,7 @@ inline void afterGetHostNetworkEnabled(
 
 inline void getChassisHostNetworkEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
+    const std::string& objPath, const boost::system::error_code& ec,
     const dbus::utility::MapperGetObject& object)
 {
     if (ec)
@@ -2139,10 +2077,24 @@ inline void getChassisHostNetworkEnable(
         return;
     }
     dbus::utility::getProperty<bool>(
-        object[0].first,
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-        "xyz.openbmc_project.Object.Enable", "Enabled",
-        std::bind_front(afterGetHostNetworkEnabled, asyncResp));
+        object[0].first, objPath, "xyz.openbmc_project.Object.Enable",
+        "Enabled", std::bind_front(afterGetHostNetworkEnabled, asyncResp));
+}
+
+inline void afterGetHostNetworkAccessEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        // Chassis does not own the host-NIC control; omit the property.
+        return;
+    }
+    dbus::utility::getDbusObject(
+        endpoints[0],
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Object.Enable"},
+        std::bind_front(getChassisHostNetworkEnable, asyncResp, endpoints[0]));
 }
 
 inline void setChassisWriteProtectProtectEnable(
@@ -2206,8 +2158,9 @@ inline void afterSetHostNetworkEnabled(
 
 inline void setChassisHostNetworkEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const bool value,
     const boost::system::error_code& ec,
-    const dbus::utility::MapperGetObject& object, const bool value)
+    const dbus::utility::MapperGetObject& object)
 {
     if (ec == boost::system::errc::io_error)
     {
@@ -2225,10 +2178,9 @@ inline void setChassisHostNetworkEnable(
     }
     std::function<void(const boost::system::error_code&)> handler =
         std::bind_front(afterSetHostNetworkEnabled, asyncResp);
-    dbus::utility::setProperty(
-        object[0].first,
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-        "xyz.openbmc_project.Object.Enable", "Enabled", value, handler);
+    dbus::utility::setProperty(object[0].first, objPath,
+                               "xyz.openbmc_project.Object.Enable", "Enabled",
+                               value, handler);
 }
 
 template <typename Callback>
@@ -2546,17 +2498,16 @@ inline void handleChassisGetAllProperties(
         return;
     }
 
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
-                             partNumber);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "SerialNumber",
-                             serialNumber);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Manufacturer",
-                             manufacturer);
-    redfish::mapStringOrNull(asyncResp->res.jsonValue, "Model", model);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "PartNumber", partNumber);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "SerialNumber",
+                            serialNumber);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                            manufacturer);
+    redfish::mapValidOrNull(asyncResp->res.jsonValue, "Model", model);
     // SparePartNumber is optional on D-Bus
     // so skip if it is empty
-    redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SparePartNumber",
-                             sparePartNumber);
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SparePartNumber",
+                            sparePartNumber);
 
     if (uuid != nullptr)
     {
@@ -2660,14 +2611,9 @@ inline void handleChassisGetAllProperties(
 
         if constexpr (BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS)
         {
-            dbus::utility::getDbusObject(
-                "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
-                std::array<std::string_view, 1>{
-                    "xyz.openbmc_project.Object.Enable"},
-                [asyncResp](const boost::system::error_code& ec,
-                            const dbus::utility::MapperGetObject& object) {
-                    getChassisHostNetworkEnable(asyncResp, ec, object);
-                });
+            dbus::utility::getAssociationEndPoints(
+                path + "/host_management_network_access",
+                std::bind_front(afterGetHostNetworkAccessEndpoints, asyncResp));
         } // BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS
 
         if (pCIeReferenceClockCount != nullptr)
@@ -2794,16 +2740,33 @@ inline void oemChassisHardwareWriteProtectEnable(
         });
 }
 
-inline void oemChassisHostNetworkEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
+inline void afterSetHostNetworkAccessEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
 {
+    if (ec || endpoints.empty())
+    {
+        // Chassis does not own the host-NIC control; fail the write instead
+        // of reporting success for a property the BMC never set.
+        messages::propertyUnknown(asyncResp->res,
+                                  "HostManagementNetworkAccess");
+        return;
+    }
     dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+        endpoints[0],
         std::array<std::string_view, 1>{"xyz.openbmc_project.Object.Enable"},
-        [asyncResp, value](const boost::system::error_code& ec,
-                           const dbus::utility::MapperGetObject& object) {
-            setChassisHostNetworkEnable(asyncResp, ec, object, value);
-        });
+        std::bind_front(setChassisHostNetworkEnable, asyncResp, endpoints[0],
+                        value));
+}
+
+inline void oemChassisHostNetworkEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const bool value)
+{
+    dbus::utility::getAssociationEndPoints(
+        chassisPath + "/host_management_network_access",
+        std::bind_front(afterSetHostNetworkAccessEndpoints, asyncResp, value));
 }
 
 inline void getChassisAssetData(
@@ -2843,13 +2806,13 @@ inline void getChassisAssetData(
                 return;
             }
 
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "SerialNumber",
-                                     serialNumber);
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Model", model);
-            redfish::mapStringOrNull(asyncResp->res.jsonValue, "PartNumber",
-                                     partNumber);
-            redfish::mapStringOrOmit(asyncResp->res.jsonValue, "Manufacturer",
-                                     manufacturer);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SerialNumber",
+                                    serialNumber);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "Model", model);
+            redfish::mapValidOrNull(asyncResp->res.jsonValue, "PartNumber",
+                                    partNumber);
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue, "Manufacturer",
+                                    manufacturer);
         });
 }
 
@@ -3672,7 +3635,7 @@ inline void applyOemChassisPatch(
         if (hostNetworkEnable)
         {
             redfish::nvidia_chassis_utils::oemChassisHostNetworkEnable(
-                asyncResp, *hostNetworkEnable);
+                asyncResp, path, *hostNetworkEnable);
         }
         if (partNumber)
         {
@@ -4443,6 +4406,77 @@ inline void getChassisOEMComponentProtected(
                     });
             }
         });
+}
+
+inline void afterGetHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool writeProtectedControl)
+{
+    // The object is looked up per request, so it can go away before the
+    // property read completes. The property is optional, so omit it rather
+    // than failing the whole chassis response.
+    if (ec == boost::system::linux_error::bad_request_descriptor ||
+        ec == boost::system::errc::host_unreachable)
+    {
+        BMCWEB_LOG_WARNING("HardwareWriteProtectedControl went away error={}",
+                           ec);
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed reading WriteProtectedControl error={}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
+        writeProtectedControl;
+}
+
+inline void getHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& chassisPath)
+{
+    dbus::utility::getProperty<bool>(
+        service, chassisPath, "com.nvidia.State.HardwareWriteProtectedControl",
+        "WriteProtectedControl",
+        std::bind_front(afterGetHardwareWriteProtectedControl, asyncResp));
+}
+
+inline void afterGetHardwareWriteProtectedControlObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objectMap)
+{
+    if (ec || objectMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("Chassis {} does not implement "
+                         "HardwareWriteProtectedControl error={}",
+                         chassisPath, ec);
+        return;
+    }
+
+    if (objectMap.size() > 1)
+    {
+        BMCWEB_LOG_WARNING("Multiple services implement "
+                           "HardwareWriteProtectedControl for {}",
+                           chassisPath);
+    }
+
+    getHardwareWriteProtectedControl(asyncResp, objectMap[0].first,
+                                     chassisPath);
+}
+
+inline void populateHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    static constexpr std::array<std::string_view, 1> interfaces{
+        "com.nvidia.State.HardwareWriteProtectedControl"};
+    dbus::utility::getDbusObject(
+        chassisPath, interfaces,
+        std::bind_front(afterGetHardwareWriteProtectedControlObject, asyncResp,
+                        chassisPath));
 }
 
 } // namespace nvidia_chassis_utils

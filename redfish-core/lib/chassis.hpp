@@ -716,6 +716,8 @@ inline void handleChassisGetSubTree(
         {
             // get debug token resource
             redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
+            redfish::nvidia_chassis_utils::
+                populateHardwareWriteProtectedControl(asyncResp, path);
         }
         // Nvidia: added code end
 
@@ -1387,8 +1389,9 @@ inline void requestRoutesChassisResetAction(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Chassis.Reset/")
         .privileges(redfish::privileges::postChassis)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleChassisResetActionInfoPost, std::ref(app)));
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            redfish::nvidia_chassis::nvidiaChassisResetActionInfoPost,
+            std::ref(app)));
     if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
     {
         BMCWEB_ROUTE(
@@ -1471,8 +1474,9 @@ inline void requestRoutesChassisResetActionInfo(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/ResetActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleChassisResetActionInfoGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            redfish::nvidia_chassis::nvidiaChassisResetActionInfoGet,
+            std::ref(app)));
     if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
     {
         BMCWEB_ROUTE(

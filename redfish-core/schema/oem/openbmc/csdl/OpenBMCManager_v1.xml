@@ -207,8 +207,8 @@
       </ComplexType>
       <ComplexType Name="FanZone">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
-        <Annotation Term="OData.Description" String="Configuration data for Fan Controllers."/>
-        <Annotation Term="OData.LongDescription" String="Configuration data for Fan Controllers."/>
+        <Annotation Term="OData.Description" String="Configuration data for Fan Zones."/>
+        <Annotation Term="OData.LongDescription" String="Configuration data for Fan Zones."/>
         <Property Name="FailSafePercent" Type="Edm.Decimal" Nullable="false">
           <Annotation Term="OData.Description" String="If the sensors are in fail-safe mode, this is the percentage to use."/>
           <Annotation Term="OData.LongDescription" String="If the sensors are in fail-safe mode, this is the percentage to use."/>
