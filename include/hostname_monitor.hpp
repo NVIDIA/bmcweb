@@ -3,7 +3,6 @@
 #pragma once
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "duplicatable_file_handle.hpp"
 #include "include/dbus_utility.hpp"
 #include "logging.hpp"
 #include "ssl_key_handler.hpp"
@@ -18,8 +17,8 @@
 #include <filesystem>
 #include <iterator>
 #include <memory>
-#include <string>
 #include <string_view>
+#include <system_error>
 #include <variant>
 
 namespace crow
@@ -27,28 +26,7 @@ namespace crow
 namespace hostname_monitor
 {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::bus::match_t> hostnameSignalMonitor;
-
-inline void installCertificate(
-    const std::shared_ptr<DuplicatableFileHandle>& certFile)
-{
-    dbus::utility::async_method_call(
-        // certFile is kept alive until the callback runs, so its
-        // destructor removes the temp file on both success and failure.
-        [certFile](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Replace Certificate Fail..");
-            }
-            else
-            {
-                BMCWEB_LOG_INFO("Replace HTTPs Certificate Success");
-            }
-        },
-        "xyz.openbmc_project.Certs.Manager.Server.Https",
-        "/xyz/openbmc_project/certs/server/https/1",
-        "xyz.openbmc_project.Certs.Replace", "Replace", certFile->filePath);
-}
+static std::unique_ptr<sdbusplus::match> hostnameSignalMonitor;
 
 inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                             sd_bus_error* retError)
@@ -81,80 +59,6 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
     const std::string certFile = "/etc/ssl/certs/https/server.pem";
     ensuressl::regenerateCertificateIfHostnameChanged(certFile, *hostname);
 
-    X509* cert = ensuressl::loadCert(certFile);
-    if (cert == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Failed to read cert");
-        return 0;
-    }
-
-    const int maxKeySize = 256;
-    std::array<char, maxKeySize> cnBuffer{};
-
-    int cnLength =
-        X509_NAME_get_text_by_NID(X509_get_subject_name(cert), NID_commonName,
-                                  cnBuffer.data(), cnBuffer.size());
-    if (cnLength == -1)
-    {
-        BMCWEB_LOG_ERROR("Failed to read NID_commonName");
-        X509_free(cert);
-        return 0;
-    }
-    std::string_view cnValue(std::begin(cnBuffer),
-                             static_cast<size_t>(cnLength));
-
-    EVP_PKEY* pPubKey = X509_get_pubkey(cert);
-    if (pPubKey == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Failed to get public key");
-        X509_free(cert);
-        return 0;
-    }
-    int isSelfSigned = X509_verify(cert, pPubKey);
-    EVP_PKEY_free(pPubKey);
-
-    BMCWEB_LOG_DEBUG(
-        "Current HTTPs Certificate Subject CN: {}, New HostName: {}, isSelfSigned: {}",
-        cnValue, *hostname, isSelfSigned);
-
-    ASN1_IA5STRING* asn1 = static_cast<ASN1_IA5STRING*>(
-        X509_get_ext_d2i(cert, NID_netscape_comment, nullptr, nullptr));
-    if (asn1 != nullptr)
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        std::string_view comment(reinterpret_cast<const char*>(asn1->data),
-                                 static_cast<size_t>(asn1->length));
-        BMCWEB_LOG_DEBUG("x509Comment: {}", comment);
-
-        if (ensuressl::x509Comment == comment && isSelfSigned == 1 &&
-            cnValue != *hostname)
-        {
-            BMCWEB_LOG_INFO(
-                "Ready to generate new HTTPs certificate with subject cn: {}",
-                *hostname);
-
-            std::string certData = ensuressl::generateSslCertificate(*hostname);
-            if (certData.empty())
-            {
-                BMCWEB_LOG_ERROR("Failed to generate cert");
-                return 0;
-            }
-
-            auto tempCertFile =
-                std::make_shared<DuplicatableFileHandle>(certData);
-            if (tempCertFile->filePath.empty() ||
-                !std::filesystem::exists(tempCertFile->filePath))
-            {
-                BMCWEB_LOG_ERROR("Failed to create temporary certificate "
-                                 "file");
-                return 0;
-            }
-
-            installCertificate(tempCertFile);
-        }
-        ASN1_STRING_free(asn1);
-    }
-    X509_free(cert);
     return 0;
 }
 
