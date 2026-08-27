@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.9.0                                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.10.0                                                    -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -190,6 +191,57 @@
           </Collection>
         </Annotation>
       </Action>
+      <Action Name="SetProcessorDiagMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action enables or disables pre-boot diagnostic mode for the processors in this system."/>
+        <Annotation Term="OData.LongDescription" String="This action shall enable or disable pre-boot diagnostic mode by setting the DiagModeEnabled member of the ProcessorDiagState parameter."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ProcessorDiagState" Type="NvidiaComputerSystem.v1_10_0.ProcessorDiagStateRequest" Nullable="false">
+          <Annotation Term="OData.Description" String="The pre-boot diagnostic state object carrying the requested DiagModeEnabled value."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the pre-boot diagnostic state object whose DiagModeEnabled member requests the diagnostic mode state."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_10_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ConfigProcessorDiag" IsBound="true">
+        <Annotation Term="OData.Description" String="This action uploads the system-level pre-boot diagnostic configuration."/>
+        <Annotation Term="OData.LongDescription" String="This action shall store the supplied system-level pre-boot diagnostic configuration for delivery to the processor diagnostic firmware."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ProcessorDiagSysConfig" Type="Collection(NvidiaComputerSystem.v1_10_0.ProcessorDiagSysConfigEntry)" Nullable="false">
+          <Annotation Term="OData.Description" String="An array of system-level pre-boot diagnostic configuration entries."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain an array of system-level pre-boot diagnostic configuration entries."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_10_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ConfigProcessorDiagTid" IsBound="true">
+        <Annotation Term="OData.Description" String="This action uploads the per-Test ID (TID) pre-boot diagnostic configuration."/>
+        <Annotation Term="OData.LongDescription" String="This action shall store the supplied per-Test ID (TID) pre-boot diagnostic configuration for delivery to the processor diagnostic firmware."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ProcessorDiagTidConfig" Type="Collection(NvidiaComputerSystem.v1_10_0.ProcessorDiagTidConfigEntry)" Nullable="false">
+          <Annotation Term="OData.Description" String="An array of per-Test ID (TID) pre-boot diagnostic configuration entries."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain an array of per-Test ID (TID) pre-boot diagnostic configuration entries."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_10_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -352,6 +404,165 @@
           <Annotation Term="OData.Description" String="The desired GPU base power limit, in watts, for the subordinate GPU processor."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the desired GPU base power limit, in watts, for the subordinate GPU processor. The value shall be within the range specified by AllowableMin and AllowableMax in the GPUBasePowerWatts object in the processor's EnvironmentMetrics resource. This value shall not exceed PowerLimitWatts. This property is not applicable to CPU processors."/>
           <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem">
+        <Property Name="ProcessorDiagState" Type="NvidiaComputerSystem.v1_10_0.ProcessorDiagState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Pre-boot diagnostic run state exposed by the platform."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current pre-boot diagnostic run state as reported by the platform's diagnostic service. Platforms without full pre-boot diagnostic support may report a subset of the DiagStatus enum values."/>
+        </Property>
+        <Property Name="ProcessorDiagSysConfig" Type="Collection(NvidiaComputerSystem.v1_10_0.ProcessorDiagSysConfigEntry)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Uploaded system-level pre-boot diagnostic configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a read-only reflection of the system-level configuration currently stored (uploaded via the ConfigProcessorDiag action); it is not an action response. It is populated whenever the platform's pre-boot diagnostic service is available, regardless of whether DiagModeEnabled is set."/>
+        </Property>
+        <Property Name="ProcessorDiagTidConfig" Type="Collection(NvidiaComputerSystem.v1_10_0.ProcessorDiagTidConfigEntry)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Uploaded per-TID pre-boot diagnostic configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a read-only reflection of the per-TID configuration currently stored (uploaded via the ConfigProcessorDiagTid action); it is not an action response. It is populated whenever the platform's pre-boot diagnostic service is available, regardless of whether DiagModeEnabled is set."/>
+        </Property>
+        <Property Name="ProcessorDiagResult" Type="Collection(NvidiaComputerSystem.v1_10_0.ProcessorDiagResultEntry)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Per-TID results from the most recent pre-boot diagnostic run."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a read-only entry per Test ID (TID) executed by the most recent diagnostic run, reflecting the persisted DiagResult state; it is not an action response. It is populated whenever the platform's pre-boot diagnostic service is available, regardless of whether DiagModeEnabled is set."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ProcessorDiagState">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="Current pre-boot diagnostic mode and status."/>
+        <Annotation Term="OData.LongDescription" String="Reflects the DiagModeEnabled and DiagStatus properties owned by the platform's pre-boot diagnostic service."/>
+        <Property Name="DiagModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Whether pre-boot diagnostic mode is currently enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether pre-boot diagnostic mode is currently enabled for the processors associated with this system. It is read-only on the resource; the mode is changed through the SetProcessorDiagMode action, whose required ProcessorDiagState parameter carries the requested DiagModeEnabled value."/>
+        </Property>
+        <Property Name="DiagStatus" Type="NvidiaComputerSystem.v1_10_0.DiagStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current pre-boot diagnostic run state."/>
+          <Annotation Term="OData.LongDescription" String="Reports the current pre-boot diagnostic run state. Platforms without full pre-boot diagnostic support may report a subset of the enumerated values."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ProcessorDiagStateRequest">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The requested pre-boot diagnostic mode."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the requested pre-boot diagnostic mode. It is the request counterpart of ProcessorDiagState, which reports the current mode and run state read-only on the resource; only the client-supplied DiagModeEnabled member is accepted here."/>
+        <Property Name="DiagModeEnabled" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="The requested pre-boot diagnostic mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the requested pre-boot diagnostic mode for the processors associated with this system. A value of `true` shall request that pre-boot diagnostic mode be enabled; a value of `false` shall request that it be disabled."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="DiagStatus">
+        <Annotation Term="OData.Description" String="Pre-boot diagnostic run state."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the run state of the platform's pre-boot diagnostic service. Platforms without full pre-boot diagnostic support may report only a subset of the enumerated values."/>
+        <Member Name="InProgress">
+          <Annotation Term="OData.Description" String="Diagnostic run is currently executing."/>
+        </Member>
+        <Member Name="RecoveryMode">
+          <Annotation Term="OData.Description" String="Diagnostic run is in recovery mode."/>
+        </Member>
+        <Member Name="Completed">
+          <Annotation Term="OData.Description" String="Diagnostic run completed successfully."/>
+        </Member>
+        <Member Name="Aborted">
+          <Annotation Term="OData.Description" String="Diagnostic run was aborted."/>
+        </Member>
+        <Member Name="NotStarted">
+          <Annotation Term="OData.Description" String="No diagnostic run has been started."/>
+        </Member>
+        <Member Name="TestRunning">
+          <Annotation Term="OData.Description" String="An individual test is currently running within a diagnostic session."/>
+        </Member>
+      </EnumType>
+      <TypeDefinition Name="DiagDataByte" UnderlyingType="Edm.Int64">
+        <Annotation Term="OData.Description" String="One octet of opaque pre-boot diagnostic data."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain one octet of opaque pre-boot diagnostic data. The value shall be in the range 0 to 255 inclusive. The BMC forwards these octets to the CPU without interpretation."/>
+        <Annotation Term="Validation.Minimum" Int="0"/>
+        <Annotation Term="Validation.Maximum" Int="255"/>
+      </TypeDefinition>
+      <ComplexType Name="ProcessorDiagSysConfigEntry">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="One entry in the ProcessorDiagSysConfig array; global run parameters for a diagnostic session."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain one entry of the system-level pre-boot diagnostic configuration currently stored by the service, corresponding to one NSM Set Diag System Config (Cmd 0x80) payload."/>
+        <Property Name="ConfigType" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Diagnostic system-configuration stage selector, mapping to the NSM Set Diag System Config (Cmd 0x80) config_type byte. Allowed values: 0 = MB1 (config consumed by the MB1 boot stage), 1 = Test (config consumed by the Diag CPU-FW test stage). The BMC forwards this to the CPU without interpretation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the diagnostic system-configuration stage selector conveyed as the config_type byte of the NSM Set Diag System Config (Cmd 0x80) request. A value of 0 shall select MB1, the configuration consumed by the MB1 boot stage; a value of 1 shall select Test, the configuration consumed by the Diag CPU-FW test stage. The BMC shall forward this value to the CPU without interpretation."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="1"/>
+        </Property>
+        <Property Name="TestDuration" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Test duration preset level (levels 0-3 defined by the Grace CPU Pre-Boot Diagnostics Specification DA-11921-001), not a time value. The BMC forwards this to the CPU without interpretation and accepts 0..255."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the test duration preset level applied to the diagnostic session. Levels 0 through 3 are defined by the Grace CPU Pre-Boot Diagnostics Specification DA-11921-001. This value is a preset selector and shall not be interpreted as a time value. The BMC shall forward this value to the CPU without interpretation and shall accept any value in the range 0 to 255 inclusive."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="255"/>
+        </Property>
+        <Property Name="DynamicData" Type="Collection(NvidiaComputerSystem.v1_10_0.DiagDataByte)" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Config-type-specific octet array. The service rejects arrays longer than 251 entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the config-type-specific payload octets of the NSM Set Diag System Config (Cmd 0x80) request. The service shall reject a request whose array contains more than 251 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the maximum the NSM command encoder accepts, and sits inside the ceiling implied by the 8-bit request Data Size field less the two fixed octets Cmd 0x80 carries ahead of the payload."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ProcessorDiagTidConfigEntry">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="Per-TID diagnostic run configuration."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the run configuration currently stored by the service for one Test ID (TID), corresponding to one NSM Set Diag TID Config payload."/>
+        <Property Name="Tid" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Test ID. Valid range 0..255."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Test ID (TID) that this configuration entry applies to. The value shall be in the range 0 to 255 inclusive."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="255"/>
+        </Property>
+        <Property Name="TestDuration" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Per-TID test duration preset level (levels 0-3 defined by the Grace CPU Pre-Boot Diagnostics Specification DA-11921-001), not a time value. The BMC forwards this to the CPU without interpretation and accepts 0..255."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the test duration preset level applied to this Test ID (TID). Levels 0 through 3 are defined by the Grace CPU Pre-Boot Diagnostics Specification DA-11921-001. This value is a preset selector and shall not be interpreted as a time value. The BMC shall forward this value to the CPU without interpretation and shall accept any value in the range 0 to 255 inclusive."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="255"/>
+        </Property>
+        <Property Name="Loops" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Number of test loops; valid range 0..65535."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of times the test identified by Tid is repeated within a diagnostic session. The value shall be in the range 0 to 65535 inclusive."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="65535"/>
+        </Property>
+        <Property Name="LogLevel" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="Log verbosity; valid range 0..255."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the log verbosity level the CPU applies while running the test identified by Tid. The value shall be in the range 0 to 255 inclusive. The BMC shall forward this value to the CPU without interpretation."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="255"/>
+        </Property>
+        <Property Name="DynamicData" Type="Collection(NvidiaComputerSystem.v1_10_0.DiagDataByte)" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="TID-specific parameter octet array. The service rejects arrays longer than 244 entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the TID-specific parameter octets forwarded to the CPU for the test identified by Tid. The service shall reject a request whose array contains more than 244 entries; that bound is enforced by the service and is not expressible as a JSON Schema constraint. It is the maximum the NSM Set Diag TID Config command payload accommodates, and is far above the largest configuration payload defined for any Test ID; the transport ceiling is enforced rather than the per-Test-ID sizes so that a newly defined Test ID requires no service change."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ProcessorDiagResultEntry">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="One TID result from the most recent diagnostic run."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the persisted result reported for one Test ID (TID) executed by the most recent pre-boot diagnostic run."/>
+        <Property Name="Tid" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="Test ID that produced this result."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Test ID (TID) that produced this result. The value shall be in the range 0 to 255 inclusive."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="255"/>
+        </Property>
+        <Property Name="Result" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="Overall result code for the TID: 0x0=Pass, 0x2=invalid duration, 0xB=TID not configured, 0xC=invalid TID, 0xD=invalid custom config, 0xF=invalid system config."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the overall result code reported by the CPU for the Test ID (TID) identified by Tid. A value of 0x0 shall indicate pass; 0x2 shall indicate an invalid test duration; 0xB shall indicate the TID was not configured; 0xC shall indicate an invalid TID; 0xD shall indicate an invalid custom configuration; and 0xF shall indicate an invalid system configuration. The BMC shall report this value without interpretation."/>
+        </Property>
+        <Property Name="ResultMask" Type="Collection(NvidiaComputerSystem.v1_10_0.DiagDataByte)" Nullable="false">
+          <Annotation Term="OData.Description" String="Per-subtest result bitmap for the Test ID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the per-subtest result bitmap reported by the CPU for the Test ID (TID) identified by Tid, expressed as an array of octets. The length of the array is determined by the number of subtests the CPU reports for that TID."/>
         </Property>
       </ComplexType>
     </Schema>
