@@ -249,7 +249,7 @@ inline void requestRoutesSystemsLogServiceHostloggerDownload(App& app)
             handleSystemsLogServicesHostloggerDownloadRawLogPost,
             std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/HostLogger/file")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/HostLogger/file/")
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleSystemsLogServicesHostloggerFileGet, std::ref(app)));

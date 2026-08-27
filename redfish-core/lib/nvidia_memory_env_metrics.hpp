@@ -27,7 +27,7 @@ namespace redfish
 inline void requestRoutesMemoryEnvironmentMetrics(App& app)
 {
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Memory/<str>/EnvironmentMetrics")
+                 "/redfish/v1/Systems/<str>/Memory/<str>/EnvironmentMetrics/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

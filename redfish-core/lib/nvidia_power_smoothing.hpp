@@ -2143,7 +2143,7 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/Actions/NvidiaPowerSmoothing.ActivatePresetProfile")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/Actions/NvidiaPowerSmoothing.ActivatePresetProfile/")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -2170,7 +2170,7 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/ActivatePresetProfileActionInfo")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/ActivatePresetProfileActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(
             boost::beast::http::verb::

@@ -257,7 +257,7 @@ inline void requestRoutesPCIeEqualization(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/PCIeEqualization")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/PCIeEqualization/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -466,7 +466,7 @@ inline void requestRoutesPCIeEqualization(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/PCIeEqualization")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/PCIeEqualization/")
         .privileges({{"Login"}})
         .methods(
             boost::beast::http::verb::

@@ -53,7 +53,7 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>/Buckets")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>/Buckets/")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -257,7 +257,7 @@ inline void requestRoutesSwitchHistogram(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>/")
         .privileges(redfish::privileges::getSwitch)
         .methods(
             boost::beast::http::verb::
@@ -370,7 +370,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
      */
 
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms")
+        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/")
         .privileges(redfish::privileges::getSwitch)
         .methods(
             boost::beast::http::verb::
@@ -478,7 +478,7 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>/Buckets")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>/Buckets/")
         .privileges(redfish::privileges::getSwitch)
         .methods(
             boost::beast::http::verb::
@@ -753,7 +753,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/<str>/")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -973,7 +973,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms")
+        "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/Histograms/")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

@@ -410,27 +410,27 @@ inline void requestRoutesManagerDOT(App& app)
 {
     if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
     {
-        BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT")
+        BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/")
             .privileges(redfish::privileges::getManager)
             .methods(boost::beast::http::verb::get)(
                 std::bind_front(handleManagerDOTGetRequest, std::ref(app)));
 
         BMCWEB_ROUTE(
             app,
-            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKInstall")
+            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKInstall/")
             .privileges(redfish::privileges::postManager)
             .methods(boost::beast::http::verb::post)(std::bind_front(
                 handleManagerDOTCAKInstallRequest, std::ref(app)));
 
         BMCWEB_ROUTE(
             app,
-            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKDelete")
+            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKDelete/")
             .privileges(redfish::privileges::postManager)
             .methods(boost::beast::http::verb::post)(std::bind_front(
                 handleManagerDOTCAKDeleteRequest, std::ref(app)));
 
         BMCWEB_ROUTE(app,
-                     "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/CAKDownload")
+                     "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/CAKDownload/")
             .privileges(redfish::privileges::getManager)
             .methods(boost::beast::http::verb::get)(std::bind_front(
                 handleManagerDOTCAKDownloadRequest, std::ref(app)));

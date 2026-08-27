@@ -34,7 +34,8 @@ static constexpr const uint32_t debugTokenTaskTimeoutSec{300};
 
 inline void requestRoutesDebugToken(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/DebugTokenService")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/")
         .privileges(redfish::privileges::getLogEntry)
         .methods(
             boost::beast::http::verb::
@@ -299,7 +300,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
     // New conformant action target (with the /Actions/ path segment).
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData")
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData/")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

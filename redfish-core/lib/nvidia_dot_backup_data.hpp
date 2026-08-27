@@ -706,21 +706,21 @@ inline void requestRoutesDOTBackupDataCollection(crow::App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/UploadActionInfo")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/UploadActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleDOTBackupDataUploadActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/Actions/NvidiaDOTBackupData.Upload")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/Actions/NvidiaDOTBackupData.Upload/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTBackupDataUploadAction, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/Actions/NvidiaDOTBackupData.Download")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOTBackupData/<str>/Actions/NvidiaDOTBackupData.Download/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTBackupDataDownloadAction, std::ref(app)));

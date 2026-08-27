@@ -343,7 +343,7 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
 inline void requestRoutesSystemsCPUDiag(App& app)
 {
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagCapabilities")
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagCapabilities/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleProcessorDiagActionPost, std::ref(app)));
@@ -353,8 +353,8 @@ inline void requestRoutesSystemsCPUDiag(App& app)
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleSystemProcessorDiagCapabilitiesActionGet, std::ref(app)));
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagSysConfig")
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagSysConfig/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleProcessorDiagSysConfigActionPost, std::ref(app)));
@@ -364,8 +364,8 @@ inline void requestRoutesSystemsCPUDiag(App& app)
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleSystemProcessorDiagSysConfigActionGet, std::ref(app)));
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagTidConfig")
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagTidConfig/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleProcessorDiagTidConfigActionPost, std::ref(app)));

@@ -46,7 +46,7 @@ using MapperServiceMap =
 inline void requestRoutesProcessorEnvironmentMetrics(App& app)
 {
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics")
+        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -75,7 +75,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             });
 
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics")
+        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics/")
         .privileges(redfish::privileges::patchProcessor)
         .methods(
             boost::beast::http::verb::
