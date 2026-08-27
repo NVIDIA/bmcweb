@@ -268,8 +268,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocket{std::move(fileGetSocket)}, objectPath,
              onResponseReady{onResponseReady}](
-                const boost::system::error_code& ec1,
-                sdbusplus::message_t& msg,
+                const boost::system::error_code& ec1, sdbusplus::message_t& msg,
                 const sdbusplus::message::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
                                           objectPath, ec1, msg, retPath,
