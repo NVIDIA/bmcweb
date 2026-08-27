@@ -20,6 +20,7 @@
 #include "nvidia_chassis.hpp"
 #include "nvidia_nic_debug_token.hpp"
 #include "nvidia_oem_device_reset.hpp"
+#include "nvidia_platform_power_cycle.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -757,18 +758,8 @@ inline void handleChassisGetSubTree(
     // Nvidia Added code start
     if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
     {
-        if (chassisId == BMCWEB_PLATFORM_CHASSIS_NAME)
-        {
-            asyncResp->res.jsonValue["Actions"]["Oem"]
-                                    ["#NvidiaChassis.AuxPowerReset"]["target"] =
-                "/redfish/v1/Chassis/" + chassisId +
-                "/Actions/Oem/NvidiaChassis.AuxPowerReset";
-            asyncResp->res
-                .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                          ["@Redfish.ActionInfo"] =
-                "/redfish/v1/Chassis/" + chassisId +
-                "/Oem/Nvidia/AuxPowerResetActionInfo";
-        }
+        nvidia_platform_power_cycle::addAuxPowerResetAction(asyncResp,
+                                                            chassisId);
     }
 
     // Add CPU recovery mode OEM action if supported
@@ -1358,23 +1349,6 @@ inline void handleChassisResetActionInfoPost(
     redfish::nvidia_chassis::powerCycle(asyncResp);
 }
 
-inline void handleOemChassisResetActionInfoPost(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
-{
-    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    redfish::nvidia_chassis_utils::handleAuxPowerResetAction(req, asyncResp);
-}
-
 /**
  * ChassisResetAction class supports the POST method for the Reset
  * action.
@@ -1389,15 +1363,6 @@ inline void requestRoutesChassisResetAction(App& app)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             redfish::nvidia_chassis::nvidiaChassisResetActionInfoPost,
             std::ref(app)));
-    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
-    {
-        BMCWEB_ROUTE(
-            app,
-            "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.AuxPowerReset/")
-            .privileges(redfish::privileges::postChassis)
-            .methods(boost::beast::http::verb::post)(std::bind_front(
-                handleOemChassisResetActionInfoPost, std::ref(app)));
-    }
 }
 
 inline void handleChassisResetActionInfoGet(
@@ -1427,42 +1392,6 @@ inline void handleChassisResetActionInfoGet(
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
-// Nvidia Added Code start
-inline void handleOemChassisResetActionInfoGet(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
-{
-    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Chassis/" + chassisId +
-        "/Oem/Nvidia/AuxPowerResetActionInfo";
-    asyncResp->res.jsonValue["Name"] = "Auxillary Power Reset Action Info";
-    asyncResp->res.jsonValue["Id"] = "AuxPowerResetActionInfo";
-    nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
-
-    parameter["Name"] = "ResetType";
-    parameter["Required"] = true;
-    parameter["DataType"] = "String";
-    nlohmann::json::array_t allowableValues;
-    allowableValues.emplace_back("AuxPowerCycle");
-    allowableValues.emplace_back("AuxPowerCycleForce");
-    parameter["AllowableValues"] = std::move(allowableValues);
-    parameters.emplace_back(std::move(parameter));
-
-    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
-}
-// Nvidia Added Code end
 /**
  * ChassisResetActionInfo derived class for delivering Chassis
  * ResetType AllowableValues using ResetInfo schema.
@@ -1474,15 +1403,6 @@ inline void requestRoutesChassisResetActionInfo(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             redfish::nvidia_chassis::nvidiaChassisResetActionInfoGet,
             std::ref(app)));
-    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
-    {
-        BMCWEB_ROUTE(
-            app,
-            "/redfish/v1/Chassis/<str>/Oem/Nvidia/AuxPowerResetActionInfo/")
-            .privileges(redfish::privileges::getActionInfo)
-            .methods(boost::beast::http::verb::get)(std::bind_front(
-                handleOemChassisResetActionInfoGet, std::ref(app)));
-    }
 }
 
 } // namespace redfish

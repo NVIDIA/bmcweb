@@ -6,12 +6,14 @@
 #include "generated/enums/chassis.hpp"
 #include "http_response.hpp"
 #include "nvidia_chassis.hpp"
+#include "nvidia_platform_power_cycle.hpp"
 
 #include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -23,6 +25,7 @@ namespace
 {
 
 void assertChassisResetActionInfoGet(const std::string& chassisId,
+                                     bool supportsFullPowerCycle,
                                      crow::Response& res)
 {
     EXPECT_EQ(res.jsonValue["@odata.type"], "#ActionInfo.v1_1_2.ActionInfo");
@@ -39,6 +42,10 @@ void assertChassisResetActionInfoGet(const std::string& chassisId,
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowed;
     allowed.emplace_back("PowerCycle");
+    if (supportsFullPowerCycle)
+    {
+        allowed.emplace_back("FullPowerCycle");
+    }
     parameter["AllowableValues"] = std::move(allowed);
     parameters.emplace_back(std::move(parameter));
 
@@ -51,9 +58,93 @@ TEST(PopulateChassisResetActionInfo, StaticAttributesAreExpected)
 
     std::string fakeChassis = "fakeChassis";
     response->res.setCompleteRequestHandler(
-        std::bind_front(assertChassisResetActionInfoGet, fakeChassis));
+        std::bind_front(assertChassisResetActionInfoGet, fakeChassis, false));
 
-    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis);
+    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis,
+                                                   false);
+}
+
+TEST(PopulateChassisResetActionInfo, FullPowerCycleIsCapabilityGated)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+
+    std::string fakeChassis = "fakeChassis";
+    response->res.setCompleteRequestHandler(
+        std::bind_front(assertChassisResetActionInfoGet, fakeChassis, true));
+
+    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, true);
+}
+
+TEST(PopulateAuxPowerResetActionInfo, ReportsOnlyAdvertisedTypes)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+    const nvidia_platform_power_cycle::Capabilities capabilities{
+        "com.nvidia.Control.Platform.PowerCycle",
+        {std::string(nvidia_platform_power_cycle::auxPowerCycleForce)}};
+
+    nvidia_platform_power_cycle::populateAuxPowerResetActionInfo(
+        response, "platform", capabilities);
+
+    const nlohmann::json& values =
+        response->res.jsonValue["Parameters"][0]["AllowableValues"];
+    EXPECT_EQ(values, nlohmann::json::array({"AuxPowerCycleForce"}));
+}
+
+TEST(PlatformPowerCycle, LegacyBackendAdvertisesBothAuxPowerTypes)
+{
+    const nvidia_platform_power_cycle::Capabilities capabilities =
+        nvidia_platform_power_cycle::getLegacyAuxPowerCapabilities();
+
+    EXPECT_TRUE(nvidia_platform_power_cycle::supports(
+        capabilities, nvidia_platform_power_cycle::auxPowerCycle));
+    EXPECT_TRUE(nvidia_platform_power_cycle::supports(
+        capabilities, nvidia_platform_power_cycle::auxPowerCycleForce));
+    EXPECT_FALSE(nvidia_platform_power_cycle::supports(
+        capabilities, nvidia_platform_power_cycle::fullPowerCycle));
+}
+
+TEST(PlatformPowerCycle, MissingProviderAdvertisesLegacyAuxPowerTypes)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_platform_power_cycle::afterGetAuxPowerResetActionInfoCapabilities(
+        response, "platform", {}, std::nullopt);
+
+    EXPECT_EQ(response->res.result(), boost::beast::http::status::ok);
+    const nlohmann::json& values =
+        response->res.jsonValue["Parameters"][0]["AllowableValues"];
+    EXPECT_EQ(values,
+              nlohmann::json::array({"AuxPowerCycle", "AuxPowerCycleForce"}));
+}
+
+TEST(PlatformPowerCycle, MissingProviderUsesLegacyAuxBackend)
+{
+    EXPECT_EQ(nvidia_platform_power_cycle::resolveAuxPowerCycleBackend(
+                  std::nullopt, nvidia_platform_power_cycle::auxPowerCycle),
+              nvidia_platform_power_cycle::AuxPowerCycleBackend::legacy);
+}
+
+TEST(PlatformPowerCycle, AdvertisedAuxTypeUsesPlatformBackend)
+{
+    const nvidia_platform_power_cycle::Capabilities capabilities{
+        "com.nvidia.Control.Platform.PowerCycle",
+        {std::string(nvidia_platform_power_cycle::auxPowerCycle)}};
+
+    EXPECT_EQ(nvidia_platform_power_cycle::resolveAuxPowerCycleBackend(
+                  capabilities, nvidia_platform_power_cycle::auxPowerCycle),
+              nvidia_platform_power_cycle::AuxPowerCycleBackend::platform);
+}
+
+TEST(PlatformPowerCycle, ProviderDoesNotFallbackForUnsupportedAuxType)
+{
+    const nvidia_platform_power_cycle::Capabilities capabilities{
+        "com.nvidia.Control.Platform.PowerCycle",
+        {std::string(nvidia_platform_power_cycle::fullPowerCycle)}};
+
+    EXPECT_EQ(nvidia_platform_power_cycle::resolveAuxPowerCycleBackend(
+                  capabilities,
+                  nvidia_platform_power_cycle::auxPowerCycleForce),
+              nvidia_platform_power_cycle::AuxPowerCycleBackend::unsupported);
 }
 
 TEST(TranslateChassisTypeToRedfish, TranslationsAreExpected)
