@@ -61,6 +61,7 @@
 #include "nvidia_oem_psu_redundancy.hpp"
 #include "nvidia_oem_psu_state.hpp"
 #include "nvidia_pcore_dump.hpp"
+#include "nvidia_platform_power_cycle.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_port_health_actions.hpp"
 #include "nvidia_power_reset_metrics.hpp"
@@ -422,6 +423,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
     {
         requestRoutesSystemsOemNvidiaL1Reset(app);
+    }
+
+    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+    {
+        nvidia_platform_power_cycle::requestRoutesPlatformPowerCycle(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

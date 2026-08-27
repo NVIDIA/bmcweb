@@ -15,6 +15,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_astra_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
+#include "utils/nvidia_platform_power_cycle_utils.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -239,7 +240,8 @@ inline void getChassisResetCapabilities(
  */
 inline void runChassisResetAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& requestBody, const std::string& contentType)
+    const std::string& chassisId, const std::string& requestBody,
+    const std::string& contentType)
 {
     std::error_code ec;
     crow::Request req(requestBody, ec);
@@ -253,6 +255,18 @@ inline void runChassisResetAction(
     if (resetType == "PowerCycle")
     {
         powerCycle(asyncResp);
+        return;
+    }
+    if (resetType == "FullPowerCycle")
+    {
+        if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
+        {
+            messages::actionParameterValueNotInList(
+                asyncResp->res, resetType, "ResetType", "Chassis.Reset");
+            return;
+        }
+        nvidia_platform_power_cycle::requestFullPowerCycle(asyncResp, 0,
+                                                           "Chassis.Reset");
         return;
     }
 
@@ -278,9 +292,8 @@ inline void doChassisResetActionPost(
 {
     getChassisResetCapabilities(
         asyncResp, chassisId, validChassisPath,
-        [asyncResp, contentType, requestBody]() {
-            runChassisResetAction(asyncResp, requestBody, contentType);
-        });
+        std::bind_front(runChassisResetAction, asyncResp, chassisId,
+                        requestBody, contentType));
 }
 
 /**
@@ -329,7 +342,7 @@ inline void nvidiaChassisResetActionInfoPost(
  */
 inline void populateChassisResetActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
+    const std::string& chassisId, bool supportsFullPowerCycle)
 {
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -344,10 +357,43 @@ inline void populateChassisResetActionInfo(
     parameter["DataType"] = action_info::ParameterTypes::String;
     nlohmann::json::array_t allowed;
     allowed.emplace_back("PowerCycle");
+    if (supportsFullPowerCycle)
+    {
+        allowed.emplace_back("FullPowerCycle");
+    }
     parameter["AllowableValues"] = std::move(allowed);
     parameters.emplace_back(std::move(parameter));
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
+inline void afterGetChassisFullPowerCycleSupport(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    bool supportsFullPowerCycle)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("Platform power-cycle capability not available: {}",
+                         ec);
+        supportsFullPowerCycle = false;
+    }
+    populateChassisResetActionInfo(asyncResp, chassisId,
+                                   supportsFullPowerCycle);
+}
+
+inline void getChassisPowerCycleActionInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
+    {
+        populateChassisResetActionInfo(asyncResp, chassisId, false);
+        return;
+    }
+    nvidia_platform_power_cycle::getFullPowerCycleSupport(
+        0, std::bind_front(afterGetChassisFullPowerCycleSupport, asyncResp,
+                           chassisId));
 }
 
 /**
@@ -363,9 +409,8 @@ inline void doChassisResetActionInfoGet(
     const std::optional<std::string>& validChassisPath)
 {
     getChassisResetCapabilities(
-        asyncResp, chassisId, validChassisPath, [asyncResp, chassisId]() {
-            populateChassisResetActionInfo(asyncResp, chassisId);
-        });
+        asyncResp, chassisId, validChassisPath,
+        std::bind_front(getChassisPowerCycleActionInfo, asyncResp, chassisId));
 }
 
 /**

@@ -31,6 +31,7 @@
 #include "utils/bios_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_platform_power_cycle_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/redfish_response_utils.hpp"
@@ -3634,6 +3635,12 @@ inline void processComputerSystemResetActionPost(
         command = "xyz.openbmc_project.State.Host.Transition.Reboot";
         hostCommand = true;
     }
+    else if (resetType == "FullPowerCycle")
+    {
+        nvidia_platform_power_cycle::requestFullPowerCycle(
+            asyncResp, computerSystemIndex, "ComputerSystem.Reset");
+        return;
+    }
     else if (resetType == "Nmi")
     {
         redfish::nvidia_systems_utils::getChassisNMIStatus(
@@ -4811,13 +4818,17 @@ inline void dbusToRfAllowedHostTransitions(
 
 inline void afterGetAllowedHostTransitions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
+    bool supportsFullPowerCycle, const boost::system::error_code& ec,
     const std::vector<std::string>& allowedHostTransitions)
 {
     nlohmann::json::array_t allowableValues;
 
     // Supported on all systems currently
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
+    if (supportsFullPowerCycle)
+    {
+        allowableValues.emplace_back(resource::ResetType::FullPowerCycle);
+    }
 
     if (ec)
     {
@@ -4860,16 +4871,42 @@ inline void afterGetAllowedHostTransitions(
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
-inline void getAllowedHostTransitions(
+inline void getAllowedHostTransitionsWithFullPowerCycleSupport(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const uint64_t computerSystemIndex)
+    const uint64_t computerSystemIndex, bool supportsFullPowerCycle)
 {
     sdbusplus::object_path path =
         systems_utils::getHostStateObjectPath(computerSystemIndex);
     dbus::utility::getProperty<std::vector<std::string>>(
         systems_utils::getHostStateServiceName(computerSystemIndex), path,
         "xyz.openbmc_project.State.Host", "AllowedHostTransitions",
-        std::bind_front(afterGetAllowedHostTransitions, asyncResp));
+        std::bind_front(afterGetAllowedHostTransitions, asyncResp,
+                        supportsFullPowerCycle));
+}
+
+inline void afterGetSystemFullPowerCycleSupport(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint64_t computerSystemIndex, const boost::system::error_code& ec,
+    bool supportsFullPowerCycle)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("Platform power-cycle capability not available: {}",
+                         ec);
+        supportsFullPowerCycle = false;
+    }
+    getAllowedHostTransitionsWithFullPowerCycleSupport(
+        asyncResp, computerSystemIndex, supportsFullPowerCycle);
+}
+
+inline void getAllowedHostTransitions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint64_t computerSystemIndex)
+{
+    nvidia_platform_power_cycle::getFullPowerCycleSupport(
+        computerSystemIndex,
+        std::bind_front(afterGetSystemFullPowerCycleSupport, asyncResp,
+                        computerSystemIndex));
 }
 
 inline void handleSystemCollectionResetActionGet(
