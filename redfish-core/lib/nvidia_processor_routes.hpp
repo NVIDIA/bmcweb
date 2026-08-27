@@ -36,7 +36,7 @@ inline void requestRoutesProcessorMetrics(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Processors/<str>/ProcessorMetrics")
+                 "/redfish/v1/Systems/<str>/Processors/<str>/ProcessorMetrics/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -65,7 +65,7 @@ inline void requestRoutesProcessorMemoryMetrics(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/MemorySummary/MemoryMetrics")
+        "/redfish/v1/Systems/<str>/Processors/<str>/MemorySummary/MemoryMetrics/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

@@ -1081,19 +1081,19 @@ inline void requestRoutesDebugTokenManagementActions(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/install-token")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/install-token/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             debugTokenManagementInstallTokenHandler, std::ref(app)));
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/Actions/NvidiaDebugTokenManagement.EraseToken")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/Actions/NvidiaDebugTokenManagement.EraseToken/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             debugTokenManagementEraseTokenHandler, std::ref(app)));
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/EraseTokenActionInfo")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/EraseTokenActionInfo/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             debugTokenManagementEraseTokenActionInfoHandler, std::ref(app)));

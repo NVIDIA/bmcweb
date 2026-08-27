@@ -654,7 +654,7 @@ inline void requestRoutesBootOptions(App& app)
         .methods(boost::beast::http::verb::delete_)(std::bind_front(
             boot_options::handleBootOptionDelete, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Settings/BootOptions")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Settings/BootOptions/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             boot_options::handleComputerSystemSettingsBootOptionsCollectionGet,

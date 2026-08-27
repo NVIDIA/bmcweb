@@ -1781,7 +1781,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.ResetToDefaults")
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -1891,7 +1891,8 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
      *
      */
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.SecureErase")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.SecureErase/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

@@ -309,7 +309,7 @@ inline void handlePowerComplianceGetRequest(
 
 inline void requestRoutesNvidiaPowerCompliance(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerComplianceGetRequest, std::ref(app)));
@@ -319,14 +319,14 @@ inline void requestRoutesNvidiaPowerComplianceManagerActions(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.AssertPowerBrake")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.AssertPowerBrake/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(assertPowerBrake, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.DeassertPowerBrake")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.DeassertPowerBrake/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(deassertPowerBrake, std::ref(app)));

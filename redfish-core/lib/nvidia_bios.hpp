@@ -2405,12 +2405,12 @@ inline void handleBiosSettingsGet(
 
 inline void requestRoutesBiosSettings(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::getBios)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleBiosSettingsGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::patchBios)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleBiosSettingsPatch, std::ref(app)));

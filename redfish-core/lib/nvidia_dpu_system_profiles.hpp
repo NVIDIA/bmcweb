@@ -1933,21 +1933,21 @@ inline void requestRoutesProfiles(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             profiles::handleGetProfileTruststoreCollection, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>/<str>")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>/<str>/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             profiles::handleGetProfileCaCertificate, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             profiles::handleProfileCaCertificatePost, std::ref(app)));

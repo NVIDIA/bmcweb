@@ -119,7 +119,7 @@ inline void handleGetObjectEmmcFullSecureErase(
 inline void requestRoutesNvidiaManagerEmmcFullSecureErase(App& app)
 {
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.FullSecureErase")
+                 "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.FullSecureErase/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

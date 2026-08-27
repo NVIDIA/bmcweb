@@ -1650,7 +1650,7 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
 
 inline void requestRoutesNvidiaOemBf(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -1704,7 +1704,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 }
             });
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.SetRshim")
+        app, "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.SetRshim/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -1748,7 +1748,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 bluefield::requestOemNvidiaRshim(asyncResp, bmcRshimEnabled,
                                                  force);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch/")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -1766,7 +1766,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 }
                 bluefield::getOemNvidiaSwitchStatus(asyncResp);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch/")
         .privileges(redfish::privileges::patchSwitch)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
@@ -1812,7 +1812,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                                                       *dpuOobEnabled);
                 }
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch.Reset")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch.Reset/")
         .privileges(redfish::privileges::postSwitch)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -1831,15 +1831,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 bluefield::resetTorSwitch(asyncResp);
             });
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates")
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             bluefield::handleTruststoreCertificatesCollectionGet,
             std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates")
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/")
         .privileges(redfish::privileges::patchComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             bluefield::handleTruststoreCertificatesCollectionPost,
@@ -1847,26 +1847,26 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/<str>")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/<str>/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             bluefield::handleTruststoreCertificatesGet, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/<str>")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates/<str>/")
         .privileges(redfish::privileges::patchComputerSystem)
         .methods(boost::beast::http::verb::delete_)(std::bind_front(
             bluefield::handleTruststoreCertificatesDelete, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys")
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys/")
         .privileges(redfish::privileges::patchComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             bluefield::handleTruststoreCertificatesResetKeys, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/SOC.ForceReset")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/SOC.ForceReset/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(
             boost::beast::http::verb::
@@ -1950,7 +1950,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 &bluefield::DpuActionSetAndGetProp::setAction,
                 &bluefield::externalHostPrivilege, std::ref(app)));
     }
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/")
         .privileges(redfish::privileges::putComputerSystem)
         .methods(boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
@@ -1968,7 +1968,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 }
                 bluefield::handleSetOemFru(app, req, asyncResp);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

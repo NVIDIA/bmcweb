@@ -134,7 +134,7 @@ inline void requestRoutesRefreshInventory(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.RefreshInventory")
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.RefreshInventory/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleRefreshInventoryAction, std::ref(app)));

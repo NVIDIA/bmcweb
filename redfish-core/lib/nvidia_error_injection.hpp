@@ -980,14 +980,14 @@ inline void requestRoutesErrorInjection(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/Oem/Nvidia/ErrorInjection/Actions/NvidiaErrorInjection.Activate")
+        "/redfish/v1/Chassis/<str>/Oem/Nvidia/ErrorInjection/Actions/NvidiaErrorInjection.Activate/")
         .privileges(redfish::privileges::postChassisCollection)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(postChassisErrorInjectionData, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/Oem/Nvidia/ErrorInjection/ActivateActionInfo")
+        "/redfish/v1/Chassis/<str>/Oem/Nvidia/ErrorInjection/ActivateActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(getChassisActivateActionInfo, std::ref(app)));

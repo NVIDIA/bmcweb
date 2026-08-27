@@ -2162,7 +2162,7 @@ inline void requestRoutesChassisFirmwareInfo(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaRoTChassis.SetIrreversibleConfig")
+        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaRoTChassis.SetIrreversibleConfig/")
         .privileges(redfish::privileges::postActionInfo)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleSetIrreversibleConfigAction, std::ref(app)));
