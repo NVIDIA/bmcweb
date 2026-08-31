@@ -11,6 +11,7 @@
 #include "nvidia_multipart_update.hpp"
 #include "nvidia_update_service.hpp"
 #include "task.hpp"
+#include "update_messages.hpp"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -656,6 +657,43 @@ TEST(MultipartPartOrder, MalformedUpdateParametersFailsBeforeUpdateFile)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_FALSE(ctx->updateParametersReceived);
     EXPECT_FALSE(ctx->stagedUpdateFile);
+}
+
+TEST(UpdateInProgressGate, LocalUpdateRejectedOnceTargetsKnown)
+{
+    redfish::fwUpdateInProgress = true;
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    completeUpdateParameters(ctx, "{}");
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 3U);
+    redfish::fwUpdateInProgress = false;
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              messages::updateInProgress()["MessageId"]);
+}
+
+TEST(UpdateInProgressGate, HeaderStageDoesNotRejectWhileUpdateInFlight)
+{
+    // A satellite-targeted update must reach target parsing even while a
+    // local update is in flight, so the request may not be rejected before
+    // the body (which carries Targets) has been read.
+    redfish::fwUpdateInProgress = true;
+    std::error_code ec;
+    crow::Request req("", ec);
+    req.addHeader(boost::beast::http::field::content_type,
+                  "multipart/form-data; boundary=aaa");
+    req.addHeader(boost::beast::http::field::content_length, "1024");
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleUpdateServiceMultipartUpdatePostHeaders(req, asyncResp);
+    redfish::fwUpdateInProgress = false;
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 200);
+    EXPECT_TRUE(asyncResp->res.jsonValue.empty());
 }
 
 TEST(MultipartPartOrder, UnknownFirstPartIsRejected)

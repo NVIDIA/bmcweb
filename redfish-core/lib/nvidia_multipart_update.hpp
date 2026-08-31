@@ -110,8 +110,8 @@ inline void startSoftwareUpdate(
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
     // Claim the guard atomically with the check at the dispatch point: a second
-    // request that passed the header-stage check while this one was still
-    // uploading is rejected here instead of racing into a concurrent
+    // local request that passed the startRequest() check while this one was
+    // still uploading is rejected here instead of racing into a concurrent
     // StartUpdate.
     if (redfish::fwUpdateInProgress)
     {
@@ -248,9 +248,9 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         sdbusplus::message::unix_fd fd(memfd.fd);
 
         // Claim the guard atomically with the check at the dispatch point: a
-        // second request that passed the header-stage check while this one was
-        // still uploading is rejected here instead of racing into a concurrent
-        // StartUpdate.
+        // second local request that passed the startRequest() check while this
+        // one was still uploading is rejected here instead of racing into a
+        // concurrent StartUpdate.
         if (redfish::fwUpdateInProgress)
         {
             BMCWEB_LOG_ERROR("Update already in progress.");
@@ -919,6 +919,21 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             localTargetsOut.insert(localTargetsOut.end(),
                                    satelliteTargetsOut.begin(),
                                    satelliteTargetsOut.end());
+        }
+
+        // Only allow one local firmware update at a time.  Satellite-targeted
+        // updates are forwarded above without consulting the guard: the
+        // satellite BMC serializes its own updates, and a local update in
+        // flight must not block it.
+        if (redfish::fwUpdateInProgress)
+        {
+            BMCWEB_LOG_ERROR("Update already in progress.");
+            redfish::messages::updateInProgressMsg(
+                asyncResp->res,
+                "Another update is in progress. Retry the update operation "
+                "once it is complete.");
+            failClientResponse();
+            return;
         }
 
         localUpdate(localTargetsOut);
@@ -1639,17 +1654,10 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
         messages::headerInvalid(asyncResp->res, "Content-Length");
         return;
     }
-    // Only allow one firmware update at a time (the streaming flow no longer
-    // calls preCheckMultipartUpdateServiceReq()).
-    if (redfish::fwUpdateInProgress)
-    {
-        BMCWEB_LOG_ERROR("Update already in progress.");
-        redfish::messages::updateInProgressMsg(
-            asyncResp->res,
-            "Another update is in progress. Retry the update operation once "
-            "it is complete.");
-        return;
-    }
+    // The one-update-at-a-time guard is NOT checked here: Targets arrive in
+    // the body, and a satellite-targeted update must be forwarded even while
+    // a local update is in flight.  startRequest() rejects local updates once
+    // targets are known; the dispatch points claim the guard.
     // Register streaming callbacks for the multipart parser
     std::shared_ptr<UpdateCtx> contextPtr =
         std::make_shared<UpdateCtx>(contentLength, Payload(req));
