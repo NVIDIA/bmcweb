@@ -34,14 +34,10 @@ namespace redfish
 namespace secure_boot
 {
 
-inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
-                                const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                [[maybe_unused]] const std::string& systemName)
+inline void populateSecureBoot(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
-    if (!redfish::setUpRedfishRoute(app, req, aResp))
-    {
-        return;
-    }
     aResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/SecureBoot";
@@ -54,125 +50,112 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/SecureBoot/SecureBootDatabases";
 
+    std::string secureBootCurrentBoot;
+    bool secureBootEnable = false;
+    std::string secureBootMode;
+    for (const auto& [propertyName, propertyVariant] : properties)
+    {
+        if (propertyName == "CurrentBoot" &&
+            std::holds_alternative<std::string>(propertyVariant))
+        {
+            secureBootCurrentBoot = std::get<std::string>(propertyVariant);
+        }
+        else if (propertyName == "PendingEnable" &&
+                 std::holds_alternative<bool>(propertyVariant))
+        {
+            secureBootEnable = std::get<bool>(propertyVariant);
+        }
+        else if (propertyName == "Mode" &&
+                 std::holds_alternative<std::string>(propertyVariant))
+        {
+            secureBootMode = std::get<std::string>(propertyVariant);
+        }
+    }
+    if (secureBootCurrentBoot ==
+            "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Unknown" ||
+        secureBootMode ==
+            "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Unknown")
+    {
+        // BMC has not yet recevied data.
+        return;
+    }
+
+    if (secureBootCurrentBoot ==
+        "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Enabled")
+    {
+        aResp->res.jsonValue["SecureBootCurrentBoot"] = "Enabled";
+    }
+    else if (
+        secureBootCurrentBoot ==
+        "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Disabled")
+    {
+        aResp->res.jsonValue["SecureBootCurrentBoot"] = "Disabled";
+    }
+
+    aResp->res.jsonValue["SecureBootEnable"] = secureBootEnable;
+
+    if (secureBootMode ==
+        "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Setup")
+    {
+        aResp->res.jsonValue["SecureBootMode"] = "SetupMode";
+    }
+    else if (secureBootMode ==
+             "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.User")
+    {
+        aResp->res.jsonValue["SecureBootMode"] = "UserMode";
+    }
+    else if (secureBootMode ==
+             "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Audit")
+    {
+        aResp->res.jsonValue["SecureBootMode"] = "AuditMode";
+    }
+    else if (secureBootMode ==
+             "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Deployed")
+    {
+        aResp->res.jsonValue["SecureBootMode"] = "DeployedMode";
+    }
+}
+
+inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
+                                const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                [[maybe_unused]] const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+
     dbus::utility::getAllProperties(
         "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.SecureBoot",
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
-                BMCWEB_LOG_ERROR("DBUS response error on SecureBoot GetAll: {}",
-                                 ec);
-                messages::internalError(aResp->res);
+                BMCWEB_LOG_DEBUG(
+                    "SecureBoot unsupported: no BIOSConfigManager present");
+                messages::resourceNotFound(aResp->res, "SecureBoot",
+                                           "SecureBoot");
                 return;
             }
-
-            std::string secureBootCurrentBoot;
-            bool secureBootEnable = false;
-            std::string secureBootMode;
-            for (const auto& [propertyName, propertyVariant] : properties)
-            {
-                if (propertyName == "CurrentBoot" &&
-                    std::holds_alternative<std::string>(propertyVariant))
-                {
-                    secureBootCurrentBoot =
-                        std::get<std::string>(propertyVariant);
-                }
-                else if (propertyName == "PendingEnable" &&
-                         std::holds_alternative<bool>(propertyVariant))
-                {
-                    secureBootEnable = std::get<bool>(propertyVariant);
-                }
-                else if (propertyName == "Mode" &&
-                         std::holds_alternative<std::string>(propertyVariant))
-                {
-                    secureBootMode = std::get<std::string>(propertyVariant);
-                }
-            }
-            if (secureBootCurrentBoot ==
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Unknown" ||
-                secureBootMode ==
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Unknown")
-            {
-                // BMC has not yet recevied data.
-                return;
-            }
-
-            if (secureBootCurrentBoot ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Enabled")
-            {
-                aResp->res.jsonValue["SecureBootCurrentBoot"] = "Enabled";
-            }
-            else if (
-                secureBootCurrentBoot ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Disabled")
-            {
-                aResp->res.jsonValue["SecureBootCurrentBoot"] = "Disabled";
-            }
-
-            aResp->res.jsonValue["SecureBootEnable"] = secureBootEnable;
-
-            if (secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Setup")
-            {
-                aResp->res.jsonValue["SecureBootMode"] = "SetupMode";
-            }
-            else if (secureBootMode ==
-                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.User")
-            {
-                aResp->res.jsonValue["SecureBootMode"] = "UserMode";
-            }
-            else if (secureBootMode ==
-                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Audit")
-            {
-                aResp->res.jsonValue["SecureBootMode"] = "AuditMode";
-            }
-            else if (
-                secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Deployed")
-            {
-                aResp->res.jsonValue["SecureBootMode"] = "DeployedMode";
-            }
+            populateSecureBoot(aResp, properties);
         });
 }
 
-inline void handleSecureBootPatch(
-    crow::App& app, const crow::Request& req,
+inline void applySecureBootPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& username,
+    const std::optional<std::string>& secureBootCurrentBoot,
+    const std::optional<bool>& secureBootEnable,
+    const std::optional<std::string>& secureBootMode)
 {
-    if (!redfish::setUpRedfishRoute(app, req, aResp))
-    {
-        return;
-    }
-    std::optional<std::string> secureBootCurrentBoot;
-    std::optional<bool> secureBootEnable;
-    std::optional<std::string> secureBootMode;
-    if (!json_util::readJsonPatch(
-            req, aResp->res, "SecureBootCurrentBoot", secureBootCurrentBoot,
-            "SecureBootEnable", secureBootEnable, "SecureBootMode",
-            secureBootMode))
-    {
-        return;
-    }
-
-    if (req.session == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Session is null");
-        messages::insufficientPrivilege(aResp->res);
-        return;
-    }
-    privilege_utils::isBiosPrivilege(req.session->username, [secureBootCurrentBoot,
-                                                             secureBootEnable,
-                                                             secureBootMode,
-                                                             aResp](
-                                                                const boost::
-                                                                    system::
-                                                                        error_code
-                                                                            ec,
-                                                                const bool
-                                                                    isBios) {
+    privilege_utils::isBiosPrivilege(username, [secureBootCurrentBoot,
+                                                secureBootEnable,
+                                                secureBootMode,
+                                                aResp](const boost::system::
+                                                           error_code ec,
+                                                       const bool isBios) {
         if (ec || !isBios)
         {
             if (secureBootMode || secureBootCurrentBoot)
@@ -287,6 +270,60 @@ inline void handleSecureBootPatch(
                 });
         }
     });
+}
+
+inline void handleSecureBootPatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+
+    std::optional<std::string> secureBootCurrentBoot;
+    std::optional<bool> secureBootEnable;
+    std::optional<std::string> secureBootMode;
+    if (!json_util::readJsonPatch(
+            req, aResp->res, "SecureBootCurrentBoot", secureBootCurrentBoot,
+            "SecureBootEnable", secureBootEnable, "SecureBootMode",
+            secureBootMode))
+    {
+        return;
+    }
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Session is null");
+        messages::insufficientPrivilege(aResp->res);
+        return;
+    }
+
+    const std::string& username = req.session->username;
+    constexpr auto secureBootIntfs = std::array{
+        std::string_view{"xyz.openbmc_project.BIOSConfig.SecureBoot"}};
+    dbus::utility::getSubTree(
+        "/", 0, secureBootIntfs,
+        [aResp, username, secureBootCurrentBoot, secureBootEnable,
+         secureBootMode](const boost::system::error_code& ec,
+                         const MapperGetSubTreeResponse& subTree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            if (subTree.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "SecureBoot unsupported: no BIOSConfigManager present");
+                messages::resourceNotFound(aResp->res, "SecureBoot",
+                                           "SecureBoot");
+                return;
+            }
+            applySecureBootPatch(aResp, username, secureBootCurrentBoot,
+                                 secureBootEnable, secureBootMode);
+        });
 }
 
 } // namespace secure_boot
