@@ -5,13 +5,10 @@
 #include "error_messages.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
-#include "utils/origin_utils.hpp"
+#include "utils/chassis_utils.hpp"
 
 #include <asm-generic/errno.h>
 
-#include <boost/url/format.hpp>
-#include <boost/url/parse.hpp>
-#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
 
@@ -51,45 +48,20 @@ inline void getAssociatedDomains(
         interfaces, std::move(callback));
 }
 
-inline std::optional<boost::urls::url> redfishUriForObject(
-    const sdbusplus::message::object_path& objectPath)
+inline void appendAffectedComponent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json::json_pointer& domainPointer, const std::string& path,
+    bool status, const std::string& url)
 {
-    const std::string& path = objectPath;
-    const std::string deviceName = objectPath.filename();
-
-    if (deviceName == "BOARD_FRU_ASSEMBLY" ||
-        deviceName == "PRODUCT_FRU_ASSEMBLY" ||
-        deviceName == "CHASSIS_FRU_ASSEMBLY")
+    if (!status)
     {
-        return boost::urls::format("/redfish/v1/Chassis/{}/Assembly",
-                                   BMCWEB_PLATFORM_CHASSIS_NAME);
+        BMCWEB_LOG_ERROR("Error converting {} into Redfish URI", path);
+        return;
     }
-
-    for (const auto& [dbusPrefix, redfishPrefix] :
-         origin_utils::dBusToRedfishURI)
-    {
-        if (!path.starts_with(dbusPrefix))
-        {
-            continue;
-        }
-
-        std::string redfishPath = redfishPrefix;
-        while (redfishPath.ends_with('/'))
-        {
-            redfishPath.pop_back();
-        }
-        redfishPath += '/';
-        redfishPath += path.substr(dbusPrefix.length());
-        auto parsed = boost::urls::parse_relative_ref(redfishPath);
-        if (!parsed)
-        {
-            BMCWEB_LOG_ERROR("Error constructing Redfish URI from: {}", path);
-            return std::nullopt;
-        }
-        return boost::urls::url(*parsed);
-    }
-
-    return std::nullopt;
+    nlohmann::json::object_t entry;
+    entry["@odata.id"] = url;
+    asyncResp->res.jsonValue[domainPointer]["AffectedComponents"].emplace_back(
+        std::move(entry));
 }
 
 inline void processAssociatedDomains(
@@ -173,20 +145,14 @@ inline void afterGetAssociatedProtectedComponents(
         return;
     }
 
-    auto& domainJson = asyncResp->res.jsonValue[domainPointer];
-    auto& affectedComponents = domainJson["AffectedComponents"];
-    affectedComponents = nlohmann::json::array();
+    asyncResp->res.jsonValue[domainPointer]["AffectedComponents"] =
+        nlohmann::json::array();
+
     for (const std::string& path : affectedObjectPaths)
     {
-        std::optional<boost::urls::url> uri = redfishUriForObject(path);
-        if (!uri)
-        {
-            BMCWEB_LOG_ERROR("Error converting {} into Redfish URI", path);
-            continue;
-        }
-        nlohmann::json entry;
-        entry["@odata.id"] = *uri;
-        affectedComponents.emplace_back(std::move(entry));
+        chassis_utils::getRedfishURL(
+            path, std::bind_front(appendAffectedComponent, asyncResp,
+                                  domainPointer, path));
     }
 }
 
