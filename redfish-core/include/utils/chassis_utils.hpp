@@ -49,6 +49,11 @@ constexpr const char* bmcInvInterf = "xyz.openbmc_project.Inventory.Item.BMC";
 constexpr const char* chassisInvInterf =
     "xyz.openbmc_project.Inventory.Item.Chassis";
 
+constexpr const char* panelInvIntf = "xyz.openbmc_project.Inventory.Item.Panel";
+
+constexpr const char* assemblyInvIntf =
+    "xyz.openbmc_project.Inventory.Item.Assembly";
+
 constexpr const char* gpmMetricsIntf = "com.nvidia.GPMMetrics";
 
 using Associations =
@@ -698,6 +703,32 @@ inline void getAssociationEndpoints(const std::string& objPath,
         });
 }
 
+inline std::string assemblyPathForChassis(const std::string& chassisId)
+{
+    if (chassisId.empty())
+    {
+        return "";
+    }
+    return boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId)
+        .buffer();
+}
+
+inline void afterGetAssemblyParentChassis(
+    std::invocable<bool, const std::string&> auto&& callback, bool status,
+    const std::string& parentChassisPath)
+{
+    if (!status || parentChassisPath.empty())
+    {
+        callback(false, std::string());
+        return;
+    }
+
+    sdbusplus::object_path parentChassis(parentChassisPath);
+    std::string parentChassisId = parentChassis.filename();
+    std::string assemblyPath = assemblyPathForChassis(parentChassisId);
+    callback(!assemblyPath.empty(), assemblyPath);
+}
+
 template <typename CallbackFunc>
 inline void getRedfishURL(const std::filesystem::path& invObjPath,
                           CallbackFunc&& callback)
@@ -837,6 +868,21 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
 
                                 callback(true, urlResult);
                                 return;
+                            });
+                        return;
+                    }
+                    if (interface == panelInvIntf ||
+                        interface == assemblyInvIntf)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "{} {} => getAssociationEndpoint({}/parent_chassis)",
+                            service, interface, invObjPath.string());
+                        getAssociationEndpoint(
+                            invObjPath.string() + "/parent_chassis",
+                            [callback](bool status,
+                                       const std::string& parentChassisPath) {
+                                afterGetAssemblyParentChassis(
+                                    callback, status, parentChassisPath);
                             });
                         return;
                     }
