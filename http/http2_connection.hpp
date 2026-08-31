@@ -24,6 +24,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
+#include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/error.hpp>
@@ -1044,7 +1045,8 @@ class HTTP2Connection :
         {
             // EOF is normal when client closes HTTP/2 connection
             // Only log non-EOF errors
-            if (ec != boost::asio::error::eof)
+            if (ec != boost::asio::error::eof &&
+                ec != boost::asio::ssl::error::stream_truncated)
             {
                 BMCWEB_LOG_ERROR("{} Error while reading: {}", logPtr(this),
                                  ec.message());
