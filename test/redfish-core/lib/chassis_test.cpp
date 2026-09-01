@@ -240,5 +240,55 @@ TEST(HandleChassisProperties, TypeNotFound)
     ASSERT_EQ("RackMount", response->res.jsonValue["ChassisType"]);
 }
 
+TEST(HandleDirectSKURead, NotSupportedOmitsSku)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_chassis_utils::handleDirectSKURead(
+        response, "/xyz/openbmc_project/inventory/system/chassis/test",
+        "xyz.openbmc_project.NSM", {},
+        std::string(redfish::propertyNotSupported));
+
+    EXPECT_FALSE(response->res.jsonValue.contains("SKU"));
+}
+
+TEST(HandleDirectSKURead, NotSupportedDoesNotClobberExistingSku)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+    response->res.jsonValue["SKU"] = "REAL-SKU";
+
+    nvidia_chassis_utils::handleDirectSKURead(
+        response, "/xyz/openbmc_project/inventory/system/chassis/test",
+        "xyz.openbmc_project.NSM", {},
+        std::string(redfish::propertyNotSupported));
+
+    EXPECT_EQ(response->res.jsonValue["SKU"], "REAL-SKU");
+}
+
+TEST(HandleAssociatedSKURead, NotSupportedOmitsSku)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_chassis_utils::handleAssociatedSKURead(
+        response, "xyz.openbmc_project.EntityManager",
+        "/xyz/openbmc_project/inventory/system/chassis/associated", {},
+        std::string(redfish::propertyNotSupported));
+
+    EXPECT_FALSE(response->res.jsonValue.contains("SKU"));
+}
+
+TEST(HandleAssociatedSKURead, NotSupportedDoesNotClobberExistingSku)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+    response->res.jsonValue["SKU"] = "REAL-SKU";
+
+    nvidia_chassis_utils::handleAssociatedSKURead(
+        response, "xyz.openbmc_project.EntityManager",
+        "/xyz/openbmc_project/inventory/system/chassis/associated", {},
+        std::string(redfish::propertyNotSupported));
+
+    EXPECT_EQ(response->res.jsonValue["SKU"], "REAL-SKU");
+}
+
 } // namespace
 } // namespace redfish

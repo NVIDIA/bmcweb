@@ -3844,16 +3844,13 @@ inline void getChassisOemNvidiaSKU(
                     ec.message());
                 return;
             }
-            if (!sku.empty())
+            if (sku.empty())
             {
-                BMCWEB_LOG_INFO("Successfully set OEM Nvidia SKU from {}: {}",
-                                path, sku);
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["SKU"] = sku;
+                BMCWEB_LOG_DEBUG("OEM Nvidia SKU from {} is empty", path);
+                return;
             }
-            else
-            {
-                BMCWEB_LOG_ERROR("OEM Nvidia SKU from {} is empty", path);
-            }
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue["Oem"]["Nvidia"],
+                                    "SKU", &sku);
         });
 }
 
@@ -3926,18 +3923,17 @@ inline void handleAssociatedSKURead(
                          ec.message());
         return;
     }
-    if (!sku.empty())
-    {
-        BMCWEB_LOG_INFO("Successfully set SKU from associated object {}: {}",
-                        associatedPath, sku);
-        asyncResp->res.jsonValue["SKU"] = sku;
-        // Check if associated path also has Async.Set for OEM SKU
-        checkAndAddOemSKUIfWritable(asyncResp, service, associatedPath);
-    }
-    else
+    if (sku.empty())
     {
         BMCWEB_LOG_DEBUG("SKU from associated object {} is empty",
                          associatedPath);
+        return;
+    }
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SKU", &sku);
+    // Only a real SKU (not a tombstone) can be writable via Async.Set.
+    if (sku != redfish::propertyNotSupported)
+    {
+        checkAndAddOemSKUIfWritable(asyncResp, service, associatedPath);
     }
 }
 
@@ -4042,20 +4038,22 @@ inline void handleDirectSKURead(
         checkAssociatedSKU(asyncResp, path);
         return;
     }
-    if (!chassisSKU.empty())
+    if (chassisSKU.empty())
     {
-        BMCWEB_LOG_DEBUG("Successfully set SKU for {}: {}", path, chassisSKU);
-        asyncResp->res.jsonValue["SKU"] = chassisSKU;
-        // Check if this path also has Async.Set for OEM SKU
-        checkAndAddOemSKUIfWritable(asyncResp, connectionName, path);
-    }
-    else
-    {
-        // SKU property is empty, check for backward association
+        // An empty property is inconclusive, so check the association fallback.
         BMCWEB_LOG_DEBUG(
             "SKU property is empty for {}, checking backward association",
             path);
         checkAssociatedSKU(asyncResp, path);
+        return;
+    }
+    // A NOT_SUPPORTED tombstone is provider-local: omit it without erasing a
+    // SKU supplied by another callback.
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SKU", &chassisSKU);
+    // Only a real SKU (not a tombstone) can be writable via Async.Set.
+    if (chassisSKU != redfish::propertyNotSupported)
+    {
+        checkAndAddOemSKUIfWritable(asyncResp, connectionName, path);
     }
 }
 
