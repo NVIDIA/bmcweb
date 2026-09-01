@@ -304,6 +304,9 @@ conf_h_dep = declare_dependency(
 https_port = get_option('https_port')
 if https_port > 0
     http_level_allowed = 'https'
+    if get_option('tls-auth-opt-in').allowed()
+        http_level_allowed = 'both'
+    endif
     if get_option('insecure-disable-ssl').allowed()
         http_level_allowed = 'http'
         if https_port == 443
@@ -318,7 +321,7 @@ if https_port > 0
         configuration: configuration_data(
             {
                 'BMCWEB_PORT': https_port,
-                'HTTP_LEVEL_ALLOWED': 'both',
+                'HTTP_LEVEL_ALLOWED': http_level_allowed,
                 'HTTP_AUTH_LEVEL': 'auth',
                 'HTTP_BIND': '',
             },
