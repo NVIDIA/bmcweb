@@ -28,6 +28,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -563,7 +564,7 @@ inline void getChassisUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["UUID"] = chassisUUID;
+            mapValidOrNull(asyncResp->res.jsonValue, "UUID", &chassisUUID);
         });
 }
 
