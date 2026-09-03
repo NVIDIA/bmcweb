@@ -670,11 +670,6 @@ inline void handleChassisProperties(
         return;
     }
 
-    // Chassis Type is a required property in Redfish
-    // If there is an error or some enum we don't support just sit it to Rack
-    // Mount
-    asyncResp->res.jsonValue["ChassisType"] = chassis::ChassisType::RackMount;
-
     if (type != nullptr)
     {
         auto chassisType = translateChassisTypeToRedfish(*type);
@@ -682,6 +677,14 @@ inline void handleChassisProperties(
         {
             asyncResp->res.jsonValue["ChassisType"] = chassisType;
         }
+    }
+
+    // Chassis Type is a required property in Redfish
+    // If there is an error or unsupported enum, set it to RackMount
+    if (!asyncResp->res.jsonValue.contains("ChassisType"))
+    {
+        asyncResp->res.jsonValue["ChassisType"] =
+            chassis::ChassisType::RackMount;
     }
 }
 
