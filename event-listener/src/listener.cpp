@@ -484,7 +484,7 @@ class listener : public std::enable_shared_from_this<listener>
         }
 
         // Create the session and run it
-        if (redfishEventMgr::getSessNum() <= maxSessionNum)
+        if (redfishEventMgr::getSessNum() < maxSessionNum)
         {
             std::make_shared<session>(std::move(socket), conn_)->run();
         }
