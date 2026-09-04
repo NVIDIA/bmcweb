@@ -998,11 +998,25 @@ class RedfishAggregator
                                    getAggregationPolicy())),
         sseAggregator(getIoContext())
     {
-        // Registers SatMC refresh + retry / periodic refresh
-        sseAggregator.start(
-            [](SatelliteConfigHandler handler, bool forceRefresh) {
-                getSatelliteConfigs(std::move(handler), forceRefresh);
-            });
+        // Get satellite configs and initialize SSE aggregator when ready
+        getSatelliteConfigs([this](const boost::system::error_code& ec,
+                                   const std::unordered_map<std::string,
+                                                            boost::urls::url>&
+                                       satelliteInfo) {
+            constructorCallback(ec, satelliteInfo);
+
+            // Initialize SSE aggregator after configs are loaded
+            if (!ec && !satelliteInfo.empty())
+            {
+                BMCWEB_LOG_INFO("Starting SSE Event Aggregator");
+                sseAggregator.start(satelliteInfo);
+            }
+            else
+            {
+                BMCWEB_LOG_WARNING(
+                    "SSE Event Aggregator not started - no satellite configuration available");
+            }
+        });
     }
     RedfishAggregator(const RedfishAggregator&) = delete;
     RedfishAggregator& operator=(const RedfishAggregator&) = delete;
@@ -1027,13 +1041,12 @@ class RedfishAggregator
         std::function<
             void(const boost::system::error_code&,
                  const std::unordered_map<std::string, boost::urls::url>&)>
-            handler,
-        bool forceRefresh = false)
+            handler)
     {
         static std::unordered_map<std::string, boost::urls::url> cachedSatInfo =
             {};
         std::size_t cacheSize = cachedSatInfo.size();
-        if (!forceRefresh && cacheSize != 0)
+        if (cacheSize != 0)
         {
             auto ec = boost::system::errc::make_error_code(
                 boost::system::errc::success);
