@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <format>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -106,6 +107,8 @@ static void generateTokenRequestCallback(
     }
     else if (std::holds_alternative<std::string>(result))
     {
+        std::string cacheKey = std::format("{}:{}", chassisId, componentId);
+        getTokenDataCache().erase(cacheKey);
         std::string error = std::get<std::string>(result);
         if (error == "Error_RequesterCommunication")
         {
@@ -121,6 +124,8 @@ static void generateTokenRequestCallback(
     }
     else
     {
+        std::string cacheKey = std::format("{}:{}", chassisId, componentId);
+        getTokenDataCache().erase(cacheKey);
         messages::internalError(asyncResp->res);
     }
 }
@@ -260,7 +265,7 @@ inline void handleUnifiedTokenStatus(
         return;
     }
     std::optional<uint64_t> parsedTokenId = stringToUint64(id);
-    if (!parsedTokenId)
+    if (!parsedTokenId || *parsedTokenId > std::numeric_limits<uint32_t>::max())
     {
         messages::resourceNotFound(
             asyncResp->res,
@@ -418,8 +423,9 @@ inline std::string extractTokenFile(
 }
 
 // Nvidia code starts here
-inline void installTokenRedfishURLCallback(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+static void installTokenRedfishURLCallback(
+    const std::string& tokenFile,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Nvidia code ends here
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
@@ -432,21 +438,17 @@ inline void installTokenRedfishURLCallback(
         messages::internalError(asyncResp->res);
         return;
     }
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    if (!contentType.starts_with("multipart/form-data"))
-    {
-        BMCWEB_LOG_DEBUG("Bad content type specified: {}", contentType);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        return;
-    }
-    // Nvidia code starts here
-    std::string tokenFile = extractTokenFile(asyncResp, req.multipart());
 
-    auto tlvMemFd = std::make_shared<MemoryFD>();
+    // Nvidia code starts here
+    std::shared_ptr<MemoryFD> tlvMemFd;
     try
     {
-        // Nvidia code starts here
+        tlvMemFd = std::make_shared<MemoryFD>();
         tlvMemFd->writeString(tokenFile);
+        if (!tlvMemFd->rewind())
+        {
+            BMCWEB_LOG_WARNING("Failed to rewind token memfd before install");
+        }
         // Nvidia code ends here
     }
     catch (const std::exception& e)
@@ -463,8 +465,9 @@ inline void installTokenRedfishURLCallback(
 }
 
 // Nvidia code starts here
-inline void installAssociationEndpointCallback(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+static void installAssociationEndpointCallback(
+    const std::string& tokenFile,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Nvidia code ends here
     const std::string& chassisId, const std::string& componentId,
     const std::string& targetChassisId, bool valid,
@@ -477,16 +480,12 @@ inline void installAssociationEndpointCallback(
         messages::internalError(asyncResp->res);
         return;
     }
+    // Nvidia code starts here
     chassis_utils::getRedfishURL(
         associationEndpoint,
-        [&req, asyncResp, chassisId, componentId,
-         // Nvidia code starts here
-         targetChassisId](bool valid2, const std::string& redfishURL) {
-            // Nvidia code ends here
-            installTokenRedfishURLCallback(req, asyncResp, chassisId,
-                                           componentId, targetChassisId, valid2,
-                                           redfishURL);
-        });
+        std::bind_front(&installTokenRedfishURLCallback, tokenFile, asyncResp,
+                        chassisId, componentId, targetChassisId));
+    // Nvidia code ends here
 }
 
 inline void handleUnifiedInstallToken(
@@ -500,6 +499,20 @@ inline void handleUnifiedInstallToken(
     {
         return;
     }
+    // Nvidia code starts here
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    if (!contentType.starts_with("multipart/form-data"))
+    {
+        BMCWEB_LOG_DEBUG("Bad content type specified: {}", contentType);
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+    std::string tokenFile = extractTokenFile(asyncResp, req.multipart());
+    if (tokenFile.empty())
+    {
+        return;
+    }
+    // Nvidia code ends here
     std::string targetChassisId =
         std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
     std::string inventoryPath = std::format(
@@ -508,9 +521,10 @@ inline void handleUnifiedInstallToken(
     chassis_utils::getAssociationEndpoint(
         inventoryPath,
         // Nvidia code starts here
-        std::bind_front(&installAssociationEndpointCallback, std::ref(req),
+        std::bind_front(&installAssociationEndpointCallback,
                         // Nvidia code ends here
-                        asyncResp, chassisId, componentId, targetChassisId));
+                        std::move(tokenFile), asyncResp, chassisId, componentId,
+                        targetChassisId));
 }
 
 /**

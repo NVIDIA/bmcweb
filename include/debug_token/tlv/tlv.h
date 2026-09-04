@@ -20,8 +20,8 @@
 #include <array>
 #include <cstdint>
 #include <map>
-#include <memory>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -155,7 +155,7 @@ class Item
     static std::string getTypeName(uint16_t type);
 
   private:
-    std::shared_ptr<ItemHeader> header;
+    ItemHeader header{};
     std::vector<uint8_t> data;
 };
 
@@ -213,7 +213,7 @@ class Structure
     const Item& get(uint16_t type) const;
 
   private:
-    std::shared_ptr<StructureHeader> header;
+    StructureHeader header{};
     std::map<uint16_t, Item> data;
 };
 } // namespace tlv_decoder
@@ -332,7 +332,7 @@ class Structure
     std::vector<uint8_t> encode();
 
   private:
-    std::shared_ptr<StructureHeader> header;
+    StructureHeader header{};
     std::map<uint16_t, Item> data;
 };
 

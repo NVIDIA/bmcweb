@@ -61,19 +61,18 @@ const std::vector<uint8_t>& Item::getValue() const
 
 Structure::Structure()
 {
-    header = std::make_shared<StructureHeader>();
-    std::memcpy(header->identifier.data(), tlvIdentifier.data(),
+    std::memcpy(header.identifier.data(), tlvIdentifier.data(),
                 sizeof(tlvIdentifier));
-    header->versionMajor = htole16(1);
-    header->versionMinor = htole16(0);
-    header->size = htole32(0);
-    std::memset(header->reserved.data(), 0, sizeof(header->reserved));
+    header.versionMajor = htole16(1);
+    header.versionMinor = htole16(0);
+    header.size = htole32(0);
+    std::memset(header.reserved.data(), 0, sizeof(header.reserved));
 }
 
 void Structure::setVersion(uint16_t major, uint16_t minor)
 {
-    header->versionMajor = htole16(major);
-    header->versionMinor = htole16(minor);
+    header.versionMajor = htole16(major);
+    header.versionMinor = htole16(minor);
 }
 
 void Structure::add(uint16_t type, const std::vector<uint8_t>& input)
@@ -153,13 +152,13 @@ std::vector<uint8_t> Structure::encode()
             throw std::overflow_error("TLV structure size exceeds max value");
         }
     }
-    header->size = static_cast<uint32_t>(totalSize);
+    header.size = static_cast<uint32_t>(totalSize);
 
     std::vector<uint8_t> result;
-    result.reserve(sizeof(StructureHeader) + header->size);
+    result.reserve(sizeof(StructureHeader) + header.size);
     result.resize(sizeof(StructureHeader));
-    header->size = htole32(header->size);
-    std::memcpy(result.data(), header.get(), sizeof(StructureHeader));
+    header.size = htole32(header.size);
+    std::memcpy(result.data(), &header, sizeof(StructureHeader));
     for (const auto& [type, value] : data)
     {
         result.insert(result.end(), value.getValue().begin(),

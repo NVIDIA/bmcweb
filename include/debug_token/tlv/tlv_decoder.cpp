@@ -56,14 +56,13 @@ Item::Item(const std::span<const uint8_t> input)
             "TLV item input data is shorter than the header - size: {}",
             input.size()));
     }
-    header = std::make_shared<ItemHeader>();
-    std::memcpy(header.get(), input.data(), sizeof(ItemHeader));
-    auto dataLength = static_cast<size_t>(le16toh(header->size));
+    std::memcpy(&header, input.data(), sizeof(ItemHeader));
+    auto dataLength = static_cast<size_t>(le16toh(header.size));
     if (dataLength > input.size() - sizeof(ItemHeader))
     {
         throw std::runtime_error(
             std::format("TLV item input data is too short - type: {}, size: {}",
-                        le16toh(header->type), le16toh(header->size)));
+                        le16toh(header.type), le16toh(header.size)));
     }
     data = std::vector<uint8_t>(
         input.begin() + static_cast<std::ptrdiff_t>(sizeof(ItemHeader)),
@@ -73,7 +72,7 @@ Item::Item(const std::span<const uint8_t> input)
 
 uint16_t Item::getType() const
 {
-    return static_cast<uint16_t>(le16toh(header->type));
+    return static_cast<uint16_t>(le16toh(header.type));
 }
 
 size_t Item::getTotalSize() const
@@ -83,7 +82,7 @@ size_t Item::getTotalSize() const
 
 size_t Item::getValueSize() const
 {
-    return static_cast<size_t>(le16toh(header->size));
+    return static_cast<size_t>(le16toh(header.size));
 }
 
 const std::vector<uint8_t>& Item::getRawValue() const
@@ -241,23 +240,24 @@ Structure::Structure(const std::vector<uint8_t>& input)
 
 void Structure::decode(const std::vector<uint8_t>& input)
 {
+    data.clear();
+    header = {};
     if (input.size() < sizeof(StructureHeader))
     {
         throw std::runtime_error(std::format(
             "TLV structure input data is shorter than the header - size: {}",
             input.size()));
     }
-    header = std::make_shared<StructureHeader>();
-    std::memcpy(header.get(), input.data(), sizeof(StructureHeader));
-    if (std::memcmp(header->identifier.data(), tlvIdentifier.data(), 4) != 0)
+    std::memcpy(&header, input.data(), sizeof(StructureHeader));
+    if (std::memcmp(header.identifier.data(), tlvIdentifier.data(), 4) != 0)
     {
         throw std::runtime_error(std::format(
             "Invalid TLV identifier - identifier: {:02X}{:02X}{:02X}{:02X}",
-            header->identifier[0], header->identifier[1], header->identifier[2],
-            header->identifier[3]));
+            header.identifier[0], header.identifier[1], header.identifier[2],
+            header.identifier[3]));
     }
     auto expectedSize =
-        static_cast<size_t>(le32toh(header->size)) + sizeof(StructureHeader);
+        static_cast<size_t>(le32toh(header.size)) + sizeof(StructureHeader);
     if (expectedSize != input.size())
     {
         throw std::runtime_error(std::format(
@@ -295,8 +295,8 @@ void Structure::decode(const std::vector<uint8_t>& input)
 
 std::pair<uint16_t, uint16_t> Structure::getVersion() const
 {
-    return std::make_pair(le16toh(header->versionMajor),
-                          le16toh(header->versionMinor));
+    return std::make_pair(le16toh(header.versionMajor),
+                          le16toh(header.versionMinor));
 }
 
 std::vector<uint16_t> Structure::getTypes() const

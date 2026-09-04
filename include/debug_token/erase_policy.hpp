@@ -55,9 +55,25 @@ static inline void dbusGetHandler(
         callback(std::nullopt);
         return;
     }
-    std::string policyStr = policy.substr(policy.find_last_of('.') + 1);
-    bool automatic = policyStr == "Automatic";
-    callback(automatic);
+    if (!policy.starts_with(erasePolicyEnumPrefix))
+    {
+        BMCWEB_LOG_WARNING("Unexpected erase policy value: {}", policy);
+        callback(std::nullopt);
+        return;
+    }
+    std::string policyStr = policy.substr(erasePolicyEnumPrefix.size());
+    if (policyStr == "Automatic")
+    {
+        callback(true);
+        return;
+    }
+    if (policyStr == "Manual")
+    {
+        callback(false);
+        return;
+    }
+    BMCWEB_LOG_WARNING("Unknown erase policy value: {}", policy);
+    callback(std::nullopt);
 }
 
 /*
