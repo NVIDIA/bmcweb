@@ -32,7 +32,7 @@ TEST(NvidiaUpdateRegistry, EntriesAlphabetical)
 {
     // parse_registries.py emits entries sorted by message key; the Index enum
     // is positional, so ordering is load-bearing.
-    ASSERT_EQ(Reg::registry.size(), 24U);
+    ASSERT_EQ(Reg::registry.size(), 25U);
     for (size_t i = 1; i < Reg::registry.size(); i++)
     {
         EXPECT_LT(std::string_view(Reg::registry[i - 1].first),
