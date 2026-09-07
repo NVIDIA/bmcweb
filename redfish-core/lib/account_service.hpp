@@ -16,6 +16,7 @@
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "nvidia_account_service.hpp"
+#include "nvidia_messages.hpp"
 #include "pam_authenticate.hpp"
 #include "persistent_data.hpp"
 #include "privileges.hpp"
@@ -299,7 +300,8 @@ inline void patchAccountTypes(
 
 inline void userErrorMessageHandler(
     const sd_bus_error* e, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& newUser, const std::string& username)
+    const std::string& newUser, const std::string& username,
+    const std::string& redfishPropertyName)
 {
     if (e == nullptr)
     {
@@ -328,6 +330,12 @@ inline void userErrorMessageHandler(
               0))
     {
         messages::propertyValueFormatError(asyncResp->res, newUser, "UserName");
+    }
+    else if (strcmp(errorMessage,
+                    "xyz.openbmc_project.User.Common.Error.RestrictedGroup") ==
+             0)
+    {
+        messages::accountTypeRestricted(asyncResp->res, redfishPropertyName);
     }
     else if (strcmp(errorMessage,
                     "xyz.openbmc_project.User.Common.Error.NoResource") == 0)
@@ -1885,11 +1893,13 @@ inline void handleAccountCollectionGet(
 inline void processAfterCreateUser(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, const std::string& password,
-    const boost::system::error_code& ec, sdbusplus::message_t& m)
+    const std::string& redfishPropertyName, const boost::system::error_code& ec,
+    sdbusplus::message_t& m)
 {
     if (ec)
     {
-        userErrorMessageHandler(m.get_error(), asyncResp, username, "");
+        userErrorMessageHandler(m.get_error(), asyncResp, username, "",
+                                redfishPropertyName);
         return;
     }
 
@@ -1941,6 +1951,7 @@ inline void processAfterGetAllGroups(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, const std::string& password,
     const UserCreateProperties& userCreateProps,
+    const std::string& redfishPropertyName,
     const std::vector<std::string>& allGroupsList)
 {
     std::vector<std::string> userGroups;
@@ -2041,9 +2052,10 @@ inline void processAfterGetAllGroups(
         userCreateProps.enabled);
 
     dbus::utility::async_method_call(
-        [asyncResp, username, password, userProps](
+        [asyncResp, username, password, userProps, redfishPropertyName](
             const boost::system::error_code& ec2, sdbusplus::message_t& m) {
-            processAfterCreateUser(asyncResp, username, password, ec2, m);
+            processAfterCreateUser(asyncResp, username, password,
+                                   redfishPropertyName, ec2, m);
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "CreateUser2", username, userProps);
@@ -2111,7 +2123,8 @@ inline void handleAccountCollectionPost(
             }
 
             processAfterGetAllGroups(asyncResp, username, password,
-                                     userCreateProps, allGroupsList);
+                                     userCreateProps, "AccountTypes",
+                                     allGroupsList);
         });
 }
 
@@ -2461,7 +2474,7 @@ inline void handleAccountPatch(
             if (ec)
             {
                 userErrorMessageHandler(m.get_error(), asyncResp, newUser,
-                                        username);
+                                        username, "AccountTypes");
                 return;
             }
 

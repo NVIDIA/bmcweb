@@ -6,6 +6,7 @@
 #include "boost_formatters.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "nvidia_messages.hpp"
 
 #include <systemd/sd-bus-protocol.h>
 
@@ -72,6 +73,13 @@ void afterSetProperty(
             {
                 messages::propertyNotWritable(asyncResp->res,
                                               redfishPropertyName);
+                return;
+            }
+            if (errorName ==
+                "xyz.openbmc_project.User.Common.Error.RestrictedGroup")
+            {
+                messages::accountTypeRestricted(asyncResp->res,
+                                                redfishPropertyName);
                 return;
             }
             if (errorName == "xyz.openbmc_project.Common.Error.Unavailable")

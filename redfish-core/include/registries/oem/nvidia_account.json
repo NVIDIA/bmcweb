@@ -1,0 +1,22 @@
+{
+    "@Redfish.Copyright": "Copyright 2026 Nvidia. All rights reserved.",
+    "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
+    "Description": "This registry defines the account management messages for Nvidia.",
+    "Id": "NvidiaAccount.1.0.0",
+    "Language": "en",
+    "Messages": {
+        "AccountTypeRestricted": {
+            "Description": "Indicates that the requested value/s for the property are not allowed for this account.",
+            "Message": "The requested value/s for the property %1 are not allowed for this account.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Remove the value/s that are not allowed and resubmit the request.",
+            "Severity": "Warning"
+        }
+    },
+    "Name": "NVIDIA Account Message Registry",
+    "OwningEntity": "Nvidia",
+    "RegistryPrefix": "NvidiaAccount",
+    "RegistryVersion": "1.0.0"
+}
