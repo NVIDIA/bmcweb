@@ -25,6 +25,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_port_health_utils.hpp"
 #include "utils/nvidia_processor_utils.hpp"
 #include "utils/pcie_util.hpp"
 
@@ -4641,48 +4642,13 @@ inline void getFabricsPortMetricsData(
                 if (!nvidiaOem.contains("@odata.type"))
                 {
                     nvidiaOem["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
+                        nvidia_port_health_utils::nvlinkPortMetricsOdataType;
                 }
 
-                // Early-health enums are published only on NVLink ports that
-                // nsmd polls; extract defensively so a non-string skips just
-                // that property.
-                for (const auto& property : properties)
-                {
-                    if (property.first == "EarlyHealthIndication")
-                    {
-                        const std::string* value =
-                            std::get_if<std::string>(&property.second);
-                        if (value != nullptr)
-                        {
-                            auto healthStr = nvidia_processor_utils::
-                                getEarlyHealthIndication(*value);
-                            // "Unknown" is a schema-defined state; only an
-                            // unmappable value yields "" and is omitted.
-                            if (!healthStr.empty())
-                            {
-                                asyncResp->res
-                                    .jsonValue["Oem"]["Nvidia"]
-                                              ["EarlyHealthIndication"] =
-                                    healthStr;
-                            }
-                        }
-                    }
-                    else if (property.first == "AttentionTriggerReason")
-                    {
-                        const std::string* value =
-                            std::get_if<std::string>(&property.second);
-                        if (value != nullptr)
-                        {
-                            // Converter whitelists to schema-valid members, so
-                            // the result is always emittable.
-                            asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                                    ["AttentionTriggerReason"] =
-                                nvidia_processor_utils::
-                                    getAttentionTriggerReason(*value);
-                        }
-                    }
-                }
+                // Link health block and clear action, shared with the
+                // Systems/Processors port path.
+                nvidia_port_health_utils::populatePortHealthMetrics(asyncResp,
+                                                                    properties);
             }
 
             if (txBytes != nullptr)
