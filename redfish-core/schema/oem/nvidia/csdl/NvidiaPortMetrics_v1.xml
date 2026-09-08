@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.9.0                                                       -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.10.0                                                      -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -42,6 +43,11 @@
           <Annotation Term="OData.Description" String="The type of PCIe counter."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of PCIe counter."/>
         </Parameter>
+      </Action>
+      <Action Name="ClearEarlyHealthIndication" IsBound="true">
+        <Annotation Term="OData.Description" String="This action clears the latched early health indication of this port."/>
+        <Annotation Term="OData.LongDescription" String="This action shall request the device to clear the latched early health indication and its attention trigger fields for this port and restart its link health monitoring windows. Other port metrics are not affected."/>
+        <Parameter Name="PortMetrics" Type="PortMetrics.v1_0_0.OemActions"/>
       </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_0_0">
@@ -600,6 +606,34 @@
         </Member>
         <Member Name="SymbolErrorCount">
           <Annotation Term="OData.Description" String="The symbol error count exceeded the threshold."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics">
+        <Property Name="AttentionTriggerMetricId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The index of the configured link health monitor whose threshold crossing raised the Attention state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the one-based index, from 1 to 15, of the link health monitor in the port's active link health profile whose threshold crossing caused the EarlyHealthIndication property to become Attention. Each monitor of a profile binds a metric type to an evaluation window and a threshold, and a profile may contain several monitors of the same metric type with different windows; the index therefore identifies which window and threshold tripped, while the metric type is reported by the health indication cause. The profile is configured by the fabric manager and is readable in-band, so clients shall use this index to correlate the indication with that configuration. The value shall be null when EarlyHealthIndication is not Attention."/>
+          <Annotation Term="Validation.Minimum" Int="1"/>
+          <Annotation Term="Validation.Maximum" Int="15"/>
+        </Property>
+        <Property Name="AttentionTriggerConfiguration" Type="NvidiaPortMetrics.v1_10_0.AttentionTriggerConfiguration">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Whether the Attention state reflects the current link health metric configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the Attention state was raised under the currently configured link health metric parameters or under a previous configuration that has since been modified. When the value is Modified, the Attention state may no longer apply to the current configuration; the operator should re-evaluate the port against the current thresholds and clear the indication if it no longer applies. This property shall contain Unknown when EarlyHealthIndication is not Attention."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="AttentionTriggerConfiguration">
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The link health state is not Attention, or the configuration state is not available."/>
+        </Member>
+        <Member Name="Current">
+          <Annotation Term="OData.Description" String="The Attention state reflects a threshold crossing under the current link health metric configuration."/>
+        </Member>
+        <Member Name="Modified">
+          <Annotation Term="OData.Description" String="The Attention state was raised under a previous configuration and a parameter of an associated metric has since been modified."/>
         </Member>
       </EnumType>
     </Schema>

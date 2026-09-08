@@ -83,6 +83,13 @@ enum class AttentionTriggerReason{
     SymbolErrorCount,
 };
 
+enum class AttentionTriggerConfiguration{
+    Invalid,
+    Unknown,
+    Current,
+    Modified,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(PCIeCounterType, {
     {PCIeCounterType::Invalid, "Invalid"},
     {PCIeCounterType::CorrectableErrorCount, "CorrectableErrorCount"},
@@ -157,6 +164,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AttentionTriggerReason, {
     {AttentionTriggerReason::PortTotalBandwidthLoss, "PortTotalBandwidthLoss"},
     {AttentionTriggerReason::LinkDownCount, "LinkDownCount"},
     {AttentionTriggerReason::SymbolErrorCount, "SymbolErrorCount"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(AttentionTriggerConfiguration, {
+    {AttentionTriggerConfiguration::Invalid, "Invalid"},
+    {AttentionTriggerConfiguration::Unknown, "Unknown"},
+    {AttentionTriggerConfiguration::Current, "Current"},
+    {AttentionTriggerConfiguration::Modified, "Modified"},
 });
 
 }

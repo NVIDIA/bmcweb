@@ -57,6 +57,7 @@
 #include "nvidia_pcore_dump.hpp"
 #include "nvidia_platform_power_cycle.hpp"
 #include "nvidia_policy.hpp"
+#include "nvidia_port_health_actions.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_processor.hpp"
@@ -161,6 +162,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesNvidiaManagerEmmcFullSecureErase(app);
         requestRoutesNvidiaManagerResetToDefaultsAction(app);
         requestRoutesPCIeClearCounter(app);
+        nvidia::requestRoutesProcessorPortClearEarlyHealthIndication(app);
         requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(app);
         requestRoutesProcessorPowerSmoothing(app);
         requestRoutesProcessorPowerSmoothingAdminProfile(app);
@@ -319,6 +321,10 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesPortCollection(app);
         requestRoutesPort(app);
         requestRoutesPortMetrics(app);
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            nvidia::requestRoutesSwitchPortClearEarlyHealthIndication(app);
+        }
     }
     if constexpr (BMCWEB_REDFISH_ROUTES_ENDPOINT)
     {
