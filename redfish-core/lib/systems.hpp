@@ -4392,10 +4392,6 @@ inline void handleComputerSystemPatch(
         setWDTProperties(asyncResp, wdtEnable, wdtTimeOutAction);
     }
 
-    if (bootAutomaticRetry)
-    {
-        setAutomaticRetry(asyncResp, *bootAutomaticRetry);
-    }
     if (bootSource || bootType || bootEnable)
     {
         setBootProperties(asyncResp, bootSource, bootType, bootEnable);
@@ -4465,11 +4461,6 @@ inline void handleComputerSystemPatch(
     {
         setIdlePowerSaver(asyncResp, ipsEnable, ipsEnterUtil, ipsEnterTime,
                             ipsExitUtil, ipsExitTime);
-    }
-
-    if (bootSource || bootType || bootEnable)
-    {
-        setBootProperties(asyncResp, bootSource, bootType, bootEnable);
     }
 
     if (ipmiHostInterfaceServiceEnabled)
