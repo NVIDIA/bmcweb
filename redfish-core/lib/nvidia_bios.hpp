@@ -2552,7 +2552,17 @@ inline void handleBiosAttrRegistryGet(
             std::string contents{std::istreambuf_iterator<char>{inputFile},
                                  std::istreambuf_iterator<char>{}};
             inputFile.close();
-            biosRegistryJson = nlohmann::json::parse(contents);
+            std::optional<nlohmann::json> registry =
+                parseStringAsJson(contents);
+            if (!registry)
+            {
+                BMCWEB_LOG_ERROR("Failed to parse BIOS registry file {}",
+                                 biosRegistryJsonFileName);
+                biosRegistryJson = nlohmann::json();
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            biosRegistryJson = std::move(*registry);
             updateBiosAttrRegistry(asyncResp);
         }
     }

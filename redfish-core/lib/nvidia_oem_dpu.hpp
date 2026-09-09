@@ -269,6 +269,13 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
         {
             return;
         }
+        const nlohmann::json::object_t* requestObj =
+            jsonRequest.get_ptr<const nlohmann::json::object_t*>();
+        if (requestObj == nullptr)
+        {
+            messages::unrecognizedRequestBody(asyncResp->res);
+            return;
+        }
 
         for (const auto& pair : objects)
         {
@@ -282,9 +289,9 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                 return;
             }
         }
-        for (const auto& item : jsonRequest.items())
+        for (const auto& item : *requestObj)
         {
-            auto name = item.key();
+            auto name = item.first;
             auto it = objects.find(name);
             if (it == objects.end())
             {
@@ -292,7 +299,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                                                       target);
                 return;
             }
-            const auto* value = item.value().get_ptr<const std::string*>();
+            const auto* value = item.second.get_ptr<const std::string*>();
             if (value == nullptr)
             {
                 messages::actionParameterValueError(asyncResp->res, name,
@@ -307,10 +314,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             }
         }
 
-        for (const auto& item : jsonRequest.items())
+        for (const auto& item : *requestObj)
         {
-            const auto& name = item.key();
-            auto value = item.value().get<std::string>();
+            const auto& name = item.first;
+            auto value = item.second.get<std::string>();
             auto objectInfo = objects.find(name)->second;
             // Convert the value based on property type
             std::variant<std::string, bool> propertyValue;

@@ -241,7 +241,8 @@ class StatusQueryHandler : public OperationHandler
                 statusArray.push_back(std::move(epOutput));
             }
             statusOutput["DebugTokenStatus"] = std::move(statusArray);
-            result = statusOutput.dump(4);
+            result = statusOutput.dump(
+                4, ' ', false, nlohmann::json::error_handler_t::replace);
         }
     }
 

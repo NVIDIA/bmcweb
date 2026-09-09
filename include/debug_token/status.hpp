@@ -153,7 +153,8 @@ class Handler : public std::enable_shared_from_this<Handler>
         }
         nlohmann::json statusOutput;
         statusOutput["DebugTokenStatus"] = std::move(statusArray);
-        result = statusOutput.dump(4);
+        result = statusOutput.dump(4, ' ', false,
+                                   nlohmann::json::error_handler_t::replace);
         if (callback)
         {
             callback(task, result);
