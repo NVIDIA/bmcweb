@@ -377,7 +377,10 @@ inline bool parseCperData(
         }
     }
     cperJson["sections"] = nlohmann::json::array({std::move(cperSection)});
-    additionalData.emplace_back("jsonDiagnosticData", cperJson.dump());
+    additionalData.emplace_back(
+        "jsonDiagnosticData",
+        cperJson.dump(-1, ' ', false,
+                      nlohmann::json::error_handler_t::replace));
 
     std::string severityStr;
     if (auto sevIt = evt.find("MessageSeverity"); sevIt != evt.end())
