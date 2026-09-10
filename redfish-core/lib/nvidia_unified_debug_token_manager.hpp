@@ -647,19 +647,34 @@ struct InstallTokenAggregator
 
         const ResultsType* results = std::get_if<ResultsType>(&value);
 
-        if ((results != nullptr) && !results->empty())
+        if (results == nullptr)
         {
-            self->processAsyncResults(*results);
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("Failed to parse async operation results{}",
-                             (results != nullptr) ? " (empty array)" : "");
+            BMCWEB_LOG_ERROR("Failed to parse async operation results");
             self->task->state = "Exception";
             self->task->messages.emplace_back(messages::internalError());
             self->task->percentComplete = 100;
             debug_token::finishTask(self->task);
             self->completed = true;
+        }
+        else if (results->empty())
+        {
+            // Valid response carrying no records: no device on this system
+            // matched any token in the supplied file. Nothing was installed,
+            // but nothing failed either, so this is reported the same way the
+            // update path reports a skipped component - an informational
+            // message on a completed task.
+            BMCWEB_LOG_WARNING(
+                "Debug token install skipped: no device matched the supplied token(s)");
+            self->task->state = "Completed";
+            self->task->messages.emplace_back(
+                messages::debugTokenInstallationSkipped("no matching devices"));
+            self->task->percentComplete = 100;
+            debug_token::finishTask(self->task);
+            self->completed = true;
+        }
+        else
+        {
+            self->processAsyncResults(*results);
         }
         if (self->propertiesChangedMatch)
         {

@@ -194,6 +194,15 @@
             "Resolution": "None.",
             "Severity": "Critical"
         },
+        "DebugTokenInstallationSkipped": {
+            "Description": "Indicates that debug token installation has been skipped.",
+            "Message": "The debug token installation is skipped because %1.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
         "ActivateSuccessful": {
             "Description": "Indicates that image is successfully activated on the device",
             "Message": "Device %1 is successfully activated with image %2.",

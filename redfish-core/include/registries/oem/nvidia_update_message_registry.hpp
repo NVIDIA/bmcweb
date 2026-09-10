@@ -165,6 +165,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "DebugTokenInstallationSkipped",
+        {
+            "Indicates that debug token installation has been skipped.",
+            "The debug token installation is skipped because %1.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "DebugTokenInstallationSuccess",
         {
             "Signifies the successful completion of debug token installation.",
@@ -325,18 +337,19 @@ enum class Index
     debugTokenEraseSkipped = 7,
     debugTokenEraseSuccess = 8,
     debugTokenInstallationFailed = 9,
-    debugTokenInstallationSuccess = 10,
-    debugTokenNotInstalled = 11,
-    debugTokenRequestSuccess = 12,
-    debugTokenStatusSuccess = 13,
-    debugTokenUnsupported = 14,
-    enterDOTRecovery = 15,
-    firmwareInRecovery = 16,
-    firmwareNotInRecovery = 17,
-    headerValueInvalid = 18,
-    imageCopyCompleted = 19,
-    recoveryStarted = 20,
-    recoverySuccessful = 21,
+    debugTokenInstallationSkipped = 10,
+    debugTokenInstallationSuccess = 11,
+    debugTokenNotInstalled = 12,
+    debugTokenRequestSuccess = 13,
+    debugTokenStatusSuccess = 14,
+    debugTokenUnsupported = 15,
+    enterDOTRecovery = 16,
+    firmwareInRecovery = 17,
+    firmwareNotInRecovery = 18,
+    headerValueInvalid = 19,
+    imageCopyCompleted = 20,
+    recoveryStarted = 21,
+    recoverySuccessful = 22,
 };
 }; // struct nvidia_update
 

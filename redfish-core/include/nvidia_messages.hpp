@@ -189,6 +189,14 @@ inline nlohmann::json debugTokenInstallationFailed(std::string_view arg1,
         args);
 }
 
+inline nlohmann::json debugTokenInstallationSkipped(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::debugTokenInstallationSkipped,
+        args);
+}
+
 inline nlohmann::json dotActionResponseError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
