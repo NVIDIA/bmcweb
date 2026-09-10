@@ -984,12 +984,6 @@ inline void debugTokenManagementInstallTokenHandler(
         return;
     }
 
-    // Check if the token file is empty
-    if (tokenFile->empty())
-    {
-        return;
-    }
-
     constexpr uint32_t debugTokenTaskTimeoutSec = 300;
     std::shared_ptr<task::TaskData> task =
         debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
