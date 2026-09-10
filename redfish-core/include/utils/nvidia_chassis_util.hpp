@@ -3912,7 +3912,7 @@ inline void getChassisOemNvidiaSKU(
                     ec.message());
                 return;
             }
-            if (!sku.empty() && sku != redfish::propertyNotSupported)
+            if (!sku.empty() && sku != "NOT_SUPPORTED")
             {
                 BMCWEB_LOG_INFO("Successfully set OEM Nvidia SKU from {}: {}",
                                 path, sku);
@@ -3994,7 +3994,7 @@ inline void handleAssociatedSKURead(
                          ec.message());
         return;
     }
-    if (!sku.empty() && sku != redfish::propertyNotSupported)
+    if (!sku.empty() && sku != "NOT_SUPPORTED")
     {
         BMCWEB_LOG_INFO("Successfully set SKU from associated object {}: {}",
                         associatedPath, sku);
@@ -4113,7 +4113,7 @@ inline void handleDirectSKURead(
         checkAssociatedSKU(asyncResp, path);
         return;
     }
-    if (!chassisSKU.empty() && chassisSKU != redfish::propertyNotSupported)
+    if (!chassisSKU.empty() && chassisSKU != "NOT_SUPPORTED")
     {
         BMCWEB_LOG_DEBUG("Successfully set SKU for {}: {}", path, chassisSKU);
         asyncResp->res.jsonValue["SKU"] = chassisSKU;
