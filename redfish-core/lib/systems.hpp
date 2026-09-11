@@ -3912,6 +3912,22 @@ inline void afterPortRequest(
     }
 }
 
+// The Oem/Nvidia payload only reaches v1_10_0 (the pre-boot diagnostic
+// namespace) on platforms that build the CPU diag surface. Everywhere else the
+// emitted properties stop at v1_6_0, so advertising v1_10_0 there would claim a
+// namespace none of whose members appear in the response.
+constexpr std::string_view nvidiaComputerSystemType()
+{
+    if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
+    {
+        return "#NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem";
+    }
+    else
+    {
+        return "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+    }
+}
+
 /**
  * @brief process the GET request after getting the computerSystemIndex
  *
@@ -3986,7 +4002,7 @@ inline void processComputerSystemGet(
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+            nvidiaComputerSystemType();
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
@@ -4049,7 +4065,7 @@ inline void processComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_6_0.NvidiaComputerSystem";
+            nvidiaComputerSystemType();
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
@@ -4294,44 +4310,11 @@ inline void processComputerSystemGet(
     }
     if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
     {
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]
-                      ["#NvidiaComputerSystem.ProcessorDiagMode"]["target"] =
-            boost::urls::format(
-                "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagCapabilities",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagMode"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagCapabilitiesActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagSysConfig"]
-                                ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagSysConfig",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagSysConfig"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagSysConfigActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagTidConfig"]
-                                ["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagTidConfig",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.ProcessorDiagTidConfig"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/ProcessorDiagTidConfigActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-        handleDiagModeGet(asyncResp);
+        // Advertise the pre-boot diagnostic OEM actions and fetch the current
+        // diagnostic state. The NVIDIA-specific payload lives in cpu_diag.hpp;
+        // call only the helper here.
+        advertiseProcessorDiagActions(asyncResp,
+                                      BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 }
 

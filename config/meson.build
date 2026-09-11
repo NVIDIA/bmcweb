@@ -6,6 +6,17 @@ if get_option('firmware-image-limit') > get_option('http-body-limit')
     error('Firmware image size limit should be lesser than http body limit.')
 endif
 
+# preboot-diag-support only switches the CPU-diagnostic handlers to the Vera
+# flow; route registration is gated by cpu-diag-support. Enabling it alone
+# builds the Vera code with nothing routed to it, which is silent today.
+if get_option('preboot-diag-support').allowed()
+    if not get_option('cpu-diag-support').allowed()
+        error(
+            'preboot-diag-support requires cpu-diag-support; alone it ' + 'registers no pre-boot diagnostic route.',
+        )
+    endif
+endif
+
 conf_data.set_quoted(
     'PLATFORM_GPU_NAME_PREFIX',
     get_option('platform-gpu-name-prefix'),

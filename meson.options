@@ -1327,7 +1327,14 @@ option(
     'cpu-diag-support',
     type: 'feature',
     value: 'disabled',
-    description: 'Enables cpu diag support.',
+    description: '''Registers the pre-boot diagnostic OEM routes and emits
+    the ProcessorDiag members and action targets under Oem.Nvidia on the
+    ComputerSystem named by redfish-system-uri-name; it also selects
+    NvidiaComputerSystem v1_10_0 over v1_6_0 for that payload. Enable it
+    only on the manager that owns the diagnostic path - the one running
+    the prebootdiag service and holding the NSM subscription. A second
+    manager in the same tray would advertise the same surface with
+    nothing behind it.''',
 )
 
 option(
