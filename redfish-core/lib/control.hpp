@@ -27,6 +27,7 @@
 #include <registries/privilege_registry.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/lpu_power_mode.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
 #include <utils/nvidia_control_utils.hpp>
@@ -1007,6 +1008,15 @@ inline void requestRoutesChassisControls(App& app)
             {
                 return;
             }
+            if (lpu_power_mode::matches(chassisID, controlID))
+            {
+                chassis_utils::getValidChassisPath(
+                    asyncResp, chassisID,
+                    [asyncResp](const std::optional<std::string>& chassisPath) {
+                        lpu_power_mode::get(asyncResp, chassisPath);
+                    });
+                return;
+            }
             auto getControlSystem =
                 [asyncResp, chassisID, controlID](
                     const std::optional<std::string>& validChassisPath) {
@@ -1185,6 +1195,24 @@ inline void requestRoutesChassisControls(App& app)
                            const std::string& controlID) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (lpu_power_mode::matches(chassisID, controlID))
+            {
+                nlohmann::json body;
+                std::optional<std::string> mode;
+                if (!json_util::processJsonFromRequest(asyncResp->res, req,
+                                                       body) ||
+                    !lpu_power_mode::readPatch(body, asyncResp->res, mode))
+                {
+                    return;
+                }
+                chassis_utils::getValidChassisPath(
+                    asyncResp, chassisID,
+                    [asyncResp, value = *mode](
+                        const std::optional<std::string>& chassisPath) {
+                        lpu_power_mode::patch(asyncResp, chassisPath, value);
+                    });
                 return;
             }
             auto patchControlSystem = [asyncResp, chassisID, controlID,
