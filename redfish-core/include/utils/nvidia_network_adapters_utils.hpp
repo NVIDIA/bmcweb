@@ -411,11 +411,6 @@ inline void populateProtectionOptionsMode(
 // ---------------------------------------------------------------------------
 // ProtectionOptionsMode PATCH helper chain
 // ---------------------------------------------------------------------------
-// Uses the standard AsyncOperationManager dispatcher (same as DPU/PCIe device
-// modes). nsmd registers one handler per boolean flag via addAsyncSetOperation;
-// bmcweb calls doGenericSetAsyncAndGatherResult once per changed flag.
-// No read-modify-write needed: each nsmd handler reads the three unchanged
-// current values directly from the D-Bus object.
 
 inline void afterGetProtectionOptionsModeServiceForPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -436,42 +431,52 @@ inline void afterGetProtectionOptionsModeServiceForPatch(
 
     const std::string& service = serviceMap.front().first;
 
+    std::vector<std::tuple<std::string, uint32_t>> flagEntries;
+    std::string_view protectionOptionsModePendingFlagsProp;
     if (patchFw)
     {
-        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-            asyncResp, std::chrono::seconds(60), service, endpoint,
-            std::string(protectionOptionsModeIntf),
-            "HostFirmwareUpdateRestrictionEnabled",
-            std::variant<bool>(*patchFw),
-            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+        protectionOptionsModePendingFlagsProp =
+            "HostFirmwareUpdateRestrictionEnabled";
+        flagEntries.emplace_back("HostFirmwareUpdateRestrictionEnabled",
+                                 static_cast<uint32_t>(*patchFw));
     }
     if (patchCfg)
     {
-        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-            asyncResp, std::chrono::seconds(60), service, endpoint,
-            std::string(protectionOptionsModeIntf),
-            "HostConfigurationChangeRestrictionEnabled",
-            std::variant<bool>(*patchCfg),
-            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+        protectionOptionsModePendingFlagsProp =
+            "HostConfigurationChangeRestrictionEnabled";
+        flagEntries.emplace_back("HostConfigurationChangeRestrictionEnabled",
+                                 static_cast<uint32_t>(*patchCfg));
     }
     if (patchTransceiverFw)
     {
-        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-            asyncResp, std::chrono::seconds(60), service, endpoint,
-            std::string(protectionOptionsModeIntf),
+        protectionOptionsModePendingFlagsProp =
+            "HostTransceiverFirmwareUpdateRestrictionEnabled";
+        flagEntries.emplace_back(
             "HostTransceiverFirmwareUpdateRestrictionEnabled",
-            std::variant<bool>(*patchTransceiverFw),
-            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+            static_cast<uint32_t>(*patchTransceiverFw));
     }
     if (patchTransceiverCfg)
     {
-        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-            asyncResp, std::chrono::seconds(60), service, endpoint,
-            std::string(protectionOptionsModeIntf),
+        protectionOptionsModePendingFlagsProp =
+            "HostTransceiverConfigurationChangeRestrictionEnabled";
+        flagEntries.emplace_back(
             "HostTransceiverConfigurationChangeRestrictionEnabled",
-            std::variant<bool>(*patchTransceiverCfg),
-            nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
+            static_cast<uint32_t>(*patchTransceiverCfg));
     }
+
+    if (flagEntries.empty())
+    {
+        BMCWEB_LOG_DEBUG("No valid flags to patch for ProtectionOptionsMode");
+        return;
+    }
+
+    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+        asyncResp, std::chrono::seconds(60), service, endpoint,
+        std::string(protectionOptionsModeIntf),
+        std::string(protectionOptionsModePendingFlagsProp),
+        std::variant<std::vector<std::tuple<std::string, uint32_t>>>(
+            flagEntries),
+        nvidia_async_operation_utils::PatchGenericCallback{asyncResp});
 }
 
 inline void afterGetProtectionOptionsModeEndpointsForPatch(
