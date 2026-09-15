@@ -239,9 +239,15 @@ void regenerateCertificateIfHostnameChanged(const std::string& filepath,
             BMCWEB_LOG_ERROR("Failed to generate cert");
             return;
         }
-        ensuressl::writeCertificateToFile("/tmp/hostname_cert.tmp", certData);
+        bmcweb::OpenSSLGenerator gen;
+        std::uniform_int_distribution<uint64_t> dis(
+            std::numeric_limits<uint64_t>::min(),
+            std::numeric_limits<uint64_t>::max());
+        std::string certPath =
+            std::format("/tmp/hostname_cert.{}.tmp", dis(gen));
+        ensuressl::writeCertificateToFile(certPath, certData);
 
-        installCertificate("/tmp/hostname_cert.tmp");
+        installCertificate(certPath);
     }
 }
 
