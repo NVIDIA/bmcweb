@@ -82,6 +82,9 @@ const std::string hashComputeInterface = "com.Nvidia.ComputeHash";
 constexpr auto retimerHashMaxTimeSec =
     180; // 2 mins for 2 attempts and 1 addional min as buffer
 // Only allow one update at a time
+// TODO hold the running update's task id here rather than a bool, so
+// FirmwareUpdateInProgress can name /redfish/v1/TaskService/Tasks/<id>
+// instead of the task collection.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -1039,7 +1042,8 @@ inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
     const std::vector<std::string>& updateables,
     const std::vector<std::string>& swInvPaths,
-    std::vector<sdbusplus::object_path>& validTargets)
+    std::vector<sdbusplus::object_path>& validTargets,
+    std::string& firstInvalidTarget)
 {
     bool hasAnyInvalidOrUnupdateableTarget = false;
     for (const std::string& target : uriTargets)
@@ -1063,6 +1067,10 @@ inline bool areTargetsInvalidOrUnupdatable(
             else
             {
                 hasAnyInvalidOrUnupdateableTarget = true;
+                if (firstInvalidTarget.empty())
+                {
+                    firstInvalidTarget = target;
+                }
                 BMCWEB_LOG_ERROR("Unupdatable Target: {}", target);
             }
         }
@@ -1070,6 +1078,10 @@ inline bool areTargetsInvalidOrUnupdatable(
         if (!validTarget)
         {
             hasAnyInvalidOrUnupdateableTarget = true;
+            if (firstInvalidTarget.empty())
+            {
+                firstInvalidTarget = target;
+            }
             BMCWEB_LOG_ERROR("Invalid Target: {}", target);
         }
     }

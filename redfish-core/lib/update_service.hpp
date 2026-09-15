@@ -798,8 +798,9 @@ inline std::optional<std::string> processUrl(
     return std::make_optional(firmwareId);
 }
 
-inline std::optional<std::string> parseFormPartName(
-    const boost::beast::http::fields::const_iterator& contentDisposition)
+inline std::optional<std::string> parseContentDispositionParam(
+    const boost::beast::http::fields::const_iterator& contentDisposition,
+    std::string_view paramName)
 {
     size_t semicolonPos = contentDisposition->value().find(';');
     if (semicolonPos == std::string::npos)
@@ -810,13 +811,66 @@ inline std::optional<std::string> parseFormPartName(
     for (const auto& param : boost::beast::http::param_list{
              contentDisposition->value().substr(semicolonPos)})
     {
-        if (param.first == "name" && !param.second.empty())
+        if (param.first == paramName && !param.second.empty())
         {
             return std::string(param.second);
         }
     }
     return std::nullopt;
 }
+
+inline std::optional<std::string> parseFormPartName(
+    const boost::beast::http::fields::const_iterator& contentDisposition)
+{
+    return parseContentDispositionParam(contentDisposition, "name");
+}
+
+// Nvidia code starts here
+// Longest package name rendered in a NvidiaUpdate message.  A client controls
+// this value, so bound it rather than echoing it back unchecked.
+constexpr size_t maxFirmwarePackageNameLength = 128;
+
+/**
+ * @brief Firmware package name for the "filename" parameter of a part's
+ * Content-Disposition, as sent by `curl --form "UpdateFile=@<path>"`.
+ *
+ * Reduced to its basename so a client-supplied path is not echoed back, and
+ * truncated to maxFirmwarePackageNameLength.  Returns an empty string when the
+ * part carries no filename; callers substitute the part name.
+ */
+inline std::string parseFormPartFileName(
+    const boost::beast::http::fields& fields)
+{
+    auto dispositionIt = fields.find("Content-Disposition");
+    if (dispositionIt == fields.end())
+    {
+        return {};
+    }
+    std::optional<std::string> fileName =
+        parseContentDispositionParam(dispositionIt, "filename");
+    if (!fileName)
+    {
+        return {};
+    }
+    // Split on either separator rather than std::filesystem::path, which only
+    // treats '/' as one on this platform: a client sending a Windows path
+    // would otherwise keep its directory segments in the message.
+    size_t leaf = fileName->find_last_of("/\\");
+    std::string baseName =
+        leaf == std::string::npos ? *fileName : fileName->substr(leaf + 1);
+    // Echoed into a Redfish message and re-serialized into a
+    // Content-Disposition when the request is forwarded to a satellite, so
+    // keep it to characters that are safe in both.
+    std::erase_if(baseName, [](unsigned char c) {
+        return c < 0x20 || c > 0x7E || c == '"' || c == '\\';
+    });
+    if (baseName.size() > maxFirmwarePackageNameLength)
+    {
+        baseName.resize(maxFirmwarePackageNameLength);
+    }
+    return baseName;
+}
+// Nvidia code ends here
 
 inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1224,12 +1278,14 @@ inline void processUpdateRequest(
                     updateableFw.push_back(fwId);
                 }
 
+                std::string firstInvalidTarget;
                 if (areTargetsInvalidOrUnupdatable(uriTargets, updateableFw,
-                                                   swInvPaths, validTargets))
+                                                   swInvPaths, validTargets,
+                                                   firstInvalidTarget))
                 {
                     BMCWEB_LOG_ERROR("Invalid targets provided");
-                    messages::invalidObject(asyncResp->res,
-                                            boost::urls::url_view("Targets"));
+                    messages::firmwareUpdateTargetInvalid(asyncResp->res,
+                                                          firstInvalidTarget);
                     fwUpdateInProgress = false;
                     return;
                 }

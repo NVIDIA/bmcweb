@@ -8,12 +8,12 @@
 #include "error_messages.hpp"
 #include "http/http_body.hpp"
 #include "http/http_request.hpp"
+#include "http_response.hpp"
 #include "io_context_singleton.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_multipart_update.hpp"
 #include "nvidia_update_service.hpp"
 #include "task.hpp"
-#include "update_messages.hpp"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -23,6 +23,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/url/url.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -47,12 +48,24 @@ namespace redfish::nvidia
 namespace
 {
 
+// First message of an error response, as rendered to the client.
+nlohmann::json& errorMessage(crow::Response& res)
+{
+    return res.jsonValue["error"]["@Message.ExtendedInfo"][0];
+}
+
 std::shared_ptr<UpdateCtx> makeCtx()
 {
     std::error_code ec;
     crow::Request req("", ec);
     task::Payload payload(req);
-    return std::make_shared<UpdateCtx>(0, std::move(payload));
+    std::shared_ptr<UpdateCtx> ctx =
+        std::make_shared<UpdateCtx>(0, std::move(payload));
+    // handleUpdateServiceMultipartUpdatePostHeaders() assigns this straight
+    // after construction, so no UpdateCtx reaches a callback without it.
+    // Tests that report an error would otherwise dereference a null pointer.
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    return ctx;
 }
 
 TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
@@ -65,8 +78,10 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     bool failed = false;
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "OnReset", false,
-        std::vector<sdbusplus::object_path>{}, []() {},
-        [&failed]() { failed = true; });
+        std::vector<sdbusplus::object_path>{},
+        FirmwarePackageInfo{"nvfw_release.fwpkg",
+                            redfish::firmwareImageLimitBytes + 1U},
+        []() {}, [&failed]() { failed = true; });
     ctx->bytesWritten = redfish::firmwareImageLimitBytes;
 
     ctx->gotBytes({}, 1U);
@@ -74,17 +89,26 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     EXPECT_TRUE(failed);
     EXPECT_EQ(ctx->bytesWritten, redfish::firmwareImageLimitBytes);
     EXPECT_EQ(asyncResp->res.resultInt(), 413);
+    EXPECT_EQ(asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
+    EXPECT_EQ(asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"][0]
+                                      ["MessageArgs"][0],
+              "nvfw_release.fwpkg");
 }
 
 std::string expectedSetHeadersOutput(const std::string& boundary,
-                                     const std::string& paramsJson)
+                                     const std::string& paramsJson,
+                                     const std::string& fileName = "UpdateFile")
 {
     return "--" + boundary +
            "\r\nContent-Disposition: form-data; name=\"UpdateParameters\"\r\n"
            "Content-Type: application/json\r\n"
            "\r\n" +
            paramsJson + "\r\n--" + boundary +
-           "\r\nContent-Disposition: form-data; name=\"UpdateFile\"\r\n"
+           "\r\nContent-Disposition: form-data; name=\"UpdateFile\"; filename=\"" +
+           fileName +
+           "\"\r\n"
            "Content-Type: application/octet-stream\r\n"
            "\r\n";
 }
@@ -153,6 +177,37 @@ TEST(SetHeaders, AllParams)
         expectedSetHeadersOutput(
             boundary,
             R"({"@Redfish.OperationApplyTime":"OnReset","ForceUpdate":false,"Targets":["http://bmc/redfish/v1/UpdateService/FirmwareInventory/fw0"]})"));
+}
+
+TEST(SetHeaders, ForwardsThePackageNameToTheSatellite)
+{
+    auto ctx = makeCtx();
+    ctx->package.name = "nvfw_release.fwpkg";
+
+    ctx->setHeaders({});
+
+    // Without the filename the satellite has no way to name the package in
+    // its own messages and falls back to the part name.
+    EXPECT_EQ(ctx->pendingWriteBuffer,
+              expectedSetHeadersOutput(
+                  std::string(ctx->multipartSerializer.getBoundary()), "{}",
+                  "nvfw_release.fwpkg"));
+}
+
+TEST(ParseFormPartFileName, StripsCharactersUnsafeInAQuotedString)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               R"(form-data; name="UpdateFile"; filename="nv\"fw.fwpkg")");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    // A quote would otherwise terminate the forwarded Content-Disposition
+    // early when the request is relayed to a satellite.
+    EXPECT_EQ(ctx->package.name.find('"'), std::string::npos);
+    EXPECT_EQ(ctx->package.name.find('\\'), std::string::npos);
 }
 
 TEST(ParseRfaUri, EmptyUriReturnsError)
@@ -269,6 +324,41 @@ TEST(SetHeaders, WithTargetsAndApplyTime)
             R"({"@Redfish.OperationApplyTime":"OnReset","Targets":["target1"]})"));
 }
 
+TEST(HandleStartUpdateError, UnreachableUpdateAgentIsRetryable)
+{
+    for (std::string_view name : updateAgentUnreachableErrors)
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        handleStartUpdateError(asyncResp, name);
+        // The agent never saw the request, so this is transient, not a
+        // service failure.
+        EXPECT_EQ(asyncResp->res.resultInt(), 503) << name;
+        EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+                  "Base.1.19.ServiceTemporarilyUnavailable")
+            << name;
+        EXPECT_EQ(asyncResp->res.getHeaderValue("Retry-After"), "60") << name;
+    }
+}
+
+TEST(HandleStartUpdateError, InvalidImageStaysAClientError)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    handleStartUpdateError(
+        asyncResp, "xyz.openbmc_project.Software.Update.Error.InvalidImage");
+
+    // The package itself is bad; telling the client to retry later would be
+    // misleading.
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+}
+
+TEST(HandleStartUpdateError, UnknownErrorRemainsInternal)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    handleStartUpdateError(asyncResp, "xyz.openbmc_project.Some.Other.Error");
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 500);
+}
+
 TEST(ErrorHandler, AlwaysReturnsSuccess)
 {
     EXPECT_FALSE(errorHandler(200));
@@ -285,7 +375,8 @@ TEST(PLDMUpdateCtx, DoesNotStartUpdateAfterRequestFailure)
     boost::asio::local::stream_protocol::socket socket(getIoContext());
     auto ctx = std::make_shared<PLDMUpdateCtx>(
         asyncResp, std::move(payload), std::move(socket), "xyz", false,
-        std::vector<sdbusplus::object_path>{}, []() {}, []() {});
+        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, []() {},
+        []() {});
     redfish::fwUpdateInProgress = false;
     messages::unrecognizedRequestBody(asyncResp->res);
 
@@ -353,6 +444,9 @@ TEST(OnDataAvailable, RejectsOversizedUpdateParametersData)
     // One more chunk that pushes past the limit fails the request.
     ctx->onDataAvailable(ctx, std::string(200, 'y'));
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "Base.1.19.UnrecognizedRequestBody");
 }
 
 TEST(OnDataAvailable, BuffersPendingFileDataWhileWaitingForSatInfo)
@@ -741,10 +835,56 @@ TEST(UpdateInProgressGate, LocalUpdateRejectedOnceTargetsKnown)
     redfish::fwUpdateInProgress = false;
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
-    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
-    EXPECT_EQ(ctx->asyncResp->res
-                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              messages::updateInProgress()["MessageId"]);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 409);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
+              "/redfish/v1/TaskService/Tasks");
+}
+
+TEST(UpdateInProgressGate, SoftwareUpdateRejectedAtDispatch)
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::asio::local::stream_protocol::socket socket(getIoContext());
+    bool failed = false;
+    redfish::fwUpdateInProgress = true;
+
+    startSoftwareUpdate(
+        asyncResp, std::move(payload), socket, "Immediate", "xyz",
+        sdbusplus::object_path("/xyz/openbmc_project/software/x"), "pkg",
+        []() {}, [&failed]() { failed = true; });
+    redfish::fwUpdateInProgress = false;
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 409);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
+}
+
+TEST(UpdateInProgressGate, PldmUpdateRejectedAtDispatch)
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    task::Payload payload(req);
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::asio::local::stream_protocol::socket socket(getIoContext());
+    bool failed = false;
+    auto ctx = std::make_shared<PLDMUpdateCtx>(
+        asyncResp, std::move(payload), std::move(socket), "xyz", false,
+        std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, []() {},
+        [&failed]() { failed = true; });
+    redfish::fwUpdateInProgress = true;
+
+    ctx->doUpdate();
+    redfish::fwUpdateInProgress = false;
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 409);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
 }
 
 TEST(UpdateInProgressGate, HeaderStageDoesNotRejectWhileUpdateInFlight)
@@ -775,6 +915,9 @@ TEST(MultipartPartOrder, UnknownFirstPartIsRejected)
     ctx->onHeadersComplete(ctx, makePartFields("UnknownPart"), 0);
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(OnDataAvailable, AcceptsExactLimitAndRejectsNextByte)
@@ -800,6 +943,8 @@ TEST(OnDataAvailable, AcceptsExactLimitAndRejectsNextByte)
     ctx->onDataAvailable(ctx, "b");
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 413);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
 }
 
 TEST(OnHeadersComplete, UpdateFileFirstEntersStagingState)
@@ -842,7 +987,7 @@ TEST(OnHeadersComplete, UpdateFileWithWrongContentTypeIsRejected)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "Base.1.19.MissingOrMalformedPart");
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UpdateFileWithOctetStreamContentTypeAccepted)
@@ -872,9 +1017,10 @@ TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
-    EXPECT_EQ(ctx->asyncResp->res
-                  .jsonValue["UpdateFile@Message.ExtendedInfo"][0]["MessageId"],
-              "Base.1.19.PropertyDuplicate");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
+              "duplicate UpdateFile part");
 }
 
 TEST(OnDataAvailable, StagesFileFirstDataToMemfd)
@@ -906,6 +1052,8 @@ TEST(OnDataAvailable, RejectsStagedFileOverImageLimit)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 413);
     EXPECT_FALSE(ctx->stagedUpdateFile);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
 }
 
 TEST(OnDataAvailable, StagingStateWithoutMemfdFailsInsteadOfCrashing)
@@ -919,7 +1067,10 @@ TEST(OnDataAvailable, StagingStateWithoutMemfdFailsInsteadOfCrashing)
     ctx->onDataAvailable(ctx, "data");
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
-    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 500);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 507);
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "NvidiaUpdate.1.2.FirmwarePackageStagingError");
 }
 
 TEST(OnSectionComplete, StagedFileExpectsUpdateParametersNext)
@@ -962,7 +1113,7 @@ TEST(MultipartPartOrder, FileFirstRejectsParametersWithoutContentType)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "Base.1.19.MissingOrMalformedPart");
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateParameters)
@@ -980,10 +1131,30 @@ TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateParameters)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_FALSE(ctx->stagedUpdateFile);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
-    EXPECT_EQ(
-        ctx->asyncResp->res
-            .jsonValue["UpdateParameters@Message.ExtendedInfo"][0]["MessageId"],
-        "Base.1.19.PropertyDuplicate");
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+}
+
+TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateFile)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+    ctx->onDataAvailable(ctx, "abc");
+    ctx->onSectionComplete(ctx);
+    completeUpdateParameters(ctx, "{}");
+    ASSERT_EQ(ctx->state, UpdateCtx::State::WAITING_FOR_PART_HEADERS);
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_FALSE(ctx->stagedUpdateFile);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
+              "duplicate UpdateFile part");
 }
 
 TEST(MultipartPartOrder, EmptyUpdateFileFirstCompletesAfterParameters)
@@ -1068,6 +1239,8 @@ TEST(OnHeadersComplete, FileFirstThirdPartRejectedBeforeDispatch)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_FALSE(ctx->isLocal);
     EXPECT_FALSE(ctx->stagedUpdateFile);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UnexpectedPartAfterDispatchFails)
@@ -1079,6 +1252,9 @@ TEST(OnHeadersComplete, UnexpectedPartAfterDispatchFails)
     ctx->onHeadersComplete(ctx, makePartFields("ExtraPart"), 0);
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UnexpectedPartDuringSatInfoWaitFails)
@@ -1090,6 +1266,9 @@ TEST(OnHeadersComplete, UnexpectedPartDuringSatInfoWaitFails)
     ctx->onHeadersComplete(ctx, makePartFields("UpdateParameters"), 0);
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, TrailingPartAfterCompletionIsRejected)
@@ -1102,6 +1281,8 @@ TEST(OnHeadersComplete, TrailingPartAfterCompletionIsRejected)
 
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.MalformedMultipartRequest");
 }
 
 TEST(ReplayStagedFileChunk, AbortsAfterRequestFailureInsteadOfWedging)
@@ -1157,6 +1338,417 @@ TEST(OnParseComplete, StagedFileMissingParamsReportsUpdateParametersMissing)
     EXPECT_FALSE(ctx->asyncResp);
     EXPECT_NE(asyncResp->res.jsonValue.dump().find("UpdateParameters"),
               std::string::npos);
+}
+
+TEST(OnHeadersComplete, UpdateFilePartFileNameNamesThePackage)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               "form-data; name=\"UpdateFile\"; "
+               "filename=\"nvfw_release.fwpkg\"");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    EXPECT_EQ(ctx->package.name, "nvfw_release.fwpkg");
+}
+
+TEST(OnHeadersComplete, UpdateFilePartFileNameIsReducedToItsBasename)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               "form-data; name=\"UpdateFile\"; "
+               "filename=\"/home/user/images/nvfw_release.fwpkg\"");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    // A client-supplied path must not be echoed back in the error message.
+    EXPECT_EQ(ctx->package.name, "nvfw_release.fwpkg");
+}
+
+TEST(OnHeadersComplete, UpdateFilePartFileNameSplitsOnWindowsSeparators)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               "form-data; name=\"UpdateFile\"; "
+               "filename=\"C:\\\\images\\\\nvfw_release.fwpkg\"");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    // std::filesystem::path does not treat '\\' as a separator here, so the
+    // directory segments would otherwise survive into the message.
+    EXPECT_EQ(ctx->package.name, "nvfw_release.fwpkg");
+}
+
+TEST(OnHeadersComplete, UpdateFilePartFileNameOfOnlySeparatorsIsIgnored)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::beast::http::fields fields;
+    fields.set(boost::beast::http::field::content_disposition,
+               R"(form-data; name="UpdateFile"; filename="images/")");
+
+    ctx->onHeadersComplete(ctx, fields, 0);
+
+    // Trailing separator leaves an empty leaf; fall back to the part name
+    // rather than rendering '' in the message.
+    EXPECT_EQ(ctx->package.name, "UpdateFile");
+}
+
+TEST(OnHeadersComplete, UpdateFilePartWithoutFileNameKeepsThePartName)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 0);
+
+    EXPECT_EQ(ctx->package.name, "UpdateFile");
+}
+
+TEST(AfterWritePartialData, SatelliteWriteFailureReportsOperationFailed)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->isLocal = false;
+
+    boost::beast::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::broken_pipe);
+    ctx->afterWritePartialData(ctx, ec, 0);
+
+    // Without a message the response ends with an empty body.
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 502);
+    EXPECT_EQ(ctx->asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "Base.1.19.OperationFailed");
+}
+
+TEST(AfterWritePartialData, SatelliteWriteFailureKeepsTheSatelliteAnswer)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->isLocal = false;
+    // The satellite rejected the update while the last write was in flight.
+    messages::unrecognizedRequestBody(ctx->asyncResp->res);
+    ctx->responseReady = true;
+
+    boost::beast::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::broken_pipe);
+    ctx->afterWritePartialData(ctx, ec, 0);
+
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(ctx->asyncResp->res.jsonValue.dump().find("OperationFailed"),
+              std::string::npos);
+}
+
+TEST(AfterWritePartialData, SatelliteWriteFailureAfterReleaseDoesNotCrash)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->isLocal = false;
+    // The body was fully parsed and the satellite answered while the last
+    // write was in flight, so the response has already been released.
+    ctx->parseComplete = true;
+    ctx->responseReady = true;
+    ctx->releaseClientResponseIfReady();
+    ASSERT_FALSE(ctx->asyncResp);
+
+    boost::beast::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::broken_pipe);
+    ctx->afterWritePartialData(ctx, ec, 0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+}
+
+TEST(AfterWritePartialData, LocalWriteFailureIsNotReportedAsBadGateway)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_UPDATE_FILE_DATA;
+    ctx->isLocal = true;
+
+    boost::beast::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::broken_pipe);
+    ctx->afterWritePartialData(ctx, ec, 0);
+
+    EXPECT_NE(ctx->asyncResp->res.resultInt(), 502);
+}
+
+TEST(HandlePostHeaders, NonMultipartContentTypeNamesTheExpectedValue)
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    req.addHeader(boost::beast::http::field::content_type,
+                  "application/octet-stream");
+    req.addHeader(boost::beast::http::field::content_length, "1024");
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleUpdateServiceMultipartUpdatePostHeaders(req, asyncResp);
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 415);
+    EXPECT_EQ(asyncResp->res
+                  .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
+              "NvidiaUpdate.1.2.HeaderValueInvalid");
+    EXPECT_EQ(asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"][0]
+                                      ["MessageArgs"][2],
+              "multipart/form-data");
+}
+
+// ---------------------------------------------------------------------------
+// Stage 2: inventory lookup and target validation
+// ---------------------------------------------------------------------------
+
+std::shared_ptr<boost::asio::local::stream_protocol::socket> makeSocketPtr()
+{
+    return std::make_shared<boost::asio::local::stream_protocol::socket>(
+        getIoContext());
+}
+
+task::Payload makePayload()
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    return task::Payload(req);
+}
+
+TEST(AfterGetSubtreePaths, InventoryLookupFailureIsRetryable)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    bool failed = false;
+
+    afterGetSubtreePaths(
+        asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {},
+        FirmwarePackageInfo{},
+        boost::system::errc::make_error_code(boost::system::errc::timed_out),
+        {}, []() {}, [&failed]() { failed = true; });
+
+    // The lookup service is restarting; the client can retry rather than
+    // being told the service failed internally.
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 503);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "Base.1.19.ServiceTemporarilyUnavailable");
+}
+
+TEST(AfterGetSubtreePathsSoftware, InventoryLookupFailureIsRetryable)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    bool failed = false;
+
+    afterGetSubtreePathsSoftware(
+        asyncResp, makePayload(), makeSocketPtr(), "HGX_FW_GPU_0", "OnReset",
+        "nvfw.fwpkg",
+        boost::system::errc::make_error_code(boost::system::errc::timed_out),
+        {}, []() {}, [&failed]() { failed = true; });
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 503);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "Base.1.19.ServiceTemporarilyUnavailable");
+}
+
+TEST(AfterGetSubtreePaths, UnknownTargetIsNamedInTheError)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    bool failed = false;
+    const std::string target =
+        "/redfish/v1/UpdateService/FirmwareInventory/HGX_FW_GPU_0";
+
+    // No inventory path matches, so the target is unknown.
+    afterGetSubtreePaths(
+        asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {target},
+        FirmwarePackageInfo{}, boost::system::error_code{}, {}, []() {},
+        [&failed]() { failed = true; });
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwareUpdateTargetInvalid");
+    // The operator needs to know which entry was rejected, not just that
+    // "Targets" was bad.
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0], target);
+}
+
+TEST(AfterGetSubtreePaths, UnparsableTargetDoesNotAbort)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    bool failed = false;
+    // Spaces make this unparsable as a relative reference.  The message
+    // takes the value as a plain string, so no boost::urls::url_view is
+    // built from it; url_view aborts on such input under BOOST_NO_EXCEPTIONS.
+    const std::string target = "/redfish/v1/Chassis/HGX Chassis 0";
+
+    afterGetSubtreePaths(
+        asyncResp, makePayload(), makeSocketPtr(), "OnReset", false, {target},
+        FirmwarePackageInfo{}, boost::system::error_code{}, {}, []() {},
+        [&failed]() { failed = true; });
+
+    EXPECT_TRUE(failed);
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.2.FirmwareUpdateTargetInvalid");
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0], target);
+}
+
+// ---------------------------------------------------------------------------
+// Stage 4: satellite forwarding
+// ---------------------------------------------------------------------------
+
+TEST(SatControllerGetComplete, DiscoveryFailureIsRetryable)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+
+    ctx->satControllerGetComplete(
+        ctx, {}, 0,
+        boost::system::errc::make_error_code(boost::system::errc::timed_out),
+        {});
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 503);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "Base.1.19.ServiceTemporarilyUnavailable");
+}
+
+TEST(SatControllerGetComplete, NoSatelliteConfiguredIsNotFound)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+    const std::string target =
+        "/redfish/v1/UpdateService/FirmwareInventory/HGX_FW_GPU_0";
+    ctx->multiRet.params.targets = std::vector<std::string>{target};
+
+    ctx->satControllerGetComplete(ctx, {target}, 0, boost::system::error_code{},
+                                  {});
+
+    // The resource named by the request does not exist on this system.
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 404);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "Base.1.19.ResourceNotFound");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][1], target);
+}
+
+TEST(SatControllerGetComplete, NoSatelliteConfiguredNamesEveryTarget)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+    const std::vector<std::string> targets{
+        "/redfish/v1/UpdateService/FirmwareInventory/HGX_FW_GPU_0",
+        "/redfish/v1/UpdateService/FirmwareInventory/HGX_FW_GPU_1"};
+    ctx->multiRet.params.targets = targets;
+
+    ctx->satControllerGetComplete(ctx, targets, 0, boost::system::error_code{},
+                                  {});
+
+    const nlohmann::json& messages =
+        ctx->asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"];
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 404);
+    ASSERT_EQ(messages.size(), 2U);
+    EXPECT_EQ(messages[0]["MessageArgs"][1], targets[0]);
+    EXPECT_EQ(messages[1]["MessageArgs"][1], targets[1]);
+}
+
+TEST(SatControllerGetComplete, NoSatelliteConfiguredNamesTheSatelliteItself)
+{
+    auto ctx = makeCtx();
+    ctx->state = UpdateCtx::State::WAITING_FOR_SAT_CONTROLLER_INFO_COMPLETE;
+    const std::string target =
+        std::format("/redfish/v1/Chassis/{}", BMCWEB_RFA_HMC_UPDATE_TARGET);
+    ctx->multiRet.params.targets = std::vector<std::string>{target};
+
+    // A target naming the satellite itself is dropped from the forwarded
+    // list, so the callback receives none.
+    ctx->satControllerGetComplete(ctx, {}, 0, boost::system::error_code{}, {});
+
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 404);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "Base.1.19.ResourceNotFound");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0], "Chassis");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][1], target);
+}
+
+TEST(OnHttpClientDataSendComplete, UnreachableSatelliteNamesTheHost)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::urls::url host("https://172.31.13.241:8080");
+
+    // The http client reports a connection it never established as 502 with
+    // an empty body; without a message the client sees a bare status.
+    crow::Response res;
+    res.result(boost::beast::http::status::bad_gateway);
+    ctx->onHttpClientDataSendComplete(
+        ctx, std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX), host, false, 0,
+        res);
+
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 502);
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
+              "Base.1.19.CouldNotEstablishConnection");
+    EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
+              host.buffer());
+}
+
+TEST(OnHttpClientDataSendComplete, SatelliteRejectionIsRelayedUnchanged)
+{
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::urls::url host("https://172.31.13.241:8080");
+
+    // A real answer from the satellite must not be overwritten with a
+    // connection error.
+    crow::Response res;
+    res.result(boost::beast::http::status::bad_request);
+    ctx->onHttpClientDataSendComplete(
+        ctx, std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX), host, false, 0,
+        res);
+
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(ctx->asyncResp->res.jsonValue.dump().find(
+                  "CouldNotEstablishConnection"),
+              std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// Request intake headers
+// ---------------------------------------------------------------------------
+
+TEST(HandlePostHeaders, MissingContentLengthIsReported)
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    req.addHeader(boost::beast::http::field::content_type,
+                  "multipart/form-data; boundary=aaa");
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleUpdateServiceMultipartUpdatePostHeaders(req, asyncResp);
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "Base.1.19.HeaderMissing");
+}
+
+TEST(HandlePostHeaders, UnparsableContentLengthIsReported)
+{
+    std::error_code ec;
+    crow::Request req("", ec);
+    req.addHeader(boost::beast::http::field::content_type,
+                  "multipart/form-data; boundary=aaa");
+    req.addHeader(boost::beast::http::field::content_length, "not-a-number");
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleUpdateServiceMultipartUpdatePostHeaders(req, asyncResp);
+
+    EXPECT_EQ(asyncResp->res.resultInt(), 400);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "Base.1.19.HeaderInvalid");
 }
 
 } // namespace
