@@ -2,7 +2,7 @@
     "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
     "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
     "Description": "This registry defines the update messages for Nvidia.",
-    "Id": "NvidiaUpdate.1.1.0",
+    "Id": "NvidiaUpdate.1.2.0",
     "Language": "en",
     "Messages": {
         "ComponentUpdateSkipped": {
@@ -94,6 +94,78 @@
             "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "OK"
+        },
+        "FirmwarePackage": {
+            "Description": "Indicates the firmware package that the update task is applying.",
+            "Message": "The firmware package is '%1'.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "FirmwarePackageEmpty": {
+            "Description": "Indicates that the uploaded firmware package contains no data.",
+            "Message": "The uploaded firmware package '%1' is empty.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Use a firmware package intended for this platform that contains images for the target devices, then retry the update.",
+            "Severity": "Warning"
+        },
+        "FirmwarePackageSizeExceeded": {
+            "Description": "Indicates that the uploaded firmware package is larger than the maximum size the service supports.",
+            "Message": "The firmware package '%1' of size %2 exceeds the maximum supported size of %3.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "Reduce the firmware package size below the maximum supported size and resubmit the update.",
+            "Severity": "Critical"
+        },
+        "FirmwarePackageStagingError": {
+            "Description": "Indicates that the service could not stage the uploaded firmware package.",
+            "Message": "Staging of firmware package '%1' of size %2 failed: insufficient storage or memory to complete the request.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 2,
+            "ParamTypes": ["string", "string"],
+            "Resolution": "Retry firmware update operation; if it persists, reboot BMC.",
+            "Severity": "Critical"
+        },
+        "FirmwareUpdateInProgress": {
+            "Description": "Indicates that a firmware update was refused because another firmware update is in progress.",
+            "Message": "Firmware update task '%1' is already in progress.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Monitor the active firmware update task and retry the update after it completes.",
+            "Severity": "Warning"
+        },
+        "FirmwareUpdateInitiationError": {
+            "Description": "Indicates that the PLDM Update Agent rejected the request to start the firmware update.",
+            "Message": "The PLDM Update Agent could not access staged firmware package '%1' to start the update.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Retry the firmware update. If the issue persists, reset the BMC and retry. If it still fails, collect the BMC logs and contact support.",
+            "Severity": "Critical"
+        },
+        "FirmwareUpdateTargetInvalid": {
+            "Description": "Indicates that a requested firmware update target does not identify an updateable resource.",
+            "Message": "The firmware update target '%1' does not identify an existing, updateable firmware inventory resource.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Verify that every URI in the Targets property identifies an existing, updateable firmware inventory resource, then resubmit the update request.",
+            "Severity": "Critical"
+        },
+        "MalformedMultipartRequest": {
+            "Description": "Indicates that the multipart request body could not be parsed.",
+            "Message": "The multipart request could not be parsed: %1.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Correct the multipart request formatting and resubmit the request.",
+            "Severity": "Critical"
         },
         "FirmwareInRecovery": {
             "Description": "Indicates that device had boot failure and currently entered firmware recovery mode which requires external fw recovery",
@@ -216,5 +288,5 @@
     "Name": "Nvidia Message Registry",
     "OwningEntity": "Nvidia",
     "RegistryPrefix": "NvidiaUpdate",
-    "RegistryVersion": "1.1.0"
+    "RegistryVersion": "1.2.0"
 }

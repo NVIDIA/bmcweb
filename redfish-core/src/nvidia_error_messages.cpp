@@ -13,6 +13,7 @@
 #include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "http_response.hpp"
+#include "nvidia_messages.hpp"
 #include "update_messages.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -75,13 +76,55 @@ void asyncError(crow::Response& res, const std::string& errorCode,
 
 void updateInProgressMsg(crow::Response& res, const std::string& resolution)
 {
-    res.result(boost::beast::http::status::bad_request);
+    res.result(boost::beast::http::status::conflict);
     auto message = redfish::messages::updateInProgress();
     if (!resolution.empty())
     {
         message["Resolution"] = resolution;
     }
     addMessageToErrorJson(res.jsonValue, message);
+}
+
+void malformedMultipartRequest(crow::Response& res, std::string_view arg1,
+                               const std::string& resolution)
+{
+    res.result(boost::beast::http::status::bad_request);
+    nlohmann::json message = messages::malformedMultipartRequest(arg1);
+    if (!resolution.empty())
+    {
+        message["Resolution"] = resolution;
+    }
+    addMessageToErrorJson(res.jsonValue, message);
+}
+
+void firmwarePackageSizeExceeded(crow::Response& res, std::string_view arg1,
+                                 std::string_view arg2, std::string_view arg3)
+{
+    res.result(boost::beast::http::status::payload_too_large);
+    addMessageToErrorJson(
+        res.jsonValue, messages::firmwarePackageSizeExceeded(arg1, arg2, arg3));
+}
+
+void firmwarePackageStagingError(crow::Response& res, std::string_view arg1,
+                                 std::string_view arg2)
+{
+    res.result(boost::beast::http::status::insufficient_storage);
+    addMessageToErrorJson(res.jsonValue,
+                          messages::firmwarePackageStagingError(arg1, arg2));
+}
+
+void firmwareUpdateInProgress(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::conflict);
+    addMessageToErrorJson(res.jsonValue,
+                          messages::firmwareUpdateInProgress(arg1));
+}
+
+void firmwareUpdateTargetInvalid(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue,
+                          messages::firmwareUpdateTargetInvalid(arg1));
 }
 
 void serviceTemporarilyUnavailableMsg(
