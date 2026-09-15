@@ -67,6 +67,54 @@ void asyncError(crow::Response& res, const std::string& errorCode,
 void updateInProgressMsg(crow::Response& res, const std::string& resolution);
 
 /**
+ * @brief NvidiaUpdate.MalformedMultipartRequest, sets 400 Bad Request.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - why the multipart body could not be parsed
+ * @param resolution[in] - if empty the registry resolution is kept
+ */
+void malformedMultipartRequest(crow::Response& res, std::string_view arg1,
+                               const std::string& resolution = {});
+
+/**
+ * @brief NvidiaUpdate.FirmwarePackageSizeExceeded, sets 413 Payload Too Large.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - uploaded firmware package name
+ * @param arg2[in] - uploaded size, human readable
+ * @param arg3[in] - maximum supported size, human readable
+ */
+void firmwarePackageSizeExceeded(crow::Response& res, std::string_view arg1,
+                                 std::string_view arg2, std::string_view arg3);
+
+/**
+ * @brief NvidiaUpdate.FirmwarePackageStagingError, sets 507 Insufficient
+ * Storage.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - uploaded firmware package name
+ * @param arg2[in] - size staged so far, human readable
+ */
+void firmwarePackageStagingError(crow::Response& res, std::string_view arg1,
+                                 std::string_view arg2);
+
+/**
+ * @brief NvidiaUpdate.FirmwareUpdateInProgress, sets 409 Conflict.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - URI of the running firmware update task
+ */
+void firmwareUpdateInProgress(crow::Response& res, std::string_view arg1);
+
+/**
+ * @brief NvidiaUpdate.FirmwareUpdateTargetInvalid, sets 400 Bad Request.
+ *
+ * @param res[in] - response
+ * @param arg1[in] - the rejected Targets entry
+ */
+void firmwareUpdateTargetInvalid(crow::Response& res, std::string_view arg1);
+
+/**
  * @brief Base.ServiceTemporarilyUnavailable with a caller-supplied resolution.
  *
  * The registry resolution ("Wait for the indicated retry duration and retry the

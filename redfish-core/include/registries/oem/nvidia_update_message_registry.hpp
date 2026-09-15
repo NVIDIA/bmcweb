@@ -273,6 +273,18 @@ static constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "FirmwarePackage",
+        {
+            "Indicates the firmware package that the update task is applying.",
+            "The firmware package is '%1'.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "FirmwarePackageComponentImageMissing",
         {
             "Indicates that the firmware package does not contain a required update image for a target component.",
@@ -283,6 +295,81 @@ static constexpr std::array registry =
                 "string",
             },
             "Provide a firmware package containing update images for all applicable platform components, and retry the firmware update.",
+        }},
+    MessageEntry{
+        "FirmwarePackageEmpty",
+        {
+            "Indicates that the uploaded firmware package contains no data.",
+            "The uploaded firmware package '%1' is empty.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Use a firmware package intended for this platform that contains images for the target devices, then retry the update.",
+        }},
+    MessageEntry{
+        "FirmwarePackageSizeExceeded",
+        {
+            "Indicates that the uploaded firmware package is larger than the maximum size the service supports.",
+            "The firmware package '%1' of size %2 exceeds the maximum supported size of %3.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Reduce the firmware package size below the maximum supported size and resubmit the update.",
+        }},
+    MessageEntry{
+        "FirmwarePackageStagingError",
+        {
+            "Indicates that the service could not stage the uploaded firmware package.",
+            "Staging of firmware package '%1' of size %2 failed: insufficient storage or memory to complete the request.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Retry firmware update operation; if it persists, reboot BMC.",
+        }},
+    MessageEntry{
+        "FirmwareUpdateInProgress",
+        {
+            "Indicates that a firmware update was refused because another firmware update is in progress.",
+            "Firmware update task '%1' is already in progress.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Monitor the active firmware update task and retry the update after it completes.",
+        }},
+    MessageEntry{
+        "FirmwareUpdateInitiationError",
+        {
+            "Indicates that the PLDM Update Agent rejected the request to start the firmware update.",
+            "The PLDM Update Agent could not access staged firmware package '%1' to start the update.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Retry the firmware update. If the issue persists, reset the BMC and retry. If it still fails, collect the BMC logs and contact support.",
+        }},
+    MessageEntry{
+        "FirmwareUpdateTargetInvalid",
+        {
+            "Indicates that a requested firmware update target does not identify an updateable resource.",
+            "The firmware update target '%1' does not identify an existing, updateable firmware inventory resource.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Verify that every URI in the Targets property identifies an existing, updateable firmware inventory resource, then resubmit the update request.",
         }},
     MessageEntry{
         "HeaderValueInvalid",
@@ -309,6 +396,18 @@ static constexpr std::array registry =
                 "string",
             },
             "None.",
+        }},
+    MessageEntry{
+        "MalformedMultipartRequest",
+        {
+            "Indicates that the multipart request body could not be parsed.",
+            "The multipart request could not be parsed: %1.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Correct the multipart request formatting and resubmit the request.",
         }},
     MessageEntry{
         "PreUpdateValidationFailed",
@@ -368,12 +467,20 @@ enum class Index
     enterDOTRecovery = 16,
     firmwareInRecovery = 17,
     firmwareNotInRecovery = 18,
-    firmwarePackageComponentImageMissing = 19,
-    headerValueInvalid = 20,
-    imageCopyCompleted = 21,
-    preUpdateValidationFailed = 22,
-    recoveryStarted = 23,
-    recoverySuccessful = 24,
+    firmwarePackage = 19,
+    firmwarePackageComponentImageMissing = 20,
+    firmwarePackageEmpty = 21,
+    firmwarePackageSizeExceeded = 22,
+    firmwarePackageStagingError = 23,
+    firmwareUpdateInProgress = 24,
+    firmwareUpdateInitiationError = 25,
+    firmwareUpdateTargetInvalid = 26,
+    headerValueInvalid = 27,
+    imageCopyCompleted = 28,
+    malformedMultipartRequest = 29,
+    preUpdateValidationFailed = 30,
+    recoveryStarted = 31,
+    recoverySuccessful = 32,
 };
 }; // struct nvidia_update
 
