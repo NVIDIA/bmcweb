@@ -206,6 +206,12 @@ inline void populateClockLimitControlMatch(
     const std::string& processorName, const std::string& object,
     const std::string& validChassisPath)
 {
+    asyncResp->res.jsonValue["@odata.type"] = "#Control.v1_3_0.Control";
+    asyncResp->res.jsonValue["SetPointUnits"] = "MHz";
+    asyncResp->res.jsonValue["Id"] = controlID;
+    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Controls/{}", chassisID, controlID);
     asyncResp->res.jsonValue["Name"] =
         std::format("Control for {} {}", processorName, controlID);
     asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
@@ -277,12 +283,6 @@ inline void getClockLimitControl(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = "#Control.v1_3_0.Control";
-    asyncResp->res.jsonValue["SetPointUnits"] = "MHz";
-    asyncResp->res.jsonValue["Id"] = controlID;
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Chassis/" + chassisID + "/Controls/" + controlID;
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper",
         *validChassisPath + "/clock_controls",

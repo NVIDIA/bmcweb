@@ -22,6 +22,7 @@
 #include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <app.hpp>
+#include <boost/url/format.hpp>
 #include <dbus_utility.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/chassis_utils.hpp>
@@ -920,6 +921,12 @@ inline void afterGetSystemPowerControlEndpoints(
         sdbusplus::object_path objPath(object);
         if (objPath.filename() == controlID)
         {
+            asyncResp->res.jsonValue["@odata.type"] = "#Control.v1_3_0.Control";
+            asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits();
+            asyncResp->res.jsonValue["Id"] = controlID;
+            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Controls/{}", chassisID, controlID);
             asyncResp->res.jsonValue["Name"] = "System Power Control";
             asyncResp->res.jsonValue["ControlType"] = "Power";
             asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
@@ -938,6 +945,12 @@ inline void populateCpuPowerControlMatch(
     const std::string& chassisID, const std::string& controlID,
     const std::string& validChassisPath, const std::string& object)
 {
+    asyncResp->res.jsonValue["@odata.type"] = "#Control.v1_3_0.Control";
+    asyncResp->res.jsonValue["SetPointUnits"] = "W";
+    asyncResp->res.jsonValue["Id"] = controlID;
+    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Controls/{}", chassisID, controlID);
     if (controlID.find("_CPU_") != std::string::npos)
     {
         asyncResp->res.jsonValue["Name"] = "Cpu Power Control";
@@ -1010,14 +1023,6 @@ inline void requestRoutesChassisControls(App& app)
                                                    chassisID);
                         return;
                     }
-                    asyncResp->res.jsonValue["@odata.type"] =
-                        "#Control.v1_3_0.Control";
-                    asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits();
-                    asyncResp->res.jsonValue["Id"] = controlID;
-                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                    asyncResp->res.jsonValue["@odata.id"] =
-                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
-                        controlID;
                     dbus::utility::getProperty<std::vector<std::string>>(
                         "xyz.openbmc_project.ObjectMapper",
                         *validChassisPath + "/power_controls",
@@ -1038,14 +1043,6 @@ inline void requestRoutesChassisControls(App& app)
                                                    chassisID);
                         return;
                     }
-                    asyncResp->res.jsonValue["@odata.type"] =
-                        "#Control.v1_3_0.Control";
-                    asyncResp->res.jsonValue["SetPointUnits"] = "W";
-                    asyncResp->res.jsonValue["Id"] = controlID;
-                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                    asyncResp->res.jsonValue["@odata.id"] =
-                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
-                        controlID;
                     dbus::utility::getProperty<std::vector<std::string>>(
                         "xyz.openbmc_project.ObjectMapper",
                         *validChassisPath + "/power_controls",

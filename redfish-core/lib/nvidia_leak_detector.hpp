@@ -192,7 +192,14 @@ inline void afterGetValidLeakDetectorPathObject(
 {
     if (ec)
     {
-        if (ec.value() == EBADR)
+        // GetObject on a nonexistent leak detector path fails with EBADR
+        // via the ObjectMapper, but can also surface as EIO depending on
+        // the D-Bus error name GetObject returns when no service owns the
+        // path. Both observed to mean the requested LeakDetector ID
+        // doesn't exist. Any other error (D-Bus unreachable, timeout,
+        // etc.) is a genuine fault and must stay a 500, not be
+        // misreported as not-found.
+        if (ec.value() == EBADR || ec.value() == EIO)
         {
             messages::resourceNotFound(asyncResp->res, "LeakDetector",
                                        leakDetectorId);
