@@ -225,6 +225,8 @@ int_options = [
     'http-response-timeout',
     'gpu-index-start',
     'http-body-limit',
+    'expand-response-body-limit-kib',
+    'expand-global-body-limit-kib',
     'manufacturing-test-timeout',
     'min-digits',
     'min-lcase-characters',
