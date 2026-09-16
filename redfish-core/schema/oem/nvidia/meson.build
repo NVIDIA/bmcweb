@@ -71,6 +71,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaSwitchLTXMode_v1.xml',
         'NvidiaSwitchPowerCapMode_v1.xml',
         'NvidiaSwitchPowerMode_v1.xml',
+        'NvidiaSwitchTAVMode_v1.xml',
         'NvidiaSwitchUPhyRecoveryMode_v1.xml',
         'NvidiaSwitch_v1.xml',
         'NvidiaSystemConfigProfileStatus_v1.xml',
