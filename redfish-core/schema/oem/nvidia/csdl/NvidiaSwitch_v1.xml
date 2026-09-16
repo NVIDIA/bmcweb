@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaSwitch  v1.5.0                                                            -->
+<!--# Redfish OEM Schema:  NvidiaSwitch  v1.7.0                                                            -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -35,6 +35,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchUPhyRecoveryMode_v1.xml">
     <edmx:Include Namespace="NvidiaSwitchUPhyRecoveryMode"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchTAVMode_v1.xml">
+    <edmx:Include Namespace="NvidiaSwitchTAVMode"/>
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
     <edmx:Include Namespace="NvidiaHistogramCollection"/>
@@ -181,6 +184,17 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to the UPhy recovery mode resource for this switch."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaSwitchUPhyRecoveryMode."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_6_0.NvidiaSwitch">
+        <NavigationProperty Name="TAVMode" Type="NvidiaSwitchTAVMode.NvidiaSwitchTAVMode" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Temperature Aware Voltage (TAV) mode resource for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaSwitchTAVMode."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </ComplexType>

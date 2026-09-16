@@ -29,6 +29,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -273,7 +274,7 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+                            "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
                         std::string errorInjectionPath = "/redfish/v1/Fabrics/";
                         errorInjectionPath += fabricId2;
                         errorInjectionPath += "/Switches/";
@@ -365,7 +366,7 @@ inline void getSwitchPowerModeLink(
             std::string switchPowerModeURI = switchURI;
             switchPowerModeURI += "/Oem/Nvidia/PowerMode";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_6_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
                 switchPowerModeURI;
@@ -548,7 +549,7 @@ inline void afterGetSwitchPowerCappingModeLink(
     }
     std::string uri = switchURI + "/Oem/Nvidia/PowerCappingMode";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerCappingMode"]["@odata.id"] =
         uri;
 }
@@ -912,7 +913,7 @@ inline void getSwitchHistogramLink(
             std::string switchHistogramURI = switchURI;
             switchHistogramURI += "/Oem/Nvidia/Histograms";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_6_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
                 switchHistogramURI;
@@ -1096,7 +1097,7 @@ inline void afterGetSwitchLTXModeLink(
     }
     std::string uri = switchURI + "/Oem/Nvidia/LTXMode";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_6_0.NvidiaSwitch";
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["LTXMode"]["@odata.id"] = uri;
 }
 
@@ -1450,7 +1451,7 @@ inline void afterGetSwitchUPhyRecoveryModeLink(
     }
     std::string uri = switchURI + "/Oem/Nvidia/UPhyRecoveryMode";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_6_0.NvidiaSwitch";
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["UPhyRecoveryMode"]["@odata.id"] =
         uri;
 }
@@ -1615,6 +1616,362 @@ inline void patchSwitchUPhyRecoveryMode(
         "IsModeConfigurable",
         std::bind_front(afterPatchSwitchUPhyRecoveryModeGetConfigurable, resp,
                         *dbusValue, objectPath, *inventoryService));
+}
+
+constexpr std::string_view tavModeIntf = "com.nvidia.DeviceMode.TAVMode";
+constexpr std::string_view tavModeEnumPrefix =
+    "com.nvidia.DeviceMode.TAVMode.TAVModeValue.";
+
+// Convert a D-Bus TAV mode enum string to a Redfish string.
+// Returns nullopt on any unrecognised value.
+inline std::optional<std::string> tavModeDbusToRedfish(
+    std::string_view dbusValue)
+{
+    if (!dbusValue.starts_with(tavModeEnumPrefix))
+    {
+        return std::nullopt;
+    }
+    dbusValue.remove_prefix(tavModeEnumPrefix.size());
+    if (dbusValue != "Default" && dbusValue != "Enabled" &&
+        dbusValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(dbusValue);
+}
+
+// Convert a D-Bus TAV mode enum string for the active resource.
+// Returns nullopt for Default (firmware contract violation on active
+// resource) or any unrecognised value, so callers can never observe
+// "Default" coming back from this function.
+inline std::optional<std::string> tavModeActiveDbusToRedfish(
+    std::string_view dbusValue)
+{
+    std::optional<std::string> redfishValue = tavModeDbusToRedfish(dbusValue);
+    if (!redfishValue || *redfishValue == "Default")
+    {
+        return std::nullopt;
+    }
+    return redfishValue;
+}
+
+inline std::string translateTAVModeRedfishToDbus(
+    const std::string& redfishValue)
+{
+    if (redfishValue == "Default")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Default";
+    }
+    if (redfishValue == "Enabled")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Enabled";
+    }
+    if (redfishValue == "Disabled")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Disabled";
+    }
+    return "";
+}
+
+inline void afterUpdateSwitchTAVModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for updateSwitchTAVModeData(): {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    bool foundCurrentMode = false;
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "CurrentMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("TAVMode CurrentMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            tavModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR("Unexpected CurrentMode on active TAVMode: {}",
+                             *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["TAVMode"] = *redfishValue;
+        foundCurrentMode = true;
+    }
+    if (!foundCurrentMode)
+    {
+        BMCWEB_LOG_ERROR("CurrentMode not found in TAVMode GetAll response");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    boost::urls::url settingsUri(switchURI);
+    settingsUri.segments().push_back("Oem");
+    settingsUri.segments().push_back("Nvidia");
+    settingsUri.segments().push_back("TAVMode");
+    settingsUri.segments().push_back("Settings");
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res
+        .jsonValue["@Redfish.Settings"]["SettingsObject"]["@odata.id"] =
+        settingsUri;
+
+    boost::urls::url resetUri(switchURI);
+    resetUri.segments().push_back("Oem");
+    resetUri.segments().push_back("Nvidia");
+    resetUri.segments().push_back("TAVMode");
+    resetUri.segments().push_back("Actions");
+    resetUri.segments().push_back("NvidiaSwitchTAVMode.ResetToDefaults");
+    asyncResp->res.jsonValue["Actions"]["#NvidiaSwitchTAVMode.ResetToDefaults"]
+                            ["target"] = resetUri;
+}
+
+inline void updateSwitchTAVModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& tavObjPath,
+    const std::string& switchURI)
+{
+    BMCWEB_LOG_DEBUG("Get Switch TAV mode Data for {}", tavObjPath);
+    dbus::utility::getAllProperties(
+        service, tavObjPath, std::string(tavModeIntf),
+        std::bind_front(afterUpdateSwitchTAVModeData, asyncResp, switchURI));
+}
+
+inline void afterUpdateSwitchTAVModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error for TAVMode Settings: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "PendingMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "TAVMode Settings PendingMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // Settings publishes Enabled/Disabled only; omit internal Default.
+        std::optional<std::string> redfishValue = tavModeDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR("Unexpected PendingMode on TAVMode Settings: {}",
+                             *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (*redfishValue == "Default")
+        {
+            return;
+        }
+        asyncResp->res.jsonValue["TAVMode"] = *redfishValue;
+    }
+}
+
+inline void updateSwitchTAVModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& tavObjPath)
+{
+    BMCWEB_LOG_DEBUG("Get Switch TAV mode Settings Data for {}", tavObjPath);
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["@odata.type"] =
+        "#Settings.v1_3_3.PreferredApplyTime";
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["ApplyTime"] =
+        "OnReset";
+    dbus::utility::getAllProperties(
+        service, tavObjPath, std::string(tavModeIntf),
+        std::bind_front(afterUpdateSwitchTAVModeSettingsData, asyncResp));
+}
+
+inline void afterGetSwitchTAVModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        return;
+    }
+    std::string uri = switchURI + "/Oem/Nvidia/TAVMode";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TAVMode"]["@odata.id"] = uri;
+}
+
+inline void getSwitchTAVModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& switchURI)
+{
+    dbus::utility::findAssociations(
+        objectPath + "/tav_mode",
+        std::bind_front(afterGetSwitchTAVModeLink, asyncResp, switchURI));
+}
+
+using TAVModeObjectHandler =
+    std::function<void(const std::string&, const std::string&,
+                       const dbus::utility::MapperGetObject&)>;
+
+inline void afterGetSwitchTAVModeDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& tavObjPath, const TAVModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    handler(object.front().first, tavObjPath, object);
+}
+
+inline void afterGetSwitchTAVModeAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const TAVModeObjectHandler& handler, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::resourceNotFound(resp->res, "TAVMode", switchId);
+        return;
+    }
+    const std::string& tavObjPath = endpoints.front();
+    dbus::utility::getDbusObject(
+        tavObjPath, std::array<std::string_view, 1>{tavModeIntf},
+        std::bind_front(afterGetSwitchTAVModeDbusObject, resp, tavObjPath,
+                        handler));
+}
+
+inline void getSwitchTAVModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const std::string& switchObjPath, const TAVModeObjectHandler& handler)
+{
+    dbus::utility::findAssociations(
+        switchObjPath + "/tav_mode",
+        std::bind_front(afterGetSwitchTAVModeAssociation, resp, switchId,
+                        handler));
+}
+
+inline void afterPatchSwitchTAVModeGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "Dbus response error while getting async setter object for TAVMode PATCH: {}",
+            ec);
+        messages::internalError(resp->res);
+        return;
+    }
+    for (const auto& [serv, _] : object)
+    {
+        if (serv != service)
+        {
+            continue;
+        }
+        BMCWEB_LOG_DEBUG("Setting TAVMode PendingMode on {} to {}", objectPath,
+                         dbusValue);
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            resp, std::chrono::seconds(60), service, objectPath,
+            std::string(tavModeIntf), "PendingMode",
+            std::variant<std::string>(dbusValue),
+            nvidia_async_operation_utils::PatchGenericCallback{resp});
+        return;
+    }
+    BMCWEB_LOG_ERROR("Service {} not found in async setter object for {}",
+                     service, objectPath);
+    messages::internalError(resp->res);
+}
+
+inline void afterPatchSwitchTAVModeGetConfigurable(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    bool isModeConfigurable)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for TAVMode IsModeConfigurable: {}", ec);
+        messages::internalError(resp->res);
+        return;
+    }
+    if (!isModeConfigurable)
+    {
+        BMCWEB_LOG_DEBUG("TAVMode on {} is not configurable", objectPath);
+        messages::propertyNotWritable(resp->res, "TAVMode");
+        return;
+    }
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        std::bind_front(afterPatchSwitchTAVModeGetDbusObject, resp, dbusValue,
+                        objectPath, service));
+}
+
+inline void patchSwitchTAVMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& tavMode,
+    const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::ranges::find(interfaceList, std::string(tavModeIntf)) !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_ERROR("No service implementing {} found for {}", tavModeIntf,
+                         objectPath);
+        messages::internalError(resp->res);
+        return;
+    }
+
+    std::string dbusValue = translateTAVModeRedfishToDbus(tavMode);
+    if (dbusValue.empty())
+    {
+        BMCWEB_LOG_DEBUG("Rejecting TAVMode PATCH with unsupported value: {}",
+                         tavMode);
+        messages::propertyValueNotInList(resp->res, tavMode, "TAVMode");
+        return;
+    }
+
+    dbus::utility::getProperty<bool>(
+        *inventoryService, objectPath, std::string(tavModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterPatchSwitchTAVModeGetConfigurable, resp, dbusValue,
+                        objectPath, *inventoryService));
 }
 
 } // namespace nvidia_fabric_utils

@@ -13,10 +13,36 @@ enum class MLNVLPeerType{
     Direct,
 };
 
+enum class BMSAIMode{
+    Invalid,
+    Disabled,
+    Production,
+    DevTools,
+};
+
+enum class NVLinkEncryptionMode{
+    Invalid,
+    Qualification,
+    Production,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(MLNVLPeerType, {
     {MLNVLPeerType::Invalid, "Invalid"},
     {MLNVLPeerType::Bridge, "Bridge"},
     {MLNVLPeerType::Direct, "Direct"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(BMSAIMode, {
+    {BMSAIMode::Invalid, "Invalid"},
+    {BMSAIMode::Disabled, "Disabled"},
+    {BMSAIMode::Production, "Production"},
+    {BMSAIMode::DevTools, "DevTools"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(NVLinkEncryptionMode, {
+    {NVLinkEncryptionMode::Invalid, "Invalid"},
+    {NVLinkEncryptionMode::Qualification, "Qualification"},
+    {NVLinkEncryptionMode::Production, "Production"},
 });
 
 // clang-format on

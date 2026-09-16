@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaProcessor  v1.9.0                                                         -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.10.0                                                        -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -678,6 +678,50 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the processor is currently accepting writes to the Mask property. The value shall be `true` only while host firmware is waiting for the link enable mask, and `false` at all other times. The Mask property remains readable regardless of this value."/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_8_0.NvidiaGPU">
+        <Property Name="BMSAIMode" Type="NvidiaProcessor.v1_10_0.BMSAIMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Bare-Metal Secure AI (BMSAI) operating mode for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Bare-Metal Secure AI (BMSAI) operating mode for this processor. For compatibility, Production shall correspond to CCModeEnabled containing true, DevTools shall correspond to CCDevModeEnabled containing true, and Disabled shall correspond to both properties containing false. On a Settings resource, this property shall contain the configured mode that becomes active after the required processor reset."/>
+        </Property>
+        <Property Name="NVLinkEncryptionEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether NVLink encryption is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate whether NVLink encryption is enabled for this processor. On a Settings resource, this property shall contain the configured value that becomes active after the required processor reset."/>
+        </Property>
+        <Property Name="NVLinkEncryptionMode" Type="NvidiaProcessor.v1_10_0.NVLinkEncryptionMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink encryption mode for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink encryption mode for this processor. On a Settings resource, this property shall contain the configured mode that becomes active after the required processor reset."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="BMSAIMode">
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="BMSAI mode is disabled."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI mode is disabled."/>
+        </Member>
+        <Member Name="Production">
+          <Annotation Term="OData.Description" String="BMSAI is operating in production mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI is operating in production mode."/>
+        </Member>
+        <Member Name="DevTools">
+          <Annotation Term="OData.Description" String="BMSAI is operating in DevTools mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI is operating in DevTools mode."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="NVLinkEncryptionMode">
+        <Member Name="Qualification">
+          <Annotation Term="OData.Description" String="NVLink encryption is operating in qualification mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that NVLink encryption is operating in qualification mode."/>
+        </Member>
+        <Member Name="Production">
+          <Annotation Term="OData.Description" String="NVLink encryption is operating in production mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that NVLink encryption is operating in production mode."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
