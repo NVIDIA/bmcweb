@@ -21,6 +21,7 @@
 
 #include <app.hpp>
 #include <bios.hpp>
+#include <boost/url/format.hpp>
 #include <dbus_utility.hpp>
 #include <error_messages.hpp>
 #include <nvidia_bios.hpp>
@@ -306,11 +307,10 @@ inline void requestHostInterfacesRoutes(App& app)
                      "/redfish/v1/Managers/" +
                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                          "/EthernetInterfaces/" + ifaceId}};
-                asyncResp->res.jsonValue["NetworkProtocol"] = {
-                    {"@odata.id",
-                     "/redfish/v1/Managers/" +
-                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                         "/NetworkProtocol/"}};
+                asyncResp->res.jsonValue["NetworkProtocol"]["@odata.id"] =
+                    boost::urls::format(
+                        "/redfish/v1/Managers/{}/NetworkProtocol",
+                        BMCWEB_REDFISH_MANAGER_URI_NAME);
 
                 getCredentialsBootStrap(asyncResp);
             });
