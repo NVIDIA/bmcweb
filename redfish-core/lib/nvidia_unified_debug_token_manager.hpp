@@ -995,14 +995,6 @@ inline void debugTokenManagementInstallTokenHandler(
         return;
     }
 
-    // Check if the token file is empty
-    // Nvidia code starts here
-    if (tokenFile->empty())
-    // Nvidia code ends here
-    {
-        return;
-    }
-
     constexpr uint32_t debugTokenTaskTimeoutSec = 300;
     std::shared_ptr<task::TaskData> task =
         debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
