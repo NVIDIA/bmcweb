@@ -250,25 +250,8 @@ int addExt(X509* cert, int nid, const char* value)
     ex = X509V3_EXT_conf_nid(nullptr, &ctx, nid, const_cast<char*>(value));
     if (ex == nullptr)
     {
-        BMCWEB_LOG_INFO(
-            "Ready to generate new HTTPs certificate with subject cn: {}",
-            hostname);
-
-        std::string certData = ensuressl::generateSslCertificate(hostname);
-        if (certData.empty())
-        {
-            BMCWEB_LOG_ERROR("Failed to generate cert");
-            return;
-        }
-        bmcweb::OpenSSLGenerator gen;
-        std::uniform_int_distribution<uint64_t> dis(
-            std::numeric_limits<uint64_t>::min(),
-            std::numeric_limits<uint64_t>::max());
-        std::string certPath =
-            std::format("/tmp/hostname_cert.{}.tmp", dis(gen));
-        ensuressl::writeCertificateToFile(certPath, certData);
-
-        installCertificate(certPath);
+        BMCWEB_LOG_ERROR("Error: In X509V3_EXT_conf_nidn: {}", value);
+        return -1;
     }
     X509_add_ext(cert, ex, -1);
     X509_EXTENSION_free(ex);
