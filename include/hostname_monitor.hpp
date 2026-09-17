@@ -3,9 +3,9 @@
 #pragma once
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "duplicatable_file_handle.hpp"
 #include "include/dbus_utility.hpp"
 #include "logging.hpp"
+#include "ossl_random.hpp"
 #include "ssl_key_handler.hpp"
 
 #include <openssl/asn1.h>
@@ -21,10 +21,14 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
+#include <format>
 #include <iterator>
+#include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <variant>
 
 namespace crow
@@ -34,13 +38,10 @@ namespace hostname_monitor
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> hostnameSignalMonitor;
 
-inline void installCertificate(
-    const std::shared_ptr<DuplicatableFileHandle>& certFile)
+inline void installCertificate(const std::filesystem::path& certPath)
 {
     dbus::utility::async_method_call(
-        // certFile is kept alive until the callback runs, so its
-        // destructor removes the temp file on both success and failure.
-        [certFile](const boost::system::error_code& ec) {
+        [certPath](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Replace Certificate Fail..");
@@ -49,10 +50,16 @@ inline void installCertificate(
             {
                 BMCWEB_LOG_INFO("Replace HTTPs Certificate Success");
             }
+            std::error_code ec2;
+            std::filesystem::remove(certPath, ec2);
+            if (ec2)
+            {
+                BMCWEB_LOG_ERROR("Failed to remove certificate");
+            }
         },
         "xyz.openbmc_project.Certs.Manager.Server.Https",
         "/xyz/openbmc_project/certs/server/https/1",
-        "xyz.openbmc_project.Certs.Replace", "Replace", certFile->filePath);
+        "xyz.openbmc_project.Certs.Replace", "Replace", certPath.string());
 }
 
 inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
@@ -144,17 +151,15 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                 return 0;
             }
 
-            auto tempCertFile =
-                std::make_shared<DuplicatableFileHandle>(certData);
-            if (tempCertFile->filePath.empty() ||
-                !std::filesystem::exists(tempCertFile->filePath))
-            {
-                BMCWEB_LOG_ERROR("Failed to create temporary certificate "
-                                 "file");
-                return 0;
-            }
+            bmcweb::OpenSSLGenerator gen;
+            std::uniform_int_distribution<uint64_t> dis(
+                std::numeric_limits<uint64_t>::min(),
+                std::numeric_limits<uint64_t>::max());
+            std::string certPath =
+                std::format("/tmp/hostname_cert.{}.tmp", dis(gen));
+            ensuressl::writeCertificateToFile(certPath, certData);
 
-            installCertificate(tempCertFile);
+            installCertificate(certPath);
         }
         ASN1_STRING_free(asn1);
     }
