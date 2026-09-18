@@ -519,6 +519,30 @@ TEST(OnHeadersComplete, InvalidApplyTimeReturnsSingleError)
         1U);
 }
 
+TEST(OnParseComplete, InvalidApplyTimeIsNotReportedTwice)
+{
+    auto ctx = makeCtx();
+    // onParseComplete() releases ctx->asyncResp once the error is final, so
+    // hold our own reference to inspect the response afterwards.
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp = ctx->asyncResp;
+    ctx->multiRet.params.applyTime = "Invalid";
+    ctx->updateParametersReceived = true;
+    ctx->state = UpdateCtx::State::WAITING_FOR_PART_HEADERS;
+
+    boost::beast::http::fields fileFields;
+    fileFields.set(boost::beast::http::field::content_disposition,
+                   "form-data; name=\"UpdateFile\"");
+
+    ctx->onHeadersComplete(ctx, fileFields, 0);
+    // The request has already failed; finishing the body must not re-run the
+    // apply-time gate and append the message a second time.
+    ctx->onParseComplete(ctx);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(asyncResp->res.jsonValue["ApplyTime@Message.ExtendedInfo"].size(),
+              1U);
+}
+
 TEST(OnParseComplete, MissingUpdateFileReturnsErrorNotHang)
 {
     auto ctx = makeCtx();

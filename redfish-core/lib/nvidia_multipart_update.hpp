@@ -1018,7 +1018,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
     void beginUpdateFile(size_t remainingBodyLength)
     {
-        if (updateStarted)
+        // A failed parameter check leaves updateStarted false, so without the
+        // terminal-state test onParseComplete() runs this again and reports
+        // the same error twice.
+        if (updateStarted || state == State::UPDATE_COMPLETE_ERROR)
         {
             return;
         }
