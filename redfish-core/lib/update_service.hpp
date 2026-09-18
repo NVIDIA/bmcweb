@@ -1597,11 +1597,6 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
             fw_util::getFwWriteProtectedStatus(asyncResp, obj.first,
                                                settingService);
         }
-        else
-        {
-            fw_util::getFwWriteProtectedStatusFromActiveSlot(asyncResp,
-                                                             obj.first);
-        }
         asyncResp->res.jsonValue["Id"] = *swId;
 
         if (!versionService.empty())
