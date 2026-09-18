@@ -58,17 +58,6 @@ const std::array<std::string_view, 1> trustedComponentInterfaces = {
     "xyz.openbmc_project.Inventory.Item.TrustedComponent"};
 
 /**
- * @brief Compute the inventory root under which to look up discrete TPM
- * TrustedComponent objects.
- */
-inline std::string getTpmInventorySearchRoot(
-    const std::string& validChassisPath)
-{
-    sdbusplus::message::object_path chassisObjectPath(validChassisPath);
-    return chassisObjectPath.parent_path().str;
-}
-
-/**
  * @brief Structure to hold certificate-related data
  */
 struct CertificateData
@@ -162,8 +151,7 @@ inline void checkTPMComponentsAndAddLink(
     }
 
     dbus::utility::getSubTree(
-        getTpmInventorySearchRoot(*validChassisPath), static_cast<int32_t>(0),
-        trustedComponentInterfaces,
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp,
          chassisID](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -287,8 +275,7 @@ inline void handleTpmComponentsCollectionGet(
     }
 
     dbus::utility::getSubTree(
-        getTpmInventorySearchRoot(*validChassisPath), static_cast<int32_t>(0),
-        trustedComponentInterfaces,
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp, chassisID,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -340,8 +327,7 @@ inline void updateTPMCollection(
     }
 
     dbus::utility::getSubTree(
-        getTpmInventorySearchRoot(*validChassisPath), static_cast<int32_t>(0),
-        trustedComponentInterfaces,
+        *validChassisPath, static_cast<int32_t>(0), trustedComponentInterfaces,
         [asyncResp, chassisID, validChassisPath,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -831,8 +817,8 @@ inline void handleTpmComponentGet(
                 return;
             }
             dbus::utility::getSubTree(
-                getTpmInventorySearchRoot(*validChassisPath),
-                static_cast<int32_t>(0), trustedComponentInterfaces,
+                *validChassisPath, static_cast<int32_t>(0),
+                trustedComponentInterfaces,
                 [asyncResp, chassisID, componentID](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {

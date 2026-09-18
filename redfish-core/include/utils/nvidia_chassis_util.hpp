@@ -17,6 +17,8 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "failover_policy.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/nvidia_chassis.hpp"
@@ -1451,70 +1453,6 @@ inline void getOemAssemblyAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getOemHdwWriteProtectInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get Baseboard Hardware write protect info");
-    dbus::utility::async_method_call(
-        [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string, bool, uint64_t>>>&
-                    propertiesList) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for "
-                                 "Baseboard Hardware write protect info");
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            for (const auto& property : propertiesList)
-            {
-                if (property.first == "WriteProtected")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for hardware write protected");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res
-                        .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtected"] =
-                        *value;
-                }
-
-                if (property.first == "WriteProtectedControl")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "Null value returned "
-                            "for hardware write protected control");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["HardwareWriteProtectedControl"] =
-                        *value;
-                }
-            }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Software.Settings");
-}
-
-/**
- * @brief Fill out chassis nvidia specific info by
- * requesting data from the given D-Bus object.
- *
- * @param[in,out]   aResp       Async HTTP response.
- * @param[in]       service     D-Bus service to query.
- * @param[in]       objPath     D-Bus object to query.
- */
 inline void getOemPCIeDeviceClockReferenceInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
@@ -2546,17 +2484,29 @@ inline void handleChassisGetAllProperties(
     const uint64_t* locationOrdinalValue = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
-        partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "Model", model, "SparePartNumber", sparePartNumber, "UUID", uuid,
-        "LocationCode", locationCode, "LocationType", locationType, "Type",
-        type, "Height", height, "Width", width, "Depth", depth, "MinPowerWatts",
-        minPowerWatts, "MaxPowerWatts", maxPowerWatts, "AssetTag", assetTag,
-        "WriteProtected", writeProtected, "WriteProtectedControl",
-        writeProtectedControl, "PCIeReferenceClockCount",
-        pCIeReferenceClockCount, "LocationContext", locationContext,
-        "LocationReference", reference, "Orientation", orientation,
-        "LocationOrdinalValue", locationOrdinalValue);
+        dbus_utils::UnpackErrorPrinter(), propertiesList,   //
+        "AssetTag", assetTag,                               //
+        "Depth", depth,                                     //
+        "Height", height,                                   //
+        "LocationCode", locationCode,                       //
+        "LocationContext", locationContext,                 //
+        "LocationOrdinalValue", locationOrdinalValue,       //
+        "LocationReference", reference,                     //
+        "LocationType", locationType,                       //
+        "Manufacturer", manufacturer,                       //
+        "MaxPowerWatts", maxPowerWatts,                     //
+        "MinPowerWatts", minPowerWatts,                     //
+        "Model", model,                                     //
+        "Orientation", orientation,                         //
+        "PCIeReferenceClockCount", pCIeReferenceClockCount, //
+        "PartNumber", partNumber,                           //
+        "SerialNumber", serialNumber,                       //
+        "SparePartNumber", sparePartNumber,                 //
+        "Type", type,                                       //
+        "UUID", uuid,                                       //
+        "Width", width,                                     //
+        "WriteProtected", writeProtected,                   //
+        "WriteProtectedControl", writeProtectedControl);
 
     if (!success)
     {
@@ -3551,11 +3501,6 @@ inline void populateChassisLinksOemAndStatus(
     const std::string& objPath, const std::string& path,
     const InterfacesContainer& interfaces2, const std::string& chassisId)
 {
-    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-    {
-        redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                             chassisId);
-    }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         // Baseboard Chassis OEM properties if exist, search by
@@ -3747,83 +3692,6 @@ inline void applyOemChassisPatch(
     }
 }
 
-inline void handleAuxPowerResetAction(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    std::string resetType;
-    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
-    {
-        return;
-    }
-
-    if (resetType != "AuxPowerCycle" && resetType != "AuxPowerCycleForce")
-    {
-        messages::actionParameterValueError(asyncResp->res, "ResetType",
-                                            "NvidiaChassis.AuxPowerReset");
-        return;
-    }
-
-    if (resetType == "AuxPowerCycle")
-    {
-        // check power status
-        dbus::utility::getProperty<std::string>(
-            "xyz.openbmc_project.State.Host",
-            "/xyz/openbmc_project/state/host0",
-            "xyz.openbmc_project.State.Host", "CurrentHostState",
-            [asyncResp](const boost::system::error_code& ec,
-                        const std::string& hostState) {
-                if (ec)
-                {
-                    if (ec == boost::system::errc::host_unreachable)
-                    {
-                        // Service not available, no error, just don't
-                        // return host state info
-                        BMCWEB_LOG_DEBUG("Service not available {}", ec);
-                        return;
-                    }
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (hostState == "xyz.openbmc_project.State.Host.HostState.Off")
-                {
-                    dbus::utility::async_method_call(
-                        [asyncResp](const boost::system::error_code& ec2) {
-                            if (ec2)
-                            {
-                                BMCWEB_LOG_DEBUG("DBUS response error {}", ec2);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            messages::success(asyncResp->res);
-                        },
-                        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager", "StartUnit",
-                        "nvidia-aux-power.service", "replace");
-                }
-                else
-                {
-                    messages::chassisPowerStateOffRequired(asyncResp->res, "0");
-                }
-            });
-    }
-    else
-    {
-        dbus::utility::async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-            },
-            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager", "StartUnit",
-            "nvidia-aux-power-force.service", "replace");
-    }
-}
-
 template <typename CallbackFunc>
 inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
 {
@@ -3976,16 +3844,13 @@ inline void getChassisOemNvidiaSKU(
                     ec.message());
                 return;
             }
-            if (!sku.empty())
+            if (sku.empty())
             {
-                BMCWEB_LOG_INFO("Successfully set OEM Nvidia SKU from {}: {}",
-                                path, sku);
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["SKU"] = sku;
+                BMCWEB_LOG_DEBUG("OEM Nvidia SKU from {} is empty", path);
+                return;
             }
-            else
-            {
-                BMCWEB_LOG_ERROR("OEM Nvidia SKU from {} is empty", path);
-            }
+            redfish::mapValidOrOmit(asyncResp->res.jsonValue["Oem"]["Nvidia"],
+                                    "SKU", &sku);
         });
 }
 
@@ -4058,18 +3923,17 @@ inline void handleAssociatedSKURead(
                          ec.message());
         return;
     }
-    if (!sku.empty())
-    {
-        BMCWEB_LOG_INFO("Successfully set SKU from associated object {}: {}",
-                        associatedPath, sku);
-        asyncResp->res.jsonValue["SKU"] = sku;
-        // Check if associated path also has Async.Set for OEM SKU
-        checkAndAddOemSKUIfWritable(asyncResp, service, associatedPath);
-    }
-    else
+    if (sku.empty())
     {
         BMCWEB_LOG_DEBUG("SKU from associated object {} is empty",
                          associatedPath);
+        return;
+    }
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SKU", &sku);
+    // Only a real SKU (not a tombstone) can be writable via Async.Set.
+    if (sku != redfish::propertyNotSupported)
+    {
+        checkAndAddOemSKUIfWritable(asyncResp, service, associatedPath);
     }
 }
 
@@ -4174,20 +4038,22 @@ inline void handleDirectSKURead(
         checkAssociatedSKU(asyncResp, path);
         return;
     }
-    if (!chassisSKU.empty())
+    if (chassisSKU.empty())
     {
-        BMCWEB_LOG_DEBUG("Successfully set SKU for {}: {}", path, chassisSKU);
-        asyncResp->res.jsonValue["SKU"] = chassisSKU;
-        // Check if this path also has Async.Set for OEM SKU
-        checkAndAddOemSKUIfWritable(asyncResp, connectionName, path);
-    }
-    else
-    {
-        // SKU property is empty, check for backward association
+        // An empty property is inconclusive, so check the association fallback.
         BMCWEB_LOG_DEBUG(
             "SKU property is empty for {}, checking backward association",
             path);
         checkAssociatedSKU(asyncResp, path);
+        return;
+    }
+    // A NOT_SUPPORTED tombstone is provider-local: omit it without erasing a
+    // SKU supplied by another callback.
+    redfish::mapValidOrOmit(asyncResp->res.jsonValue, "SKU", &chassisSKU);
+    // Only a real SKU (not a tombstone) can be writable via Async.Set.
+    if (chassisSKU != redfish::propertyNotSupported)
+    {
+        checkAndAddOemSKUIfWritable(asyncResp, connectionName, path);
     }
 }
 
@@ -4472,6 +4338,77 @@ inline void getChassisOEMComponentProtected(
                     });
             }
         });
+}
+
+inline void afterGetHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool writeProtectedControl)
+{
+    // The object is looked up per request, so it can go away before the
+    // property read completes. The property is optional, so omit it rather
+    // than failing the whole chassis response.
+    if (ec == boost::system::linux_error::bad_request_descriptor ||
+        ec == boost::system::errc::host_unreachable)
+    {
+        BMCWEB_LOG_WARNING("HardwareWriteProtectedControl went away error={}",
+                           ec);
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed reading WriteProtectedControl error={}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
+        writeProtectedControl;
+}
+
+inline void getHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& chassisPath)
+{
+    dbus::utility::getProperty<bool>(
+        service, chassisPath, "com.nvidia.State.HardwareWriteProtectedControl",
+        "WriteProtectedControl",
+        std::bind_front(afterGetHardwareWriteProtectedControl, asyncResp));
+}
+
+inline void afterGetHardwareWriteProtectedControlObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objectMap)
+{
+    if (ec || objectMap.empty())
+    {
+        BMCWEB_LOG_DEBUG("Chassis {} does not implement "
+                         "HardwareWriteProtectedControl error={}",
+                         chassisPath, ec);
+        return;
+    }
+
+    if (objectMap.size() > 1)
+    {
+        BMCWEB_LOG_WARNING("Multiple services implement "
+                           "HardwareWriteProtectedControl for {}",
+                           chassisPath);
+    }
+
+    getHardwareWriteProtectedControl(asyncResp, objectMap[0].first,
+                                     chassisPath);
+}
+
+inline void populateHardwareWriteProtectedControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    static constexpr std::array<std::string_view, 1> interfaces{
+        "com.nvidia.State.HardwareWriteProtectedControl"};
+    dbus::utility::getDbusObject(
+        chassisPath, interfaces,
+        std::bind_front(afterGetHardwareWriteProtectedControlObject, asyncResp,
+                        chassisPath));
 }
 
 } // namespace nvidia_chassis_utils

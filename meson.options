@@ -1291,6 +1291,13 @@ option(
 )
 
 option(
+    'vhmc-host',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable vHMC host support (OEM ContainerRuntimeMetrics BMC dump rendering)',
+)
+
+option(
     'nsm-raw-command-enable',
     type: 'feature',
     value: 'disabled',

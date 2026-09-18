@@ -5,6 +5,7 @@
 #include "dbus_utility.hpp"
 #include "include/dbus_utility.hpp"
 #include "logging.hpp"
+#include "ossl_random.hpp"
 #include "ssl_key_handler.hpp"
 
 #include <openssl/asn1.h>
@@ -20,8 +21,12 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
+#include <format>
 #include <iterator>
+#include <limits>
 #include <memory>
+#include <random>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <variant>
@@ -40,13 +45,13 @@ inline void installCertificate(const std::filesystem::path& certPath)
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Replace Certificate Fail..");
-                return;
             }
-
-            BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
-                            "remove temporary certificate file..");
+            else
+            {
+                BMCWEB_LOG_INFO("Replace HTTPs Certificate Success");
+            }
             std::error_code ec2;
-            std::filesystem::remove(certPath.c_str(), ec2);
+            std::filesystem::remove(certPath, ec2);
             if (ec2)
             {
                 BMCWEB_LOG_ERROR("Failed to remove certificate");
@@ -145,10 +150,16 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
                 BMCWEB_LOG_ERROR("Failed to generate cert");
                 return 0;
             }
-            ensuressl::writeCertificateToFile("/tmp/hostname_cert.tmp",
-                                              certData);
 
-            installCertificate("/tmp/hostname_cert.tmp");
+            bmcweb::OpenSSLGenerator gen;
+            std::uniform_int_distribution<uint64_t> dis(
+                std::numeric_limits<uint64_t>::min(),
+                std::numeric_limits<uint64_t>::max());
+            std::string certPath =
+                std::format("/tmp/hostname_cert.{}.tmp", dis(gen));
+            ensuressl::writeCertificateToFile(certPath, certData);
+
+            installCertificate(certPath);
         }
         ASN1_STRING_free(asn1);
     }

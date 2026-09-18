@@ -29,6 +29,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -36,6 +37,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -272,7 +274,7 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+                            "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
                         std::string errorInjectionPath = "/redfish/v1/Fabrics/";
                         errorInjectionPath += fabricId2;
                         errorInjectionPath += "/Switches/";
@@ -364,7 +366,7 @@ inline void getSwitchPowerModeLink(
             std::string switchPowerModeURI = switchURI;
             switchPowerModeURI += "/Oem/Nvidia/PowerMode";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
                 switchPowerModeURI;
@@ -547,7 +549,7 @@ inline void afterGetSwitchPowerCappingModeLink(
     }
     std::string uri = switchURI + "/Oem/Nvidia/PowerCappingMode";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerCappingMode"]["@odata.id"] =
         uri;
 }
@@ -910,11 +912,1065 @@ inline void getSwitchHistogramLink(
             std::string switchHistogramURI = switchURI;
             switchHistogramURI += "/Oem/Nvidia/Histograms";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
+                "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
                 switchHistogramURI;
         });
+}
+
+// LTX mode D-Bus interface and enum prefix constants.
+constexpr std::string_view ltxModeIntf = "com.nvidia.DeviceMode.LTXMode";
+constexpr std::string_view ltxModeEnumPrefix =
+    "com.nvidia.DeviceMode.LTXMode.LinkTrainingExtendedMode.";
+
+// Convert a D-Bus LTX mode enum string to a Redfish string.
+// Returns nullopt on any unrecognised value.
+inline std::optional<std::string> ltxModeDbusToRedfish(
+    std::string_view dbusValue)
+{
+    if (!dbusValue.starts_with(ltxModeEnumPrefix))
+    {
+        return std::nullopt;
+    }
+    dbusValue.remove_prefix(ltxModeEnumPrefix.size());
+    if (dbusValue != "Default" && dbusValue != "Enabled" &&
+        dbusValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(dbusValue);
+}
+
+// Convert a D-Bus LTX mode enum string for the active resource.
+// Returns nullopt for Default (firmware contract violation on active resource)
+// or any unrecognised value.
+inline std::optional<std::string> ltxModeActiveDbusToRedfish(
+    std::string_view dbusValue)
+{
+    std::optional<std::string> redfishValue = ltxModeDbusToRedfish(dbusValue);
+    if (!redfishValue || *redfishValue == "Default")
+    {
+        return std::nullopt;
+    }
+    return redfishValue;
+}
+
+// Convert a Redfish LTX mode string to a D-Bus enum string.
+// Returns nullopt on any unrecognised Redfish value.
+inline std::optional<std::string> ltxModeRedfishToDbus(
+    std::string_view redfishValue)
+{
+    if (redfishValue != "Default" && redfishValue != "Enabled" &&
+        redfishValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(ltxModeEnumPrefix).append(redfishValue);
+}
+
+// Callback: populate the active LTXMode resource from a GetAll result.
+inline void afterUpdateSwitchLTXModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error for updateSwitchLTXModeData()");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "CurrentMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            ltxModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR("Unexpected CurrentMode on active LTXMode");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["LTXMode"] = *redfishValue;
+    }
+    std::string settingsURI = switchURI + "/Oem/Nvidia/LTXMode/Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res
+        .jsonValue["@Redfish.Settings"]["SettingsObject"]["@odata.id"] =
+        settingsURI;
+    std::string resetTarget =
+        switchURI +
+        "/Oem/Nvidia/LTXMode/Actions/NvidiaSwitchLTXMode.ResetToDefaults";
+    asyncResp->res.jsonValue["Actions"]["#NvidiaSwitchLTXMode.ResetToDefaults"]
+                            ["target"] = resetTarget;
+}
+
+// Fetch all properties from the LTX mode object and populate the active
+// resource.
+inline void updateSwitchLTXModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& ltxObjPath,
+    const std::string& switchURI)
+{
+    dbus::utility::getAllProperties(
+        service, ltxObjPath, std::string(ltxModeIntf),
+        std::bind_front(afterUpdateSwitchLTXModeData, asyncResp, switchURI));
+}
+
+// Callback: populate the Settings resource from a GetAll result.
+// NOTE: No @Redfish.SettingsApplyTime — LTX mode applies on link toggle,
+// not device reset.
+inline void afterUpdateSwitchLTXModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error for LTXMode Settings");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "PendingMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // If PendingMode is still Default (firmware resolving), skip the
+        // property — it will be populated on next poll after the device
+        // reports a concrete value.
+        if (*value == std::string(ltxModeEnumPrefix) + "Default")
+        {
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            ltxModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["LTXMode"] = *redfishValue;
+    }
+}
+
+// Fetch all properties from the LTX mode object and populate the Settings
+// resource. No @Redfish.SettingsApplyTime is added.
+inline void updateSwitchLTXModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& ltxObjPath)
+{
+    dbus::utility::getAllProperties(
+        service, ltxObjPath, std::string(ltxModeIntf),
+        std::bind_front(afterUpdateSwitchLTXModeSettingsData, asyncResp));
+}
+
+// Callback: after checking the /ltx_mode association, populate the Switch
+// OEM LTXMode navigation link if the association exists.
+inline void afterGetSwitchLTXModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        return;
+    }
+    std::string uri = switchURI + "/Oem/Nvidia/LTXMode";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["LTXMode"]["@odata.id"] = uri;
+}
+
+// Probe the /ltx_mode D-Bus association on the switch object. If present,
+// populate the OEM LTXMode link in the Switch GET response.
+inline void getSwitchLTXModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& switchURI)
+{
+    dbus::utility::findAssociations(
+        objectPath + "/ltx_mode",
+        std::bind_front(afterGetSwitchLTXModeLink, asyncResp, switchURI));
+}
+
+// Function type used by the object-finder helpers below.
+using LTXModeObjectHandler =
+    std::function<void(const std::string&, const std::string&,
+                       const dbus::utility::MapperGetObject&)>;
+
+// Callback: after GetObject for the LTX mode D-Bus object.
+inline void afterGetSwitchLTXModeDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& ltxObjPath, const LTXModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    handler(object.front().first, ltxObjPath, object);
+}
+
+// Callback: after reading the /ltx_mode association endpoints.
+inline void afterGetSwitchLTXModeAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const LTXModeObjectHandler& handler, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::resourceNotFound(resp->res, "LTXMode", switchId);
+        return;
+    }
+    const std::string& ltxObjPath = endpoints.front();
+    dbus::utility::getDbusObject(
+        ltxObjPath, std::array<std::string_view, 1>{ltxModeIntf},
+        std::bind_front(afterGetSwitchLTXModeDbusObject, resp, ltxObjPath,
+                        handler));
+}
+
+// Find the LTX mode D-Bus object for a switch via the /ltx_mode association,
+// then call handler(service, objectPath, objectMap).
+inline void getSwitchLTXModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const std::string& switchObjPath, const LTXModeObjectHandler& handler)
+{
+    dbus::utility::findAssociations(
+        switchObjPath + "/ltx_mode",
+        std::bind_front(afterGetSwitchLTXModeAssociation, resp, switchId,
+                        handler));
+}
+
+// Callback: after GetObject for the async-set interface — perform the D-Bus
+// Set on PendingMode.
+inline void afterPatchSwitchLTXModeGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    for (const auto& [serv, _] : object)
+    {
+        if (serv != service)
+        {
+            continue;
+        }
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            resp, std::chrono::seconds(60), service, objectPath,
+            std::string(ltxModeIntf), "PendingMode",
+            std::variant<std::string>(dbusValue),
+            nvidia_async_operation_utils::PatchGenericCallback{resp});
+        return;
+    }
+    messages::internalError(resp->res);
+}
+
+// Callback: after reading IsModeConfigurable — gate the write.
+inline void afterPatchSwitchLTXModeGetConfigurable(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    bool isModeConfigurable)
+{
+    if (ec)
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    if (!isModeConfigurable)
+    {
+        messages::propertyNotWritable(resp->res, "LTXMode");
+        return;
+    }
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        std::bind_front(afterPatchSwitchLTXModeGetDbusObject, resp, dbusValue,
+                        objectPath, service));
+}
+
+// Validate the requested mode, check IsModeConfigurable, then issue an async
+// D-Bus Set on PendingMode.
+inline void patchSwitchLTXMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+                               const std::string& ltxMode,
+                               const std::string& objectPath,
+                               const dbus::utility::MapperGetObject& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::ranges::find(interfaceList, std::string(ltxModeIntf)) !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+
+    auto dbusValue = ltxModeRedfishToDbus(ltxMode);
+    if (!dbusValue)
+    {
+        messages::propertyValueNotInList(resp->res, ltxMode, "LTXMode");
+        return;
+    }
+
+    dbus::utility::getProperty<bool>(
+        *inventoryService, objectPath, std::string(ltxModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterPatchSwitchLTXModeGetConfigurable, resp,
+                        *dbusValue, objectPath, *inventoryService));
+}
+
+// UPhy recovery mode D-Bus interface and enum prefix constants.
+// NOTE: These map to the phosphor-dbus-interfaces com.nvidia.DeviceMode
+// interface and enum names as merged (MR !1641) and are intentionally NOT
+// renamed to match the Redfish-facing "UPhyRecoveryMode" naming below.
+constexpr std::string_view uphyModeIntf =
+    "com.nvidia.DeviceMode.UPhyRecoveryMode";
+constexpr std::string_view uphyModeEnumPrefix =
+    "com.nvidia.DeviceMode.UPhyRecoveryMode.UPhyMode.";
+
+// Convert a D-Bus UPhy recovery mode enum string to a Redfish string.
+// Returns nullopt on any unrecognised value.
+inline std::optional<std::string> uphyRecoveryModeDbusToRedfish(
+    std::string_view dbusValue)
+{
+    if (!dbusValue.starts_with(uphyModeEnumPrefix))
+    {
+        return std::nullopt;
+    }
+    dbusValue.remove_prefix(uphyModeEnumPrefix.size());
+    if (dbusValue != "Default" && dbusValue != "Enabled" &&
+        dbusValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(dbusValue);
+}
+
+// Convert a D-Bus UPhy recovery mode enum string for the active resource.
+// Returns nullopt for Default (firmware contract violation on active resource)
+// or any unrecognised value.
+inline std::optional<std::string> uphyRecoveryModeActiveDbusToRedfish(
+    std::string_view dbusValue)
+{
+    std::optional<std::string> redfishValue =
+        uphyRecoveryModeDbusToRedfish(dbusValue);
+    if (!redfishValue || *redfishValue == "Default")
+    {
+        return std::nullopt;
+    }
+    return redfishValue;
+}
+
+// Convert a Redfish UPhy recovery mode string to a D-Bus enum string.
+// Returns nullopt on any unrecognised Redfish value.
+inline std::optional<std::string> uphyRecoveryModeRedfishToDbus(
+    std::string_view redfishValue)
+{
+    if (redfishValue != "Default" && redfishValue != "Enabled" &&
+        redfishValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(uphyModeEnumPrefix).append(redfishValue);
+}
+
+// Callback: populate the active UPhyRecoveryMode resource from a GetAll
+// result.
+inline void afterUpdateSwitchUPhyRecoveryModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for updateSwitchUPhyRecoveryModeData()");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    bool foundCurrentMode = false;
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "CurrentMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            uphyRecoveryModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR(
+                "Unexpected CurrentMode on active UPhyRecoveryMode");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["UPhyRecoveryMode"] = *redfishValue;
+        foundCurrentMode = true;
+    }
+    if (!foundCurrentMode)
+    {
+        BMCWEB_LOG_ERROR(
+            "CurrentMode not found in UPhyRecoveryMode GetAll response");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::string settingsURI =
+        switchURI + "/Oem/Nvidia/UPhyRecoveryMode/Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res
+        .jsonValue["@Redfish.Settings"]["SettingsObject"]["@odata.id"] =
+        settingsURI;
+    std::string resetTarget =
+        switchURI + "/Oem/Nvidia/UPhyRecoveryMode/Actions/"
+                    "NvidiaSwitchUPhyRecoveryMode.ResetToDefaults";
+    asyncResp->res
+        .jsonValue["Actions"]["#NvidiaSwitchUPhyRecoveryMode.ResetToDefaults"]
+                  ["target"] = resetTarget;
+}
+
+// Fetch all properties from the UPhy recovery mode object and populate the
+// active resource.
+inline void updateSwitchUPhyRecoveryModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& uphyObjPath,
+    const std::string& switchURI)
+{
+    dbus::utility::getAllProperties(
+        service, uphyObjPath, std::string(uphyModeIntf),
+        std::bind_front(afterUpdateSwitchUPhyRecoveryModeData, asyncResp,
+                        switchURI));
+}
+
+// Callback: populate the Settings resource from a GetAll result.
+// NOTE: No @Redfish.SettingsApplyTime — UPhy recovery mode applies on link
+// toggle, not device reset.
+inline void afterUpdateSwitchUPhyRecoveryModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error for UPhyRecoveryMode Settings");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "PendingMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // If PendingMode is still Default (firmware resolving), skip the
+        // property — it will be populated on next poll after the device
+        // reports a concrete value.
+        if (*value == std::string(uphyModeEnumPrefix) + "Default")
+        {
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            uphyRecoveryModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["UPhyRecoveryMode"] = *redfishValue;
+    }
+}
+
+// Fetch all properties from the UPhy recovery mode object and populate the
+// Settings resource. No @Redfish.SettingsApplyTime is added.
+inline void updateSwitchUPhyRecoveryModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& uphyObjPath)
+{
+    dbus::utility::getAllProperties(
+        service, uphyObjPath, std::string(uphyModeIntf),
+        std::bind_front(afterUpdateSwitchUPhyRecoveryModeSettingsData,
+                        asyncResp));
+}
+
+// Callback: after checking the /uphy_mode association, populate the Switch
+// OEM UPhyRecoveryMode navigation link if the association exists.
+inline void afterGetSwitchUPhyRecoveryModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        return;
+    }
+    std::string uri = switchURI + "/Oem/Nvidia/UPhyRecoveryMode";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["UPhyRecoveryMode"]["@odata.id"] =
+        uri;
+}
+
+// Probe the /uphy_mode D-Bus association on the switch object. If present,
+// populate the OEM UPhyRecoveryMode link in the Switch GET response.
+inline void getSwitchUPhyRecoveryModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& switchURI)
+{
+    dbus::utility::findAssociations(
+        objectPath + "/uphy_mode",
+        std::bind_front(afterGetSwitchUPhyRecoveryModeLink, asyncResp,
+                        switchURI));
+}
+
+// Function type used by the object-finder helpers below.
+using UPhyRecoveryModeObjectHandler =
+    std::function<void(const std::string&, const std::string&,
+                       const dbus::utility::MapperGetObject&)>;
+
+// Callback: after GetObject for the UPhy recovery mode D-Bus object.
+inline void afterGetSwitchUPhyRecoveryModeDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& uphyObjPath,
+    const UPhyRecoveryModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    handler(object.front().first, uphyObjPath, object);
+}
+
+// Callback: after reading the /uphy_mode association endpoints.
+inline void afterGetSwitchUPhyRecoveryModeAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const UPhyRecoveryModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::resourceNotFound(resp->res, "UPhyRecoveryMode", switchId);
+        return;
+    }
+    const std::string& uphyObjPath = endpoints.front();
+    dbus::utility::getDbusObject(
+        uphyObjPath, std::array<std::string_view, 1>{uphyModeIntf},
+        std::bind_front(afterGetSwitchUPhyRecoveryModeDbusObject, resp,
+                        uphyObjPath, handler));
+}
+
+// Find the UPhy recovery mode D-Bus object for a switch via the /uphy_mode
+// association, then call handler(service, objectPath, objectMap).
+inline void getSwitchUPhyRecoveryModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const std::string& switchObjPath,
+    const UPhyRecoveryModeObjectHandler& handler)
+{
+    dbus::utility::findAssociations(
+        switchObjPath + "/uphy_mode",
+        std::bind_front(afterGetSwitchUPhyRecoveryModeAssociation, resp,
+                        switchId, handler));
+}
+
+// Callback: after GetObject for the async-set interface — perform the D-Bus
+// Set on PendingMode.
+inline void afterPatchSwitchUPhyRecoveryModeGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    for (const auto& [serv, _] : object)
+    {
+        if (serv != service)
+        {
+            continue;
+        }
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            resp, std::chrono::seconds(60), service, objectPath,
+            std::string(uphyModeIntf), "PendingMode",
+            std::variant<std::string>(dbusValue),
+            nvidia_async_operation_utils::PatchGenericCallback{resp});
+        return;
+    }
+    messages::internalError(resp->res);
+}
+
+// Callback: after reading IsModeConfigurable — gate the write.
+inline void afterPatchSwitchUPhyRecoveryModeGetConfigurable(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    bool isModeConfigurable)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("DBUS response error for UPhyRecoveryMode Settings");
+        messages::internalError(resp->res);
+        return;
+    }
+    if (!isModeConfigurable)
+    {
+        BMCWEB_LOG_DEBUG("UPhyRecoveryMode is not configurable");
+        messages::propertyNotWritable(resp->res, "UPhyRecoveryMode");
+        return;
+    }
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        std::bind_front(afterPatchSwitchUPhyRecoveryModeGetDbusObject, resp,
+                        dbusValue, objectPath, service));
+}
+
+// Validate the requested mode, check IsModeConfigurable, then issue an async
+// D-Bus Set on PendingMode.
+inline void patchSwitchUPhyRecoveryMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& uphyRecoveryMode, const std::string& objectPath,
+    const dbus::utility::MapperGetObject& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::ranges::find(interfaceList, std::string(uphyModeIntf)) !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_DEBUG(
+            "UPhyRecoveryMode D-Bus interface not found on any service");
+        messages::internalError(resp->res);
+        return;
+    }
+
+    auto dbusValue = uphyRecoveryModeRedfishToDbus(uphyRecoveryMode);
+    if (!dbusValue)
+    {
+        BMCWEB_LOG_DEBUG("Invalid UPhyRecoveryMode value");
+        messages::propertyValueNotInList(resp->res, uphyRecoveryMode,
+                                         "UPhyRecoveryMode");
+        return;
+    }
+
+    dbus::utility::getProperty<bool>(
+        *inventoryService, objectPath, std::string(uphyModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterPatchSwitchUPhyRecoveryModeGetConfigurable, resp,
+                        *dbusValue, objectPath, *inventoryService));
+}
+
+constexpr std::string_view tavModeIntf = "com.nvidia.DeviceMode.TAVMode";
+constexpr std::string_view tavModeEnumPrefix =
+    "com.nvidia.DeviceMode.TAVMode.TAVModeValue.";
+
+// Convert a D-Bus TAV mode enum string to a Redfish string.
+// Returns nullopt on any unrecognised value.
+inline std::optional<std::string> tavModeDbusToRedfish(
+    std::string_view dbusValue)
+{
+    if (!dbusValue.starts_with(tavModeEnumPrefix))
+    {
+        return std::nullopt;
+    }
+    dbusValue.remove_prefix(tavModeEnumPrefix.size());
+    if (dbusValue != "Default" && dbusValue != "Enabled" &&
+        dbusValue != "Disabled")
+    {
+        return std::nullopt;
+    }
+    return std::string(dbusValue);
+}
+
+// Convert a D-Bus TAV mode enum string for the active resource.
+// Returns nullopt for Default (firmware contract violation on active
+// resource) or any unrecognised value, so callers can never observe
+// "Default" coming back from this function.
+inline std::optional<std::string> tavModeActiveDbusToRedfish(
+    std::string_view dbusValue)
+{
+    std::optional<std::string> redfishValue = tavModeDbusToRedfish(dbusValue);
+    if (!redfishValue || *redfishValue == "Default")
+    {
+        return std::nullopt;
+    }
+    return redfishValue;
+}
+
+inline std::string translateTAVModeRedfishToDbus(
+    const std::string& redfishValue)
+{
+    if (redfishValue == "Default")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Default";
+    }
+    if (redfishValue == "Enabled")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Enabled";
+    }
+    if (redfishValue == "Disabled")
+    {
+        return "com.nvidia.DeviceMode.TAVMode.TAVModeValue.Disabled";
+    }
+    return "";
+}
+
+inline void afterUpdateSwitchTAVModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for updateSwitchTAVModeData(): {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    bool foundCurrentMode = false;
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "CurrentMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("TAVMode CurrentMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::optional<std::string> redfishValue =
+            tavModeActiveDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR("Unexpected CurrentMode on active TAVMode: {}",
+                             *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["TAVMode"] = *redfishValue;
+        foundCurrentMode = true;
+    }
+    if (!foundCurrentMode)
+    {
+        BMCWEB_LOG_ERROR("CurrentMode not found in TAVMode GetAll response");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    boost::urls::url settingsUri(switchURI);
+    settingsUri.segments().push_back("Oem");
+    settingsUri.segments().push_back("Nvidia");
+    settingsUri.segments().push_back("TAVMode");
+    settingsUri.segments().push_back("Settings");
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res
+        .jsonValue["@Redfish.Settings"]["SettingsObject"]["@odata.id"] =
+        settingsUri;
+
+    boost::urls::url resetUri(switchURI);
+    resetUri.segments().push_back("Oem");
+    resetUri.segments().push_back("Nvidia");
+    resetUri.segments().push_back("TAVMode");
+    resetUri.segments().push_back("Actions");
+    resetUri.segments().push_back("NvidiaSwitchTAVMode.ResetToDefaults");
+    asyncResp->res.jsonValue["Actions"]["#NvidiaSwitchTAVMode.ResetToDefaults"]
+                            ["target"] = resetUri;
+}
+
+inline void updateSwitchTAVModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& tavObjPath,
+    const std::string& switchURI)
+{
+    BMCWEB_LOG_DEBUG("Get Switch TAV mode Data for {}", tavObjPath);
+    dbus::utility::getAllProperties(
+        service, tavObjPath, std::string(tavModeIntf),
+        std::bind_front(afterUpdateSwitchTAVModeData, asyncResp, switchURI));
+}
+
+inline void afterUpdateSwitchTAVModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error for TAVMode Settings: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [propertyName, propertyValue] : properties)
+    {
+        if (propertyName != "PendingMode")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "TAVMode Settings PendingMode property is not a string");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // Settings publishes Enabled/Disabled only; omit internal Default.
+        std::optional<std::string> redfishValue = tavModeDbusToRedfish(*value);
+        if (!redfishValue)
+        {
+            BMCWEB_LOG_ERROR("Unexpected PendingMode on TAVMode Settings: {}",
+                             *value);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (*redfishValue == "Default")
+        {
+            return;
+        }
+        asyncResp->res.jsonValue["TAVMode"] = *redfishValue;
+    }
+}
+
+inline void updateSwitchTAVModeSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& tavObjPath)
+{
+    BMCWEB_LOG_DEBUG("Get Switch TAV mode Settings Data for {}", tavObjPath);
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["@odata.type"] =
+        "#Settings.v1_3_3.PreferredApplyTime";
+    asyncResp->res.jsonValue["@Redfish.SettingsApplyTime"]["ApplyTime"] =
+        "OnReset";
+    dbus::utility::getAllProperties(
+        service, tavObjPath, std::string(tavModeIntf),
+        std::bind_front(afterUpdateSwitchTAVModeSettingsData, asyncResp));
+}
+
+inline void afterGetSwitchTAVModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchURI, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        return;
+    }
+    std::string uri = switchURI + "/Oem/Nvidia/TAVMode";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_7_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TAVMode"]["@odata.id"] = uri;
+}
+
+inline void getSwitchTAVModeLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& switchURI)
+{
+    dbus::utility::findAssociations(
+        objectPath + "/tav_mode",
+        std::bind_front(afterGetSwitchTAVModeLink, asyncResp, switchURI));
+}
+
+using TAVModeObjectHandler =
+    std::function<void(const std::string&, const std::string&,
+                       const dbus::utility::MapperGetObject&)>;
+
+inline void afterGetSwitchTAVModeDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& tavObjPath, const TAVModeObjectHandler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::internalError(resp->res);
+        return;
+    }
+    handler(object.front().first, tavObjPath, object);
+}
+
+inline void afterGetSwitchTAVModeAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const TAVModeObjectHandler& handler, const boost::system::error_code& ec,
+    const std::vector<std::string>& endpoints)
+{
+    if (ec || endpoints.empty())
+    {
+        messages::resourceNotFound(resp->res, "TAVMode", switchId);
+        return;
+    }
+    const std::string& tavObjPath = endpoints.front();
+    dbus::utility::getDbusObject(
+        tavObjPath, std::array<std::string_view, 1>{tavModeIntf},
+        std::bind_front(afterGetSwitchTAVModeDbusObject, resp, tavObjPath,
+                        handler));
+}
+
+inline void getSwitchTAVModeObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
+    const std::string& switchObjPath, const TAVModeObjectHandler& handler)
+{
+    dbus::utility::findAssociations(
+        switchObjPath + "/tav_mode",
+        std::bind_front(afterGetSwitchTAVModeAssociation, resp, switchId,
+                        handler));
+}
+
+inline void afterPatchSwitchTAVModeGetDbusObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "Dbus response error while getting async setter object for TAVMode PATCH: {}",
+            ec);
+        messages::internalError(resp->res);
+        return;
+    }
+    for (const auto& [serv, _] : object)
+    {
+        if (serv != service)
+        {
+            continue;
+        }
+        BMCWEB_LOG_DEBUG("Setting TAVMode PendingMode on {} to {}", objectPath,
+                         dbusValue);
+        nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+            resp, std::chrono::seconds(60), service, objectPath,
+            std::string(tavModeIntf), "PendingMode",
+            std::variant<std::string>(dbusValue),
+            nvidia_async_operation_utils::PatchGenericCallback{resp});
+        return;
+    }
+    BMCWEB_LOG_ERROR("Service {} not found in async setter object for {}",
+                     service, objectPath);
+    messages::internalError(resp->res);
+}
+
+inline void afterPatchSwitchTAVModeGetConfigurable(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& dbusValue, const std::string& objectPath,
+    const std::string& service, const boost::system::error_code& ec,
+    bool isModeConfigurable)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "DBUS response error for TAVMode IsModeConfigurable: {}", ec);
+        messages::internalError(resp->res);
+        return;
+    }
+    if (!isModeConfigurable)
+    {
+        BMCWEB_LOG_DEBUG("TAVMode on {} is not configurable", objectPath);
+        messages::propertyNotWritable(resp->res, "TAVMode");
+        return;
+    }
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        std::bind_front(afterPatchSwitchTAVModeGetDbusObject, resp, dbusValue,
+                        objectPath, service));
+}
+
+inline void patchSwitchTAVMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& tavMode,
+    const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      std::string(tavModeIntf)) != interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_ERROR("No service implementing {} found for {}", tavModeIntf,
+                         objectPath);
+        messages::internalError(resp->res);
+        return;
+    }
+
+    std::string dbusValue = translateTAVModeRedfishToDbus(tavMode);
+    if (dbusValue.empty())
+    {
+        BMCWEB_LOG_DEBUG("Rejecting TAVMode PATCH with unsupported value: {}",
+                         tavMode);
+        messages::propertyValueNotInList(resp->res, tavMode, "TAVMode");
+        return;
+    }
+
+    dbus::utility::getProperty<bool>(
+        *inventoryService, objectPath, std::string(tavModeIntf),
+        "IsModeConfigurable",
+        std::bind_front(afterPatchSwitchTAVModeGetConfigurable, resp, dbusValue,
+                        objectPath, *inventoryService));
 }
 
 } // namespace nvidia_fabric_utils

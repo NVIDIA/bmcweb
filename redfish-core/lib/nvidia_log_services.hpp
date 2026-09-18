@@ -823,6 +823,100 @@ inline void extendDumpEntryWithCPERProperties(
     }
 }
 
+// Reads Dump.Entry.BMC AdditionalTypeName; empty when unset or feature off.
+inline std::string readBmcDumpAdditionalTypeName(
+    const dbus::utility::ManagedObjectType::value_type& object)
+{
+    if constexpr (!BMCWEB_VHMC_HOST)
+    {
+        return {};
+    }
+    else
+    {
+        for (const auto& interfaceMap : object.second)
+        {
+            if (interfaceMap.first != "xyz.openbmc_project.Dump.Entry.BMC")
+            {
+                continue;
+            }
+            for (const auto& propertyMap : interfaceMap.second)
+            {
+                if (propertyMap.first != "AdditionalTypeName")
+                {
+                    continue;
+                }
+                const auto* value =
+                    std::get_if<std::string>(&propertyMap.second);
+                if (value == nullptr)
+                {
+                    return {};
+                }
+                // Enum arrives fully qualified; keep the leaf. None = unset.
+                std::string additionalType = *value;
+                auto pos = additionalType.rfind('.');
+                if (pos != std::string::npos)
+                {
+                    additionalType = additionalType.substr(pos + 1);
+                }
+                if (additionalType == "None")
+                {
+                    return {};
+                }
+                return additionalType;
+            }
+        }
+        return {};
+    }
+}
+
+// Renders an OEM dump entry; a standard BMC dump stays Manager.
+inline void setBmcDumpDiagnosticFields(nlohmann::json& entry,
+                                       const std::string& bmcOemType)
+{
+    if (bmcOemType.empty())
+    {
+        entry["DiagnosticDataType"] = "Manager";
+        return;
+    }
+    entry["DiagnosticDataType"] = "OEM";
+    entry["OEMDiagnosticDataType"] = bmcOemType;
+}
+
+// Fills the Manager CollectDiagnosticData ActionInfo Parameters array.
+inline void setManagerCollectDiagnosticDataParameters(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::string>& oemAllowableValues)
+{
+    nlohmann::json::object_t parameterDiagnosticDataType;
+    parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
+    parameterDiagnosticDataType["Required"] = true;
+    parameterDiagnosticDataType["DataType"] = "String";
+
+    nlohmann::json::array_t diagnosticDataTypeAllowableValues;
+    diagnosticDataTypeAllowableValues.emplace_back("Manager");
+    if (!oemAllowableValues.empty())
+    {
+        diagnosticDataTypeAllowableValues.emplace_back("OEM");
+    }
+    parameterDiagnosticDataType["AllowableValues"] =
+        std::move(diagnosticDataTypeAllowableValues);
+
+    nlohmann::json::array_t parameters;
+    parameters.emplace_back(std::move(parameterDiagnosticDataType));
+
+    if (!oemAllowableValues.empty())
+    {
+        nlohmann::json::object_t parameterOemDiagnosticDataType;
+        parameterOemDiagnosticDataType["Name"] = "OEMDiagnosticDataType";
+        parameterOemDiagnosticDataType["Required"] = false;
+        parameterOemDiagnosticDataType["DataType"] = "String";
+        parameterOemDiagnosticDataType["AllowableValues"] = oemAllowableValues;
+        parameters.emplace_back(std::move(parameterOemDiagnosticDataType));
+    }
+
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
 inline void requestRoutesBMCDumpServiceActionInfo(App& app)
 {
     BMCWEB_ROUTE(
@@ -849,20 +943,35 @@ inline void requestRoutesBMCDumpServiceActionInfo(App& app)
                 asyncResp->res.jsonValue["Id"] =
                     "CollectDiagnosticDataActionInfo";
 
-                nlohmann::json::object_t parameterDiagnosticDataType;
-                parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
-                parameterDiagnosticDataType["Required"] = true;
-                parameterDiagnosticDataType["DataType"] = "String";
+                if constexpr (BMCWEB_VHMC_HOST)
+                {
+                    // Advertise the OEM composites alongside the Manager dump.
+                    redfish::getOEMDiagnosticAllowableValues(
+                        "Manager", [asyncResp](const std::vector<std::string>&
+                                                   oemAllowableValues) {
+                            setManagerCollectDiagnosticDataParameters(
+                                asyncResp, oemAllowableValues);
+                        });
+                }
+                else
+                {
+                    nlohmann::json::object_t parameterDiagnosticDataType;
+                    parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
+                    parameterDiagnosticDataType["Required"] = true;
+                    parameterDiagnosticDataType["DataType"] = "String";
 
-                nlohmann::json::array_t diagnosticDataTypeAllowableValues;
-                diagnosticDataTypeAllowableValues.emplace_back("Manager");
-                parameterDiagnosticDataType["AllowableValues"] =
-                    std::move(diagnosticDataTypeAllowableValues);
+                    nlohmann::json::array_t diagnosticDataTypeAllowableValues;
+                    diagnosticDataTypeAllowableValues.emplace_back("Manager");
+                    parameterDiagnosticDataType["AllowableValues"] =
+                        std::move(diagnosticDataTypeAllowableValues);
 
-                nlohmann::json::array_t parameters;
-                parameters.emplace_back(std::move(parameterDiagnosticDataType));
+                    nlohmann::json::array_t parameters;
+                    parameters.emplace_back(
+                        std::move(parameterDiagnosticDataType));
 
-                asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+                    asyncResp->res.jsonValue["Parameters"] =
+                        std::move(parameters);
+                }
             });
 }
 
@@ -1310,6 +1419,38 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         }
     }
     return additionalData;
+}
+
+// Decodes OEMDiagnosticDataType for a BMC dump; false once an error is set.
+inline bool parseBmcOemDumpRequest(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string>& oemDiagnosticDataType,
+    std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>&
+        createDumpParamVec,
+    std::string& requestedOemDiagnosticDataType)
+{
+    if (!oemDiagnosticDataType)
+    {
+        BMCWEB_LOG_ERROR(
+            "CreateDump action parameter 'OEMDiagnosticDataType' not found!");
+        messages::actionParameterMissing(
+            asyncResp->res, "CollectDiagnosticData", "OEMDiagnosticDataType");
+        return false;
+    }
+    // parseOEMAdditionalData() rewrites its argument, so keep the request.
+    requestedOemDiagnosticDataType = *oemDiagnosticDataType;
+    std::string oemData = *oemDiagnosticDataType;
+    createDumpParamVec = parseOEMAdditionalData(oemData);
+    for (const auto& param : createDumpParamVec)
+    {
+        if (param.first == "DiagnosticType")
+        {
+            return true;
+        }
+    }
+    messages::actionParameterValueError(asyncResp->res, "OEMDiagnosticDataType",
+                                        "LogService.CollectDiagnosticData");
+    return false;
 }
 
 // Forward declarations - functions defined in log_services.hpp

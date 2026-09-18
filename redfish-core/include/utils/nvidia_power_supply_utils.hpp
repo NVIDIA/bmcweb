@@ -28,8 +28,11 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 
+#include <array>
 #include <cerrno>
+#include <functional>
 #include <string>
+#include <string_view>
 #include <variant>
 namespace redfish
 {
@@ -80,6 +83,59 @@ inline void getNvidiaPowerSupply(
     asyncResp->res.jsonValue["Metrics"] = {{"@odata.id", powerSupplyMetricURI}};
 }
 
+inline void handleNvidiaPowerSupplySensorProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorPath,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        messages::internalError(asyncResp->res);
+        BMCWEB_LOG_ERROR(
+            "Error in Fetching sensor data in getNvidiaPowerSupplyMetrics",
+            ec.message());
+        return;
+    }
+    auto it = std::ranges::find_if(properties, [](const auto& property) {
+        return property.first == "Value";
+    });
+    if (it != properties.end())
+    {
+        const double* attributeValue = std::get_if<double>(&it->second);
+        if (attributeValue != nullptr)
+        {
+            std::vector<std::string> split;
+            split.reserve(6);
+            bmcweb::split(split, sensorPath, '/');
+            if (split.size() >= 6)
+            {
+                const std::string& sensorType = split[4];
+                const std::string& sensorName = split[5];
+                std::string sensorURI =
+                    boost::urls::format(
+                        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId,
+                        sensorName)
+                        .buffer();
+                if (sensorType == "temperature")
+                {
+                    asyncResp->res.jsonValue["TemperatureCelsius"] = {
+                        {"Reading", *attributeValue},
+                        {"DataSourceUri", sensorURI},
+                    };
+                }
+                else if (sensorType == "power")
+                {
+                    asyncResp->res.jsonValue["OutputPowerWatts"] = {
+                        {"Reading", *attributeValue},
+                        {"DataSourceUri", sensorURI},
+                    };
+                }
+            }
+        }
+    }
+}
+
 inline void getNvidiaPowerSupplyMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& powerSupplyId,
@@ -112,8 +168,14 @@ inline void getNvidiaPowerSupplyMetrics(
             // Iterate through the sensor paths to extract relevant data
             for (const std::string& sensorPath : sensorPaths)
             {
+                constexpr std::array<std::string_view, 1>
+                    sensorValueInterface = {
+                        "xyz.openbmc_project.Sensor.Value"};
+                // Filter on Sensor.Value so the mapper cannot be returned as
+                // the owning service: it reports itself on sensor paths that
+                // carry associations, but serves no properties there.
                 dbus::utility::getDbusObject(
-                    sensorPath, {},
+                    sensorPath, sensorValueInterface,
                     [asyncResp, chassisId,
                      sensorPath](const boost::system::error_code& ec2,
                                  const dbus::utility::MapperGetObject& object) {
@@ -128,67 +190,11 @@ inline void getNvidiaPowerSupplyMetrics(
                         const std::string& serviceName = object.begin()->first;
                         // Fetch sensor data
                         dbus::utility::getAllProperties(
-                            serviceName, sensorPath, "",
-                            [asyncResp, chassisId,
-                             sensorPath](const boost::system::error_code& ec3,
-                                         const dbus::utility::DBusPropertiesMap&
-                                             properties) {
-                                if (ec3)
-                                {
-                                    messages::internalError(asyncResp->res);
-                                    BMCWEB_LOG_ERROR(
-                                        "Error in Fetching sensor data in getNvidiaPowerSupplyMetrics",
-                                        ec3.message());
-                                    return;
-                                }
-                                auto it = std::ranges::find_if(
-                                    properties, [](const auto& property) {
-                                        return property.first == "Value";
-                                    });
-                                if (it != properties.end())
-                                {
-                                    const double* attributeValue =
-                                        std::get_if<double>(&it->second);
-                                    if (attributeValue != nullptr)
-                                    {
-                                        std::vector<std::string> split;
-                                        split.reserve(6);
-                                        bmcweb::split(split, sensorPath, '/');
-                                        if (split.size() >= 6)
-                                        {
-                                            const std::string& sensorType =
-                                                split[4];
-                                            const std::string& sensorName =
-                                                split[5];
-                                            std::string sensorURI =
-                                                boost::urls::format(
-                                                    "/redfish/v1/Chassis/{}/Sensors/{}",
-                                                    chassisId, sensorName)
-                                                    .buffer();
-                                            if (sensorType == "temperature")
-                                            {
-                                                asyncResp->res.jsonValue
-                                                    ["TemperatureCelsius"] = {
-                                                    {"Reading",
-                                                     *attributeValue},
-                                                    {"DataSourceUri",
-                                                     sensorURI},
-                                                };
-                                            }
-                                            else if (sensorType == "power")
-                                            {
-                                                asyncResp->res.jsonValue
-                                                    ["OutputPowerWatts"] = {
-                                                    {"Reading",
-                                                     *attributeValue},
-                                                    {"DataSourceUri",
-                                                     sensorURI},
-                                                };
-                                            }
-                                        }
-                                    }
-                                }
-                            });
+                            serviceName, sensorPath,
+                            "xyz.openbmc_project.Sensor.Value",
+                            std::bind_front(
+                                handleNvidiaPowerSupplySensorProperties,
+                                asyncResp, chassisId, sensorPath));
                     });
             }
         });

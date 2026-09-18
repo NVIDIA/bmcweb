@@ -1,6 +1,6 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved. SPDX-License-Identifier: Apache-2.0
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -288,7 +288,7 @@ inline void parseAdditionalDataForCPER(
 
     // NVIDIA
     jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaCPER.v0_8_0.NvidiaCPER";
+        "#NvidiaCPER.v0_9_0.NvidiaCPER";
 
     // OriginOfCondition
     if (originStr.empty())
@@ -377,7 +377,10 @@ inline bool parseCperData(
         }
     }
     cperJson["sections"] = nlohmann::json::array({std::move(cperSection)});
-    additionalData.emplace_back("jsonDiagnosticData", cperJson.dump());
+    additionalData.emplace_back(
+        "jsonDiagnosticData",
+        cperJson.dump(-1, ' ', false,
+                      nlohmann::json::error_handler_t::replace));
 
     std::string severityStr;
     if (auto sevIt = evt.find("MessageSeverity"); sevIt != evt.end())

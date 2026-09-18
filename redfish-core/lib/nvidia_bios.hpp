@@ -281,6 +281,19 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             BMCWEB_LOG_DEBUG("Boot override enable update done.");
         });
+
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot",
+        "xyz.openbmc_project.Control.Boot.Type", "BootType",
+        std::string("xyz.openbmc_project.Control.Boot.Type.Types.EFI"),
+        [aResp](const boost::system::error_code& ec) {
+            if (ec && ec.value() != EBADR)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                messages::internalError(aResp->res);
+            }
+        });
 }
 
 inline void afterOemResetBiosGet(
@@ -2542,7 +2555,17 @@ inline void handleBiosAttrRegistryGet(
             std::string contents{std::istreambuf_iterator<char>{inputFile},
                                  std::istreambuf_iterator<char>{}};
             inputFile.close();
-            biosRegistryJson = nlohmann::json::parse(contents);
+            std::optional<nlohmann::json> registry =
+                parseStringAsJson(contents);
+            if (!registry)
+            {
+                BMCWEB_LOG_ERROR("Failed to parse BIOS registry file {}",
+                                 biosRegistryJsonFileName);
+                biosRegistryJson = nlohmann::json();
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            biosRegistryJson = std::move(*registry);
             updateBiosAttrRegistry(asyncResp);
         }
     }

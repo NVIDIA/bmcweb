@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
-<!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaProcessor  v1.9.0                                         -->
-<!--#                                                                                      -->
-<!--# Copyright 2021-2025 NVIDIA.                                                          -->
-<!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
-<!--################################################################################       -->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.10.0                                                        -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
@@ -22,7 +22,6 @@
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Processor_v1.xml">
-    <edmx:Include Namespace="Processor.v1_0_0"/>
     <edmx:Include Namespace="Processor.v1_1_0"/>
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
@@ -51,7 +50,7 @@
       <Action Name="CollectPCoreDump" IsBound="true">
         <Annotation Term="OData.Description" String="This action collects raw CR-space PCore dumps for this Vera CPU."/>
         <Annotation Term="OData.LongDescription" String="This action shall collect one raw CR-space PCore dump for each requested PCore of this processor and expose them as a single System Dump entry."/>
-        <Parameter Name="Processor" Type="Processor.v1_0_0.OemActions"/>
+        <Parameter Name="Processor" Type="Processor.v1_1_0.OemActions"/>
         <Parameter Name="PCoreIds" Type="Collection(Edm.Int64)" Nullable="true">
           <Annotation Term="OData.Description" String="The PCore selectors to collect dumps for."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain zero or more PCore selector values for the dump collection. Each value shall fall within the advertised range. An absent or empty collection shall request collection of all PCores of this processor."/>
@@ -60,7 +59,7 @@
           <Collection>
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
-              <PropertyValue Property="Version" String="v1_8_0"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -551,8 +550,8 @@
       <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_6_0.NvidiaGPU">
         <Property Name="AdaptiveTGPMode" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
-          <Annotation Term="OData.Description" String="An indication of whether adaptive Total GPU Power mode is enabled for this processor."/>
-          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if adaptive Total GPU Power mode is enabled for this processor."/>
+          <Annotation Term="OData.Description" String="An indication of whether adaptive Total GPU Power (TGP) mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if adaptive Total GPU Power (TGP) mode is enabled for this processor."/>
         </Property>
       </ComplexType>
       <ComplexType Name="MNNVLinkTopology" BaseType="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
@@ -563,12 +562,7 @@
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
         </Property>
       </ComplexType>
-      <ComplexType Name="NvidiaLPU">
-        <Property Name="VoltageBinNumber" Type="Edm.Int64">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The voltage bin number."/>
-          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
-        </Property>
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.v1_0_0.NvidiaProcessor">
         <Property Name="BootStatusCode" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The boot status code."/>
@@ -576,11 +570,27 @@
           <Annotation Term="Validation.Minimum" Int="0"/>
         </Property>
       </ComplexType>
+      <ComplexType Name="NvidiaLPU" BaseType="NvidiaProcessor.v1_7_0.NvidiaProcessor">
+        <Property Name="VoltageBinNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The voltage bin number."/>
+          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_8_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the AVSNominalVminMillivolts, AVSUnderdriveVminMillivolts, and AVSOverdriveVminMillivolts properties."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+      </ComplexType>
       <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
         <Property Name="AdaptiveTGPMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The DOE settings for adaptive Total GPU Power mode."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for adaptive Total GPU Power mode."/>
+          <Annotation Term="OData.Description" String="The DOE settings for adaptive Total GPU Power (TGP) mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for adaptive Total GPU Power (TGP) mode."/>
         </Property>
         <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -591,8 +601,8 @@
       <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.InbandReconfigPermissions">
         <Property Name="AdaptiveTGPMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The in-band settings for adaptive Total GPU Power mode."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for adaptive Total GPU Power mode."/>
+          <Annotation Term="OData.Description" String="The in-band settings for adaptive Total GPU Power (TGP) mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for adaptive Total GPU Power (TGP) mode."/>
         </Property>
         <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -603,6 +613,37 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_7_0.NvidiaGPU"/>
+      <ComplexType Name="MNNVLinkTopology" BaseType="NvidiaProcessor.v1_7_0.MNNVLinkTopology"/>
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.v1_7_0.NvidiaProcessor"/>
+      <ComplexType Name="NvidiaLPU" BaseType="NvidiaProcessor.v1_7_0.NvidiaLPU">
+        <Property Name="AVSNominalVminMillivolts" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The adaptive voltage scaling (AVS) nominal minimum voltage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the chip-specific adaptive voltage scaling (AVS) nominal minimum operating voltage, in millivolts."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="65535"/>
+          <Annotation Term="Measures.Unit" String="mV"/>
+        </Property>
+        <Property Name="AVSUnderdriveVminMillivolts" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The adaptive voltage scaling (AVS) underdrive minimum voltage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the chip-specific adaptive voltage scaling (AVS) underdrive minimum operating voltage, in millivolts."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="65535"/>
+          <Annotation Term="Measures.Unit" String="mV"/>
+        </Property>
+        <Property Name="AVSOverdriveVminMillivolts" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The adaptive voltage scaling (AVS) overdrive minimum voltage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the chip-specific adaptive voltage scaling (AVS) overdrive minimum operating voltage, in millivolts."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="65535"/>
+          <Annotation Term="Measures.Unit" String="mV"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_7_0.DOEReconfigPermissions"/>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_7_0.InbandReconfigPermissions"/>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_9_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -637,6 +678,50 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the processor is currently accepting writes to the Mask property. The value shall be `true` only while host firmware is waiting for the link enable mask, and `false` at all other times. The Mask property remains readable regardless of this value."/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_8_0.NvidiaGPU">
+        <Property Name="BMSAIMode" Type="NvidiaProcessor.v1_10_0.BMSAIMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Bare-Metal Secure AI (BMSAI) operating mode for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Bare-Metal Secure AI (BMSAI) operating mode for this processor. For compatibility, Production shall correspond to CCModeEnabled containing true, DevTools shall correspond to CCDevModeEnabled containing true, and Disabled shall correspond to both properties containing false. On a Settings resource, this property shall contain the configured mode that becomes active after the required processor reset."/>
+        </Property>
+        <Property Name="NVLinkEncryptionEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether NVLink encryption is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate whether NVLink encryption is enabled for this processor. On a Settings resource, this property shall contain the configured value that becomes active after the required processor reset."/>
+        </Property>
+        <Property Name="NVLinkEncryptionMode" Type="NvidiaProcessor.v1_10_0.NVLinkEncryptionMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink encryption mode for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink encryption mode for this processor. On a Settings resource, this property shall contain the configured mode that becomes active after the required processor reset."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="BMSAIMode">
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="BMSAI mode is disabled."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI mode is disabled."/>
+        </Member>
+        <Member Name="Production">
+          <Annotation Term="OData.Description" String="BMSAI is operating in production mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI is operating in production mode."/>
+        </Member>
+        <Member Name="DevTools">
+          <Annotation Term="OData.Description" String="BMSAI is operating in DevTools mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that BMSAI is operating in DevTools mode."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="NVLinkEncryptionMode">
+        <Member Name="Qualification">
+          <Annotation Term="OData.Description" String="NVLink encryption is operating in qualification mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that NVLink encryption is operating in qualification mode."/>
+        </Member>
+        <Member Name="Production">
+          <Annotation Term="OData.Description" String="NVLink encryption is operating in production mode."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that NVLink encryption is operating in production mode."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

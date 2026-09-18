@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaSwitchLTXMode   v1.0.0                                                   -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitchLTXMode">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaSwitchLTXMode" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the LTX mode of a switch."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the enable or disable Link Training eXtended (LTX) mode of a switch.  Pending mode changes are applied through the associated settings resource referenced by the `@Redfish.Settings` annotation and take effect on the next link toggle."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+            <Annotation Term="OData.Description" String="The LTX mode is changed by a PATCH on the associated settings resource; the new value takes effect on the next link toggle."/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/LTXMode</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="ResetToDefaults" IsBound="true">
+        <Annotation Term="OData.Description" String="Reset the LTX mode to the default."/>
+        <Annotation Term="OData.LongDescription" String="This action shall request the default LTX mode.  The resolved pending mode shall be reported in the settings resource and shall take effect on the next link toggle."/>
+        <Parameter Name="NvidiaSwitchLTXMode" Type="NvidiaSwitchLTXMode.v1_0_0.Actions"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitchLTXMode.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaSwitchLTXMode" BaseType="NvidiaSwitchLTXMode.NvidiaSwitchLTXMode">
+        <Property Name="Actions" Type="NvidiaSwitchLTXMode.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="LTXMode" Type="NvidiaSwitchLTXMode.v1_0_0.LTXMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The Link Training eXtended (LTX) mode of the switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the LTX mode of the switch.  Link Training eXtended (LTX) improves link quality and stability during link initialization by extending the training flow with additional quality evaluation.  When `Enabled`, the link uses the extended training flow, which can increase link-up time but improves margin on weaker links.  When `Disabled`, the link uses the standard training flow, which brings the link up faster but without the additional LTX optimization.  On the active resource, this property shall be read-only and reflect the currently effective mode.  A client shall PATCH this property on the settings resource to `Enabled` or `Disabled`, or use the `ResetToDefaults` action to restore the default.  The change shall take effect on the next link toggle."/>
+        </Property>
+      </EntityType>
+      <EnumType Name="LTXMode">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="LTX mode is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that LTX mode is enabled."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="LTX mode is disabled."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that LTX mode is disabled."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
+

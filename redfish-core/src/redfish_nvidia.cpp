@@ -55,6 +55,7 @@
 #include "nvidia_oem_psu_redundancy.hpp"
 #include "nvidia_oem_psu_state.hpp"
 #include "nvidia_pcore_dump.hpp"
+#include "nvidia_platform_power_cycle.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_power_smoothing.hpp"
@@ -68,7 +69,10 @@
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
+#include "nvidia_switch_ltx_mode.hpp"
 #include "nvidia_switch_power_cap_mode.hpp"
+#include "nvidia_switch_tav_mode.hpp"
+#include "nvidia_switch_uphy_recovery_mode.hpp"
 #include "nvidia_system.hpp"
 #include "nvidia_system_processor_power_limits.hpp"
 #include "nvidia_systems_logservices_hostlogger.hpp"
@@ -167,6 +171,9 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesSwitchPowerMode(app);
         requestRoutesSwitchPowerCappingMode(app);
+        requestRoutesSwitchLTXMode(app);
+        requestRoutesSwitchUPhyRecoveryMode(app);
+        requestRoutesSwitchTAVMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
@@ -409,6 +416,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
     {
         requestRoutesSystemsOemNvidiaL1Reset(app);
+    }
+
+    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+    {
+        nvidia_platform_power_cycle::requestRoutesPlatformPowerCycle(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

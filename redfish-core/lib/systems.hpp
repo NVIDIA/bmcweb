@@ -31,8 +31,10 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_platform_power_cycle_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systems_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -443,8 +445,7 @@ inline void afterGetInventory(
 
     if constexpr (BMCWEB_BIOS)
     {
-        sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose,
-                                             "BiosVersion", false);
+        nvidia_systems_utils::getBiosVersion(asyncResp);
     }
 }
 
@@ -1416,6 +1417,25 @@ inline computer_system::LastResetCauses dbusToRfLastResetCause(
 }
 
 /**
+ * @brief Adapts dbusToRfLastResetCause() for mapValidOrOmit's
+ *        EnumTranslator signature: returns std::nullopt for the
+ *        Unsupported D-Bus value so the property is omitted, and
+ *        otherwise stringifies the LastResetCauses enum via its
+ *        NLOHMANN_JSON_SERIALIZE_ENUM mapping.
+ */
+inline std::optional<std::string> dbusToRfLastResetCauseString(
+    const std::string& dbusRestartCause)
+{
+    if (dbusRestartCause ==
+        "xyz.openbmc_project.State.Host.RestartCause.Unsupported")
+    {
+        return std::nullopt;
+    }
+    nlohmann::json j = dbusToRfLastResetCause(dbusRestartCause);
+    return j.get<std::string>();
+}
+
+/**
  * @brief Retrieves the Last Reset Cause
  *
  * @param[in] asyncResp  Shared pointer for generating response message.
@@ -1438,8 +1458,8 @@ inline void getLastResetCause(
                 return;
             }
 
-            asyncResp->res.jsonValue["LastResetCause"] =
-                dbusToRfLastResetCause(restartCause);
+            mapValidOrOmit(asyncResp->res.jsonValue, "LastResetCause",
+                           &restartCause, dbusToRfLastResetCauseString);
         });
 }
 
@@ -3631,6 +3651,12 @@ inline void handleComputerSystemResetActionPost(
         command = "xyz.openbmc_project.State.Host.Transition.Reboot";
         hostCommand = true;
     }
+    else if (resetType == "FullPowerCycle")
+    {
+        nvidia_platform_power_cycle::requestFullPowerCycle(
+            asyncResp, 0, "ComputerSystem.Reset");
+        return;
+    }
     else if (resetType == "Nmi")
     {
         redfish::nvidia_systems_utils::getChassisNMIStatus(
@@ -4366,10 +4392,6 @@ inline void handleComputerSystemPatch(
         setWDTProperties(asyncResp, wdtEnable, wdtTimeOutAction);
     }
 
-    if (bootAutomaticRetry)
-    {
-        setAutomaticRetry(asyncResp, *bootAutomaticRetry);
-    }
     if (bootSource || bootType || bootEnable)
     {
         setBootProperties(asyncResp, bootSource, bootType, bootEnable);
@@ -4439,11 +4461,6 @@ inline void handleComputerSystemPatch(
     {
         setIdlePowerSaver(asyncResp, ipsEnable, ipsEnterUtil, ipsEnterTime,
                             ipsExitUtil, ipsExitTime);
-    }
-
-    if (bootSource || bootType || bootEnable)
-    {
-        setBootProperties(asyncResp, bootSource, bootType, bootEnable);
     }
 
     if (ipmiHostInterfaceServiceEnabled)
@@ -4591,13 +4608,17 @@ inline void dbusToRfAllowedHostTransitions(
 
 inline void afterGetAllowedHostTransitions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
+    bool supportsFullPowerCycle, const boost::system::error_code& ec,
     const std::vector<std::string>& allowedHostTransitions)
 {
     nlohmann::json::array_t allowableValues;
 
     // Supported on all systems currently
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
+    if (supportsFullPowerCycle)
+    {
+        allowableValues.emplace_back(resource::ResetType::FullPowerCycle);
+    }
 
     if (ec)
     {
@@ -4640,6 +4661,60 @@ inline void afterGetAllowedHostTransitions(
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
+inline void afterGetSystemNmiCapability(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool isEnabledNmi)
+{
+    if (!isEnabledNmi)
+    {
+        return;
+    }
+    auto& parameters = asyncResp->res.jsonValue["Parameters"];
+    auto it = std::ranges::find_if(parameters,
+                                   [](const nlohmann::json& parameter) {
+        return parameter.contains("Name") &&
+               parameter["Name"] == "ResetType" &&
+               parameter.contains("AllowableValues") &&
+               parameter["AllowableValues"].is_array();
+    });
+    if (it != parameters.end())
+    {
+        it->at("AllowableValues").emplace_back(resource::ResetType::Nmi);
+    }
+}
+
+inline void afterGetCoreAllowedHostTransitions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool supportsFullPowerCycle, const boost::system::error_code& ec,
+    const std::vector<std::string>& allowedHostTransitions)
+{
+    afterGetAllowedHostTransitions(asyncResp, supportsFullPowerCycle, ec,
+                                   allowedHostTransitions);
+    if (ec && ec.value() !=
+                  boost::system::linux_error::bad_request_descriptor &&
+        ec.value() != boost::asio::error::basic_errors::host_unreachable)
+    {
+        return;
+    }
+    redfish::nvidia_systems_utils::getChassisNMIStatus(
+        std::bind_front(afterGetSystemNmiCapability, asyncResp));
+}
+
+inline void afterGetCoreSystemFullPowerCycleSupport(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool supportsFullPowerCycle)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("Platform power-cycle capability not available: {}",
+                         ec);
+        supportsFullPowerCycle = false;
+    }
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "AllowedHostTransitions",
+        std::bind_front(afterGetCoreAllowedHostTransitions, asyncResp,
+                        supportsFullPowerCycle));
+}
 inline void handleSystemCollectionResetActionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -4684,40 +4759,9 @@ inline void handleSystemCollectionResetActionGet(
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
 
-    // Look to see if system defines AllowedHostTransitions
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.Host", "AllowedHostTransitions",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::vector<std::string>& allowedHostTransitions) {
-            afterGetAllowedHostTransitions(asyncResp, ec,
-                                           allowedHostTransitions);
-
-            // Check Nmi support status
-            redfish::nvidia_systems_utils::getChassisNMIStatus(
-                [asyncResp](bool isEnabledNmi) {
-                    if (isEnabledNmi)
-                    {
-                        // Add 'Nmi' into AllowableValues if it's enabled
-                        auto& parameters =
-                            asyncResp->res.jsonValue["Parameters"];
-                        auto it = std::find_if(
-                            parameters.begin(), parameters.end(),
-                            [](const nlohmann::json& param) {
-                                return param.contains("Name") &&
-                                       param["Name"] == "ResetType" &&
-                                       param.contains("AllowableValues") &&
-                                       param["AllowableValues"].is_array();
-                            });
-                        if (it != parameters.end())
-                        {
-                            auto& allowableValues = it->at("AllowableValues");
-                            allowableValues.emplace_back(
-                                resource::ResetType::Nmi);
-                        }
-                    }
-                });
-        });
+    nvidia_platform_power_cycle::getFullPowerCycleSupport(
+        0,
+        std::bind_front(afterGetCoreSystemFullPowerCycleSupport, asyncResp));
 }
 
 /**

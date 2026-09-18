@@ -136,11 +136,13 @@ inline void requestUserInfo(
     const std::string& username,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::move_only_function<void(const dbus::utility::DBusPropertiesMap&)>&&
-        callback)
+        callback,
+    std::move_only_function<void()>&& onValidationDone = {})
 {
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, callback = std::move(callback)](
+        [asyncResp, callback = std::move(callback),
+         onValidationDone = std::move(onValidationDone)](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
             if (ec)
@@ -148,9 +150,17 @@ inline void requestUserInfo(
                 BMCWEB_LOG_ERROR("GetUserInfo failed...");
                 asyncResp->res.result(
                     boost::beast::http::status::internal_server_error);
+                if (onValidationDone)
+                {
+                    onValidationDone();
+                }
                 return;
             }
             callback(userInfoMap);
+            if (onValidationDone)
+            {
+                onValidationDone();
+            }
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo", username);
@@ -159,10 +169,15 @@ inline void requestUserInfo(
 inline void validatePrivilege(
     const std::shared_ptr<Request>& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, BaseRule& rule,
-    std::move_only_function<void()>&& callback)
+    std::move_only_function<void()>&& callback,
+    std::move_only_function<void()>&& onValidationDone = {})
 {
     if (req->session == nullptr)
     {
+        if (onValidationDone)
+        {
+            onValidationDone();
+        }
         return;
     }
 
@@ -174,7 +189,8 @@ inline void validatePrivilege(
             {
                 callback();
             }
-        });
+        },
+        std::move(onValidationDone));
 }
 
 inline void getUserInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

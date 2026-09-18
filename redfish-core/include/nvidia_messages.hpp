@@ -18,6 +18,7 @@
 
 #include "error_message_utils.hpp"
 #include "error_messages.hpp"
+#include "registries/oem/nvidia_account_message_registry.hpp"
 #include "registries/oem/nvidia_resource_event_message_registry.hpp"
 #include "registries/oem/nvidia_update_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
@@ -175,6 +176,14 @@ inline nlohmann::json debugTokenInstallationFailed(std::string_view arg1,
         args);
 }
 
+inline nlohmann::json debugTokenInstallationSkipped(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::debugTokenInstallationSkipped,
+        args);
+}
+
 inline nlohmann::json dotActionResponseError(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
@@ -305,6 +314,36 @@ inline nlohmann::json serviceRestart(std::string_view arg1)
     return getLogFromRegistry(redfish::registries::Openbmc::header,
                               redfish::registries::Openbmc::registry, index,
                               args);
+}
+
+/**
+ * @brief Method to get error message from NVIDIA account registry
+ */
+inline nlohmann::json getLogNvidia(
+    redfish::registries::NvidiaAccount::Index name,
+    std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::NvidiaAccount::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::NvidiaAccount::header,
+                              redfish::registries::NvidiaAccount::registry,
+                              index, args);
+}
+
+inline nlohmann::json accountTypeRestricted(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaAccount::Index::accountTypeRestricted, args);
+}
+
+inline void accountTypeRestricted(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, accountTypeRestricted(arg1));
 }
 
 } // namespace redfish::messages

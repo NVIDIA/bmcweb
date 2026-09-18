@@ -35,6 +35,20 @@ enum class EnableDisableOption{
     Default,
 };
 
+enum class DiagStatus{
+    Invalid,
+    InProgress,
+    RecoveryMode,
+    Completed,
+    Aborted,
+    NotStarted,
+    TestRunning,
+};
+
+enum class DiagDataByte{
+    Invalid,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
@@ -61,6 +75,20 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EnableDisableOption, {
     {EnableDisableOption::Enable, "Enable"},
     {EnableDisableOption::Disable, "Disable"},
     {EnableDisableOption::Default, "Default"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DiagStatus, {
+    {DiagStatus::Invalid, "Invalid"},
+    {DiagStatus::InProgress, "InProgress"},
+    {DiagStatus::RecoveryMode, "RecoveryMode"},
+    {DiagStatus::Completed, "Completed"},
+    {DiagStatus::Aborted, "Aborted"},
+    {DiagStatus::NotStarted, "NotStarted"},
+    {DiagStatus::TestRunning, "TestRunning"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(DiagDataByte, {
+    {DiagDataByte::Invalid, "Invalid"},
 });
 
 }

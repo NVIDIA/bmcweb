@@ -28,7 +28,7 @@ TEST(GetAllowedHostTransition, UnexpectedError)
     boost::system::error_code ec = boost::asio::error::invalid_argument;
     std::vector<std::string> allowedHostTransitions;
 
-    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
+    afterGetAllowedHostTransitions(response, false, ec, allowedHostTransitions);
 
     EXPECT_EQ(response->res.result(),
               boost::beast::http::status::internal_server_error);
@@ -41,7 +41,7 @@ TEST(GetAllowedHostTransition, NoPropOnDbus)
         boost::system::linux_error::bad_request_descriptor;
     std::vector<std::string> allowedHostTransitions;
 
-    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
+    afterGetAllowedHostTransitions(response, false, ec, allowedHostTransitions);
 
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
@@ -74,7 +74,7 @@ TEST(GetAllowedHostTransition, NoForceRestart)
         "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot",
     };
 
-    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
+    afterGetAllowedHostTransitions(response, false, ec, allowedHostTransitions);
 
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
@@ -107,7 +107,7 @@ TEST(GetAllowedHostTransition, AllSupported)
         "xyz.openbmc_project.State.Host.Transition.ForceWarmReboot",
     };
 
-    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
+    afterGetAllowedHostTransitions(response, true, ec, allowedHostTransitions);
 
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
@@ -116,6 +116,7 @@ TEST(GetAllowedHostTransition, AllSupported)
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::PowerCycle);
+    allowed.emplace_back(resource::ResetType::FullPowerCycle);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);

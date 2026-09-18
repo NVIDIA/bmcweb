@@ -194,8 +194,8 @@ class BmcwebSaxParse : public nlohmann::json::json_sax_t
 inline std::optional<nlohmann::json> parseStringAsJson(const std::string& body)
 {
     nlohmann::json jsonOut;
-    // Arbitrarily limit to 2MiB payloads
-    if (body.size() > 2097152U)
+    // Arbitrarily limit to 4MiB payloads
+    if (body.size() > 4194304U)
     {
         BMCWEB_LOG_WARNING("Request body is too large");
         return std::nullopt;

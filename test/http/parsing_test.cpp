@@ -133,7 +133,7 @@ TEST(HttpParsing, parseStringAsJsonMaxValues)
 
 TEST(HttpParsing, parseStringAsJsonBodySizeLimit)
 {
-    constexpr size_t cap = 2097152U;
+    constexpr size_t cap = 4194304U;
 
     // A well-formed JSON string of exactly the cap should parse.
     std::string atCap;
@@ -141,7 +141,7 @@ TEST(HttpParsing, parseStringAsJsonBodySizeLimit)
     atCap += '"';
     atCap.append(cap - 2, 'a');
     atCap += '"';
-    EXPECT_TRUE(parseStringAsJson(atCap)) << "Body at 2 MiB should parse";
+    EXPECT_TRUE(parseStringAsJson(atCap)) << "Body at 4 MiB should parse";
 
     // One byte over the cap must be rejected before SAX parsing.
     std::string overCap;
@@ -150,7 +150,7 @@ TEST(HttpParsing, parseStringAsJsonBodySizeLimit)
     overCap.append(cap - 1, 'a');
     overCap += '"';
     EXPECT_FALSE(parseStringAsJson(overCap))
-        << "Body over 2 MiB should be rejected";
+        << "Body over 4 MiB should be rejected";
 }
 
 } // namespace
