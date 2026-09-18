@@ -45,10 +45,6 @@ enum class DiagStatus{
     TestRunning,
 };
 
-enum class DiagDataByte{
-    Invalid,
-};
-
 NLOHMANN_JSON_SERIALIZE_ENUM(CapabilityStatus, {
     {CapabilityStatus::Invalid, "Invalid"},
     {CapabilityStatus::Enabled, "Enabled"},
@@ -85,10 +81,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(DiagStatus, {
     {DiagStatus::Aborted, "Aborted"},
     {DiagStatus::NotStarted, "NotStarted"},
     {DiagStatus::TestRunning, "TestRunning"},
-});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(DiagDataByte, {
-    {DiagDataByte::Invalid, "Invalid"},
 });
 
 // clang-format on

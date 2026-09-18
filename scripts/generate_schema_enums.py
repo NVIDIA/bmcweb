@@ -44,11 +44,19 @@ def parse_schema(element, filename):
         if schema_element.tag == EDM + "TypeDefinition":
             enums = []
             for annotation in schema_element:
+                # Redfish.Enumeration is the annotation term that marks a
+                # TypeDefinition as an enumerated legacy string value set.
+                # Other annotations (e.g. Validation.Minimum/Maximum on a
+                # plain ranged Edm.Int64) aren't enumerations even if they
+                # happen to nest Collection/Record/PropertyValue elements.
+                if annotation.attrib.get("Term") != "Redfish.Enumeration":
+                    continue
                 for collection in annotation:
                     for record in collection.findall(EDM + "Record"):
                         for member in record.findall(EDM + "PropertyValue"):
                             enums.append(member.attrib["String"])
-            EntityTypes.append(Enum(name, enums, namespace, filename))
+            if enums:
+                EntityTypes.append(Enum(name, enums, namespace, filename))
     return EntityTypes
 
 
