@@ -343,8 +343,16 @@ inline void handleAggregationSourceCollectionPost(
 inline void afterGetSatelliteConfigsForPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& aggregationSourceId,
+    const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
 {
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to get satellite configs: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
     // Check if it exists in Entity Manager sources
     if (satelliteInfo.contains(aggregationSourceId))
     {

@@ -82,7 +82,7 @@ inline memory::MemoryDeviceType translateMemoryTypeToRedfish(
     if (memoryType ==
         "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR5_SDRAM")
     {
-        return "LPDDR5_SDRAM";
+        return memory::MemoryDeviceType::LPDDR5_SDRAM;
     }
     if (memoryType ==
         "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR4_SDRAM")

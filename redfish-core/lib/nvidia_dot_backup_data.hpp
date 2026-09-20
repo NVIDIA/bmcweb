@@ -472,11 +472,11 @@ inline void afterDOTBackupDataBlobDiscovery(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DOTBackupData/{}/Actions/NvidiaDOTBackupData.Download",
         managerId, processorId);
 
-    constexpr std::array<std::string_view, 1> processorInterfaces = {
+    constexpr std::array<std::string_view, 1> dotProcessorInterfaces = {
         "xyz.openbmc_project.Inventory.Item.Cpu"};
 
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, processorInterfaces,
+        "/xyz/openbmc_project/inventory", 0, dotProcessorInterfaces,
         std::bind_front(afterProcessorDiscoveryForRelatedItem, asyncResp,
                         processorId));
 }

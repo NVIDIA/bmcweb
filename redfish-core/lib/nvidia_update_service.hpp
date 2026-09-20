@@ -85,7 +85,7 @@ constexpr auto retimerHashMaxTimeSec =
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static nlohmann::json preTaskMessages = {};
+static nlohmann::json::array_t preTaskMessages = {};
 
 // allowed firmware image size
 constexpr const size_t firmwareImageLimitBytes =
@@ -427,7 +427,7 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
 }
 
 inline void handleLogMatchCallback(sdbusplus::message_t& m,
-                                   nlohmann::json& messages)
+                                   nlohmann::json::array_t& messages)
 {
     std::vector<std::pair<std::string, dbus::utility::DBusPropertiesMap>>
         interfacesProperties;

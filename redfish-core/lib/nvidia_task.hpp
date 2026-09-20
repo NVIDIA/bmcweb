@@ -89,7 +89,10 @@ inline void applyTaskServiceTaskUpdatePatch(
 
     if (messages)
     {
-        ptr->messages = *messages;
+        // task::TaskData::messages is now nlohmann::json::array_t
+        // (std::vector<nlohmann::json>); the PATCH body "Messages" is read as a
+        // generic nlohmann::json, so convert it to the array representation.
+        ptr->messages = messages->get<nlohmann::json::array_t>();
     }
 
     if (taskState && ptr->state != *taskState)
