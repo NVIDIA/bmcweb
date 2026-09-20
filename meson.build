@@ -142,6 +142,9 @@ if (cxx.get_id() == 'gcc')
         '-Wnull-dereference',
         '-Wunused-parameter',
         '-Wdouble-promotion',
+        '-Wimplicit-fallthrough',
+        '-Wtrampolines',
+        '-Wbidi-chars=any',
         '-Wno-psabi',
         '-Wshadow',
         '-Wno-attributes',
@@ -173,9 +176,18 @@ endif
 
 security_flags = [
     '-fstack-protector-strong',
+    '-fstack-clash-protection',
     '-fPIE',
     '-fPIC',
-    '-D_FORTIFY_SOURCE=2',
+    # Undefine first to avoid redefinition warnings if the toolchain pre-defines it
+    '-U_FORTIFY_SOURCE',
+    '-D_FORTIFY_SOURCE=3',
+    '-D_GLIBCXX_ASSERTIONS',
+    '-fstrict-flex-arrays=3',
+    '-fno-delete-null-pointer-checks',
+    '-fno-strict-overflow',
+    '-fno-strict-aliasing',
+    '-ftrivial-auto-var-init=zero',
     '-Wformat',
     '-Wformat-security',
 ]
@@ -185,8 +197,29 @@ security_flags = [
 plain = get_option('buildtype') == 'plain'
 debug = get_option('buildtype').startswith('debug')
 if not (plain or debug)
+    add_project_arguments(security_flags, language: 'cpp')
+
+    # Architecture-specific control-flow protection; only one will match per target
     add_project_arguments(
-        cxx.get_supported_arguments([security_flags]),
+        cxx.get_supported_arguments(
+            ['-fcf-protection=full', '-mbranch-protection=standard'],
+        ),
+        language: 'cpp',
+    )
+
+    # Hardening linker flags
+    add_project_link_arguments(
+        cxx.get_supported_link_arguments(
+            [
+                '-Wl,-z,nodlopen',
+                '-Wl,-z,noexecstack',
+                '-Wl,-z,relro',
+                '-Wl,-z,now',
+                '-Wl,--as-needed',
+                '-Wl,--no-copy-dt-needed-entries',
+                '-pie',
+            ],
+        ),
         language: 'cpp',
     )
 endif
@@ -301,7 +334,7 @@ nlohmann_json_dep = dependency(
 )
 bmcweb_dependencies += nlohmann_json_dep
 
-boost = dependency(
+boost_static = dependency(
     'boost',
     modules: ['url', 'process'],
     version: '>=1.88.0',
@@ -309,6 +342,27 @@ boost = dependency(
     required: false,
     include_type: 'system',
 )
+
+# Check boost url linking and fall back to dynamic libraries.
+boost = boost_static
+static_ok = false
+if boost_static.found()
+    static_ok = cxx.links(
+        '#include <boost/url.hpp>\nint main() { boost::urls::url u; return 0; }',
+        dependencies: boost_static,
+        name: 'boost static links',
+    )
+endif
+if not static_ok
+    boost = dependency(
+        'boost',
+        modules: ['url', 'process'],
+        version: '>=1.88.0',
+        static: false,
+        required: false,
+        include_type: 'system',
+    )
+endif
 
 if boost.found()
     bmcweb_dependencies += [boost]

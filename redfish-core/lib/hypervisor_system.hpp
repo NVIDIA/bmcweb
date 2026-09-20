@@ -863,7 +863,7 @@ inline void handleHypervisorResetActionGet(
                 // No hypervisor objects found by mapper
                 if (ec.value() == boost::system::errc::io_error)
                 {
-                    messages::resourceNotFound(asyncResp->res, "hypervisor",
+                    messages::resourceNotFound(asyncResp->res, "ActionInfo",
                                                "ResetActionInfo");
                     return;
                 }
@@ -906,25 +906,18 @@ inline void handleHypervisorSystemResetPost(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    std::optional<std::string> resetType;
+    std::string resetType;
     if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
     {
-        // readJson adds appropriate error to response
-        return;
-    }
-
-    if (!resetType)
-    {
-        messages::actionParameterMissing(asyncResp->res, "ComputerSystem.Reset",
-                                         "ResetType");
+        BMCWEB_LOG_WARNING("Required parameters are missing");
         return;
     }
 
     // Hypervisor object only support On operation
     if (resetType != "On")
     {
-        messages::propertyValueNotInList(asyncResp->res, *resetType,
-                                         "ResetType");
+        messages::actionParameterValueNotInList(
+            asyncResp->res, resetType, "ResetType", "ComputerSystem.Reset");
         return;
     }
 

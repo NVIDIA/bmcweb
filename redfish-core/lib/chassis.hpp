@@ -28,6 +28,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/processor_utils.hpp"
 #include "utils/redfish_response_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -386,8 +387,6 @@ inline void handlePhysicalSecurityGetSubTree(
                         BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                         return;
                     }
-                    asyncResp->res.jsonValue["PhysicalSecurity"]
-                                            ["IntrusionSensorNumber"] = 1;
                     asyncResp->res
                         .jsonValue["PhysicalSecurity"]["IntrusionSensor"] =
                         value;
@@ -513,6 +512,55 @@ inline void getChassisConnectivity(
         sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
         chassisInterfaces,
         std::bind_front(getChassisContains, asyncResp, chassisId));
+}
+
+inline void afterGetChassisProcessorLinks(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& collectionPath,
+    const nlohmann::json::json_pointer& jsonKeyName,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& procs)
+{
+    if (ec)
+    {
+        if (ec.value() == boost::system::errc::io_error || ec.value() == EBADR)
+        {
+            BMCWEB_LOG_DEBUG("No processor association: {}", ec);
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    collection_util::handleCollectionMembers(asyncResp, collectionPath,
+                                             jsonKeyName, ec, procs);
+}
+
+/**
+ * @brief Fill out Processors links by traversing the "containing"
+ * association from the chassis object to find all associated
+ * processors.
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       chassisPath D-Bus object path of the chassis.
+ */
+inline void getChassisProcessorLinks(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const sdbusplus::object_path& chassisPath)
+{
+    BMCWEB_LOG_DEBUG("Get chassis processor links for {}",
+                     chassisPath.string());
+
+    boost::urls::url collectionPath = boost::urls::format(
+        "/redfish/v1/Systems/{}/Processors", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+    dbus::utility::getAssociatedSubTreePaths(
+        chassisPath / "containing",
+        sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
+        processorInterfaces,
+        std::bind_front(afterGetChassisProcessorLinks, asyncResp,
+                        std::move(collectionPath),
+                        nlohmann::json::json_pointer("/Links/Processors")));
 }
 
 /**

@@ -44,10 +44,100 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
 
 namespace redfish
 {
+
+inline std::optional<resource::PowerState> dbusToRfPowerState(
+    std::string_view dbusPowerState)
+{
+    if (dbusPowerState ==
+        "xyz.openbmc_project.State.Decorator.PowerState.State.On")
+    {
+        return resource::PowerState::On;
+    }
+    if (dbusPowerState ==
+        "xyz.openbmc_project.State.Decorator.PowerState.State.Off")
+    {
+        return resource::PowerState::Off;
+    }
+    if (dbusPowerState ==
+        "xyz.openbmc_project.State.Decorator.PowerState.State.PoweringOn")
+    {
+        return resource::PowerState::PoweringOn;
+    }
+    if (dbusPowerState ==
+        "xyz.openbmc_project.State.Decorator.PowerState.State.PoweringOff")
+    {
+        return resource::PowerState::PoweringOff;
+    }
+    return std::nullopt;
+}
+
+inline void afterGetSwitchPowerState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchPath, const boost::system::error_code& ec,
+    const std::string& powerState)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR || ec.value() == boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_DEBUG("PowerState property absent on the interface");
+            return;
+        }
+        BMCWEB_LOG_ERROR("DBus error reading PowerState on {}: {}", switchPath,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    std::optional<resource::PowerState> rfState =
+        dbusToRfPowerState(powerState);
+    if (!rfState)
+    {
+        BMCWEB_LOG_WARNING("Unknown PowerState '{}' on {}", powerState,
+                           switchPath);
+        return;
+    }
+    asyncResp->res.jsonValue["PowerState"] = *rfState;
+}
+
+inline void afterGetSwitchPowerStateService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& switchPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& obj)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR || ec.value() == boost::system::errc::io_error)
+        {
+            // Not mandatory features thus is okay to skip
+            BMCWEB_LOG_DEBUG("PowerState interface absent on {}", switchPath);
+            return;
+        }
+        BMCWEB_LOG_ERROR("Mapper GetObject error for {}: {}", switchPath,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (obj.empty())
+    {
+        return;
+    }
+
+    const std::string& service = obj.begin()->first;
+    dbus::utility::getProperty<std::string>(
+        service, switchPath, "xyz.openbmc_project.State.Decorator.PowerState",
+        "PowerState",
+        std::bind_front(afterGetSwitchPowerState, asyncResp, switchPath));
+}
 
 constexpr const char* inventoryRootPath =
     "/xyz/openbmc_project/inventory/system";

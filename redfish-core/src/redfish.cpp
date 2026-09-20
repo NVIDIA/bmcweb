@@ -25,6 +25,7 @@
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
 #include "manager_logservices_dbus_eventlog.hpp"
+#include "manager_logservices_dump.hpp"
 #include "manager_logservices_journal.hpp"
 #include "manager_logservices_journal_eventlog.hpp"
 #include "managers.hpp"
@@ -44,6 +45,7 @@
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
+#include "processor_core.hpp"
 #include "processor_operating_config.hpp"
 #include "redfish_nvidia.hpp"
 #include "redfish_sessions.hpp"
@@ -57,6 +59,7 @@
 #include "switch_port.hpp"
 #include "systems.hpp"
 #include "systems_logservices_dbus_eventlog.hpp"
+#include "systems_logservices_dump.hpp"
 #include "systems_logservices_hostlogger.hpp"
 #include "systems_logservices_journal_eventlog.hpp"
 #include "systems_logservices_postcodes.hpp"
@@ -186,12 +189,7 @@ RedfishService::RedfishService(App& app)
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
-        requestRoutesSystemDumpService(app);
-        requestRoutesSystemDumpEntryCollection(app);
-        requestRoutesSystemDumpEntry(app);
-        requestRoutesSystemDumpEntryDownload(app);
-        requestRoutesSystemDumpCreate(app);
-        requestRoutesSystemDumpClear(app);
+        requestRoutesSystemsLogServicesDump(app);
 
         requestRoutesBMCDumpService(app);
         requestRoutesBMCDumpEntryCollection(app);
@@ -225,6 +223,7 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesProcessor(app);
+    requestRoutesSubProcessors(app);
     requestRoutesOperatingConfig(app);
 
     requestRoutesMemoryCollection(app);

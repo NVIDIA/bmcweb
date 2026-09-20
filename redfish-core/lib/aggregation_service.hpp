@@ -293,13 +293,13 @@ inline void handleAggregationSourceCollectionPost(
         boost::urls::parse_absolute_uri(hostname);
     if (!url)
     {
-        messages::propertyValueIncorrect(asyncResp->res, hostname, "HostName");
+        messages::propertyValueIncorrect(asyncResp->res, "HostName", hostname);
         return;
     }
     url->normalize();
     if (url->scheme() != "http" && url->scheme() != "https")
     {
-        messages::propertyValueIncorrect(asyncResp->res, hostname, "HostName");
+        messages::propertyValueIncorrect(asyncResp->res, "HostName", hostname);
         return;
     }
     crow::utility::setPortDefaults(*url);
@@ -338,6 +338,24 @@ inline void handleAggregationSourceCollectionPost(
         boost::urls::format("/redfish/v1/AggregationSources/{}", prefix)
             .buffer());
     messages::created(asyncResp->res);
+}
+
+inline void afterGetSatelliteConfigsForPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& aggregationSourceId,
+    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
+{
+    // Check if it exists in Entity Manager sources
+    if (satelliteInfo.contains(aggregationSourceId))
+    {
+        // Source exists but is read-only (from Entity Manager)
+        messages::propertyNotWritable(asyncResp->res, "UserName");
+        return;
+    }
+
+    // Doesn't exist anywhere
+    messages::resourceNotFound(asyncResp->res, "AggregationSource",
+                               aggregationSourceId);
 }
 
 inline void handleAggregationSourcePatch(
@@ -390,31 +408,8 @@ inline void handleAggregationSourcePatch(
 
     // Not in writable sources, query D-Bus to check if it exists in
     // Entity Manager sources
-    RedfishAggregator::getInstance().getSatelliteConfigs(
-        // ast-grep-ignore: long-lambda
-        [asyncResp, aggregationSourceId](
-            const boost::system::error_code& ec,
-            const std::unordered_map<std::string, boost::urls::url>&
-                satelliteInfo) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
-                                 ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            // Check if it exists in Entity Manager sources
-            if (satelliteInfo.contains(aggregationSourceId))
-            {
-                // Source exists but is read-only (from Entity Manager)
-                messages::propertyNotWritable(asyncResp->res, "UserName");
-                return;
-            }
-
-            // Doesn't exist anywhere
-            messages::resourceNotFound(asyncResp->res, "AggregationSource",
-                                       aggregationSourceId);
-        });
+    RedfishAggregator::getInstance().getSatelliteConfigs(std::bind_front(
+        afterGetSatelliteConfigsForPatch, asyncResp, aggregationSourceId));
 }
 
 inline void handleAggregationSourceDelete(

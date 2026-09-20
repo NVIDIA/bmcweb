@@ -20,6 +20,8 @@
 #include "utils/asset_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/processor_utils.hpp"
+#include "utils/resource_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -216,10 +218,6 @@ inline void linkAssociatedProcessor(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath)
 {
-    constexpr std::array<std::string_view, 2> processorInterfaces = {
-        "xyz.openbmc_project.Inventory.Item.Cpu",
-        "xyz.openbmc_project.Inventory.Item.Accelerator"};
-
     dbus::utility::getAssociatedSubTreePaths(
         pcieDevicePath + "/connected_to",
         sdbusplus::object_path("/xyz/openbmc_project/inventory"), 0,
@@ -670,8 +668,37 @@ inline void addPCIeDeviceCommonProperties(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
     asyncResp->res.jsonValue["Name"] = "PCIe Device";
     asyncResp->res.jsonValue["Id"] = pcieDeviceId;
-    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+}
+
+inline void afterGetPCIeDeviceUUID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& uuid)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error for UUID {}", ec);
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    if (uuid.empty())
+    {
+        BMCWEB_LOG_DEBUG("PCIeDevice UUID is empty, omitting");
+        return;
+    }
+    asyncResp->res.jsonValue["UUID"] = uuid;
+}
+
+inline void getPCIeDeviceUUID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& pcieDevicePath, const std::string& service)
+{
+    dbus::utility::getProperty<std::string>(
+        service, pcieDevicePath, "xyz.openbmc_project.Common.UUID", "UUID",
+        std::bind_front(afterGetPCIeDeviceUUID, asyncResp));
 }
 
 inline void afterGetValidPcieDevicePath(
@@ -682,8 +709,11 @@ inline void afterGetValidPcieDevicePath(
     addPCIeDeviceCommonProperties(asyncResp, pcieDeviceId);
     asset_utils::getAssetInfo(asyncResp, service, pcieDevicePath,
                               ""_json_pointer, true);
-    getPCIeDeviceState(asyncResp, pcieDevicePath, service);
-    getPCIeDeviceHealth(asyncResp, pcieDevicePath, service);
+    resource_utils::getResourceState(asyncResp, service, pcieDevicePath,
+                                     ""_json_pointer);
+    resource_utils::getResourceHealth(asyncResp, service, pcieDevicePath,
+                                      ""_json_pointer);
+    getPCIeDeviceUUID(asyncResp, pcieDevicePath, service);
     getPCIeDeviceProperties(
         asyncResp, pcieDevicePath, service,
         std::bind_front(addPCIeDeviceProperties, asyncResp, pcieDeviceId));

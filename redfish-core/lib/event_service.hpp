@@ -9,6 +9,7 @@
 #include "event_service_manager.hpp"
 #include "event_service_store.hpp"
 #include "generated/enums/event_destination.hpp"
+#include "generated/enums/resource.hpp"
 #include "http/utility.hpp"
 #include "http_request.hpp"
 #include "io_context_singleton.hpp"
@@ -37,6 +38,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -97,7 +99,8 @@ inline void requestRoutesEventService(App& app)
                     .getEventServiceConfig();
 
             asyncResp->res.jsonValue["Status"]["State"] =
-                (eventServiceConfig.enabled ? "Enabled" : "Disabled");
+                (eventServiceConfig.enabled ? resource::State::Enabled
+                                            : resource::State::Disabled);
             asyncResp->res.jsonValue["ServiceEnabled"] =
                 eventServiceConfig.enabled;
             asyncResp->res.jsonValue["DeliveryRetryAttempts"] =
@@ -777,6 +780,34 @@ inline void requestRoutesEventDestinationCollection(App& app)
         });
 }
 
+inline void handleEventDestinationDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    EventServiceManager& event = EventServiceManager::getInstance();
+    if (param.starts_with("snmp"))
+    {
+        deleteSnmpTrapClient(asyncResp, param);
+        event.deleteSubscription(param);
+        return;
+    }
+
+    if (!event.deleteSubscription(param))
+    {
+        messages::resourceNotFound(asyncResp->res, "EventDestination", param);
+        return;
+    }
+    messages::success(asyncResp->res);
+    // Nvidia code starts here
+    disableRedfishEventListener(req);
+    // Nvidia code ends here
+}
+
 inline void requestRoutesEventDestination(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
@@ -984,33 +1015,7 @@ inline void requestRoutesEventDestination(App& app)
         //.privileges(redfish::privileges::deleteEventDestination)
         .privileges({{"ConfigureManager"}})
         .methods(boost::beast::http::verb::delete_)(
-            // ast-grep-ignore: long-lambda
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& param) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                EventServiceManager& event = EventServiceManager::getInstance();
-                if (param.starts_with("snmp"))
-                {
-                    deleteSnmpTrapClient(asyncResp, param);
-                    event.deleteSubscription(param);
-                    return;
-                }
-
-                if (!event.deleteSubscription(param))
-                {
-                    messages::resourceNotFound(asyncResp->res,
-                                               "EventDestination", param);
-                    return;
-                }
-                messages::success(asyncResp->res);
-                // Nvidia code starts here
-                disableRedfishEventListener(req);
-                // Nvidia code ends here
-            });
+            std::bind_front(handleEventDestinationDelete, std::ref(app)));
 }
 
 } // namespace redfish

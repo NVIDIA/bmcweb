@@ -365,7 +365,7 @@ inline resource::State getRedfishSwState(const std::string& swState)
  *
  * @return The corresponding Redfish health state
  */
-inline std::string getRedfishSwHealth(const std::string& swState)
+inline resource::Health getRedfishSwHealth(const std::string& swState)
 {
     if ((swState ==
          "xyz.openbmc_project.Software.Activation.Activations.Active") ||
@@ -374,10 +374,26 @@ inline std::string getRedfishSwHealth(const std::string& swState)
         (swState ==
          "xyz.openbmc_project.Software.Activation.Activations.Ready"))
     {
-        return "OK";
+        return resource::Health::OK;
     }
     BMCWEB_LOG_DEBUG("Sw state {} to Warning", swState);
-    return "Warning";
+    return resource::Health::Warning;
+}
+
+inline void afterGetSwMinimumVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& swMinimumVersion)
+{
+    if (ec)
+    {
+        // not all software has this interface and it is not critical
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("getSwMinimumVersion: MinimumVersion {}",
+                     swMinimumVersion);
+
+    asyncResp->res.jsonValue["LowestSupportedVersion"] = swMinimumVersion;
 }
 
 /**
@@ -403,22 +419,44 @@ inline void getSwMinimumVersion(
 
     dbus::utility::getProperty<std::string>(
         dbusSvc, path, "xyz.openbmc_project.Software.MinimumVersion",
-        "MinimumVersion",
-        // ast-grep-ignore: long-lambda
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& swMinimumVersion) {
-            if (ec)
-            {
-                // not all software has this interface and it is not critical
-                return;
-            }
+        "MinimumVersion", std::bind_front(afterGetSwMinimumVersion, asyncResp));
+}
 
-            BMCWEB_LOG_DEBUG("getSwMinimumVersion: MinimumVersion {}",
-                             swMinimumVersion);
+inline void afterGetSwStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        // not all swtypes are updateable, this is ok
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+        return;
+    }
 
-            asyncResp->res.jsonValue["LowestSupportedVersion"] =
-                swMinimumVersion;
-        });
+    const std::string* swInvActivation = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "Activation",
+        swInvActivation);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (swInvActivation == nullptr)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("getSwStatus: Activation {}", *swInvActivation);
+    asyncResp->res.jsonValue["Status"]["State"] =
+        getRedfishSwState(*swInvActivation);
+    asyncResp->res.jsonValue["Status"]["Health"] =
+        getRedfishSwHealth(*swInvActivation);
 }
 
 /**
@@ -442,42 +480,7 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     dbus::utility::getAllProperties(
         dbusSvc, "/xyz/openbmc_project/software/" + *swId,
         "xyz.openbmc_project.Software.Activation",
-        // ast-grep-ignore: long-lambda
-        [asyncResp,
-         swId](const boost::system::error_code& ec,
-               const dbus::utility::DBusPropertiesMap& propertiesList) {
-            if (ec)
-            {
-                // not all swtypes are updateable, this is ok
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Enabled;
-                return;
-            }
-
-            const std::string* swInvActivation = nullptr;
-
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "Activation",
-                swInvActivation);
-
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            if (swInvActivation == nullptr)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            BMCWEB_LOG_DEBUG("getSwStatus: Activation {}", *swInvActivation);
-            asyncResp->res.jsonValue["Status"]["State"] =
-                getRedfishSwState(*swInvActivation);
-            asyncResp->res.jsonValue["Status"]["Health"] =
-                getRedfishSwHealth(*swInvActivation);
-        });
+        std::bind_front(afterGetSwStatus, asyncResp));
 }
 
 inline void handleUpdateableEndpoints(

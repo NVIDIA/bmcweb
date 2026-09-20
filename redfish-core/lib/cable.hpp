@@ -17,6 +17,7 @@
 #include "utils/asset_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/resource_utils.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -150,7 +151,14 @@ inline void getCableProperties(
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {
-                fillCableHealthState(asyncResp, cableObjectPath, service);
+                resource_utils::getResourceState(
+                    asyncResp, service, cableObjectPath, ""_json_pointer);
+            }
+            else if (interface ==
+                     "xyz.openbmc_project.State.Decorator.OperationalStatus")
+            {
+                resource_utils::getResourceHealth(
+                    asyncResp, service, cableObjectPath, ""_json_pointer);
             }
         }
     }

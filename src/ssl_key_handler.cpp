@@ -43,6 +43,7 @@ extern "C"
 #include <bit>
 #include <cstddef>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -169,29 +170,23 @@ static std::optional<OpenSSLX509> loadCert(const std::string& filePath)
     return x509Obj;
 }
 
-static void installCertificate(const std::filesystem::path& certPath)
+static void afterInstallCertificate(const std::filesystem::path& certPath,
+                                    const boost::system::error_code& ec)
 {
-    dbus::utility::async_method_call(
-        // ast-grep-ignore: long-lambda
-        [certPath](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Replace Certificate Fail..");
-                return;
-            }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Replace Certificate Fail..");
+        return;
+    }
 
-            BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
-                            "remove temporary certificate file..");
-            std::error_code ec2;
-            std::filesystem::remove(certPath.c_str(), ec2);
-            if (ec2)
-            {
-                BMCWEB_LOG_ERROR("Failed to remove certificate");
-            }
-        },
-        "xyz.openbmc_project.Certs.Manager.Server.Https",
-        "/xyz/openbmc_project/certs/server/https/1",
-        "xyz.openbmc_project.Certs.Replace", "Replace", certPath.string());
+    BMCWEB_LOG_INFO("Replace HTTPs Certificate Success, "
+                    "remove temporary certificate file..");
+    std::error_code ec2;
+    std::filesystem::remove(certPath.c_str(), ec2);
+    if (ec2)
+    {
+        BMCWEB_LOG_ERROR("Failed to remove certificate");
+    }
 }
 
 void regenerateCertificateIfHostnameChanged(const std::string& filepath,
@@ -247,7 +242,13 @@ void regenerateCertificateIfHostnameChanged(const std::string& filepath,
             std::format("/tmp/hostname_cert.{}.tmp", dis(gen));
         ensuressl::writeCertificateToFile(certPath, certData);
 
-        installCertificate(certPath);
+        dbus::utility::async_method_call(
+            std::function<void(const boost::system::error_code&)>(
+                std::bind_front(afterInstallCertificate,
+                                std::filesystem::path(certPath))),
+            "xyz.openbmc_project.Certs.Manager.Server.Https",
+            "/xyz/openbmc_project/certs/server/https/1",
+            "xyz.openbmc_project.Certs.Replace", "Replace", certPath);
     }
 }
 

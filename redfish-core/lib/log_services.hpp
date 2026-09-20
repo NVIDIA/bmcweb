@@ -12,15 +12,12 @@
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "generated/enums/log_service.hpp"
-#include "http_body.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
-#include "human_sort.hpp"
 #include "logging.hpp"
 #include "nvidia_log_services.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "str_utility.hpp"
 #include "task.hpp"
 #include "task_messages.hpp"
 #include "utils/dbus_event_log_entry.hpp"
@@ -37,13 +34,7 @@
 #include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 
-#include <asm-generic/errno.h>
-#include <systemd/sd-bus.h>
-#include <tinyxml2.h>
-#include <unistd.h>
-
 #include <boost/beast/http/field.hpp>
-#include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
@@ -52,22 +43,16 @@
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
-#include <algorithm>
 #include <array>
 #include <chrono>
-#include <cstdint>
-#include <filesystem>
 #include <format>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <ranges>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace redfish
@@ -1556,7 +1541,7 @@ inline void handleSystemsLogServiceCollectionGet(
 
             for (const auto& pathStr : subtreePath)
             {
-                if (pathStr.find("PostCode") != std::string::npos)
+                if (pathStr.contains("PostCode"))
                 {
                     nlohmann::json& logServiceArrayLocal =
                         asyncResp->res.jsonValue["Members"];

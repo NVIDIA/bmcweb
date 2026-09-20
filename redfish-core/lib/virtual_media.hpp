@@ -3,6 +3,8 @@
 // SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "credential_pipe.hpp"
@@ -130,25 +132,25 @@ inline void findAndParseObject(
 /**
  * @brief Function extracts transfer protocol name from URI.
  */
-inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
+inline virtual_media::TransferProtocolType getTransferProtocolTypeFromUri(
+    const std::string& imageUri)
 {
     boost::system::result<boost::urls::url_view> url =
         boost::urls::parse_uri(imageUri);
-    if (!url)
+    if (url)
     {
-        return "None";
-    }
-    std::string_view scheme = url->scheme();
-    if (scheme == "smb")
-    {
-        return "CIFS";
-    }
-    if (scheme == "https")
-    {
-        return "HTTPS";
+        std::string_view scheme = url->scheme();
+        if (scheme == "smb")
+        {
+            return virtual_media::TransferProtocolType::CIFS;
+        }
+        if (scheme == "https")
+        {
+            return virtual_media::TransferProtocolType::HTTPS;
+        }
     }
 
-    return "None";
+    return virtual_media::TransferProtocolType::Invalid;
 }
 
 /**
@@ -179,7 +181,7 @@ inline void vmParseInterfaceObject(
                             .jsonValue["Oem"]["OpenBMC"]["WebSocketEndpoint"] =
                             *endpointIdValue;
                         asyncResp->res.jsonValue["TransferProtocolType"] =
-                            "OEM";
+                            virtual_media::TransferProtocolType::OEM;
                     }
                 }
                 if (property == "ImageURL")
@@ -202,8 +204,14 @@ inline void vmParseInterfaceObject(
                         }
 
                         asyncResp->res.jsonValue["Image"] = *imageUrlValue;
-                        asyncResp->res.jsonValue["TransferProtocolType"] =
+                        virtual_media::TransferProtocolType transferProtocol =
                             getTransferProtocolTypeFromUri(*imageUrlValue);
+                        if (transferProtocol !=
+                            virtual_media::TransferProtocolType::Invalid)
+                        {
+                            asyncResp->res.jsonValue["TransferProtocolType"] =
+                                transferProtocol;
+                        }
 
                         asyncResp->res.jsonValue["ConnectedVia"] =
                             virtual_media::ConnectedVia::URI;

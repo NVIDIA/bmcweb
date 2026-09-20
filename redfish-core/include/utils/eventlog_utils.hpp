@@ -3,43 +3,47 @@
 // SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_log.hpp"
 #include "generated/enums/log_service.hpp"
+#include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "registries.hpp"
 #include "str_utility.hpp"
 #include "utils/dbus_event_log_entry.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/etag_utils.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/log_services_utils.hpp"
 #include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 
-#include <boost/beast/http/field.hpp>
+#include <asm-generic/errno.h>
+
 #include <boost/beast/http/status.hpp>
-#include <boost/beast/http/verb.hpp>
-#include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
-#include <boost/url/url.hpp>
-#include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
-#include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
+#include <format>
 #include <fstream>
-#include <iomanip>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -763,6 +767,30 @@ inline void dBusEventLogEntryPatch(
                     resolved.value_or(false));
 }
 
+// Process response from Logging service.
+inline void afterDBusEventLogEntryDelete(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& entryID, const boost::system::error_code& ec)
+{
+    BMCWEB_LOG_DEBUG("EventLogEntry (DBus) doDelete callback: Done");
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
+            return;
+        }
+        // TODO Handle for specific error code
+        BMCWEB_LOG_ERROR(
+            "EventLogEntry (DBus) doDelete respHandler got error {}", ec);
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
+        return;
+    }
+
+    messages::success(asyncResp->res);
+}
+
 inline void dBusEventLogEntryDelete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string entryID)
 {
@@ -770,34 +798,32 @@ inline void dBusEventLogEntryDelete(
 
     dbus::utility::escapePathForDbus(entryID);
 
-    // Process response from Logging service.
-    // ast-grep-ignore: long-lambda
-    auto respHandler = [asyncResp,
-                        entryID](const boost::system::error_code& ec) {
-        BMCWEB_LOG_DEBUG("EventLogEntry (DBus) doDelete callback: Done");
-        if (ec)
-        {
-            if (ec.value() == EBADR)
-            {
-                messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
-                return;
-            }
-            // TODO Handle for specific error code
-            BMCWEB_LOG_ERROR(
-                "EventLogEntry (DBus) doDelete respHandler got error {}", ec);
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-            return;
-        }
-
-        messages::success(asyncResp->res);
-    };
-
     // Make call to Logging service to request Delete Log
     dbus::utility::async_method_call(
-        asyncResp, respHandler, "xyz.openbmc_project.Logging",
+        asyncResp,
+        std::function<void(const boost::system::error_code&)>(
+            std::bind_front(afterDBusEventLogEntryDelete, asyncResp, entryID)),
+        "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/entry/" + entryID,
         "xyz.openbmc_project.Object.Delete", "Delete");
+}
+
+// Process response from Logging service.
+inline void afterDBusLogServiceActionsClear(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    BMCWEB_LOG_DEBUG("doClearLog resp_handler callback: Done");
+    if (ec)
+    {
+        // TODO Handle for specific error code
+        BMCWEB_LOG_ERROR("doClearLog resp_handler got error {}", ec);
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
+        return;
+    }
+
+    messages::success(asyncResp->res);
 }
 
 inline void dBusLogServiceActionsClear(
@@ -805,26 +831,12 @@ inline void dBusLogServiceActionsClear(
 {
     BMCWEB_LOG_DEBUG("Do delete all entries.");
 
-    // Process response from Logging service.
-    // ast-grep-ignore: long-lambda
-    auto respHandler = [asyncResp](const boost::system::error_code& ec) {
-        BMCWEB_LOG_DEBUG("doClearLog resp_handler callback: Done");
-        if (ec)
-        {
-            // TODO Handle for specific error code
-            BMCWEB_LOG_ERROR("doClearLog resp_handler got error {}", ec);
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-            return;
-        }
-
-        messages::success(asyncResp->res);
-    };
-
     // Make call to Logging service to request Clear Log
     dbus::utility::async_method_call(
-        asyncResp, respHandler, "xyz.openbmc_project.Logging",
-        "/xyz/openbmc_project/logging",
+        asyncResp,
+        std::function<void(const boost::system::error_code&)>(
+            std::bind_front(afterDBusLogServiceActionsClear, asyncResp)),
+        "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
 }
 

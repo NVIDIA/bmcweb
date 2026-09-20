@@ -21,6 +21,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 #include "utils/nvidia_dbus_utils.hpp"
+#include "utils/resource_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
@@ -284,14 +285,14 @@ inline void afterGetDbusObject(
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {
-                getAssemblyState(asyncResp, serviceName, assembly,
-                                 assemblyJsonPtr);
+                resource_utils::getResourceState(asyncResp, serviceName,
+                                                 assembly, assemblyJsonPtr);
             }
             else if (interface ==
                      "xyz.openbmc_project.State.Decorator.OperationalStatus")
             {
-                getAssemblyHealth(asyncResp, serviceName, assembly,
-                                  assemblyJsonPtr);
+                resource_utils::getResourceHealth(asyncResp, serviceName,
+                                                  assembly, assemblyJsonPtr);
             }
         }
     }

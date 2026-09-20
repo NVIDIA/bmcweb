@@ -170,6 +170,21 @@ inline void doThermalMetrics(
     // Nvidia Added Code End:
 }
 
+inline void doThermalMetricsHead(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    asyncResp->res.addHeader(
+        boost::beast::http::field::link,
+        "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
+}
+
 inline void handleThermalMetricsHead(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -182,19 +197,7 @@ inline void handleThermalMetricsHead(
 
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
-        // ast-grep-ignore: long-lambda
-        [asyncResp,
-         chassisId](const std::optional<std::string>& validChassisPath) {
-            if (!validChassisPath)
-            {
-                messages::resourceNotFound(asyncResp->res, "Chassis",
-                                           chassisId);
-                return;
-            }
-            asyncResp->res.addHeader(
-                boost::beast::http::field::link,
-                "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
-        });
+        std::bind_front(doThermalMetricsHead, asyncResp, chassisId));
 }
 
 inline void handleThermalMetricsGet(

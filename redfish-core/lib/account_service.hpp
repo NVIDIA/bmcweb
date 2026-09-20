@@ -444,7 +444,7 @@ inline void handleRoleMapPatch(
             {
                 BMCWEB_LOG_ERROR("Can't delete the object");
                 messages::propertyValueTypeError(
-                    asyncResp->res, "null",
+                    asyncResp->res, nullptr,
                     "RemoteRoleMapping/" + std::to_string(index));
                 return;
             }
@@ -899,6 +899,13 @@ inline void handleAuthMethodsPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const AuthMethods& auth)
 {
+    // No auth-method fields were requested in PATCH.
+    if (!auth.basicAuth && !auth.cookie && !auth.sessionToken && !auth.xToken &&
+        !auth.tls)
+    {
+        return;
+    }
+
     persistent_data::AuthConfigMethods& authMethodsConfig =
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
 
@@ -977,6 +984,8 @@ inline void handleAuthMethodsPatch(
         authMethodsConfig);
     // Save configuration immediately
     persistent_data::getConfig().writeData();
+
+    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 /**
@@ -1270,7 +1279,8 @@ inline void afterVerifyUserExists(
         // not be allowed to lock an account.
         if (*params.locked)
         {
-            messages::propertyValueNotInList(asyncResp->res, "true", "Locked");
+            messages::propertyValueNotInList(asyncResp->res, *params.locked,
+                                             "Locked");
             return;
         }
         setDbusProperty(asyncResp, "Locked", "xyz.openbmc_project.User.Manager",
@@ -1728,7 +1738,8 @@ inline void handleAccountServicePatch(
         else
         {
             messages::propertyValueNotInList(asyncResp->res, *httpBasicAuth,
-                                             "HttpBasicAuth");
+                                             "HTTPBasicAuth");
+            return;
         }
     }
 
@@ -1736,12 +1747,14 @@ inline void handleAccountServicePatch(
     {
         handleRespondToUnauthenticatedClientsPatch(
             app, req, asyncResp->res, *respondToUnauthenticatedClients);
+        return;
     }
 
     if (certificateMappingAttribute)
     {
         handleCertificateMappingAttributePatch(asyncResp->res,
                                                *certificateMappingAttribute);
+        return;
     }
 
     if (minPasswordLength)
@@ -1756,6 +1769,7 @@ inline void handleAccountServicePatch(
     if (maxPasswordLength)
     {
         messages::propertyNotWritable(asyncResp->res, "MaxPasswordLength");
+        return;
     }
 
     handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,

@@ -20,6 +20,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/fan_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/processor_utils.hpp"
 #include "utils/sensor_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -365,6 +366,22 @@ inline void setPowerLimitWatts(
     }
 }
 
+inline void doEnvironmentMetricsHead(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    asyncResp->res.addHeader(
+        boost::beast::http::field::link,
+        "</redfish/v1/JsonSchemas/EnvironmentMetrics/EnvironmentMetrics.json>; rel=describedby");
+}
+
 inline void handleEnvironmentMetricsHead(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -375,22 +392,9 @@ inline void handleEnvironmentMetricsHead(
         return;
     }
 
-    // ast-grep-ignore: long-lambda
-    auto respHandler = [asyncResp, chassisId](
-                           const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/EnvironmentMetrics/EnvironmentMetrics.json>; rel=describedby");
-    };
-
-    redfish::chassis_utils::getValidChassisPath(asyncResp, chassisId,
-                                                std::move(respHandler));
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doEnvironmentMetricsHead, asyncResp, chassisId));
 }
 
 inline void doEnvironmentMetricsGet(
@@ -646,12 +650,8 @@ inline void getProcessorForEnvMetrics(
 {
     BMCWEB_LOG_DEBUG("getProcessorForEnvMetrics: {}", processorId);
 
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Cpu",
-        "xyz.openbmc_project.Inventory.Item.Accelerator"};
-
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, processorInterfaces,
         std::bind_front(handleProcessorEnvMetricsSubtree, asyncResp,
                         processorId, std::move(callback)));
 }

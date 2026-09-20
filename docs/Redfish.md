@@ -199,6 +199,8 @@ Fields common to all schemas
 - PartNumber
 - SerialNumber
 - Status
+  - Health
+  - State
 
 ### /redfish/v1/CertificateService/
 
@@ -234,6 +236,7 @@ Fields common to all schemas
 - HotPluggable
 - Links/ComputerSystems
 - Links/ManagedBy
+- Links/Processors
 - Location/PartLocation/ServiceLabel
 - LocationIndicatorActive
 - Manufacturer
@@ -1138,6 +1141,7 @@ functions the same like the default implementation under the System resource.
   - SlotType
 - SparePartNumber
 - Status
+- UUID
 
 ### /redfish/v1/Systems/system/Processors/
 
@@ -1166,6 +1170,7 @@ functions the same like the default implementation under the System resource.
 - Socket
 - SparePartNumber
 - Status
+- SubProcessors
 - ThrottleCauses
 - Throttled
 - TotalCores
@@ -1181,6 +1186,26 @@ functions the same like the default implementation under the System resource.
 - PowerLimitWatts/ControlMode
 - PowerLimitWatts/DefaultSetPoint
 - PowerLimitWatts/SetPoint
+
+### /redfish/v1/Systems/system/Processors/{ProcessorId}/SubProcessors
+
+#### ProcessorCollection
+
+- @odata.id
+- @odata.type
+- Members
+- `Members@odata.count`
+
+### /redfish/v1/Systems/system/Processors/{ProcessorId}/SubProcessors/{CoreId}/
+
+#### Processor
+
+- @odata.id
+- @odata.type
+- Id
+- Name
+- ProcessorType
+- Status
 
 ### /redfish/v1/Systems/system/ResetActionInfo/
 
@@ -1365,6 +1390,7 @@ functions the same like the default implementation under the System resource.
 - Id
 - Name
 - Ports
+- PowerState
 - Status
   - Health
   - State
