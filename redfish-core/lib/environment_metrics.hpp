@@ -33,7 +33,6 @@
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/environment_util.hpp>
-#include <utils/processor_utils.hpp>
 
 #include <array>
 #include <cstdint>

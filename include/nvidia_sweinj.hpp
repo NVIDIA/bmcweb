@@ -68,7 +68,7 @@ static bool createTaskCallback(boost::system::error_code ec,
         BMCWEB_LOG_ERROR("{}", ec.message());
         taskData->state = "Exception";
         auto errorMsg = messages::taskAborted(ec.message());
-        taskData->messages.push_back(errorMsg);
+        taskData->messages.emplace_back(errorMsg);
         return task::completed;
     }
     std::string iface;
@@ -86,7 +86,7 @@ static bool createTaskCallback(boost::system::error_code ec,
         completed = true;
         auto json = messages::taskAborted("No properties");
         json["Message"] = "Failed to read property from Dbus service";
-        taskData->messages.push_back(json);
+        taskData->messages.emplace_back(json);
     }
     else
     {
@@ -94,7 +94,7 @@ static bool createTaskCallback(boost::system::error_code ec,
         {
             auto json = messages::taskAborted(*errorMmsg);
             json["Message"] = "Task finished with error";
-            taskData->messages.push_back(json);
+            taskData->messages.emplace_back(json);
         }
         if (state != nullptr)
         {
