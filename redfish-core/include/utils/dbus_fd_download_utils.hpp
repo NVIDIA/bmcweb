@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "task.hpp"
 
@@ -84,6 +85,21 @@ inline void getDbusResultFd(
                     const sdbusplus::message::unix_fd& fd) {
             streamFdResponse(asyncResp, ec, fd);
         });
+}
+
+inline void getMethodResultFd(
+    const std::string& serviceName, const sdbusplus::object_path& objectPath,
+    const std::string& interface, const std::string& method,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    BMCWEB_LOG_DEBUG("Reading result FD from {} path={} iface={} method={}",
+                     serviceName, objectPath.str, interface, method);
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message::unix_fd& fd) {
+            streamFdResponse(asyncResp, ec, fd);
+        },
+        serviceName, objectPath.str, interface, method);
 }
 
 inline bool processProgressProperties(

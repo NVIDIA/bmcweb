@@ -54,9 +54,9 @@ inline void afterSpiEventStarted(
         task::TaskResponseCallback callback =
             [eraseObjPath,
              serviceName](const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                dbus_fd_utils::getDbusResultFd(serviceName, eraseObjPath,
-                                               "com.nvidia.GraceSPIData",
-                                               "SpiReadFd", aResp);
+                dbus_fd_utils::getMethodResultFd(serviceName, eraseObjPath,
+                                                 "com.nvidia.GraceSPIData",
+                                                 "GetReadFd", aResp);
             };
         task->taskResponse.emplace<task::TaskResponseCallback>(
             std::move(callback));
