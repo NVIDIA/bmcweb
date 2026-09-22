@@ -40,6 +40,7 @@
 #include "nvidia_memory_env_metrics.hpp"
 #include "nvidia_multipart_update.hpp"
 #include "nvidia_nic_debug_token.hpp"
+#include "nvidia_oem_chassis_astra.hpp"
 #include "nvidia_oem_chassis_recovery.hpp"
 #include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_oem_device_reset.hpp"
@@ -434,6 +435,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorResetMetrics(app);
         requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
         requestRoutesChassisOemNvidiaRecoveryActions(app);
+        requestRoutesNvidiaAstra(app);
         requestRoutesRefreshInventory(app);
         requestRoutesDeviceReset(app);
         requestRoutesPortResetTransceiver(app);
