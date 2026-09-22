@@ -86,7 +86,7 @@ class SseEventAggregator
 
     void setSatelliteEventCallback(SatelliteEventCallback callback)
     {
-        satelliteEventCallback_ = std::move(callback);
+        satelliteEventCallback = std::move(callback);
     }
 
     enum class State
@@ -111,7 +111,7 @@ class SseEventAggregator
     std::string lastEventId;
     bool lastEventIdDirty =
         false; // Track if lastEventId changed since last persist
-    SatelliteEventCallback satelliteEventCallback_;
+    SatelliteEventCallback satelliteEventCallback;
     bool skipLastEventIdOnReconnect = false;
     bool sentLastEventIdThisAttempt = false;
 
@@ -436,7 +436,7 @@ class SseEventAggregator
         (void)origin;
         (void)resourceType;
 
-        if (!satelliteEventCallback_)
+        if (!satelliteEventCallback)
         {
             BMCWEB_LOG_WARNING(
                 "Satellite event callback not set, event not forwarded to local subscribers");
@@ -468,7 +468,7 @@ class SseEventAggregator
                 eventId = 0;
             }
         }
-        satelliteEventCallback_(strMsg, eventId);
+        satelliteEventCallback(strMsg, eventId);
     }
 
     void scheduleReconnect()
