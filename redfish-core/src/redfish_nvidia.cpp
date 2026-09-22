@@ -228,6 +228,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesDebugTokenServiceEntry(app);
     requestRoutesDebugTokenServiceEntryCollection(app);
     requestRoutesDebugTokenServiceDiagnosticDataCollect(app);
+    requestRoutesDebugTokenServiceCollectDiagnosticDataActionInfo(app);
     requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(app);
 
     requestRoutesNvidiaUpdateService(app);

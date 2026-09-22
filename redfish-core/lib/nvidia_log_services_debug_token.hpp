@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "debug_token/dot_request.hpp"
 #include "debug_token/request.hpp"
@@ -76,8 +78,79 @@ inline void requestRoutesDebugToken(App& app)
                  {{"target",
                    "/redfish/v1/Systems/" +
                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                       "/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData"}}}};
+                       "/LogServices/DebugTokenService/Actions/LogService.CollectDiagnosticData"},
+                  {"@Redfish.ActionInfo",
+                   "/redfish/v1/Systems/" +
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                       "/LogServices/DebugTokenService/CollectDiagnosticDataActionInfo"}}}};
         });
+}
+
+inline void handleDebugTokenCollectDiagnosticDataActionInfoGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    nlohmann::json& jsonValue = asyncResp->res.jsonValue;
+    jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
+    jsonValue["@odata.id"] =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/LogServices/DebugTokenService/CollectDiagnosticDataActionInfo";
+    jsonValue["Id"] = "CollectDiagnosticDataActionInfo";
+    jsonValue["Name"] = "CollectDiagnosticDataActionInfo Action Info";
+
+    nlohmann::json::object_t parameterDiagnosticDataType;
+    parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
+    parameterDiagnosticDataType["Required"] = true;
+    parameterDiagnosticDataType["DataType"] = "String";
+    parameterDiagnosticDataType["AllowableValues"] =
+        nlohmann::json::array({"OEM"});
+
+    nlohmann::json::array_t oemAllowableValues;
+    oemAllowableValues.emplace_back("GetDebugTokenRequest");
+    oemAllowableValues.emplace_back("DebugTokenStatus");
+    if constexpr (BMCWEB_DOT_SUPPORT)
+    {
+        oemAllowableValues.emplace_back("GetDOTCAKUnlockTokenRequest");
+        oemAllowableValues.emplace_back("GetDOTEnableTokenRequest");
+        oemAllowableValues.emplace_back("GetDOTSignTestToken");
+        oemAllowableValues.emplace_back("GetDOTOverrideTokenRequest");
+    }
+
+    nlohmann::json::object_t parameterOemDiagnosticDataType;
+    parameterOemDiagnosticDataType["Name"] = "OEMDiagnosticDataType";
+    parameterOemDiagnosticDataType["Required"] = true;
+    parameterOemDiagnosticDataType["DataType"] = "String";
+    parameterOemDiagnosticDataType["AllowableValues"] =
+        std::move(oemAllowableValues);
+
+    nlohmann::json::array_t parameters;
+    parameters.emplace_back(std::move(parameterDiagnosticDataType));
+    parameters.emplace_back(std::move(parameterOemDiagnosticDataType));
+
+    jsonValue["Parameters"] = std::move(parameters);
+}
+
+inline void requestRoutesDebugTokenServiceCollectDiagnosticDataActionInfo(
+    App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/CollectDiagnosticDataActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleDebugTokenCollectDiagnosticDataActionInfoGet, std::ref(app)));
 }
 
 inline void requestRoutesDebugTokenServiceEntryCollection(App& app)
