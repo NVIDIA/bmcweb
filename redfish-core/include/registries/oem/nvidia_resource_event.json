@@ -2,7 +2,7 @@
     "@Redfish.Copyright": "Copyright 2024 Nvidia. All rights reserved.",
     "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
     "Description": "This registry defines the driver and resource event messages for Nvidia.",
-    "Id": "NvidiaResourceEvent.1.0.0",
+    "Id": "NvidiaResourceEvent.1.0.1",
     "Language": "en",
     "Messages": {
         "DeviceDriverErrorsDetected": {
@@ -22,10 +22,19 @@
             "ParamTypes": ["string", "string", "string"],
             "Resolution": "If problem persists, perform management controller reboot.",
             "Severity": "Critical"
+        },
+        "MCTPDiscoveryCommandFailed": {
+            "Description": "Indicates that an MCTP endpoint discovery command issued to a device failed.",
+            "Message": "MCTP endpoint discovery command '%1' failed for EID '%2': %3.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 3,
+            "ParamTypes": ["string", "string", "string"],
+            "Resolution": "Collect the BMC logs, power-cycle the baseboard, then retry the firmware update. If the issue persists, contact support.",
+            "Severity": "Critical"
         }
     },
     "Name": "NVIDIA Driver and Resource Event Registry",
     "OwningEntity": "Nvidia",
     "RegistryPrefix": "NvidiaResourceEvent",
-    "RegistryVersion": "1.0.0"
+    "RegistryVersion": "1.0.1"
 }

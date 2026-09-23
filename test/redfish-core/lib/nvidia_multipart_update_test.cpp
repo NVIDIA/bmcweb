@@ -26,6 +26,7 @@
 #include <boost/beast/http/status.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <cstddef>
@@ -1773,6 +1774,27 @@ TEST(HandlePostHeaders, UnparsableContentLengthIsReported)
     EXPECT_EQ(asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
               "Base.1.19.HeaderInvalid");
+}
+
+TEST(GetUpdateMessage, MctpDiscoveryCommandFailedRendersFromRegistry)
+{
+    std::vector<std::string> args{"SetEndpointID", "13",
+                                  "no response received before timeout"};
+
+    nlohmann::json msg = getUpdateMessage(
+        "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed", args);
+
+    ASSERT_FALSE(msg.empty());
+    EXPECT_EQ(msg["MessageId"],
+              "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed");
+    EXPECT_EQ(
+        msg["Message"],
+        "MCTP endpoint discovery command 'SetEndpointID' failed for EID '13': no response received before timeout.");
+    EXPECT_EQ(msg["MessageArgs"], nlohmann::json(args));
+    EXPECT_EQ(msg["MessageSeverity"], "Critical");
+    EXPECT_EQ(
+        msg["Resolution"],
+        "Collect the BMC logs, power-cycle the baseboard, then retry the firmware update. If the issue persists, contact support.");
 }
 
 } // namespace

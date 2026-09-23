@@ -413,6 +413,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::bmcDriverErrorsDetected(arg1, arg2, arg3);
     }
+    if (msgId == "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed")
+    {
+        return messages::mctpDiscoveryCommandFailed(arg1, arg2, arg3);
+    }
     if (msgId == "ResourceEvent.1.2.ResourceErrorsDetected")
     {
         return messages::resourceErrorsDetectedFormatError(arg1, arg2);
