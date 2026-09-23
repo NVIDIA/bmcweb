@@ -9,6 +9,7 @@
 #include "http/http_request.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_multipart_update.hpp"
+#include "nvidia_update_service.hpp"
 #include "task.hpp"
 
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/system/errc.hpp>
+#include <nlohmann/json.hpp>
 
 #include <format>
 #include <memory>
@@ -1133,6 +1135,27 @@ TEST(OnParseComplete, StagedFileMissingParamsReportsUpdateParametersMissing)
     EXPECT_FALSE(ctx->asyncResp);
     EXPECT_NE(asyncResp->res.jsonValue.dump().find("UpdateParameters"),
               std::string::npos);
+}
+
+TEST(GetUpdateMessage, MctpDiscoveryCommandFailedRendersFromRegistry)
+{
+    std::vector<std::string> args{"SetEndpointID", "13",
+                                  "no response received before timeout"};
+
+    nlohmann::json msg = getUpdateMessage(
+        "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed", args);
+
+    ASSERT_FALSE(msg.empty());
+    EXPECT_EQ(msg["MessageId"],
+              "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed");
+    EXPECT_EQ(
+        msg["Message"],
+        "MCTP endpoint discovery command 'SetEndpointID' failed for EID '13': no response received before timeout.");
+    EXPECT_EQ(msg["MessageArgs"], nlohmann::json(args));
+    EXPECT_EQ(msg["MessageSeverity"], "Critical");
+    EXPECT_EQ(
+        msg["Resolution"],
+        "Collect the BMC logs, power-cycle the baseboard, then retry the firmware update. If the issue persists, contact support.");
 }
 
 } // namespace

@@ -26,7 +26,7 @@ static constexpr Header header = {
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
     0,
-    0,
+    1,
     "NVIDIA Driver and Resource Event Registry",
     "en",
     "This registry defines the driver and resource event messages for Nvidia.",
@@ -67,6 +67,20 @@ static constexpr std::array registry =
             },
             "If problem persists, perform power cycle of the system to recover the device.",
         }},
+    MessageEntry{
+        "MCTPDiscoveryCommandFailed",
+        {
+            "Indicates that an MCTP endpoint discovery command issued to a device failed.",
+            "MCTP endpoint discovery command '%1' failed for EID '%2': %3.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Collect the BMC logs, power-cycle the baseboard, then retry the firmware update. If the issue persists, contact support.",
+        }},
 
 };
 
@@ -74,6 +88,7 @@ enum class Index
 {
     bmcDriverErrorsDetected = 0,
     deviceDriverErrorsDetected = 1,
+    mCTPDiscoveryCommandFailed = 2,
 };
 }; // struct nvidia_resource_event
 
