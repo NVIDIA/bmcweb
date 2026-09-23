@@ -4216,13 +4216,24 @@ inline void populateNvidiaProcessorPostData(
 
 inline void populatePowerState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string* accType, const std::string* operationalState)
+    const std::string& service, const std::string& objPath,
+    const std::string* operationalState)
 {
-    if (accType != nullptr && !accType->empty())
-    {
-        asyncResp->res.jsonValue["ProcessorType"] =
-            redfish::nvidia_processor::getProcessorType(*accType);
-    }
+    // Read AcceleratorType from Item.Accelerator explicitly. A merged
+    // all-interface read is ambiguous: Configuration.Probe also exposes a
+    // "Type" property (the config type string) that shadows the accelerator
+    // AcceleratorType, yielding an invalid/empty ProcessorType.
+    dbus::utility::getProperty<std::string>(
+        service, objPath, "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "Type",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& accType) {
+            if (!ec && !accType.empty())
+            {
+                asyncResp->res.jsonValue["ProcessorType"] =
+                    redfish::nvidia_processor::getProcessorType(accType);
+            }
+        });
 
     if (operationalState != nullptr && !operationalState->empty())
     {

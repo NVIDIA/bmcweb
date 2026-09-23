@@ -584,9 +584,9 @@ inline void getAcceleratorDataByService(
 
     dbus::utility::getAllProperties(
         service, objPath, "",
-        [acceleratorId, asyncResp{asyncResp}](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
+        [acceleratorId, asyncResp{asyncResp}, service,
+         objPath](const boost::system::error_code& ec,
+                  const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -597,15 +597,13 @@ inline void getAcceleratorDataByService(
             const bool* functional = nullptr;
             const bool* present = nullptr;
 
-            // Nvidia added accType and operationalState
-            const std::string* accType = nullptr;
+            // Nvidia added operationalState
             const std::string* operationalState = nullptr;
 
-            // Nvidia added "Type" and "State" fields
+            // Nvidia added "State" field
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), properties, "Functional",
-                functional, "Present", present, "Type", accType, "State",
-                operationalState);
+                functional, "Present", present, "State", operationalState);
 
             if (!success)
             {
@@ -633,7 +631,7 @@ inline void getAcceleratorDataByService(
             asyncResp->res.jsonValue["Name"] = "Processor";
             asyncResp->res.jsonValue["Status"]["State"] = state;
             asyncResp->res.jsonValue["Status"]["Health"] = health;
-            nvidia_processor::populatePowerState(asyncResp, accType,
+            nvidia_processor::populatePowerState(asyncResp, service, objPath,
                                                  operationalState);
         });
     asyncResp->res.jsonValue["ProcessorType"] =
