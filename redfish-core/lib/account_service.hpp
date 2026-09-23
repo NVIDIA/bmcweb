@@ -1992,6 +1992,15 @@ inline void processAfterGetAllGroups(
             }
         }
 
+        // Nvidia code starts here.
+        // ssh (ManagerConsole) is reserved for UID 0; only add it when the
+        // caller asked for it explicitly via AccountTypes.
+        if ((grp == "ssh") && accountTypeUserGroups.empty())
+        {
+            continue;
+        }
+        // Nvidia code End here
+
         // Console access is provided to the user who is a member of
         // hostconsole group and has a administrator role. So, set
         // hostconsole group only for the administrator.
