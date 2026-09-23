@@ -8,6 +8,7 @@
 #include "async_resp.hpp"
 #include "error_messages.hpp"
 #include "http_request.hpp"
+#include "nvidia_log_services.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dump_utils.hpp"
@@ -144,7 +145,16 @@ inline void handleSystemsLogServicesDumpCollectDiagnosticDataPost(
                                    systemName);
         return;
     }
-    dump_utils::createDump(asyncResp, req, "System");
+    // NVIDIA code starts here
+    if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
+    {
+        precheckOemDiagDataTypeAndCreateDump(asyncResp, req, "System");
+    }
+    else
+    {
+        dump_utils::createDump(asyncResp, req, "System");
+    }
+    // NVIDIA code ends here
 }
 
 inline void handleSystemsLogServicesDumpClearLogPost(
