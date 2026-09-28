@@ -597,18 +597,27 @@ inline void getAcceleratorDataByService(
             const bool* functional = nullptr;
             const bool* present = nullptr;
 
-            // Nvidia added operationalState
-            const std::string* operationalState = nullptr;
-
-            // Nvidia added "State" field
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), properties, "Functional",
-                functional, "Present", present, "State", operationalState);
+                functional, "Present", present);
 
             if (!success)
             {
                 messages::internalError(asyncResp->res);
                 return;
+            }
+
+            // Nvidia added operationalState. Not all accelerator objects
+            // expose "State", so read it optionally instead of requiring it.
+            const std::string* operationalState = nullptr;
+            for (const auto& property : properties)
+            {
+                if (property.first == "State")
+                {
+                    operationalState =
+                        std::get_if<std::string>(&property.second);
+                    break;
+                }
             }
 
             resource::State state = resource::State::Enabled;
