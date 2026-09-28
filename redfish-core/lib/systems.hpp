@@ -4302,13 +4302,15 @@ inline void processComputerSystemGet(
     {
         getLastResetTime(asyncResp, computerSystemIndex);
     }
-    getStopBootOnFault(asyncResp);
 
     if constexpr (BMCWEB_REDFISH_PROVISIONING_FEATURE)
     {
         getProvisioningStatus(asyncResp);
     }
-    getTrustedModuleRequiredToBoot(asyncResp, computerSystemIndex);
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        getTrustedModuleRequiredToBoot(asyncResp, computerSystemIndex);
+    }
     getPowerMode(asyncResp);
     getIdlePowerSaver(asyncResp);
     if constexpr (BMCWEB_DEBUG_INTERFACE_SUPPORT)
