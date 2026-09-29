@@ -1178,6 +1178,9 @@ inline void createDumpTaskCallback(
             task->startTimer(std::chrono::minutes(65));
             task->payload.emplace(payload);
             task->populateResp(asyncResp->res);
+            // Match is live only now; complete a dump that already finished.
+            completeFinishedDumpTask(task, createdObjPath.str, dumpEntryPath,
+                                     dumpId);
         },
         "xyz.openbmc_project.Dump.Manager", createdObjPath,
         "org.freedesktop.DBus.Introspectable", "Introspect");

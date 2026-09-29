@@ -294,6 +294,52 @@ inline void setDumpEntryTaskResponse(
         });
 }
 
+inline void completeFinishedDumpTask(
+    const std::shared_ptr<task::TaskData>& task, const std::string& objPath,
+    const std::string& dumpEntryPath, const std::string& dumpId)
+{
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.Dump.Manager", objPath,
+        "xyz.openbmc_project.Common.Progress", "Status",
+        [task, dumpEntryPath, dumpId](const boost::system::error_code& ec,
+                                      const std::string& status) {
+            if (ec || task->endTime.has_value())
+            {
+                return;
+            }
+            if (status ==
+                    "xyz.openbmc_project.Common.Progress.OperationStatus.Failed" ||
+                status ==
+                    "xyz.openbmc_project.Common.Progress.OperationStatus.Aborted")
+            {
+                task->state = "Cancelled";
+                task->messages.emplace_back(messages::operationFailed());
+            }
+            else if (
+                status ==
+                "xyz.openbmc_project.Common.Progress.OperationStatus.Completed")
+            {
+                task->messages.emplace_back(messages::success());
+                boost::urls::url url =
+                    boost::urls::format("{}{}", dumpEntryPath, dumpId);
+                std::string headerLoc = "Location: ";
+                headerLoc += url.buffer();
+                task->payload->httpHeaders.emplace_back(std::move(headerLoc));
+                setDumpEntryTaskResponse(task, url.buffer());
+                task->state = "Completed";
+                task->percentComplete = 100;
+            }
+            else
+            {
+                return;
+            }
+            task->timer.cancel();
+            task->finishTask();
+            task::TaskData::sendTaskEvent(task->state, task->index);
+            task->match.reset();
+        });
+}
+
 inline void requestRoutesChassisLogServiceCollection(App& app)
 {
     /**
