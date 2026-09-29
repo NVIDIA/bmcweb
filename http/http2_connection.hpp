@@ -98,6 +98,8 @@ struct Http2StreamData
     // (and reset) by HttpBody::reader::init() on the first body chunk.
     bool multipartActive = false;
     bool headersRejected = false;
+    // Set when reqReader->init() rejects the body (e.g. body_limit).
+    bool bodyRejected = false;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
     // 15-min hard cap for fd-backed streaming responses.
@@ -680,7 +682,8 @@ class HTTP2Connection :
             return -1;
         }
 
-        if (thisStream->second.headersRejected)
+        if (thisStream->second.headersRejected ||
+            thisStream->second.bodyRejected)
         {
             return 0;
         }
@@ -717,6 +720,9 @@ class HTTP2Connection :
             if (initEc)
             {
                 BMCWEB_LOG_CRITICAL("Failed to initialize payload");
+                thisStream->second.bodyRejected = true;
+                // Callback return code alone doesn't reset the stream.
+                ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
                 return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
             }
         }
