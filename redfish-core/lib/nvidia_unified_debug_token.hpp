@@ -25,6 +25,7 @@
 #include "nvidia_trusted_component_oem.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "trusted_components.hpp"
 #include "update_service.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/hex_utils.hpp"
@@ -66,9 +67,9 @@ static void eraseInstallCallback(
         const auto& [code, message] = std::get<NsmResult>(result);
         if (code == debugTokenUnsupportedNsmErrorCode)
         {
-            messages::debugTokenUnsupported(
-                asyncResp->res,
-                std::format("{} TrustedComponents {}", chassisId, componentId));
+            // No debug token support means no DebugTokens resource.
+            messages::resourceNotFound(asyncResp->res, "DebugTokens",
+                                       componentId);
         }
         else if (code == debugTokenSuccessNsmErrorCode)
         {
@@ -112,7 +113,9 @@ static void generateTokenRequestCallback(
         std::string error = std::get<std::string>(result);
         if (error == "Error_RequesterCommunication")
         {
-            messages::debugTokenUnsupported(asyncResp->res, componentId);
+            // No debug token support means no DebugTokens resource.
+            messages::resourceNotFound(asyncResp->res, "DebugTokens",
+                                       componentId);
         }
         else
         {
@@ -140,9 +143,9 @@ static void tokenStatusCallback(
         const auto& [code, message] = std::get<NsmResult>(result);
         if (code == debugTokenUnsupportedNsmErrorCode)
         {
-            messages::debugTokenUnsupported(
-                asyncResp->res,
-                std::format("{} TrustedComponents {}", chassisId, componentId));
+            // No debug token support means no DebugTokens resource.
+            messages::resourceNotFound(asyncResp->res, "DebugTokens",
+                                       componentId);
         }
         else
         {
@@ -191,9 +194,9 @@ static void tokenCollectionCallback(
         const auto& [code, message] = std::get<NsmResult>(result);
         if (code == debugTokenUnsupportedNsmErrorCode)
         {
-            messages::debugTokenUnsupported(
-                asyncResp->res,
-                std::format("{} TrustedComponents {}", chassisId, componentId));
+            // No debug token support means no DebugTokens resource.
+            messages::resourceNotFound(asyncResp->res, "DebugTokens",
+                                       componentId);
         }
         else
         {
@@ -245,13 +248,17 @@ inline void handleUnifiedTokenCollection(
     {
         return;
     }
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    unified::action::Handler::startOperation(
-        targetChassisId, unified::action::Operation::GetTokenStatus,
-        std::monostate(),
-        std::bind_front(&tokenCollectionCallback, asyncResp, chassisId,
-                        componentId));
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            std::string targetChassisId =
+                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+            unified::action::Handler::startOperation(
+                targetChassisId, unified::action::Operation::GetTokenStatus,
+                std::monostate(),
+                std::bind_front(&tokenCollectionCallback, asyncResp, chassisId,
+                                componentId));
+        });
 }
 
 inline void handleUnifiedTokenStatus(
@@ -264,24 +271,30 @@ inline void handleUnifiedTokenStatus(
     {
         return;
     }
-    std::optional<uint64_t> parsedTokenId = stringToUint64(id);
-    if (!parsedTokenId || *parsedTokenId > std::numeric_limits<uint32_t>::max())
-    {
-        messages::resourceNotFound(
-            asyncResp->res,
-            std::format("{} TrustedComponents {} Oem Nvidia DebugTokens",
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId, id]() {
+            std::optional<uint64_t> parsedTokenId = stringToUint64(id);
+            if (!parsedTokenId ||
+                *parsedTokenId > std::numeric_limits<uint32_t>::max())
+            {
+                messages::resourceNotFound(
+                    asyncResp->res,
+                    std::format(
+                        "{} TrustedComponents {} Oem Nvidia DebugTokens",
                         chassisId, componentId),
-            id);
-        return;
-    }
-    uint32_t tokenId = static_cast<uint32_t>(*parsedTokenId);
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    unified::action::Handler::startOperation(
-        targetChassisId, unified::action::Operation::GetTokenStatus,
-        std::monostate(),
-        std::bind_front(&tokenStatusCallback, asyncResp, chassisId, componentId,
-                        tokenId));
+                    id);
+                return;
+            }
+            uint32_t tokenId = static_cast<uint32_t>(*parsedTokenId);
+            std::string targetChassisId =
+                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+            unified::action::Handler::startOperation(
+                targetChassisId, unified::action::Operation::GetTokenStatus,
+                std::monostate(),
+                std::bind_front(&tokenStatusCallback, asyncResp, chassisId,
+                                componentId, tokenId));
+        });
 }
 
 inline void handleUnifiedEraseToken(
@@ -349,13 +362,17 @@ inline void handleUnifiedEraseToken(
         return;
     }
 
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    unified::action::Handler::startOperation(
-        targetChassisId, unified::action::Operation::EraseToken,
-        std::make_pair(eraseTypeEnum, tokenTypeEnum),
-        std::bind_front(&eraseInstallCallback, asyncResp, chassisId,
-                        componentId));
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId, eraseTypeEnum, tokenTypeEnum]() {
+            std::string targetChassisId =
+                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+            unified::action::Handler::startOperation(
+                targetChassisId, unified::action::Operation::EraseToken,
+                std::make_pair(eraseTypeEnum, tokenTypeEnum),
+                std::bind_front(&eraseInstallCallback, asyncResp, chassisId,
+                                componentId));
+        });
 }
 
 inline void handleUnifiedGenerateTokenRequest(
@@ -367,12 +384,16 @@ inline void handleUnifiedGenerateTokenRequest(
     {
         return;
     }
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    unified::spdm_request::Handler::startOperation(
-        targetChassisId, TokenType::DebugTokenRequest,
-        std::bind_front(&generateTokenRequestCallback, asyncResp, chassisId,
-                        componentId));
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            std::string targetChassisId =
+                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+            unified::spdm_request::Handler::startOperation(
+                targetChassisId, TokenType::DebugTokenRequest,
+                std::bind_front(&generateTokenRequestCallback, asyncResp,
+                                chassisId, componentId));
+        });
 }
 
 /**
@@ -513,18 +534,21 @@ inline void handleUnifiedInstallToken(
         return;
     }
     // Nvidia code ends here
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
-    std::string inventoryPath = std::format(
-        "/xyz/openbmc_project/inventory/system/chassis/{}/inventory",
-        targetChassisId);
-    chassis_utils::getAssociationEndpoint(
-        inventoryPath,
-        // Nvidia code starts here
-        std::bind_front(&installAssociationEndpointCallback,
-                        // Nvidia code ends here
-                        std::move(tokenFile), asyncResp, chassisId, componentId,
-                        targetChassisId));
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId,
+         tokenFile = std::move(tokenFile)]() mutable {
+            std::string targetChassisId =
+                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+            std::string inventoryPath = std::format(
+                "/xyz/openbmc_project/inventory/system/chassis/{}/inventory",
+                targetChassisId);
+            chassis_utils::getAssociationEndpoint(
+                inventoryPath,
+                std::bind_front(&installAssociationEndpointCallback,
+                                std::move(tokenFile), asyncResp, chassisId,
+                                componentId, targetChassisId));
+        });
 }
 
 /**
@@ -591,36 +615,6 @@ static void eraseTokenActionInfoComponentCallback(
 }
 
 /**
- * @brief Callback for getValidChassisPath in EraseTokenActionInfo flow
- *
- * On valid chassis starts getSubTree for debug
- * token interface to validate component; on invalid chassis returns 404.
- *
- * @param asyncResp Response object
- * @param chassisId Chassis identifier
- * @param componentId Trusted component identifier
- * @param validChassisPath Valid D-Bus chassis path if chassis exists, nullopt
- * otherwise
- */
-static void eraseTokenActionInfoChassisCallback(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& componentId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-    constexpr std::array<std::string_view, 1> interfaces = {
-        debug_token::debugTokenStatusIntf};
-    dbus::utility::getSubTree(
-        std::string(debug_token::debugTokenBasePath), 0, interfaces,
-        std::bind_front(&eraseTokenActionInfoComponentCallback, asyncResp,
-                        chassisId, componentId));
-}
-
-/**
  * @brief Handles GET request for EraseTokenActionInfo
  *
  * This function returns the ActionInfo resource that describes the parameters
@@ -642,10 +636,16 @@ inline void handleEraseTokenActionInfo(
         return;
     }
 
-    chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(&eraseTokenActionInfoChassisCallback, asyncResp,
-                        chassisId, componentId));
+    validateChassisAndTrustedComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                debug_token::debugTokenStatusIntf};
+            dbus::utility::getSubTree(
+                std::string(debug_token::debugTokenBasePath), 0, interfaces,
+                std::bind_front(&eraseTokenActionInfoComponentCallback,
+                                asyncResp, chassisId, componentId));
+        });
 }
 
 /**

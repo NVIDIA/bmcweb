@@ -34,8 +34,10 @@
 #include <utils/nvidia_time_utils.hpp>
 #include <utils/time_utils.hpp>
 
+#include <functional>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <regex>
 #include <unordered_map>
 #include <variant>
@@ -204,6 +206,67 @@ static bool validateComponentID(
     }
 
     return true;
+}
+
+/**
+ * @brief Validates that a trusted component belongs to a chassis
+ *
+ * Confirms the chassis exists, that it has an associated TrustedComponent,
+ * and that the component named in the URI is that component, invoking
+ * onSuccess only when all three hold. Sub-resources under
+ * /Chassis/{id}/TrustedComponents/{id} must call this before any
+ * capability lookup: without the chassis-to-component pairing check a
+ * sub-resource is reachable under any valid chassis as long as the
+ * component leaf name resolves on D-Bus, and an identifier that resolves
+ * to nothing is reported as an unsupported capability rather than as a
+ * resource that does not exist.
+ *
+ * @param asyncResp Async response object for error reporting
+ * @param chassisId The chassis identifier to validate
+ * @param componentId The trusted component identifier to validate
+ * @param onSuccess Callback invoked only if every check passes
+ */
+inline void validateChassisAndTrustedComponent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    std::function<void()> onSuccess)
+{
+    if (componentId.empty())
+    {
+        BMCWEB_LOG_ERROR("TrustedComponent validation: componentId is empty");
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   componentId);
+        return;
+    }
+
+    getChassisAssociatedEndpoint(chassisId, [asyncResp, chassisId, componentId,
+                                             onSuccess = std::move(onSuccess)](
+                                                const std::string& endpoint,
+                                                bool exists,
+                                                const std::optional<
+                                                    std::string>&
+                                                    chassisPath) mutable {
+        if (!chassisPath)
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+            return;
+        }
+        if (!exists)
+        {
+            BMCWEB_LOG_DEBUG(
+                "TrustedComponent validation: chassis '{}' has no associated TrustedComponent",
+                chassisId);
+            messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                       componentId);
+            return;
+        }
+        if (!validateComponentID(componentId, endpoint, asyncResp))
+        {
+            // validateComponentID has already written a 404
+            return;
+        }
+        onSuccess();
+    });
 }
 
 /**
