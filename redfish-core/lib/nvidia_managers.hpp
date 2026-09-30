@@ -25,6 +25,7 @@
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
+#include "nvidia_attested_wipe.hpp"
 #include "nvidia_emmc_fullsecureerase.hpp"
 #include "nvidia_error_messages.hpp"
 #include "nvidia_event_service_manager.hpp"
@@ -1608,7 +1609,7 @@ inline void extendManagerOEM(
 {
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_9_0.NvidiaManager";
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_10_0.NvidiaManager";
     if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
     {
         if (managerId == BMCWEB_REDFISH_MANAGER_URI_NAME)
@@ -1752,6 +1753,17 @@ inline void extendManagerOEM(
         oemNvidia["AuthenticationTLSRequired"] =
             persistent_data::nvidia::getConfig().isTLSAuthEnabled();
     }
+    nvidia::getAttestedWipeSupport(
+        [asyncResp, managerId](const nvidia::AttestedWipeSupport& support) {
+            if (!support.key && !support.wipe)
+            {
+                return;
+            }
+            nlohmann::json& oem = asyncResp->res.jsonValue;
+            oem["@odata.type"] = "#NvidiaManager.v1_10_0.NvidiaManager";
+            oem["AttestedWipe"]["@odata.id"] = std::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/AttestedWipe", managerId);
+        });
 
     populatePersistentStorageSettingStatus(asyncResp);
     nvidia_manager_util::getRestrictionMode(asyncResp);

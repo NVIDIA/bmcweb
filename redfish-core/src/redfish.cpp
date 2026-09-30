@@ -34,6 +34,7 @@
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
+#include "nvidia_attested_wipe.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "odata.hpp"
@@ -312,6 +313,7 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesNvidia(app);
+    requestRoutesAttestedWipe(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
 
