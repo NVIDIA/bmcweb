@@ -566,8 +566,27 @@ class HttpBody::reader
     value_type& value;
     // Nvidia code starts here
     std::optional<MultipartParser> multipartParser;
+    bool multipartParserFailed = false;
     const boost::beast::http::fields& hdr;
     // Nvidia code ends here
+
+    bool handleMultipartError(ParserError state, boost::beast::error_code& ec)
+    {
+        if (multipartParser && multipartParser->callbacks &&
+            multipartParser->callbacks->onParseError)
+        {
+            // Let the streaming consumer build the error response, then
+            // discard the remaining body without turning a request error into
+            // a transport failure.
+            multipartParserFailed = true;
+            multipartParser->callbacks->onParseError(state);
+            ec = {};
+            return true;
+        }
+        ec = {boost::system::errc::invalid_argument,
+              boost::system::generic_category()};
+        return false;
+    }
 
   public:
     template <bool IsRequest, class Fields>
@@ -632,8 +651,7 @@ class HttpBody::reader
             {
                 BMCWEB_LOG_ERROR("Failed to parse content-type: {}",
                                  contentType);
-                ec = {boost::system::errc::invalid_argument,
-                      boost::system::generic_category()};
+                handleMultipartError(state, ec);
                 return;
             }
 
@@ -677,15 +695,20 @@ class HttpBody::reader
             // Nvidia code starts here
             if (multipartParser)
             {
+                if (multipartParserFailed)
+                {
+                    continue;
+                }
                 std::string_view buf(ptr, b.size());
                 ParserError state = multipartParser->parsePart(buf);
                 if (state != ParserError::PARSER_SUCCESS)
                 {
                     BMCWEB_LOG_ERROR("Failed to parse part: {}",
                                      static_cast<int>(state));
-                    ec = {boost::system::errc::invalid_argument,
-                          boost::system::generic_category()};
-                    return 0;
+                    if (!handleMultipartError(state, ec))
+                    {
+                        return 0;
+                    }
                 }
             }
             else
@@ -703,17 +726,29 @@ class HttpBody::reader
     {
         if (multipartParser)
         {
-            ParserError state = multipartParser->finish();
-            if (state != ParserError::PARSER_SUCCESS)
+            MultipartParser& parser = *multipartParser;
+            if (!multipartParserFailed)
             {
-                BMCWEB_LOG_ERROR("Failed to finish multipart parser: {}",
-                                 static_cast<int>(state));
-                ec = {boost::system::errc::invalid_argument,
-                      boost::system::generic_category()};
-                return;
+                ParserError state = parser.finish();
+                if (state != ParserError::PARSER_SUCCESS)
+                {
+                    BMCWEB_LOG_ERROR("Failed to finish multipart parser: {}",
+                                     static_cast<int>(state));
+                    if (!handleMultipartError(state, ec))
+                    {
+                        return;
+                    }
+                }
             }
-            value.bodyData =
-                MultiPartBody{std::move(multipartParser->mime_fields)};
+            if (multipartParserFailed && parser.callbacks)
+            {
+                if (parser.callbacks->onParseComplete)
+                {
+                    parser.callbacks->onParseComplete();
+                }
+                parser.callbacks.reset();
+            }
+            value.bodyData = MultiPartBody{std::move(parser.mime_fields)};
         }
         // Nvidia code ends here
         ec = {};

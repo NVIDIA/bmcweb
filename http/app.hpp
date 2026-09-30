@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -56,9 +57,11 @@ class App
     // Nvidia code starts here
     void handleHeaders(
         const std::shared_ptr<Request>& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        std::move_only_function<void()> headersCompleteCallback) const
     {
-        router.handleHeaders(req, asyncResp);
+        router.handleHeaders(req, asyncResp,
+                             std::move(headersCompleteCallback));
     }
 
     // Nvidia code ends here

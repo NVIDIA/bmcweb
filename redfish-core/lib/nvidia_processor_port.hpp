@@ -34,6 +34,7 @@
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_histogram_utils.hpp"
+#include "utils/nvidia_port_health_utils.hpp"
 #include "utils/nvidia_processor_utils.hpp"
 #include "utils/port_utils.hpp" // For redfish::port_utils
 
@@ -377,9 +378,9 @@ struct CpuPortOemMetricMapping
 
 // SatMC CPU SysBus port telemetry is surfaced exclusively on the
 // subordinate PortMetrics resource (CRC / replay error counters and the
-// per-second bandwidth rate), under
-// NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics for both CLink and
-// NVLink ports.
+// per-second bandwidth rate), under the NvidiaNVLinkPortMetrics OEM type
+// (nvidia_port_health_utils::nvlinkPortMetricsOdataType) for both CLink
+// and NVLink ports.
 inline constexpr std::array<CpuPortOemMetricMapping, 6>
     cpuPortOemPortMetricsMappings = {{
         {"CLinkPacketCrcCount", "PacketCRCErrors"},
@@ -1300,44 +1301,6 @@ inline void getProcessorPortMetricsData(
                                 *value;
                         }
                     }
-                    else if (property.first == "EarlyHealthIndication")
-                    {
-                        // Optional OEM health property. If it is somehow not a
-                        // string, skip it rather than failing the entire port
-                        // metrics response -- not worth an ERROR log or a 500.
-                        const std::string* value =
-                            std::get_if<std::string>(&property.second);
-                        if (value != nullptr)
-                        {
-                            auto healthStr = nvidia_processor_utils::
-                                getEarlyHealthIndication(*value);
-                            // "Unknown" is a schema-defined state; only an
-                            // unmappable value yields "" and is omitted.
-                            if (!healthStr.empty())
-                            {
-                                asyncResp->res
-                                    .jsonValue["Oem"]["Nvidia"]
-                                              ["EarlyHealthIndication"] =
-                                    healthStr;
-                            }
-                        }
-                    }
-                    else if (property.first == "AttentionTriggerReason")
-                    {
-                        // Optional OEM health property; skip on an unexpected
-                        // type rather than failing the whole response.
-                        const std::string* value =
-                            std::get_if<std::string>(&property.second);
-                        if (value != nullptr)
-                        {
-                            // Converter whitelists to schema-valid members, so
-                            // the result is always emittable.
-                            asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                                    ["AttentionTriggerReason"] =
-                                nvidia_processor_utils::
-                                    getAttentionTriggerReason(*value);
-                        }
-                    }
                 }
                 if (property.first == "ceCount")
                 {
@@ -1446,6 +1409,13 @@ inline void getProcessorPortMetricsData(
                         ::nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
             }
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                // Link health block and clear action, shared with the
+                // Fabrics/Switches port path.
+                nvidia_port_health_utils::populatePortHealthMetrics(asyncResp,
+                                                                    properties);
+            }
         });
 }
 
@@ -1486,7 +1456,7 @@ inline void afterGetPortObjectForMetrics(
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaPortMetrics.v1_9_0.NvidiaNVLinkPortMetrics";
+            nvidia_port_health_utils::nvlinkPortMetricsOdataType;
         getCpuPortOemMetrics(asyncResp, cpuPortOemPortMetricsMappings,
                              inventoryPath, portId);
     }

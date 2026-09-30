@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <optional>
 // Nvidia code ends here
 #include <ranges>
@@ -88,6 +89,7 @@ struct MultipartParserStreamingCallbacks
     std::function<void(std::string_view)> onDataAvailable;
     std::function<void()> onSectionComplete;
     std::function<void()> onParseComplete;
+    std::function<void(ParserError)> onParseError;
     // Nvidia code ends here
 };
 

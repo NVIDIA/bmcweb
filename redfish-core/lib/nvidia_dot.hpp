@@ -116,6 +116,13 @@ inline void handleDOTErrorResult(
         messages::actionNotSupported(asyncResp->res, actionName);
         return;
     }
+    if (status == nvidia_async_operation_utils::asyncStatusValueWriteFailure)
+    {
+        BMCWEB_LOG_ERROR("DOT {} failed - device unreachable: {}", actionName,
+                         errorMsg);
+        messages::operationFailed(asyncResp->res);
+        return;
+    }
     if (errorMsg.empty())
     {
         BMCWEB_LOG_ERROR("DOT {} failed with status {} but no error data",

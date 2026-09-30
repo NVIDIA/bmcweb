@@ -28,13 +28,18 @@
 #include "utils/json_utils.hpp"
 #include "utils/sw_utils.hpp"
 
+#include <systemd/sd-bus.h>
+
 #include <boost/beast/http/verb.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <format>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace redfish
 {
@@ -1302,6 +1307,70 @@ inline void getBiosSettingsAttr(
 }
 
 /**
+ * @brief True when a JSON integer is representable as int64_t.
+ *
+ * nlohmann stores unsigned values separately, and get<int64_t>() on one above
+ * INT64_MAX is implementation defined. The daemon cannot detect this: by the
+ * time the value crosses D-Bus it is already an int64_t.
+ */
+inline bool jsonFitsInt64(const nlohmann::json& value)
+{
+    const uint64_t* unsignedValue = value.get_ptr<const uint64_t*>();
+    if (unsignedValue != nullptr)
+    {
+        return *unsignedValue <=
+               static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+    }
+    return value.is_number_integer();
+}
+
+/**
+ * @brief Maps a PendingAttributes write failure to a Redfish error.
+ *
+ * Manager.interface.yaml declares InvalidArgument, AttributeNotFound and
+ * AttributeReadOnly on the property; anything else is a real internal error.
+ */
+inline void afterSetPendingAttributes(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const sdbusplus::message_t& msg)
+{
+    if (!ec)
+    {
+        messages::success(asyncResp->res);
+        return;
+    }
+
+    BMCWEB_LOG_ERROR("Set PendingAttributes failed {}", ec);
+
+    const sd_bus_error* dbusError = msg.get_error();
+    if (dbusError != nullptr)
+    {
+        std::string_view name(dbusError->name);
+        if (name ==
+            "xyz.openbmc_project.BIOSConfig.Common.Error.AttributeReadOnly")
+        {
+            messages::propertyNotWritable(asyncResp->res, "Attributes");
+            return;
+        }
+        if (name ==
+            "xyz.openbmc_project.BIOSConfig.Common.Error.AttributeNotFound")
+        {
+            messages::resourceNotFound(asyncResp->res, "Attributes",
+                                       "PendingAttributes");
+            return;
+        }
+        if (name == "xyz.openbmc_project.Common.Error.InvalidArgument")
+        {
+            messages::propertyValueIncorrect(asyncResp->res, "Attributes",
+                                             "PendingAttributes");
+            return;
+        }
+    }
+
+    messages::internalError(asyncResp->res);
+}
+
+/**
  *@brief
  *  1- Updates the BIOS Pending Attributes DBUS property, which are requested
  *     by the oob user.
@@ -1421,6 +1490,16 @@ inline void setBiosCurrentOrPendingAttr(
                             }
                             else if (pendingAttrIt.value().is_number_integer())
                             {
+                                if (!jsonFitsInt64(pendingAttrIt.value()))
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Requested Attribute Value out of range");
+                                    messages::propertyValueOutOfRange(
+                                        asyncResp->res,
+                                        pendingAttrIt.value().dump(),
+                                        pendingAttrIt.key());
+                                    return;
+                                }
                                 int64_t idx =
                                     pendingAttrIt.value().get<int64_t>();
                                 if (idx < 0 || idx >= static_cast<int64_t>(
@@ -1589,11 +1668,21 @@ inline void setBiosCurrentOrPendingAttr(
                         }
                         else if (attrType == "Integer")
                         {
-                            if (!pendingAttrIt.value().is_number())
+                            if (!pendingAttrIt.value().is_number_integer())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
+                                    asyncResp->res,
+                                    pendingAttrIt.value().dump(),
+                                    pendingAttrIt.key());
+                                return;
+                            }
+                            if (!jsonFitsInt64(pendingAttrIt.value()))
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Requested Attribute Value out of range");
+                                messages::propertyValueOutOfRange(
                                     asyncResp->res,
                                     pendingAttrIt.value().dump(),
                                     pendingAttrIt.key());
@@ -1644,16 +1733,9 @@ inline void setBiosCurrentOrPendingAttr(
                     dbus::utility::setProperty(
                         biosService, biosConfigObj, biosConfigIface,
                         "PendingAttributes", pendingAttrs,
-                        [asyncResp](const boost::system::error_code& ec3) {
-                            if (ec3)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Set PendingAttributes failed {}", ec3);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-
-                            messages::success(asyncResp->res);
+                        [asyncResp](const boost::system::error_code& ec3,
+                                    const sdbusplus::message_t& msg) {
+                            afterSetPendingAttributes(asyncResp, ec3, msg);
                         });
                 });
         });
