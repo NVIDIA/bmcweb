@@ -2427,11 +2427,36 @@ inline void handleAccountPatch(
     bool userHasConfigureUsers =
         effectiveUserPrivileges.isSupersetOf(configureUsers) &&
         !req.session->isConfigureSelfOnly;
+
+    // ConfigureSelf accounts can only modify their own account
+    if (!userHasConfigureUsers && !userSelf)
+    {
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
+
+    std::optional<nlohmann::json::object_t> jsonRequest =
+        json_util::readJsonPatchHelper(req, asyncResp->res);
+    if (!jsonRequest)
+    {
+        return;
+    }
+
+    // Nvidia code starts here.
+    // Id is read-only: report PropertyNotWritable, not PropertyUnknown.
+    if (jsonRequest->contains("Id"))
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+    // Nvidia code End here
+
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
-        if (!json_util::readJsonPatch(                    //
-                req, asyncResp->res,                      //
+        if (!json_util::readJsonObject(                   //
+                *jsonRequest, asyncResp->res,             //
                 "AccountTypes", accountTypes,             //
                 "Enabled", enabled,                       //
                 "Locked", locked,                         //
@@ -2446,16 +2471,24 @@ inline void handleAccountPatch(
     }
     else
     {
-        // ConfigureSelf accounts can only modify their own account
-        if (!userSelf)
+        // Nvidia code starts here.
+        // These need ConfigureUsers: answer 403, not PropertyUnknown.
+        constexpr std::array<std::string_view, 6> configureUsersProperties = {
+            "AccountTypes",       "Enabled", "Locked",
+            "PasswordExpiration", "RoleId",  "UserName"};
+        for (std::string_view property : configureUsersProperties)
         {
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
+            if (jsonRequest->contains(property))
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
         }
+        // Nvidia code End here
 
         // ConfigureSelf accounts can only modify their password
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Password",
-                                      password))
+        if (!json_util::readJsonObject(*jsonRequest, asyncResp->res, "Password",
+                                       password))
         {
             return;
         }
