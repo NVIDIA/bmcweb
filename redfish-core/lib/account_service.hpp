@@ -2292,10 +2292,44 @@ inline void handleAccountPatch(
         redfish::getUserPrivileges(*req.session);
     Privileges configureUsers = {"ConfigureUsers"};
     bool userHasConfigureUsers =
+<<<<<<< HEAD
         effectiveUserPrivileges.isSupersetOf(configureUsers);
+||||||| constructed merge base
+        effectiveUserPrivileges.isSupersetOf(configureUsers) &&
+        !req.session->isConfigureSelfOnly;
+=======
+        effectiveUserPrivileges.isSupersetOf(configureUsers) &&
+        !req.session->isConfigureSelfOnly;
+
+    // ConfigureSelf accounts can only modify their own account
+    if (!userHasConfigureUsers && !userSelf)
+    {
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
+
+    std::optional<nlohmann::json::object_t> jsonRequest =
+        json_util::readJsonPatchHelper(req, asyncResp->res);
+    if (!jsonRequest)
+    {
+        return;
+    }
+
+    // Nvidia code starts here.
+    // Id is read-only: report PropertyNotWritable, not PropertyUnknown.
+    if (jsonRequest->contains("Id"))
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+    // Nvidia code End here
+
+>>>>>>> account_service: fix PATCH errors for self and read-only props
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
+<<<<<<< HEAD
         if (!json_util::readJsonPatch(        //
                 req, asyncResp->res,          //
                 "AccountTypes", accountTypes, //
@@ -2304,6 +2338,27 @@ inline void handleAccountPatch(
                 "Password", password,         //
                 "RoleId", roleId,             //
                 "UserName", newUserName       //
+||||||| constructed merge base
+        if (!json_util::readJsonPatch(                    //
+                req, asyncResp->res,                      //
+                "AccountTypes", accountTypes,             //
+                "Enabled", enabled,                       //
+                "Locked", locked,                         //
+                "Password", password,                     //
+                "PasswordExpiration", passwordExpiration, //
+                "RoleId", roleId,                         //
+                "UserName", newUserName                   //
+=======
+        if (!json_util::readJsonObject(                   //
+                *jsonRequest, asyncResp->res,             //
+                "AccountTypes", accountTypes,             //
+                "Enabled", enabled,                       //
+                "Locked", locked,                         //
+                "Password", password,                     //
+                "PasswordExpiration", passwordExpiration, //
+                "RoleId", roleId,                         //
+                "UserName", newUserName                   //
+>>>>>>> account_service: fix PATCH errors for self and read-only props
                 ))
         {
             return;
@@ -2311,16 +2366,24 @@ inline void handleAccountPatch(
     }
     else
     {
-        // ConfigureSelf accounts can only modify their own account
-        if (!userSelf)
+        // Nvidia code starts here.
+        // These need ConfigureUsers: answer 403, not PropertyUnknown.
+        constexpr std::array<std::string_view, 6> configureUsersProperties = {
+            "AccountTypes",       "Enabled", "Locked",
+            "PasswordExpiration", "RoleId",  "UserName"};
+        for (std::string_view property : configureUsersProperties)
         {
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
+            if (jsonRequest->contains(property))
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
         }
+        // Nvidia code End here
 
         // ConfigureSelf accounts can only modify their password
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Password",
-                                      password))
+        if (!json_util::readJsonObject(*jsonRequest, asyncResp->res, "Password",
+                                       password))
         {
             return;
         }
