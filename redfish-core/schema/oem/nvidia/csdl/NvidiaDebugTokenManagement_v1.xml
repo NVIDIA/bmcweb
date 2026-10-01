@@ -142,6 +142,17 @@
             </Collection>
           </Annotation>
         </Member>
+        <Member Name="BoardConfigOverride">
+          <Annotation Term="OData.Description" String="Board config override token. Authorizes overriding the board configuration enforced at firmware flash time."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
         <Member Name="MTDT">
           <Annotation Term="OData.Description" String="MTDT token."/>
           <Annotation Term="Redfish.Revisions">
@@ -878,6 +889,10 @@
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugTokenManagement.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDebugTokenManagement" BaseType="NvidiaDebugTokenManagement.v1_1_0.NvidiaDebugTokenManagement"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
