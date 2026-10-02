@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.15.0                                                          -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.16.0                                                          -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -45,6 +45,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothing"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaAstra_v1.xml">
+    <edmx:Include Namespace="NvidiaAstra"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
@@ -1037,6 +1040,17 @@
           <Annotation Term="OData.Description" String="The date and time when the last chassis intrusion was detected."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the last physical intrusion of the chassis was detected on this chassis."/>
         </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_16_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_15_0.NvidiaChassis">
+        <NavigationProperty Name="Astra" Type="NvidiaAstra.NvidiaAstra" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Advanced Secure Trusted Resource Architecture (ASTRA) resource for this chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `NvidiaAstra`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
