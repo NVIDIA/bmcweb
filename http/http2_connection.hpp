@@ -8,10 +8,12 @@
 #include "complete_response_fields.hpp"
 #include "forward_unauthorized.hpp"
 #include "http_body.hpp"
+#include "http_body_limits.hpp"
 #include "http_connect_types.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "utility.hpp"
 
 // NOLINTNEXTLINE(misc-include-cleaner)
@@ -75,6 +77,18 @@ enum class DeadlineTimerType
     Multipart,
 };
 
+// headersRejected and bodyRejected used to be two separate bools, but the
+// stream can only be rejected once (whichever check runs first short-
+// circuits the other), so they are mutually exclusive in practice. One
+// enum says that directly instead of relying on callers to keep two bools
+// in sync.
+enum class RejectionReason : uint8_t
+{
+    none,
+    headers,
+    body,
+};
+
 struct Http2StreamData
 {
     std::shared_ptr<Request> req = std::make_shared<Request>();
@@ -97,9 +111,14 @@ struct Http2StreamData
     // unlike req->req.body().multipartParserCallbacks, which is moved out
     // (and reset) by HttpBody::reader::init() on the first body chunk.
     bool multipartActive = false;
-    bool headersRejected = false;
-    // Set when reqReader->init() rejects the body (e.g. body_limit).
-    bool bodyRejected = false;
+    // none until the headers-phase privilege check or the body reader
+    // (init()/put()/the per-stream byte limit) rejects the stream; stays
+    // whichever of the two fires first.
+    RejectionReason rejected = RejectionReason::none;
+    // Running total of DATA bytes received on this stream, checked against
+    // bodyLimit since Content-Length can be missing or under-declared.
+    uint64_t bodyBytesReceived = 0;
+    uint64_t bodyLimit = httpReqBodyLimit;
     bool endStreamPending = false;
     std::vector<uint8_t> pendingBodyData;
     // 15-min hard cap for fd-backed streaming responses.
@@ -466,6 +485,8 @@ class HTTP2Connection :
                 ip, stream.res, thisReq.method(), thisReq.req, mtlsSession);
         }
 
+        stream.bodyLimit = getBodyLimit(thisReq);
+
         auto headersAsyncResp = std::make_shared<bmcweb::AsyncResp>();
         stream.headersAsyncResp = headersAsyncResp;
         stream.bodyReadPending = true;
@@ -484,7 +505,7 @@ class HTTP2Connection :
                         thisReq.getHeaderValue("Accept"),
                         headersAsyncResp->res);
                 }
-                stream.headersRejected = true;
+                stream.rejected = RejectionReason::headers;
                 onHeadersHandlerComplete(streamId);
                 return 0;
             }
@@ -519,16 +540,20 @@ class HTTP2Connection :
                     boost::beast::http::status_class::client_error ||
                 responseClass == boost::beast::http::status_class::server_error)
             {
-                stream.headersRejected = true;
+                stream.rejected = RejectionReason::headers;
             }
         }
-        if (!stream.headersRejected && hasMultipartCallbacks)
+        // rejected can only be none or headers here: body is set from
+        // body-data processing, which onHeadersHandlerComplete() always
+        // runs before (bodyReadPending isn't cleared until the end of
+        // this function).
+        if (stream.rejected == RejectionReason::none && hasMultipartCallbacks)
         {
             stream.isStreamInput = true;
             stream.multipartActive = true;
         }
 
-        if (stream.isStreamInput || stream.headersRejected)
+        if (stream.isStreamInput || stream.rejected == RejectionReason::headers)
         {
             if (stream.headersAsyncResp)
             {
@@ -548,7 +573,7 @@ class HTTP2Connection :
         stream.headersAsyncResp.reset();
         stream.bodyReadPending = false;
 
-        if (stream.headersRejected)
+        if (stream.rejected == RejectionReason::headers)
         {
             stream.pendingBodyData.clear();
             stream.endStreamPending = false;
@@ -592,8 +617,10 @@ class HTTP2Connection :
             it->second.endStreamPending = true;
             return 0;
         }
-        if (it->second.headersRejected)
+        if (it->second.rejected != RejectionReason::none)
         {
+            // rejectStreamBody() already sent RST_STREAM; don't let the
+            // END_STREAM frame for a rejected body reach handler->handle().
             return 0;
         }
         if (finishStreamBody(streamId) != 0)
@@ -682,12 +709,24 @@ class HTTP2Connection :
             return -1;
         }
 
-        if (thisStream->second.headersRejected ||
-            thisStream->second.bodyRejected)
+        if (thisStream->second.rejected != RejectionReason::none)
         {
             return 0;
         }
         // Nvidia code starts here
+        Http2StreamData& streamData = thisStream->second;
+        // Same limits as HTTP/1.1, including the logged out limit.
+        if (len > streamData.bodyLimit ||
+            streamData.bodyBytesReceived > streamData.bodyLimit - len)
+        {
+            BMCWEB_LOG_WARNING(
+                "Stream {} body exceeds limit of {} bytes, resetting", streamId,
+                streamData.bodyLimit);
+            rejectStreamBody(streamId, streamData);
+            return 0;
+        }
+        streamData.bodyBytesReceived += len;
+
         if (thisStream->second.bodyReadPending)
         {
             std::vector<uint8_t>& pending = thisStream->second.pendingBodyData;
@@ -720,10 +759,8 @@ class HTTP2Connection :
             if (initEc)
             {
                 BMCWEB_LOG_CRITICAL("Failed to initialize payload");
-                thisStream->second.bodyRejected = true;
-                // Callback return code alone doesn't reset the stream.
-                ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
-                return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+                rejectStreamBody(streamId, thisStream->second);
+                return 0;
             }
         }
         boost::beast::error_code ec;
@@ -731,12 +768,41 @@ class HTTP2Connection :
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("Failed to write payload");
-            return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+            rejectStreamBody(streamId, thisStream->second);
+            return 0;
         }
         return 0;
     }
 
     // Nvidia code starts here
+    static uint64_t getBodyLimit(const Request& req)
+    {
+        if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
+        {
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
+                req.session == nullptr)
+            {
+                return loggedOutPostBodyLimit;
+            }
+        }
+        if (req.getHeaderValue(boost::beast::http::field::content_type)
+                .starts_with("multipart/form-data"))
+        {
+            return multipartBodyLimit;
+        }
+        return httpReqBodyLimit;
+    }
+
+    void rejectStreamBody(int32_t streamId, Http2StreamData& stream)
+    {
+        stream.rejected = RejectionReason::body;
+        stream.pendingBodyData.clear();
+        stream.pendingBodyData.shrink_to_fit();
+        stream.endStreamPending = false;
+        // Callback return code alone doesn't reset the stream.
+        ngSession.submitRstStream(streamId, NGHTTP2_CANCEL);
+    }
+
     int finishStreamBody(int32_t streamId)
     {
         auto it = streams.find(streamId);

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "async_resp.hpp"
 #include "http/http2_connection.hpp"
+#include "http/http_body_limits.hpp"
 #include "http/http_connection.hpp"
 #include "http/http_request.hpp"
 #include "http/http_response.hpp"
@@ -403,10 +404,62 @@ std::string makeHttp2StreamingRequest(std::string_view path)
     return request;
 }
 
+struct Http2AcceptStreamHandler
+{
+    static void handleHeaders(
+        const std::shared_ptr<Request>& /*req*/,
+        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
+        std::move_only_function<void()> onValidationDone)
+    {
+        onValidationDone();
+    }
+
+    static bool handleAuthFailed(
+        const std::shared_ptr<Request>& /*req*/,
+        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
+    {
+        return false;
+    }
+
+    void handle(const std::shared_ptr<Request>& /*req*/,
+                const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
+    {
+        handleCount++;
+    }
+
+    size_t handleCount = 0;
+};
+
+// POST with no Content-Length and a DATA frame of bodySize bytes that does
+// not set END_STREAM, like a pre-auth client streaming an endless body.
+std::string makeHttp2UnboundedBodyRequest(std::string_view path,
+                                          size_t bodySize)
+{
+    std::string request = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+    appendHttp2Frame(request, NGHTTP2_SETTINGS, NGHTTP2_FLAG_NONE, 0, {});
+
+    std::string headers;
+    headers.push_back(static_cast<char>(0x83)); // :method POST
+    headers.push_back(static_cast<char>(0x87)); // :scheme https
+    headers.push_back(static_cast<char>(0x01)); // :authority, literal
+    constexpr std::string_view authority = "localhost";
+    headers.push_back(static_cast<char>(authority.size()));
+    headers.append(authority);
+    headers.push_back(static_cast<char>(0x04)); // :path, literal
+    headers.push_back(static_cast<char>(path.size()));
+    headers.append(path);
+    appendHttp2Frame(request, NGHTTP2_HEADERS, NGHTTP2_FLAG_END_HEADERS, 1,
+                     headers);
+    appendHttp2Frame(request, NGHTTP2_DATA, NGHTTP2_FLAG_NONE, 1,
+                     std::string(bodySize, 'A'));
+    return request;
+}
+
 struct Http2ResponseFrames
 {
     size_t headers = 0;
     size_t final = 0;
+    size_t rstStreams = 0;
     std::string body;
 };
 
@@ -451,6 +504,10 @@ Http2ResponseFrames parseHttp2ResponseFrames(std::string_view wireData)
             if (type == NGHTTP2_DATA)
             {
                 response.body.append(payload);
+            }
+            if (type == NGHTTP2_RST_STREAM)
+            {
+                response.rstStreams++;
             }
             if ((flags & NGHTTP2_FLAG_END_STREAM) != 0)
             {
@@ -546,6 +603,66 @@ TEST(Http2Connection, UnauthenticatedStreamingHeadersSendOneResponse)
     conn->close();
 }
 
+// Matches runUntilDone() in test/http/http_connection_fuzzer.cpp: poll
+// until no immediate work is left, then close the client side once (which
+// may unblock a pending server read and generate more work, e.g. the
+// at-limit case that never sends END_STREAM) and poll again; stop only
+// once a second pass also finds nothing left to do.
+void pollUntilDone(boost::asio::io_context& io, TestStream& clientSide)
+{
+    bool closed = false;
+    while (true)
+    {
+        if (io.poll_one() > 0)
+        {
+            continue;
+        }
+        if (!closed)
+        {
+            clientSide.close();
+            closed = true;
+            continue;
+        }
+        break;
+    }
+}
+
+size_t runUnboundedBodyRequest(size_t bodySize)
+{
+    boost::asio::io_context io;
+    TestStream stream(io);
+    TestStream output(io);
+    stream.connect(output);
+
+    const std::string request = makeHttp2UnboundedBodyRequest(
+        "/redfish/v1/SessionService/Sessions", bodySize);
+    boost::asio::write(output, boost::asio::buffer(request));
+
+    Http2AcceptStreamHandler handler;
+    std::function<std::string()> date([]() { return "TestTime"; });
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+    auto conn =
+        std::make_shared<HTTP2Connection<TestStream, Http2AcceptStreamHandler>>(
+            boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
+            &handler, date, HttpType::HTTP, nullptr);
+    conn->start();
+
+    pollUntilDone(io, output);
+    Http2ResponseFrames frames = parseHttp2ResponseFrames(output.str());
+    conn->close();
+    return frames.rstStreams;
+}
+
 } // namespace
+
+TEST(Http2Connection, UnauthenticatedBodyOverLimitResetsStream)
+{
+    EXPECT_EQ(runUnboundedBodyRequest(loggedOutPostBodyLimit + 1), 1U);
+}
+
+TEST(Http2Connection, UnauthenticatedBodyAtLimitIsAccepted)
+{
+    EXPECT_EQ(runUnboundedBodyRequest(loggedOutPostBodyLimit), 0U);
+}
 
 } // namespace crow
