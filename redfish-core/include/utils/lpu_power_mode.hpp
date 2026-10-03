@@ -29,9 +29,19 @@ inline constexpr std::string_view path =
 inline constexpr std::string_view interface = "com.nvidia.LPUPowerMode";
 inline constexpr std::string_view uri =
     "/redfish/v1/Chassis/HGX_Chassis_0/Controls/TotalLPU_Power_0";
+inline constexpr std::string_view maxQProfile = "MaxQ";
+inline constexpr std::string_view maxPProfile = "MaxP";
+inline constexpr std::array<std::string_view, 2> supportedPowerModes = {
+    maxQProfile, maxPProfile};
 using PowerProfile = std::tuple<std::string, uint32_t, std::string>;
 using PowerProfiles = std::vector<PowerProfile>;
 using ProfileSnapshot = std::tuple<std::string, PowerProfiles, std::string>;
+
+inline bool isSupportedPowerMode(std::string_view mode)
+{
+    return std::ranges::find(supportedPowerModes, mode) !=
+           supportedPowerModes.end();
+}
 
 inline bool validProfiles(const PowerProfiles& profiles,
                           const std::string& status)
@@ -46,7 +56,7 @@ inline bool validProfiles(const PowerProfiles& profiles,
     }
     const auto& [qName, qWatts, qDescription] = profiles[0];
     const auto& [pName, pWatts, pDescription] = profiles[1];
-    return qName == "MaxQ" && pName == "MaxP" && qWatts > 0 &&
+    return qName == maxQProfile && pName == maxPProfile && qWatts > 0 &&
            pWatts > qWatts && !qDescription.empty() && !pDescription.empty();
 }
 
@@ -71,7 +81,7 @@ inline void populate(nlohmann::json& json, const std::string& mode,
             {"SetPoint", nullptr}};
     auto& nvidia = json["Oem"]["Nvidia"];
     nvidia["@odata.type"] = "#NvidiaControl.v1_0_0.NvidiaControl";
-    nvidia["PowerMode@Redfish.AllowableValues"] = {"MaxQ", "MaxP"};
+    nvidia["PowerMode@Redfish.AllowableValues"] = supportedPowerModes;
     nvidia["PowerMode"] = nullptr;
     nvidia["PowerModeProfiles"] = nlohmann::json::array();
     for (const auto& [name, watts, description] : profiles)
@@ -85,7 +95,7 @@ inline void populate(nlohmann::json& json, const std::string& mode,
         }
     }
     json["Status"] = {{"Health", "Warning"}, {"State", "UnavailableOffline"}};
-    if (mode == "MaxQ" || mode == "MaxP")
+    if (isSupportedPowerMode(mode))
     {
         nvidia["PowerMode"] = mode;
         json["Status"] = {{"Health", "OK"}, {"State", "Enabled"}};
@@ -140,7 +150,7 @@ inline bool readPatch(nlohmann::json& input, crow::Response& response,
         messages::propertyMissing(response, "Oem/Nvidia/PowerMode");
         return false;
     }
-    if (*powerMode != "MaxQ" && *powerMode != "MaxP")
+    if (!isSupportedPowerMode(*powerMode))
     {
         messages::propertyValueNotInList(response, *powerMode,
                                          "Oem/Nvidia/PowerMode");
@@ -202,7 +212,7 @@ inline void completeGet(
         messages::serviceTemporarilyUnavailable(response, "5");
         return;
     }
-    if ((!mode.empty() && mode != "MaxQ" && mode != "MaxP") ||
+    if ((!mode.empty() && !isSupportedPowerMode(mode)) ||
         !validProfiles(profiles, profileStatus))
     {
         messages::internalError(response);
