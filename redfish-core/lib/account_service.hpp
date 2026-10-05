@@ -1158,9 +1158,10 @@ inline void afterVerifyUserExists(
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        params.username);
         }
-        else if (retval == PAM_AUTHTOK_ERR || retval == PAM_NEW_AUTHTOK_REQD)
+        else if (retval == PAM_AUTHTOK_ERR || retval == PAM_NEW_AUTHTOK_REQD ||
+                 retval == PAM_CONV_ERR)
         {
-            // If password is invalid
+            // If password is invalid (including PAM conversation overflow)
             messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
