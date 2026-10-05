@@ -115,7 +115,7 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     EXPECT_EQ(asyncResp->res.resultInt(), 413);
     EXPECT_EQ(asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
+              "NvidiaUpdate.1.3.FirmwarePackageSizeExceeded");
     EXPECT_EQ(asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"][0]
                                       ["MessageArgs"][0],
               "nvfw_release.fwpkg");
@@ -260,6 +260,31 @@ TEST(ParseFormPartFileName, StripsCharactersUnsafeInAQuotedString)
     // early when the request is relayed to a satellite.
     EXPECT_EQ(ctx->package.name.find('"'), std::string::npos);
     EXPECT_EQ(ctx->package.name.find('\\'), std::string::npos);
+}
+
+TEST(GetUpdateMessage, RendersTypedNvidiaUpdateMessage)
+{
+    std::vector<std::string> args{"HGX_FW_BMC_0", "512", "1024"};
+
+    nlohmann::json message =
+        getUpdateMessage("NvidiaUpdate.1.3.FirmwareDownloadTimedOut", args);
+
+    EXPECT_EQ(message["MessageId"],
+              "NvidiaUpdate.1.3.FirmwareDownloadTimedOut");
+    EXPECT_EQ(message["MessageArgs"], args);
+    EXPECT_EQ(message["MessageSeverity"], "Critical");
+    EXPECT_EQ(message["Message"],
+              "Firmware download for component 'HGX_FW_BMC_0' timed out "
+              "because the device stopped requesting data after the BMC sent "
+              "512 of 1024 bytes.");
+    EXPECT_FALSE(message["Resolution"].get<std::string>().empty());
+}
+
+TEST(GetUpdateMessage, RejectsUnknownNvidiaUpdateMessage)
+{
+    std::vector<std::string> args;
+    EXPECT_TRUE(
+        getUpdateMessage("NvidiaUpdate.1.0.NotInRegistry", args).empty());
 }
 
 TEST(ParseRfaUri, EmptyUriReturnsError)
@@ -913,7 +938,7 @@ TEST(UpdateInProgressGate, LocalUpdateRejectedOnceTargetsKnown)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 409);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
+              "NvidiaUpdate.1.3.FirmwareUpdateInProgress");
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
               "/redfish/v1/TaskService/Tasks");
 }
@@ -937,7 +962,7 @@ TEST(UpdateInProgressGate, SoftwareUpdateRejectedAtDispatch)
     EXPECT_TRUE(failed);
     EXPECT_EQ(asyncResp->res.resultInt(), 409);
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
+              "NvidiaUpdate.1.3.FirmwareUpdateInProgress");
 }
 
 TEST(UpdateInProgressGate, PldmUpdateRejectedAtDispatch)
@@ -960,7 +985,7 @@ TEST(UpdateInProgressGate, PldmUpdateRejectedAtDispatch)
     EXPECT_TRUE(failed);
     EXPECT_EQ(asyncResp->res.resultInt(), 409);
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwareUpdateInProgress");
+              "NvidiaUpdate.1.3.FirmwareUpdateInProgress");
 }
 
 TEST(UpdateInProgressGate, HeaderStageDoesNotRejectWhileUpdateInFlight)
@@ -993,7 +1018,7 @@ TEST(MultipartPartOrder, UnknownFirstPartIsRejected)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(OnDataAvailable, AcceptsExactLimitAndRejectsNextByte)
@@ -1020,7 +1045,7 @@ TEST(OnDataAvailable, AcceptsExactLimitAndRejectsNextByte)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 413);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
+              "NvidiaUpdate.1.3.FirmwarePackageSizeExceeded");
 }
 
 TEST(OnHeadersComplete, UpdateFileFirstEntersStagingState)
@@ -1063,7 +1088,7 @@ TEST(OnHeadersComplete, UpdateFileWithWrongContentTypeIsRejected)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UpdateFileWithOctetStreamContentTypeAccepted)
@@ -1094,7 +1119,7 @@ TEST(OnHeadersComplete, SecondUpdateFileAfterStagingRejected)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
               "duplicate UpdateFile part");
 }
@@ -1129,7 +1154,7 @@ TEST(OnDataAvailable, RejectsStagedFileOverImageLimit)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 413);
     EXPECT_FALSE(ctx->stagedUpdateFile);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwarePackageSizeExceeded");
+              "NvidiaUpdate.1.3.FirmwarePackageSizeExceeded");
 }
 
 TEST(OnDataAvailable, StagingStateWithoutMemfdFailsInsteadOfCrashing)
@@ -1146,7 +1171,7 @@ TEST(OnDataAvailable, StagingStateWithoutMemfdFailsInsteadOfCrashing)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 507);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.FirmwarePackageStagingError");
+              "NvidiaUpdate.1.3.FirmwarePackageStagingError");
 }
 
 TEST(OnSectionComplete, StagedFileExpectsUpdateParametersNext)
@@ -1189,7 +1214,7 @@ TEST(MultipartPartOrder, FileFirstRejectsParametersWithoutContentType)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateParameters)
@@ -1209,7 +1234,7 @@ TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateParameters)
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(ctx->asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateFile)
@@ -1228,7 +1253,7 @@ TEST(MultipartPartOrder, FileFirstRejectsDuplicateUpdateFile)
     EXPECT_FALSE(ctx->stagedUpdateFile);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
               "duplicate UpdateFile part");
 }
@@ -1316,7 +1341,7 @@ TEST(OnHeadersComplete, FileFirstThirdPartRejectedBeforeDispatch)
     EXPECT_FALSE(ctx->isLocal);
     EXPECT_FALSE(ctx->stagedUpdateFile);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UnexpectedPartAfterDispatchFails)
@@ -1330,7 +1355,7 @@ TEST(OnHeadersComplete, UnexpectedPartAfterDispatchFails)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, UnexpectedPartDuringSatInfoWaitFails)
@@ -1344,7 +1369,7 @@ TEST(OnHeadersComplete, UnexpectedPartDuringSatInfoWaitFails)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(OnHeadersComplete, TrailingPartAfterCompletionIsRejected)
@@ -1358,7 +1383,7 @@ TEST(OnHeadersComplete, TrailingPartAfterCompletionIsRejected)
     EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
     EXPECT_EQ(ctx->asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.MalformedMultipartRequest");
+              "NvidiaUpdate.1.3.MalformedMultipartRequest");
 }
 
 TEST(ReplayStagedFileChunk, AbortsAfterRequestFailureInsteadOfWedging)
@@ -1569,7 +1594,7 @@ TEST(HandlePostHeaders, NonMultipartContentTypeNamesTheExpectedValue)
     EXPECT_EQ(asyncResp->res.resultInt(), 415);
     EXPECT_EQ(asyncResp->res
                   .jsonValue["error"]["@Message.ExtendedInfo"][0]["MessageId"],
-              "NvidiaUpdate.1.2.HeaderValueInvalid");
+              "NvidiaUpdate.1.3.HeaderValueInvalid");
     EXPECT_EQ(asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"][0]
                                       ["MessageArgs"][2],
               "multipart/form-data");
@@ -1644,7 +1669,7 @@ TEST(AfterGetSubtreePaths, UnknownTargetIsNamedInTheError)
     EXPECT_TRUE(failed);
     EXPECT_EQ(asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwareUpdateTargetInvalid");
+              "NvidiaUpdate.1.3.FirmwareUpdateTargetInvalid");
     // The operator needs to know which entry was rejected, not just that
     // "Targets" was bad.
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0], target);
@@ -1667,7 +1692,7 @@ TEST(AfterGetSubtreePaths, UnparsableTargetDoesNotAbort)
     EXPECT_TRUE(failed);
     EXPECT_EQ(asyncResp->res.resultInt(), 400);
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
-              "NvidiaUpdate.1.2.FirmwareUpdateTargetInvalid");
+              "NvidiaUpdate.1.3.FirmwareUpdateTargetInvalid");
     EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0], target);
 }
 

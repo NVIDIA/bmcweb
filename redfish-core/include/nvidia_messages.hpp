@@ -26,7 +26,10 @@
 #include <nlohmann/json.hpp>
 
 #include <array>
+#include <optional>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace redfish::messages
 {
@@ -53,7 +56,44 @@ inline nlohmann::json getLogNvidia(
 }
 
 /**
- * @brief Method to get error message from NVIDIA resource event registry
+ * @brief Method to get error message from the NVIDIA update registry by
+ * MessageId
+ */
+inline nlohmann::json getLogNvidia(std::string_view messageId,
+                                   std::span<const std::string> args)
+{
+    std::optional<redfish::registries::MessageId> components =
+        redfish::registries::getMessageComponents(messageId);
+    if (!components ||
+        components->registryName !=
+            redfish::registries::NvidiaUpdate::header.registryPrefix)
+    {
+        return {};
+    }
+
+    size_t index = 0;
+    for (const auto& entry : redfish::registries::NvidiaUpdate::registry)
+    {
+        if (components->messageKey == entry.first)
+        {
+            std::vector<std::string_view> argViews;
+            argViews.reserve(args.size());
+            for (const std::string& arg : args)
+            {
+                argViews.emplace_back(arg);
+            }
+            return getLogFromRegistry(
+                redfish::registries::NvidiaUpdate::header,
+                redfish::registries::NvidiaUpdate::registry, index, argViews);
+        }
+        ++index;
+    }
+    return {};
+}
+
+/**
+ * @brief Method to get error message from the NVIDIA update registry by
+ * MessageId
  */
 inline nlohmann::json getLogNvidia(
     redfish::registries::NvidiaResourceEvent::Index name,
