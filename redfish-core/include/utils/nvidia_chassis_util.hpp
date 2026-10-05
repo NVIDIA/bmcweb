@@ -496,56 +496,144 @@ inline void getChassisLinksContains(
         });
 }
 
-/* * @brief Fill out links association to underneath chassis by
- * requesting data from the given D-Bus association object.
+/* * @brief Builds a ProtocolBridgeForDevices link from a bridged device's id
+ * and, for a two-level lookup, the id of the child it was found through.
+ */
+using BridgeLinkUriFn = std::string (*)(const std::string& deviceId,
+                                        const std::string& childId);
+
+/* * @brief Return the ProtocolBridgeForDevices list, creating it if this is
+ * the first bridge lookup to answer. Never replaces links added by another.
  *
  * @param[in,out]   aResp       Async HTTP response.
- * @param[in]       objPath     D-Bus object to query.
  */
-inline void getChassisProcessorProtocolBridgeForDevices(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+inline nlohmann::json& getProtocolBridgeArray(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    BMCWEB_LOG_DEBUG("Get underneath chassis links");
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_processor",
-        "xyz.openbmc_project.Association", "endpoints",
-        [aResp](const boost::system::error_code& ec2,
-                const std::vector<std::string>& resp) {
-            if (ec2)
-            {
-                return; // no chassis = no failures
-            }
+    nlohmann::json& oem = aResp->res.jsonValue["Links"]["Oem"]["Nvidia"];
+    oem["@odata.type"] = "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
+    nlohmann::json& links = oem["ProtocolBridgeForDevices"];
+    if (!links.is_array())
+    {
+        links = nlohmann::json::array();
+    }
+    return links;
+}
 
-            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
-            nlohmann::json& protocalBridgeArray =
-                aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
-                                    ["ProtocolBridgeForDevices"];
-            protocalBridgeArray = nlohmann::json::array();
-            boost::container::flat_set<std::string> chassisNames;
-            for (const std::string& chassisPath : resp)
-            {
-                sdbusplus::object_path objectPath(chassisPath);
-                std::string chassisName = objectPath.filename();
-                if (chassisName.empty())
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Empty string on chassisName for objPath:{}",
-                        chassisPath);
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                chassisNames.emplace(std::move(chassisName));
-            }
-            for (const auto& chassisName : chassisNames)
-            {
-                protocalBridgeArray.push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Processors/" + chassisName}});
-            }
-        });
+/* * @brief Add one ProtocolBridgeForDevices link per child of a bridged
+ * device.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       devicePath  D-Bus path of the bridged device.
+ * @param[in]       toUri       Builds the link.
+ * @param[in]       ec          Error from the child association lookup.
+ * @param[in]       childPaths  Endpoints of the child association.
+ */
+inline void afterGetBridgedChildren(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& devicePath, BridgeLinkUriFn toUri,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& childPaths)
+{
+    if (ec)
+    {
+        return; // no children = no failures
+    }
+    std::string deviceId = sdbusplus::object_path(devicePath).filename();
+    if (deviceId.empty())
+    {
+        BMCWEB_LOG_ERROR("Empty String deviceId for objPath:{}", devicePath);
+        messages::internalError(aResp->res);
+        return;
+    }
+    nlohmann::json& links = getProtocolBridgeArray(aResp);
+    for (const std::string& childPath : childPaths)
+    {
+        std::string childId = sdbusplus::object_path(childPath).filename();
+        if (childId.empty())
+        {
+            BMCWEB_LOG_ERROR("Empty String childId for objPath:{}", childPath);
+            messages::internalError(aResp->res);
+            return;
+        }
+        links.push_back({{"@odata.id", toUri(deviceId, childId)}});
+    }
+}
+
+/* * @brief Add ProtocolBridgeForDevices links for the bridged devices: one
+ * per device, or, with a child association, one per child of each device.
+ *
+ * @param[in,out]   aResp             Async HTTP response.
+ * @param[in]       childAssociation  Association on each bridged device,
+ *                                    or empty to link the device itself.
+ * @param[in]       toUri             Builds each link.
+ * @param[in]       ec                Error from the bridge association lookup.
+ * @param[in]       devicePaths       Endpoints of the bridge association.
+ */
+inline void afterGetBridgedDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& childAssociation, BridgeLinkUriFn toUri,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& devicePaths)
+{
+    if (ec)
+    {
+        return; // no devices = no failures
+    }
+    nlohmann::json& links = getProtocolBridgeArray(aResp);
+    if (!childAssociation.empty())
+    {
+        for (const std::string& devicePath : devicePaths)
+        {
+            dbus::utility::getAssociationEndPoints(
+                std::string(devicePath).append("/").append(childAssociation),
+                std::bind_front(afterGetBridgedChildren, aResp, devicePath,
+                                toUri));
+        }
+        return;
+    }
+    boost::container::flat_set<std::string> uris;
+    for (const std::string& devicePath : devicePaths)
+    {
+        std::string deviceId = sdbusplus::object_path(devicePath).filename();
+        if (deviceId.empty())
+        {
+            BMCWEB_LOG_ERROR("Empty String deviceId for objPath:{}",
+                             devicePath);
+            messages::internalError(aResp->res);
+            return;
+        }
+        uris.emplace(toUri(deviceId, ""));
+    }
+    for (const auto& uri : uris)
+    {
+        links.push_back({{"@odata.id", uri}});
+    }
+}
+
+/* * @brief Fill out ProtocolBridgeForDevices links to the bridged devices
+ * on the given D-Bus object. With a child association, each link is built
+ * from an association on the bridged device instead of the device itself.
+ *
+ * @param[in,out]   aResp             Async HTTP response.
+ * @param[in]       objPath           D-Bus object to query.
+ * @param[in]       association       Association to the bridged devices.
+ * @param[in]       childAssociation  Association on each bridged device,
+ *                                    or empty to link the device itself.
+ * @param[in]       toUri             Builds a link from the bridged
+ *                                    device's id and the child's id
+ *                                    (empty without a child association).
+ */
+inline void getChassisBridgedLinks(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& association, const std::string& childAssociation,
+    BridgeLinkUriFn toUri)
+{
+    BMCWEB_LOG_DEBUG("Get underneath {} links", association);
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/" + association,
+        std::bind_front(afterGetBridgedDevices, aResp, childAssociation,
+                        toUri));
 }
 
 /* * @brief Fill out links association to underneath chassis by
@@ -557,68 +645,30 @@ inline void getChassisProcessorProtocolBridgeForDevices(
 inline void getChassisNetworkAdapterProtocolBridgeForDevices(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
-    BMCWEB_LOG_DEBUG("Get underneath chassis links");
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
-        "xyz.openbmc_project.Association", "endpoints",
-        [aResp](const boost::system::error_code& ec,
-                const std::vector<std::string>& resp) {
-            if (ec)
-            {
-                return; // no chassis = no failures
-            }
+    getChassisBridgedLinks(
+        aResp, objPath, "bridging_chassis", "network_adapters",
+        [](const std::string& chassisId,
+           const std::string& networkAdapterId) -> std::string {
+            return "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +
+                   networkAdapterId;
+        });
+}
 
-            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
-            nlohmann::json& protocalBridgeArray =
-                aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
-                                    ["ProtocolBridgeForDevices"];
-            protocalBridgeArray = nlohmann::json::array();
-            for (const std::string& chassisPath : resp)
-            {
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper",
-                    chassisPath + "/network_adapters",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [aResp, &protocalBridgeArray,
-                     chassisPath](const boost::system::error_code& ec2,
-                                  const std::vector<std::string>& resp2) {
-                        if (ec2)
-                        {
-                            return; // no chassis = no failures
-                        }
-
-                        for (const std::string& networkAdapterPath : resp2)
-                        {
-                            sdbusplus::object_path objectPath(
-                                networkAdapterPath);
-                            std::string networkAdapterId =
-                                objectPath.filename();
-                            if (networkAdapterId.empty())
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Empty String networkAdapterId for objPath:{}",
-                                    networkAdapterPath);
-                                messages::internalError(aResp->res);
-                                return;
-                            }
-
-                            sdbusplus::object_path objpath(chassisPath);
-                            std::string chassisId = objpath.filename();
-                            if (chassisId.empty())
-                            {
-                                messages::internalError(aResp->res);
-                                return;
-                            }
-                            std::string odataId = "/redfish/v1/Chassis/";
-                            odataId += chassisId;
-                            odataId += "/NetworkAdapters/";
-                            odataId += networkAdapterId;
-                            protocalBridgeArray.push_back(
-                                {{"@odata.id", odataId}});
-                        }
-                    });
-            }
+/* * @brief Fill out links association to underneath processors by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisProcessorProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    getChassisBridgedLinks(
+        aResp, objPath, "bridging_processor", "",
+        [](const std::string& processorId, const std::string&) -> std::string {
+            return "/redfish/v1/Systems/" +
+                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                   "/Processors/" + processorId;
         });
 }
 
