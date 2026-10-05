@@ -676,6 +676,23 @@ inline void getChassisProcessorProtocolBridgeForDevices(
         });
 }
 
+/* * @brief Fill out links association to underneath fabric switches by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisSwitchProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    getChassisBridgedLinks(
+        aResp, objPath, "bridging_switch", "fabrics",
+        [](const std::string& switchId,
+           const std::string& fabricId) -> std::string {
+            return "/redfish/v1/Fabrics/" + fabricId + "/Switches/" + switchId;
+        });
+}
+
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -689,6 +706,8 @@ inline void getProtocolBridgeForDevices(
     getChassisNetworkAdapterProtocolBridgeForDevices(aResp, objPath);
     // Links association to underneath processors
     getChassisProcessorProtocolBridgeForDevices(aResp, objPath);
+    // Links association to underneath fabric switches
+    getChassisSwitchProtocolBridgeForDevices(aResp, objPath);
 }
 
 /* * @brief Fill out links association to underneath chassis by
