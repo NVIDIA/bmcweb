@@ -258,7 +258,7 @@ inline bool validateCredentialField(const std::optional<std::string>& field,
 
     if (field->find(':') != std::string::npos)
     {
-        messages::propertyValueIncorrect(res, *field, fieldName);
+        messages::propertyValueIncorrect(res, fieldName, *field);
         return false;
     }
 
