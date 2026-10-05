@@ -14,13 +14,176 @@
 
 #include <array>
 #include <cerrno>
+#include <chrono>
+#include <exception>
 #include <functional>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 namespace redfish
 {
 namespace nvidia_sensor_utils
 {
+
+namespace details
+{
+
+template <typename Value>
+class TtlCache
+{
+  public:
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
+
+    explicit TtlCache(std::chrono::seconds ttlIn) : ttl(ttlIn) {}
+
+    std::optional<Value> get(const std::string& key,
+                             TimePoint now = Clock::now())
+    {
+        auto entry = entries.find(key);
+        if (entry == entries.end())
+        {
+            return std::nullopt;
+        }
+        if (now >= entry->second.expiresAt)
+        {
+            entries.erase(entry);
+            return std::nullopt;
+        }
+        return entry->second.value;
+    }
+
+    void insert(std::string key, Value value, TimePoint now = Clock::now())
+    {
+        if (!nextCleanup || now >= *nextCleanup)
+        {
+            std::erase_if(entries, [now](const auto& item) {
+                return now >= item.second.expiresAt;
+            });
+            nextCleanup = now + ttl;
+        }
+        entries.insert_or_assign(std::move(key),
+                                 Entry{std::move(value), now + ttl});
+    }
+
+    template <typename Predicate>
+    void eraseIf(const std::string& key, Predicate predicate)
+    {
+        auto entry = entries.find(key);
+        if (entry != entries.end() && predicate(entry->second.value))
+        {
+            entries.erase(entry);
+        }
+    }
+
+    void clear()
+    {
+        entries.clear();
+        nextCleanup.reset();
+    }
+
+  private:
+    struct Entry
+    {
+        Value value;
+        TimePoint expiresAt;
+    };
+
+    std::chrono::seconds ttl;
+    std::unordered_map<std::string, Entry> entries;
+    std::optional<TimePoint> nextCleanup;
+};
+
+} // namespace details
+
+struct SensorPathCacheValue
+{
+    std::string service;
+    std::string path;
+    std::vector<std::string> interfaces;
+};
+
+struct RelatedItemCacheValue
+{
+    std::optional<nlohmann::json> relatedItem;
+};
+
+// Sensor paths and RelatedItem data change rarely; keep them for an hour.
+constexpr std::chrono::seconds sensorCacheTtl{std::chrono::hours(1)};
+
+inline details::TtlCache<SensorPathCacheValue>& getSensorPathCache()
+{
+    static details::TtlCache<SensorPathCacheValue> cache(sensorCacheTtl);
+    return cache;
+}
+
+inline details::TtlCache<RelatedItemCacheValue>& getRelatedItemCache()
+{
+    static details::TtlCache<RelatedItemCacheValue> cache(sensorCacheTtl);
+    return cache;
+}
+
+inline void invalidateSensorPathCache(const std::string& cacheKey,
+                                      const std::string& sensorPath,
+                                      const std::string& service)
+{
+    getSensorPathCache().eraseIf(
+        cacheKey, [&sensorPath, &service](const SensorPathCacheValue& value) {
+            return value.path == sensorPath && value.service == service;
+        });
+}
+
+inline std::string makeSensorPathCacheKey(const std::string& chassisId,
+                                          const std::string& sensorId)
+{
+    std::string key;
+    key.reserve(chassisId.size() + sensorId.size() + 1);
+    key.append(chassisId);
+    key.push_back('\n');
+    key.append(sensorId);
+    return key;
+}
+
+// Each asynchronous related-item lookup keeps a copy of this token.  The last
+// callback to release it stores the complete RelatedItem value in the cache.
+class RelatedItemCacheCollector
+{
+  public:
+    RelatedItemCacheCollector(std::shared_ptr<bmcweb::AsyncResp> asyncRespIn,
+                              std::string sensorPathIn) :
+        asyncResp(std::move(asyncRespIn)), sensorPath(std::move(sensorPathIn))
+    {}
+
+    ~RelatedItemCacheCollector()
+    {
+        try
+        {
+            RelatedItemCacheValue value;
+            auto relatedItem = asyncResp->res.jsonValue.find("RelatedItem");
+            if (relatedItem != asyncResp->res.jsonValue.end())
+            {
+                value.relatedItem = *relatedItem;
+            }
+            getRelatedItemCache().insert(sensorPath, std::move(value));
+        }
+        catch (const std::exception& e)
+        {
+            BMCWEB_LOG_ERROR("Failed to cache sensor RelatedItem data: {}",
+                             e.what());
+        }
+    }
+
+    RelatedItemCacheCollector(const RelatedItemCacheCollector&) = delete;
+    RelatedItemCacheCollector& operator=(const RelatedItemCacheCollector&) =
+        delete;
+
+  private:
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    std::string sensorPath;
+};
 
 inline void defaultSystemURI(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -33,31 +196,33 @@ inline void defaultSystemURI(
 
 inline void handleChassisRedfishURL(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& chassisPath)
+    const sdbusplus::object_path& chassisPath,
+    const std::shared_ptr<RelatedItemCacheCollector>& cacheCollector = nullptr)
 {
-    chassis_utils::getRedfishURL(
-        chassisPath.str,
-        [asyncResp](const bool& status, const std::string& url) {
-            nlohmann::json& itemsArray =
-                asyncResp->res.jsonValue["RelatedItem"];
-            if (!status)
-            {
-                defaultSystemURI(asyncResp);
-                return;
-            }
-            itemsArray.push_back({nlohmann::json::array({"@odata.id", url})});
-        });
+    chassis_utils::getRedfishURL(chassisPath.str, [asyncResp, cacheCollector](
+                                                      const bool& status,
+                                                      const std::string& url) {
+        nlohmann::json& itemsArray = asyncResp->res.jsonValue["RelatedItem"];
+        if (!status)
+        {
+            defaultSystemURI(asyncResp);
+            return;
+        }
+        itemsArray.push_back({nlohmann::json::array({"@odata.id", url})});
+    });
 }
 
 inline void populateRelatedNetworkAdapterData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objPath)
+    const std::string& objPath,
+    const std::shared_ptr<RelatedItemCacheCollector>& cacheCollector = nullptr)
 {
     // get parent of the network adapter to construct the URI
     dbus::utility::findAssociations(
         objPath + "/parent_chassis",
-        [asyncResp, objPath](const boost::system::error_code ec,
-                             const std::vector<std::string>& resp) {
+        [asyncResp, objPath,
+         cacheCollector](const boost::system::error_code ec,
+                         const std::vector<std::string>& resp) {
             if (ec)
             {
                 // default
@@ -83,7 +248,8 @@ inline void populateRelatedNetworkAdapterData(
 
 inline void getRelatedNetworkAdapterData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& objPath)
+    const std::string& objPath,
+    const std::shared_ptr<RelatedItemCacheCollector>& cacheCollector = nullptr)
 {
     BMCWEB_LOG_DEBUG("Sensor get related network adapter item");
 
@@ -91,8 +257,9 @@ inline void getRelatedNetworkAdapterData(
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/chassis",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, objPath](const boost::system::error_code ec,
-                             const std::vector<std::string>& resp) {
+        [asyncResp, objPath,
+         cacheCollector](const boost::system::error_code ec,
+                         const std::vector<std::string>& resp) {
             if (ec)
             {
                 // If chassis link fails, fallback to default system URI
@@ -110,9 +277,9 @@ inline void getRelatedNetworkAdapterData(
                     "xyz.openbmc_project.ObjectMapper",
                     objPath + "/network_adapter",
                     "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp, chassisId,
-                     objectPath](const boost::system::error_code ec1,
-                                 const std::vector<std::string>& resp1) {
+                    [asyncResp, chassisId, objectPath,
+                     cacheCollector](const boost::system::error_code ec1,
+                                     const std::vector<std::string>& resp1) {
                         if (ec1)
                         {
                             // If network adapter call fails,
@@ -120,14 +287,20 @@ inline void getRelatedNetworkAdapterData(
                             // interface
                             nvidia_chassis_utils::getChassisRelatedItem(
                                 asyncResp, objectPath, chassisId,
-                                handleChassisRedfishURL);
+                                [cacheCollector](
+                                    const std::shared_ptr<bmcweb::AsyncResp>&
+                                        response,
+                                    const sdbusplus::object_path& path) {
+                                    handleChassisRedfishURL(response, path,
+                                                            cacheCollector);
+                                });
                             return;
                         }
 
                         for (const std::string& adapterPath : resp1)
                         {
-                            populateRelatedNetworkAdapterData(asyncResp,
-                                                              adapterPath);
+                            populateRelatedNetworkAdapterData(
+                                asyncResp, adapterPath, cacheCollector);
                         }
                     });
             }
@@ -162,21 +335,37 @@ inline void getRelatedItemData(
 {
     BMCWEB_LOG_DEBUG("Sensor get related item");
 
+    std::optional<RelatedItemCacheValue> cached =
+        getRelatedItemCache().get(objPath);
+    if (cached)
+    {
+        BMCWEB_LOG_DEBUG("Sensor RelatedItem cache hit for {}", objPath);
+        if (cached->relatedItem)
+        {
+            asyncResp->res.jsonValue["RelatedItem"] = *cached->relatedItem;
+        }
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Sensor RelatedItem cache miss for {}", objPath);
+    auto cacheCollector =
+        std::make_shared<RelatedItemCacheCollector>(asyncResp, objPath);
+
     // Check fabric switch link
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, objPath](const boost::system::error_code& ec,
-                             const std::vector<std::string>& resp) {
+        [asyncResp, objPath,
+         cacheCollector](const boost::system::error_code& ec,
+                         const std::vector<std::string>& resp) {
             if (ec)
             {
                 // Check processor link
                 dbus::utility::getProperty<std::vector<std::string>>(
                     "xyz.openbmc_project.ObjectMapper", objPath + "/processor",
                     "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp,
-                     objPath](const boost::system::error_code& ec1,
-                              const std::vector<std::string>& resp1) {
+                    [asyncResp, objPath,
+                     cacheCollector](const boost::system::error_code& ec1,
+                                     const std::vector<std::string>& resp1) {
                         nlohmann::json& itemsArray1 =
                             asyncResp->res.jsonValue["RelatedItem"];
                         if (ec1)
@@ -184,7 +373,7 @@ inline void getRelatedItemData(
                             // Call to network adapter-related items when
                             // processor check fails
                             nvidia_sensor_utils::getRelatedNetworkAdapterData(
-                                asyncResp, objPath);
+                                asyncResp, objPath, cacheCollector);
                             return;
                         }
                         for (const std::string& processorPath : resp1)
@@ -207,9 +396,9 @@ inline void getRelatedItemData(
             dbus::utility::getProperty<std::vector<std::string>>(
                 "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
                 "xyz.openbmc_project.Association", "endpoints",
-                [asyncResp,
-                 fabricPaths = resp](const boost::system::error_code& ec1,
-                                     const std::vector<std::string>& resp1) {
+                [asyncResp, fabricPaths = resp,
+                 cacheCollector](const boost::system::error_code& ec1,
+                                 const std::vector<std::string>& resp1) {
                     if (ec1)
                     {
                         return; // no switch = no failures
@@ -460,6 +649,20 @@ inline void findSensorServiceAndPathInChassis(
                                                 std::vector<std::string>>>)>&&
         callback)
 {
+    std::optional<SensorPathCacheValue> cached =
+        getSensorPathCache().get(makeSensorPathCacheKey(chassisId, sensorId));
+    if (cached)
+    {
+        BMCWEB_LOG_DEBUG("Sensor path cache hit for chassis {} sensor {}",
+                         chassisId, sensorId);
+        callback({}, true,
+                 std::make_tuple(cached->service, cached->path,
+                                 cached->interfaces));
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Sensor path cache miss for chassis {} sensor {}",
+                     chassisId, sensorId);
+
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/inventory", 0,
         std::array<std::string_view, 1>{
@@ -493,7 +696,7 @@ inline void findSensorServiceAndPathInChassis(
                 "/xyz/openbmc_project/sensors", 2,
                 std::array<std::string_view, 1>{
                     "xyz.openbmc_project.Sensor.Value"},
-                [sensorId, callback = std::move(callback)](
+                [chassisId, sensorId, callback = std::move(callback)](
                     const boost::system::error_code& ec2,
                     const dbus::utility::MapperGetSubTreeResponse&
                         subtree) mutable {
@@ -512,6 +715,10 @@ inline void findSensorServiceAndPathInChassis(
                     if (sensorIt != subtree.end() && !sensorIt->second.empty())
                     {
                         const auto& service = sensorIt->second.front();
+                        getSensorPathCache().insert(
+                            makeSensorPathCacheKey(chassisId, sensorId),
+                            SensorPathCacheValue{service.first, sensorIt->first,
+                                                 service.second});
                         callback({}, true,
                                  std::make_tuple(service.first, sensorIt->first,
                                                  service.second));
@@ -523,16 +730,30 @@ inline void findSensorServiceAndPathInChassis(
         });
 }
 
-inline void handleSensorGetUsingPath(
+using SensorGetHandler = std::function<void(
+    const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
+    const std::string&, const std::string&)>;
+
+inline void prepareSensorGetResponse(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& sensorId,
-    const std::string& sensorPath,
-    const std::function<
-        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
-             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
+    const std::string& chassisId, const std::string& sensorId)
 {
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        asyncResp->res.jsonValue["Status"]["Conditions"] =
+            nlohmann::json::array();
+    }
+}
+
+inline void handleSensorGetUsingPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId,
+    const std::string& sensorPath, const SensorGetHandler& handleSensorResponse)
+{
+    prepareSensorGetResponse(asyncResp, chassisId, sensorId);
 
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
 
@@ -540,7 +761,7 @@ inline void handleSensorGetUsingPath(
         "xyz.openbmc_project.Sensor.Value"};
     ::dbus::utility::getDbusObject(
         sensorPath, interfaces,
-        [asyncResp, sensorId, sensorPath, handleMapperResponse](
+        [asyncResp, chassisId, sensorId, sensorPath, handleSensorResponse](
             const boost::system::error_code& ec,
             const ::dbus::utility::MapperGetObject& subtree) {
             BMCWEB_LOG_DEBUG("respHandler1 enter");
@@ -557,7 +778,18 @@ inline void handleSensorGetUsingPath(
                     "Sensor getSensorPaths resp_handler: Dbus error {}", ec);
                 return;
             }
-            handleMapperResponse(asyncResp, sensorPath, subtree);
+            if (subtree.size() != 1)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            const auto& [service, mapperInterfaces] = *subtree.begin();
+            std::string cacheKey = makeSensorPathCacheKey(chassisId, sensorId);
+            getSensorPathCache().insert(
+                cacheKey,
+                SensorPathCacheValue{service, sensorPath, mapperInterfaces});
+            handleSensorResponse(asyncResp, sensorPath, service, cacheKey);
             BMCWEB_LOG_DEBUG("respHandler1 exit");
         });
 }
@@ -565,20 +797,10 @@ inline void handleSensorGetUsingPath(
 inline void handleChassisSensorMatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId,
-    const std::string& sensorPath,
-    const std::function<
-        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
-             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
+    const std::string& sensorPath, const SensorGetHandler& handleSensorResponse)
 {
-    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-    {
-        asyncResp->res.jsonValue["Status"]["Conditions"] =
-            nlohmann::json::array();
-    }
-
     nvidia_sensor_utils::handleSensorGetUsingPath(
-        asyncResp, chassisId, sensorId, sensorPath, handleMapperResponse);
+        asyncResp, chassisId, sensorId, sensorPath, handleSensorResponse);
     // Add related item data
     nvidia_sensor_utils::getRelatedItemData(asyncResp, sensorPath);
 }
@@ -586,9 +808,7 @@ inline void handleChassisSensorMatch(
 inline void afterGetAllChassisSensors(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& sensorName, const std::string& chassisId,
-    const std::function<
-        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
-             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse,
+    const SensorGetHandler& handleSensorResponse,
     const boost::system::error_code& ec,
     const std::vector<std::string>& variantEndpoints)
 {
@@ -619,7 +839,7 @@ inline void afterGetAllChassisSensors(
         }
 
         handleChassisSensorMatch(asyncResp, chassisId, sensorId, sensorPath,
-                                 handleMapperResponse);
+                                 handleSensorResponse);
         return;
     }
     messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
@@ -628,31 +848,42 @@ inline void afterGetAllChassisSensors(
 inline void getChassisSensors(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& chassisPath,
-    const std::string& sensorName,
-    const std::function<
-        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
-             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
+    const std::string& sensorName, const SensorGetHandler& handleSensorResponse)
 {
     // Find the sensor on the chassis
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_sensors",
         "xyz.openbmc_project.Association", "endpoints",
         std::bind_front(afterGetAllChassisSensors, asyncResp, sensorName,
-                        chassisId, handleMapperResponse));
+                        chassisId, handleSensorResponse));
 }
 
 inline void handleSensorGetAfterSetup(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId,
-    const std::function<
-        void(const std::shared_ptr<bmcweb::AsyncResp>&, const std::string&,
-             const ::dbus::utility::MapperGetObject&)>& handleMapperResponse)
+    const SensorGetHandler& handleSensorResponse)
 {
+    std::string cacheKey = makeSensorPathCacheKey(chassisId, sensorId);
+    std::optional<SensorPathCacheValue> cached =
+        getSensorPathCache().get(cacheKey);
+    if (cached)
+    {
+        BMCWEB_LOG_DEBUG("Sensor path cache hit for chassis {} sensor {}",
+                         chassisId, sensorId);
+        prepareSensorGetResponse(asyncResp, chassisId, sensorId);
+        handleSensorResponse(asyncResp, cached->path, cached->service,
+                             cacheKey);
+        getRelatedItemData(asyncResp, cached->path);
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Sensor path cache miss for chassis {} sensor {}",
+                     chassisId, sensorId);
+
     constexpr std::array<std::string_view, 1> chassisInterface = {
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     auto chassisHandler = [asyncResp, chassisId, sensorId,
-                           handleMapperResponse](
+                           handleSensorResponse](
                               const boost::system::error_code& ec,
                               const std::vector<std::string>& chassisPaths) {
         if (ec)
@@ -678,7 +909,7 @@ inline void handleSensorGetAfterSetup(
 
             nvidia_sensor_utils::getChassisSensors(
                 asyncResp, chassisId, chassisPath, sensorId,
-                handleMapperResponse);
+                handleSensorResponse);
             return;
         }
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);

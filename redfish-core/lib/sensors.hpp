@@ -2578,6 +2578,34 @@ inline void getSensorInventory(
                         sensorProperties));
 }
 
+inline void getSensorFromDbusService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath, const std::string& connectionName,
+    const std::string& sensorCacheKey)
+{
+    BMCWEB_LOG_DEBUG("Looking up {}", connectionName);
+    BMCWEB_LOG_DEBUG("Path {}", sensorPath);
+
+    ::dbus::utility::getAllProperties(
+        *crow::connections::systemBus, connectionName, sensorPath, "",
+        // ast-grep-ignore: long-lambda
+        [asyncResp, sensorPath, connectionName,
+         sensorCacheKey](const boost::system::error_code& ec,
+                         const ::dbus::utility::DBusPropertiesMap& valuesDict) {
+            if (ec)
+            {
+                nvidia_sensor_utils::invalidateSensorPathCache(
+                    sensorCacheKey, sensorPath, connectionName);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            auto sensorProperties =
+                std::make_shared<::dbus::utility::DBusPropertiesMap>(
+                    valuesDict);
+            getSensorInventory(asyncResp, sensorPath, sensorProperties);
+        });
+}
+
 inline void getSensorFromDbus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& sensorPath,
@@ -2588,27 +2616,8 @@ inline void getSensorFromDbus(
         messages::internalError(asyncResp->res);
         return;
     }
-    const auto& valueIface = *mapperResponse.begin();
-    const std::string& connectionName = valueIface.first;
-    BMCWEB_LOG_DEBUG("Looking up {}", connectionName);
-    BMCWEB_LOG_DEBUG("Path {}", sensorPath);
-
-    ::dbus::utility::getAllProperties(
-        *crow::connections::systemBus, connectionName, sensorPath, "",
-        // ast-grep-ignore: long-lambda
-        [asyncResp,
-         sensorPath](const boost::system::error_code& ec,
-                     const ::dbus::utility::DBusPropertiesMap& valuesDict) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            auto sensorProperties =
-                std::make_shared<::dbus::utility::DBusPropertiesMap>(
-                    valuesDict);
-            getSensorInventory(asyncResp, sensorPath, sensorProperties);
-        });
+    getSensorFromDbusService(asyncResp, sensorPath,
+                             mapperResponse.begin()->first, {});
 }
 
 inline void handleSensorGet(App& app, const crow::Request& req,
@@ -2674,8 +2683,8 @@ inline void handleSensorGetWithChassisValidation(
         return;
     }
 
-    nvidia_sensor_utils::handleSensorGetAfterSetup(asyncResp, chassisId,
-                                                   sensorId, getSensorFromDbus);
+    nvidia_sensor_utils::handleSensorGetAfterSetup(
+        asyncResp, chassisId, sensorId, getSensorFromDbusService);
 }
 // Nvidia added  end
 } // namespace sensors
