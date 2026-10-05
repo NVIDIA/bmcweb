@@ -4052,6 +4052,9 @@ inline void processComputerSystemGet(
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
+    asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/LogServices";
     nlohmann::json::array_t managedBy;
     nlohmann::json& manager = managedBy.emplace_back();
     manager["@odata.id"] =
