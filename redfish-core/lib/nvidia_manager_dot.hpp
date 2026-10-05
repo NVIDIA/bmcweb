@@ -35,13 +35,16 @@ namespace redfish
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <cstdint>
 #include <format>
 #include <functional>
 #include <optional>
 #include <string>
-#include <tuple>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 constexpr const char* dotKeydService = "xyz.openbmc_project.Security.DOT";
 constexpr const char* dotKeydPath = "/xyz/openbmc_project/security/dot";
@@ -161,8 +164,83 @@ inline void getManagerDOT(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
+namespace dot_cak
+{
+
+/*
+ * The CAKInstall arguments go to dot-keyd as a D-Bus a{sv} dictionary
+ * (dbus::utility::DBusPropertiesMap): CAKKey and LAKKey as a{ss}
+ * KeyStructures holding AuthenticationScheme, ECDSAKey and, for the Hybrid
+ * scheme, LMSKey; LockDisable as bool; the two minimum security versions as
+ * int64. Members are added in alphabetical order. The member values are
+ * checked by dot-keyd, which rejects a bad one with
+ * xyz.openbmc_project.Common.Error.InvalidArgument naming the member.
+ */
+
+/**
+ * @brief Add one NvidiaDOT KeyStructure to the dot-keyd arguments
+ */
+inline void addKeyStructure(
+    dbus::utility::DBusPropertiesMap& args, std::string_view member,
+    std::string_view authScheme, std::string_view ecdsaKey,
+    const std::optional<std::string>& lmsKey)
+{
+    std::vector<std::pair<std::string, std::string>> key;
+    key.emplace_back("AuthenticationScheme", std::string(authScheme));
+    key.emplace_back("ECDSAKey", std::string(ecdsaKey));
+    if (lmsKey)
+    {
+        key.emplace_back("LMSKey", *lmsKey);
+    }
+    args.emplace_back(std::string(member),
+                      dbus::utility::DbusVariantType(std::move(key)));
+}
+
+} // namespace dot_cak
+
+/**
+ * @brief Process the dot-keyd installCak2BmcFs reply
+ *
+ * A rejection comes back as xyz.openbmc_project.Common.Error.InvalidArgument
+ * whose message names the offending member; anything else is internal.
+ */
+inline void processCAKInstallResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, sdbusplus::message_t& msg)
+{
+    if (!ec)
+    {
+        messages::success(asyncResp->res);
+        return;
+    }
+    const sd_bus_error* dbusError = msg.get_error();
+    if (dbusError != nullptr && dbusError->name != nullptr &&
+        std::string_view(dbusError->name) ==
+            "xyz.openbmc_project.Common.Error.InvalidArgument")
+    {
+        std::string reason =
+            dbusError->message != nullptr ? dbusError->message : "";
+        BMCWEB_LOG_WARNING("CAKInstall rejected by dot-keyd: {}", reason);
+        messages::actionParameterValueError(
+            asyncResp->res, nlohmann::json(reason), "CAKInstall");
+        return;
+    }
+    BMCWEB_LOG_ERROR("CAKInstall D-Bus call failed: {}", ec.message());
+    messages::internalError(asyncResp->res);
+}
+
 /**
  * @brief Handle CAKInstall action
+ *
+ * The body is parsed against the NvidiaDOTManagement.CAKInstall parameters:
+ * CAKKey and the optional LAKKey as NvidiaDOT KeyStructure
+ * (AuthenticationScheme, ECDSAKey and, for the Hybrid scheme, LMSKey),
+ * LockDisable and the two minimum security versions. Unknown members, missing
+ * members and wrong types are rejected here. The members are handed to
+ * dot-keyd's installCak2BmcFs as a D-Bus dictionary; dot-keyd owns the key
+ * store and validates the values. A rejection there comes back as the D-Bus
+ * error xyz.openbmc_project.Common.Error.InvalidArgument whose message names
+ * the offending member.
  */
 inline void handleCAKInstall(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -176,96 +254,69 @@ inline void handleCAKInstall(
 
     std::string cakAuthScheme;
     std::string cakEcdsaKey;
-    int64_t vendorMinimumSecurityVersion = 0;
-    int64_t ownerMinimumSecurityVersion = 0;
-    bool lockDisable = false;
+    std::optional<std::string> cakLmsKey;
     std::optional<std::string> lakAuthScheme;
     std::optional<std::string> lakEcdsaKey;
+    std::optional<std::string> lakLmsKey;
+    bool lockDisable = false;
+    int64_t ownerMinimumSecurityVersion = 0;
+    int64_t vendorMinimumSecurityVersion = 0;
 
-    nlohmann::json jsonRequest;
-    if (!redfish::json_util::processJsonFromRequest(asyncResp->res, req,
-                                                    jsonRequest))
+    if (!redfish::json_util::readJsonAction(                             //
+            req, asyncResp->res,                                         //
+            "CAKKey/AuthenticationScheme", cakAuthScheme,                //
+            "CAKKey/ECDSAKey", cakEcdsaKey,                              //
+            "CAKKey/LMSKey", cakLmsKey,                                  //
+            "LAKKey/AuthenticationScheme", lakAuthScheme,                //
+            "LAKKey/ECDSAKey", lakEcdsaKey,                              //
+            "LAKKey/LMSKey", lakLmsKey,                                  //
+            "LockDisable", lockDisable,                                  //
+            "OwnerMinimumSecurityVersion", ownerMinimumSecurityVersion,  //
+            "VendorMinimumSecurityVersion", vendorMinimumSecurityVersion //
+            ))
     {
         return;
     }
 
-    if (!redfish::json_util::readJson(
-            jsonRequest, asyncResp->res, "CAKKey/AuthenticationScheme",
-            cakAuthScheme, "CAKKey/ECDSAKey", cakEcdsaKey,
-            "VendorMinimumSecurityVersion", vendorMinimumSecurityVersion,
-            "OwnerMinimumSecurityVersion", ownerMinimumSecurityVersion,
-            "LockDisable", lockDisable, "LAKKey/AuthenticationScheme",
-            lakAuthScheme, "LAKKey/ECDSAKey", lakEcdsaKey))
-    {
-        return;
-    }
+    dbus::utility::DBusPropertiesMap args;
+    dot_cak::addKeyStructure(args, "CAKKey", cakAuthScheme, cakEcdsaKey,
+                             cakLmsKey);
 
-    if (cakAuthScheme.empty() || cakEcdsaKey.empty())
+    // LAKKey is optional as a whole, but once any of its members is given
+    // the KeyStructure needs AuthenticationScheme and ECDSAKey.
+    if (lakAuthScheme || lakEcdsaKey || lakLmsKey)
     {
-        messages::actionParameterValueFormatError(
-            asyncResp->res,
-            nlohmann::json{
-                {"AuthenticationScheme", cakAuthScheme},
-                {"ECDSAKey", cakEcdsaKey},
-            },
-            "CAKKey", "CAKInstall");
-        return;
-    }
-
-    if (lakAuthScheme.has_value() != lakEcdsaKey.has_value())
-    {
-        messages::actionParameterMissing(
-            asyncResp->res, "CAKInstall",
-            lakAuthScheme ? "LAKKey/ECDSAKey" : "LAKKey/AuthenticationScheme");
-        return;
-    }
-
-    bool hasLakKey = false;
-    std::tuple<std::string, std::string> lakKeyStruct{"", ""};
-
-    if (lakAuthScheme && lakEcdsaKey)
-    {
-        if (lakAuthScheme->empty() || lakEcdsaKey->empty())
+        if (!lakAuthScheme)
         {
-            messages::actionParameterValueFormatError(
-                asyncResp->res,
-                nlohmann::json{
-                    {"AuthenticationScheme", *lakAuthScheme},
-                    {"ECDSAKey", *lakEcdsaKey},
-                },
-                "LAKKey", "CAKInstall");
+            messages::actionParameterMissing(asyncResp->res, "CAKInstall",
+                                             "LAKKey/AuthenticationScheme");
             return;
         }
-        hasLakKey = true;
-        lakKeyStruct = std::make_tuple(*lakAuthScheme, *lakEcdsaKey);
+        if (!lakEcdsaKey)
+        {
+            messages::actionParameterMissing(asyncResp->res, "CAKInstall",
+                                             "LAKKey/ECDSAKey");
+            return;
+        }
+        dot_cak::addKeyStructure(args, "LAKKey", *lakAuthScheme, *lakEcdsaKey,
+                                 lakLmsKey);
     }
+    args.emplace_back("LockDisable",
+                      dbus::utility::DbusVariantType(lockDisable));
+    args.emplace_back(
+        "OwnerMinimumSecurityVersion",
+        dbus::utility::DbusVariantType(ownerMinimumSecurityVersion));
+    args.emplace_back(
+        "VendorMinimumSecurityVersion",
+        dbus::utility::DbusVariantType(vendorMinimumSecurityVersion));
 
-    // Call D-Bus method installCak2BmcFs
     dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
-                    const std::string& result) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("CAKInstall D-Bus call failed: {}",
-                                 ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            if (result != "Success")
-            {
-                BMCWEB_LOG_ERROR("CAKInstall failed: {}", result);
-                messages::actionParameterValueError(
-                    asyncResp->res, nlohmann::json(result), "CAKInstall");
-                return;
-            }
-
-            messages::success(asyncResp->res);
+                    sdbusplus::message_t& msg) {
+            processCAKInstallResponse(asyncResp, ec, msg);
         },
         dotKeydService, dotKeydPath, dotKeydInterface, "installCak2BmcFs",
-        std::make_tuple(cakAuthScheme, cakEcdsaKey), lockDisable,
-        vendorMinimumSecurityVersion, ownerMinimumSecurityVersion, hasLakKey,
-        lakKeyStruct);
+        args);
 }
 
 inline void processCAKDeleteResponse(
