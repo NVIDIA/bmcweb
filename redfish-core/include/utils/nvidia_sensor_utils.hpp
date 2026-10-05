@@ -134,6 +134,28 @@ inline void getRelatedNetworkAdapterData(
         });
 }
 
+inline void addFabricSwitchRelatedItems(
+    nlohmann::json& itemsArray,
+    const std::vector<std::string>& fabricPaths,
+    const std::vector<std::string>& switchPaths)
+{
+    for (const std::string& fabricPath : fabricPaths)
+    {
+        sdbusplus::object_path fabricObjectPath(fabricPath);
+        const std::string fabricId = fabricObjectPath.filename();
+        for (const std::string& switchPath : switchPaths)
+        {
+            sdbusplus::object_path switchObjectPath(switchPath);
+            const std::string switchId = switchObjectPath.filename();
+            std::string switchURI =
+                boost::urls::format("/redfish/v1/Fabrics/{}/Switches/{}",
+                                    fabricId, switchId)
+                    .buffer();
+            itemsArray.push_back({{"@odata.id", switchURI}});
+        }
+    }
+}
+
 inline void getRelatedItemData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
@@ -178,36 +200,25 @@ inline void getRelatedItemData(
                     });
                 return;
             }
-            for (const std::string& fabricPath : resp)
+            if (resp.empty())
             {
-                sdbusplus::object_path objectPath(fabricPath);
-                const std::string fabricId = objectPath.filename();
-                dbus::utility::getProperty<std::vector<std::string>>(
-                    "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [asyncResp,
-                     fabricId](const boost::system::error_code& ec1,
-                               const std::vector<std::string>& resp1) {
-                        if (ec1)
-                        {
-                            return; // no switch = no failures
-                        }
-
-                        nlohmann::json& itemsArray1 =
-                            asyncResp->res.jsonValue["RelatedItem"];
-                        for (const std::string& switchPath : resp1)
-                        {
-                            sdbusplus::object_path objectPath1(switchPath);
-                            std::string switchId = objectPath1.filename();
-                            std::string switchURI =
-                                boost::urls::format(
-                                    "/redfish/v1/Fabrics/{}/Switches/{}",
-                                    fabricId, switchId)
-                                    .buffer();
-                            itemsArray1.push_back({{"@odata.id", switchURI}});
-                        }
-                    });
+                return;
             }
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
+                "xyz.openbmc_project.Association", "endpoints",
+                [asyncResp,
+                 fabricPaths = resp](const boost::system::error_code& ec1,
+                                     const std::vector<std::string>& resp1) {
+                    if (ec1)
+                    {
+                        return; // no switch = no failures
+                    }
+
+                    nlohmann::json& itemsArray =
+                        asyncResp->res.jsonValue["RelatedItem"];
+                    addFabricSwitchRelatedItems(itemsArray, fabricPaths, resp1);
+                });
         });
 }
 
