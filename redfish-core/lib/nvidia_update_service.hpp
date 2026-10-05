@@ -436,6 +436,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::firmwarePackageComponentImageMissing(arg1);
     }
+    if (msgId.starts_with("NvidiaUpdate."))
+    {
+        return messages::getLogNvidia(msgId, args);
+    }
 
     return {};
 }

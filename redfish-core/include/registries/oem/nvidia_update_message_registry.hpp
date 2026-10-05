@@ -25,7 +25,7 @@ static constexpr Header header = {
     "Copyright 2024 Nvidia. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
-    2,
+    3,
     0,
     "Nvidia Message Registry",
     "en",
@@ -51,6 +51,131 @@ static constexpr std::array registry =
                 "string",
             },
             "None.",
+        }},
+    MessageEntry{
+        "ApplyCompleteTimedOut",
+        {
+            "Reports a firmware update status or failure.",
+            "Firmware update timed out waiting for ApplyComplete for component '%1'.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "ComponentDowngradeRejected",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' in the package with version '%2' has comparison stamp '%3', lower than the comparison stamp of the installed version, so the update was rejected.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Use a firmware package containing an upgrade for the installed component. To intentionally downgrade firmware, set the Redfish ForceUpdate parameter to true, then retry the update.",
+        }},
+    MessageEntry{
+        "ComponentImageAuthenticationFailed",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' was rejected because image authentication failed (VerifyComplete: IMAGE_AUTH_FAIL (0x95)).",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Obtain a correctly signed firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "ComponentImageIdentical",
+        {
+            "Indicates that a package component matches the installed component.",
+            "Component '%1' in the package with version '%2' has comparison stamp '%3', matching the comparison stamp of the installed version, so the update was skipped.",
+            "OK",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "No action is required. To reinstall the same firmware, set the Redfish ForceUpdate parameter to true.",
+        }},
+    MessageEntry{
+        "ComponentImageSecurityVersionRejected",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' was rejected because its security version does not meet the device's requirement (VerifyComplete: SECURITY_VERSION_REJECTED (0x93)).",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Use a firmware image with a security version that meets or exceeds the device's current security version, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "ComponentImageSigningKeyRevoked",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' was rejected because its signing key is revoked (VerifyComplete: SIGNING_KEY_REVOKED (0x94)).",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Verify the contents of the FW package. In production systems, this error suggests that a debug-signed image update was attempted without the debug token being installed. To resolve this, verify the debug token installation status using the LogService.CollectDiagnosticData API with the DebugTokenStatus parameter. If the tokens are not installed, follow the debug token installation steps and retry the update.",
+        }},
+    MessageEntry{
+        "ComponentImageSkuMismatch",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' was rejected because its SKU is incompatible with the target (VerifyComplete: AP_SKU_MISMATCH (0x97)).",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Use a firmware package containing an image for the target SKU, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "ComponentImageVerificationFailed",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' failed verification: %4.",
+            "Critical",
+            4,
+            {
+                "string",
+                "string",
+                "string",
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs with a known-good package, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "ComponentMetadataAuthenticationFailed",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' version '%2' in package '%3' was rejected because its firmware metadata could not be authenticated (VerifyComplete: METADATA_AUTH_FAIL (0x91)).",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Obtain the correct firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, verify the target device's trusted-key provisioning and collect the BMC and target-device logs.",
         }},
     MessageEntry{
         "ComponentUpdateSkipped",
@@ -249,6 +374,20 @@ static constexpr std::array registry =
             "Perform an L1 reset, then proceed with a second firmware recovery update to initiate DOT recovery NSM commands, such as DOTOverride.",
         }},
     MessageEntry{
+        "FirmwareDownloadTimedOut",
+        {
+            "Reports a firmware update status or failure.",
+            "Firmware download for component '%1' timed out because the device stopped requesting data after the BMC sent %2 of %3 bytes.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
         "FirmwareInRecovery",
         {
             "Indicates that device had boot failure and currently entered firmware recovery mode which requires external fw recovery",
@@ -309,6 +448,48 @@ static constexpr std::array registry =
             "Use a firmware package intended for this platform that contains images for the target devices, then retry the update.",
         }},
     MessageEntry{
+        "FirmwarePackageHeaderInvalid",
+        {
+            "Reports a firmware update status or failure.",
+            "The PLDM firmware package header is invalid or unsupported.",
+            "Critical",
+            0,
+            {},
+            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+        }},
+    MessageEntry{
+        "FirmwarePackageHeaderUnavailable",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM firmware package header is unavailable because the package could not be read or is too short.",
+            "Critical",
+            0,
+            {},
+            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+        }},
+    MessageEntry{
+        "FirmwarePackageMetadataInvalid",
+        {
+            "Reports a firmware update status or failure.",
+            "The PLDM firmware package contains invalid or unsupported package metadata.",
+            "Critical",
+            0,
+            {},
+            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+        }},
+    MessageEntry{
+        "FirmwarePackageNoMatchingDevices",
+        {
+            "Reports a firmware update status or failure.",
+            "No discovered firmware devices match the PLDM firmware package with version '%1'.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Verify that the firmware package is intended for this platform and contains images for the devices in this system, then retry the update.",
+        }},
+    MessageEntry{
         "FirmwarePackageSizeExceeded",
         {
             "Indicates that the uploaded firmware package is larger than the maximum size the service supports.",
@@ -334,6 +515,30 @@ static constexpr std::array registry =
                 "string",
             },
             "Retry firmware update operation; if it persists, reboot BMC.",
+        }},
+    MessageEntry{
+        "FirmwareTransferCompletionTimedOut",
+        {
+            "Reports a firmware update status or failure.",
+            "The device did not send TransferComplete for component '%1' before the firmware update operation timed out.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "FirmwareUpdateBlockedByWriteProtection",
+        {
+            "Reports a firmware update status or failure.",
+            "Component '%1' could not be written to its storage because write protection is enabled.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Disable write protection on the device, then retry the firmware update.",
         }},
     MessageEntry{
         "FirmwareUpdateInProgress",
@@ -370,6 +575,18 @@ static constexpr std::array registry =
                 "string",
             },
             "Verify that every URI in the Targets property identifies an existing, updateable firmware inventory resource, then resubmit the update request.",
+        }},
+    MessageEntry{
+        "FirmwareVerificationCompletionTimedOut",
+        {
+            "Reports a firmware update status or failure.",
+            "The device did not send VerifyComplete for component '%1' before the firmware update operation timed out.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "HeaderValueInvalid",
@@ -410,6 +627,82 @@ static constexpr std::array registry =
             "Correct the multipart request formatting and resubmit the request.",
         }},
     MessageEntry{
+        "PLDMCommandTimedOut",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM command '%1' timed out for update target '%2'.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+        }},
+    MessageEntry{
+        "PackageHeaderChecksumMismatch",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM firmware package failed header checksum validation. Expected checksum '%1'; calculated checksum '%2'.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+        }},
+    MessageEntry{
+        "PackagePayloadChecksumMismatch",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM firmware package with version '%1' failed payload checksum validation. Expected checksum '%2'; calculated checksum '%3'.",
+            "Critical",
+            3,
+            {
+                "string",
+                "string",
+                "string",
+            },
+            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+        }},
+    MessageEntry{
+        "PackageSignatureIntegrityFailed",
+        {
+            "Reports a firmware update status or failure.",
+            "The integrity check using the NVIDIA signature header failed for PLDM firmware package version '%1'.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+        }},
+    MessageEntry{
+        "PackageSignatureRequired",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM firmware package with version '%1' was rejected because the BMC requires an NVIDIA signature header to authenticate firmware packages.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Obtain a firmware package signed by an authority trusted by this BMC and containing the required NVIDIA signature header, then retry the update.",
+        }},
+    MessageEntry{
+        "PackageSignatureVerificationFailed",
+        {
+            "Reports a firmware update status or failure.",
+            "Signature verification using the BMC-configured key failed for PLDM firmware package version '%1'.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Obtain a firmware package signed by an authority trusted by this BMC, then retry the update. If signature verification still fails with a known-good package, verify that the BMC is provisioned with the required verification key. If the issue persists, collect the logs and contact support.",
+        }},
+    MessageEntry{
         "PreUpdateValidationFailed",
         {
             "Indicates that a firmware update request was rejected because one or more target components failed pre-update validation.",
@@ -443,44 +736,122 @@ static constexpr std::array registry =
             },
             "None.",
         }},
+    MessageEntry{
+        "RequestedTargetNotSupportedByPackage",
+        {
+            "Reports a firmware update status or failure.",
+            "Requested firmware update target '%1' is not supported by PLDM firmware package version '%2'.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Verify that the firmware package is intended for this platform and contains an image compatible with the requested target, then retry the firmware update.",
+        }},
+    MessageEntry{
+        "RequestedTargetUnavailableForUpdate",
+        {
+            "Reports a firmware update status or failure.",
+            "Requested firmware update target '%1' is unavailable because it was not discovered during PLDM firmware inventory refresh.",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "Power on the target and verify its management connection, then retry the firmware update. If the target remains unavailable, follow the platform firmware recovery procedure.",
+        }},
+    MessageEntry{
+        "SignatureHeaderMalformed",
+        {
+            "Reports a firmware update status or failure.",
+            "The NVIDIA signature header for PLDM firmware package version '%1' failed validation: %2.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+        }},
+    MessageEntry{
+        "SignatureHeaderVersionUnsupported",
+        {
+            "Reports a firmware update status or failure.",
+            "PLDM firmware package version '%1' uses unsupported NVIDIA signature-header major version '%2'.",
+            "Critical",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Obtain a firmware package that uses an NVIDIA signature-header version supported by this platform, then retry the update.",
+        }},
 
 };
 
 enum class Index
 {
     activateSuccessful = 0,
-    componentUpdateSkipped = 1,
-    componentUpdateTime = 2,
-    dOTActionResponseError = 3,
-    dOTMCTPStatusError = 4,
-    debugTokenAlreadyInstalled = 5,
-    debugTokenEraseFailed = 6,
-    debugTokenEraseSkipped = 7,
-    debugTokenEraseSuccess = 8,
-    debugTokenInstallationFailed = 9,
-    debugTokenInstallationSkipped = 10,
-    debugTokenInstallationSuccess = 11,
-    debugTokenNotInstalled = 12,
-    debugTokenRequestSuccess = 13,
-    debugTokenStatusSuccess = 14,
-    debugTokenUnsupported = 15,
-    enterDOTRecovery = 16,
-    firmwareInRecovery = 17,
-    firmwareNotInRecovery = 18,
-    firmwarePackage = 19,
-    firmwarePackageComponentImageMissing = 20,
-    firmwarePackageEmpty = 21,
-    firmwarePackageSizeExceeded = 22,
-    firmwarePackageStagingError = 23,
-    firmwareUpdateInProgress = 24,
-    firmwareUpdateInitiationError = 25,
-    firmwareUpdateTargetInvalid = 26,
-    headerValueInvalid = 27,
-    imageCopyCompleted = 28,
-    malformedMultipartRequest = 29,
-    preUpdateValidationFailed = 30,
-    recoveryStarted = 31,
-    recoverySuccessful = 32,
+    applyCompleteTimedOut = 1,
+    componentDowngradeRejected = 2,
+    componentImageAuthenticationFailed = 3,
+    componentImageIdentical = 4,
+    componentImageSecurityVersionRejected = 5,
+    componentImageSigningKeyRevoked = 6,
+    componentImageSkuMismatch = 7,
+    componentImageVerificationFailed = 8,
+    componentMetadataAuthenticationFailed = 9,
+    componentUpdateSkipped = 10,
+    componentUpdateTime = 11,
+    dOTActionResponseError = 12,
+    dOTMCTPStatusError = 13,
+    debugTokenAlreadyInstalled = 14,
+    debugTokenEraseFailed = 15,
+    debugTokenEraseSkipped = 16,
+    debugTokenEraseSuccess = 17,
+    debugTokenInstallationFailed = 18,
+    debugTokenInstallationSkipped = 19,
+    debugTokenInstallationSuccess = 20,
+    debugTokenNotInstalled = 21,
+    debugTokenRequestSuccess = 22,
+    debugTokenStatusSuccess = 23,
+    debugTokenUnsupported = 24,
+    enterDOTRecovery = 25,
+    firmwareDownloadTimedOut = 26,
+    firmwareInRecovery = 27,
+    firmwareNotInRecovery = 28,
+    firmwarePackage = 29,
+    firmwarePackageComponentImageMissing = 30,
+    firmwarePackageEmpty = 31,
+    firmwarePackageHeaderInvalid = 32,
+    firmwarePackageHeaderUnavailable = 33,
+    firmwarePackageMetadataInvalid = 34,
+    firmwarePackageNoMatchingDevices = 35,
+    firmwarePackageSizeExceeded = 36,
+    firmwarePackageStagingError = 37,
+    firmwareTransferCompletionTimedOut = 38,
+    firmwareUpdateBlockedByWriteProtection = 39,
+    firmwareUpdateInProgress = 40,
+    firmwareUpdateInitiationError = 41,
+    firmwareUpdateTargetInvalid = 42,
+    firmwareVerificationCompletionTimedOut = 43,
+    headerValueInvalid = 44,
+    imageCopyCompleted = 45,
+    malformedMultipartRequest = 46,
+    pLDMCommandTimedOut = 47,
+    packageHeaderChecksumMismatch = 48,
+    packagePayloadChecksumMismatch = 49,
+    packageSignatureIntegrityFailed = 50,
+    packageSignatureRequired = 51,
+    packageSignatureVerificationFailed = 52,
+    preUpdateValidationFailed = 53,
+    recoveryStarted = 54,
+    recoverySuccessful = 55,
+    requestedTargetNotSupportedByPackage = 56,
+    requestedTargetUnavailableForUpdate = 57,
+    signatureHeaderMalformed = 58,
+    signatureHeaderVersionUnsupported = 59,
 };
 }; // struct nvidia_update
 

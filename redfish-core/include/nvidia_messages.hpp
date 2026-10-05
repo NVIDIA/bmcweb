@@ -22,11 +22,15 @@
 #include "registries/oem/nvidia_resource_event_message_registry.hpp"
 #include "registries/oem/nvidia_update_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
+#include "str_utility.hpp"
 
 #include <nlohmann/json.hpp>
 
 #include <array>
 #include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace redfish::messages
 {
@@ -53,7 +57,47 @@ inline nlohmann::json getLogNvidia(
 }
 
 /**
- * @brief Method to get error message from NVIDIA resource event registry
+ * @brief Method to get error message from the NVIDIA update registry by
+ * MessageId
+ */
+inline nlohmann::json getLogNvidia(std::string_view messageId,
+                                   std::span<const std::string> args)
+{
+    // Redfish MessageIds are in the form
+    // RegistryName.MajorVersion.MinorVersion.MessageKey
+    std::vector<std::string> fields;
+    fields.reserve(4);
+    bmcweb::split(fields, messageId, '.');
+    if (fields.size() != 4 ||
+        fields[0] != redfish::registries::NvidiaUpdate::header.registryPrefix)
+    {
+        return {};
+    }
+    const std::string& messageKey = fields[3];
+
+    size_t index = 0;
+    for (const auto& entry : redfish::registries::NvidiaUpdate::registry)
+    {
+        if (messageKey == entry.first)
+        {
+            std::vector<std::string_view> argViews;
+            argViews.reserve(args.size());
+            for (const std::string& arg : args)
+            {
+                argViews.emplace_back(arg);
+            }
+            return getLogFromRegistry(
+                redfish::registries::NvidiaUpdate::header,
+                redfish::registries::NvidiaUpdate::registry, index, argViews);
+        }
+        ++index;
+    }
+    return {};
+}
+
+/**
+ * @brief Method to get error message from the NVIDIA update registry by
+ * MessageId
  */
 inline nlohmann::json getLogNvidia(
     redfish::registries::NvidiaResourceEvent::Index name,

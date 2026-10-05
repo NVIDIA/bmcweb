@@ -24,7 +24,7 @@ TEST(NvidiaUpdateRegistry, HeaderIdentity)
 {
     EXPECT_STREQ(Reg::header.registryPrefix, "NvidiaUpdate");
     EXPECT_EQ(Reg::header.versionMajor, 1U);
-    EXPECT_EQ(Reg::header.versionMinor, 2U);
+    EXPECT_EQ(Reg::header.versionMinor, 3U);
     EXPECT_EQ(Reg::header.versionPatch, 0U);
 }
 
@@ -32,7 +32,7 @@ TEST(NvidiaUpdateRegistry, EntriesAlphabetical)
 {
     // parse_registries.py emits entries sorted by message key; the Index enum
     // is positional, so ordering is load-bearing.
-    ASSERT_EQ(Reg::registry.size(), 33U);
+    ASSERT_EQ(Reg::registry.size(), 60U);
     for (size_t i = 1; i < Reg::registry.size(); i++)
     {
         EXPECT_LT(std::string_view(Reg::registry[i - 1].first),
@@ -73,6 +73,27 @@ TEST(NvidiaUpdateRegistry, PreUpdateValidationArgCountsAndSeverity)
     EXPECT_EQ(coverage.numberOfArgs, 1U);
 }
 
+TEST(NvidiaUpdateRegistry, ComponentIdentityContractsRemainDistinct)
+{
+    const auto& legacy =
+        Reg::registry[static_cast<size_t>(Reg::Index::componentUpdateSkipped)]
+            .second;
+    EXPECT_EQ(legacy.numberOfArgs, 2U);
+    EXPECT_STREQ(legacy.message,
+                 "The update operation for the component %1 is skipped "
+                 "because %2.");
+
+    const auto& identical =
+        Reg::registry[static_cast<size_t>(Reg::Index::componentImageIdentical)]
+            .second;
+    EXPECT_EQ(identical.numberOfArgs, 3U);
+    EXPECT_STREQ(
+        identical.message,
+        "Component '%1' in the package with version '%2' has comparison "
+        "stamp '%3', matching the comparison stamp of the installed "
+        "version, so the update was skipped.");
+}
+
 TEST(NvidiaUpdateRegistry, RenderedMessageIdIsTwoPart)
 {
     // getLogFromRegistry renders "<prefix>.<major>.<minor>.<Key>" - the exact
@@ -83,7 +104,7 @@ TEST(NvidiaUpdateRegistry, RenderedMessageIdIsTwoPart)
         static_cast<size_t>(Reg::Index::firmwarePackageComponentImageMissing),
         std::to_array<std::string_view>({name}));
     EXPECT_EQ(log["MessageId"],
-              "NvidiaUpdate.1.2.FirmwarePackageComponentImageMissing");
+              "NvidiaUpdate.1.3.FirmwarePackageComponentImageMissing");
     EXPECT_EQ(log["MessageSeverity"], "Critical");
     const std::string* message = log["Message"].get_ptr<const std::string*>();
     ASSERT_NE(message, nullptr);
@@ -97,7 +118,7 @@ TEST(NvidiaUpdateRegistry, SummaryRendersWithNoArgs)
     nlohmann::json::object_t log = getLogFromRegistry(
         Reg::header, Reg::registry,
         static_cast<size_t>(Reg::Index::preUpdateValidationFailed), {});
-    EXPECT_EQ(log["MessageId"], "NvidiaUpdate.1.2.PreUpdateValidationFailed");
+    EXPECT_EQ(log["MessageId"], "NvidiaUpdate.1.3.PreUpdateValidationFailed");
     EXPECT_EQ(
         log["Message"],
         "The firmware update request was rejected because one or more target components failed pre-update validation.");
