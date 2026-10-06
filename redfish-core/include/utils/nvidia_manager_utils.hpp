@@ -205,8 +205,16 @@ inline void getOemReadyState(
                 }
                 return;
             }
-            BMCWEB_LOG_ERROR(
-                "Could not find interface xyz.openbmc_project.State.FeatureReady");
+            if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+            {
+                BMCWEB_LOG_WARNING(
+                    "Could not find interface xyz.openbmc_project.State.FeatureReady");
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR(
+                    "Could not find interface xyz.openbmc_project.State.FeatureReady");
+            }
         });
 }
 

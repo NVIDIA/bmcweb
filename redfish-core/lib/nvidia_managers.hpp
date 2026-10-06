@@ -57,6 +57,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -65,6 +66,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <variant>
 
 namespace redfish
@@ -1649,7 +1651,20 @@ inline void extendManagerOEM(
     }
     else
     {
-        BMCWEB_LOG_ERROR("Failed to open OTP provisioning status file");
+        bool expectedAbsent = false;
+        if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+        {
+            std::error_code ec;
+            expectedAbsent = !std::filesystem::exists(otpPath, ec) && !ec;
+        }
+        if (expectedAbsent)
+        {
+            BMCWEB_LOG_WARNING("OTP provisioning status file is absent");
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Failed to open OTP provisioning status file");
+        }
         otpProvisioned = false;
     }
     getFencingPrivilege(asyncResp);

@@ -808,6 +808,14 @@ option(
     description: 'Enable OEM GB200Nvl properties',
 )
 option(
+    'nvidia-igx-erotless',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable IGX ERoTless platform support: downgrade known
+                    non-fatal firmware-update errors and expose the IGX
+                    serial-console mux and host-recovery OEM resources.''',
+)
+option(
     'nvidia-oem-common-properties',
     type: 'feature',
     value: 'disabled',
