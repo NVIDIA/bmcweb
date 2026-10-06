@@ -17,6 +17,7 @@
 #include "registries/privilege_registry.hpp"
 #include "storage_chassis.hpp"
 #include "utils/collection.hpp"
+#include "utils/dbus_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
@@ -67,6 +68,33 @@ inline void handleSystemsStorageCollectionGet(
         interface, "/xyz/openbmc_project/inventory");
 }
 
+inline void afterGetStoragePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
+{
+    // Mapper "not found" just means no storage; other errors are real failures.
+    if (ec && !isObjectMapperNotFound(ec))
+    {
+        BMCWEB_LOG_ERROR("Storage GetSubTreePaths failed: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (paths.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "StorageCollection",
+                                   "Storage");
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#StorageCollection.StorageCollection";
+    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Storage";
+    asyncResp->res.jsonValue["Name"] = "Storage Collection";
+    collection_util::handleCollectionMembers(
+        asyncResp, boost::urls::format("/redfish/v1/Storage"),
+        nlohmann::json::json_pointer("/Members"), ec, paths);
+}
+
 inline void handleStorageCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -75,15 +103,12 @@ inline void handleStorageCollectionGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#StorageCollection.StorageCollection";
-    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Storage";
-    asyncResp->res.jsonValue["Name"] = "Storage Collection";
-    constexpr std::array<std::string_view, 1> interface{
+    // Not linked from the service root; 404 when there is no Storage inventory.
+    static constexpr std::array<std::string_view, 1> storageIface{
         "xyz.openbmc_project.Inventory.Item.Storage"};
-    collection_util::getCollectionMembers(
-        asyncResp, boost::urls::format("/redfish/v1/Storage"), interface,
-        "/xyz/openbmc_project/inventory");
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, storageIface,
+        std::bind_front(afterGetStoragePaths, asyncResp));
 }
 
 inline void afterChassisDriveCollectionSubtree(

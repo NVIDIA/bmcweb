@@ -815,6 +815,52 @@ static constexpr const char* pcieAerErrorStatusIntf =
 static constexpr const char* pcieClearAerErrorStatusIntf =
     "com.nvidia.PCIe.ClearAERErrorStatus";
 
+inline void afterGetPCIeDevicePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& name, const std::string& chassisId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& pcieDevicePaths)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("no PCIe device paths found ec: {}", ec.message());
+        // Not an error, system just doesn't have PCIe info
+        return;
+    }
+    nlohmann::json& pcieDeviceList = asyncResp->res.jsonValue[name];
+    pcieDeviceList = nlohmann::json::array();
+    for (const std::string& pcieDevicePath : pcieDevicePaths)
+    {
+        size_t devStart = pcieDevicePath.rfind('/');
+        if (devStart == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string devName = pcieDevicePath.substr(devStart + 1);
+        if (devName.empty())
+        {
+            continue;
+        }
+        if (!chassisId.empty())
+        {
+            pcieDeviceList.push_back(
+                {{"@odata.id", std::string("/redfish/v1/Chassis/")
+                                   .append(chassisId)
+                                   .append("/PCIeDevices/")
+                                   .append(devName)}});
+        }
+        else
+        {
+            pcieDeviceList.push_back(
+                {{"@odata.id", "/redfish/v1/Systems/" +
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                                   "/PCIeDevices/" + devName}});
+        }
+    }
+    asyncResp->res.jsonValue[name + "@odata.count"] = pcieDeviceList.size();
+}
+
 inline void getPCIeDeviceList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& name, const std::string& path = pciePath,
@@ -822,52 +868,38 @@ inline void getPCIeDeviceList(
 {
     dbus::utility::getSubTreePaths(
         std::string(path) + "/", 1, std::array<std::string_view, 0>{},
-        [asyncResp{asyncResp}, name,
-         chassisId](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreePathsResponse&
-                        pcieDevicePaths) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("no PCIe device paths found ec: ",
-                                 ec.message());
-                // Not an error, system just doesn't have PCIe info
-                return;
-            }
-            nlohmann::json& pcieDeviceList = asyncResp->res.jsonValue[name];
-            pcieDeviceList = nlohmann::json::array();
-            for (const std::string& pcieDevicePath : pcieDevicePaths)
-            {
-                size_t devStart = pcieDevicePath.rfind('/');
-                if (devStart == std::string::npos)
-                {
-                    continue;
-                }
+        std::bind_front(afterGetPCIeDevicePaths, asyncResp, name, chassisId));
+}
 
-                std::string devName = pcieDevicePath.substr(devStart + 1);
-                if (devName.empty())
-                {
-                    continue;
-                }
-                if (!chassisId.empty())
-                {
-                    pcieDeviceList.push_back(
-                        {{"@odata.id", std::string("/redfish/v1/Chassis/")
-                                           .append(chassisId)
-                                           .append("/PCIeDevices/")
-                                           .append(devName)}});
-                }
-                else
-                {
-                    pcieDeviceList.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/PCIeDevices/" + devName}});
-                }
-            }
-            asyncResp->res.jsonValue[name + "@odata.count"] =
-                pcieDeviceList.size();
-        });
+// The System PCIeDevices collection is not linked from ComputerSystem and has
+// no members here (PCIe devices live under Chassis): 404 when empty. Built
+// only once members exist so a 404 never has to undo earlier fields.
+inline void afterGetSystemPCIeDevicePaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& pcieDevicePaths)
+{
+    if (ec && !isObjectMapperNotFound(ec))
+    {
+        BMCWEB_LOG_ERROR("failed to get PCIe device paths: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (pcieDevicePaths.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "PCIeDeviceCollection",
+                                   "PCIeDevices");
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#PCIeDeviceCollection.PCIeDeviceCollection";
+    asyncResp->res.jsonValue["@odata.id"] =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/PCIeDevices";
+    asyncResp->res.jsonValue["Name"] = "PCIe Device Collection";
+    asyncResp->res.jsonValue["Description"] = "Collection of PCIe Devices";
+    afterGetPCIeDevicePaths(asyncResp, "Members", std::string(), ec,
+                            pcieDevicePaths);
 }
 
 inline void getAerErrorStatusOem(
@@ -1454,19 +1486,12 @@ inline void requestRoutesSystemPCIeDeviceCollection(App& app)
                 {
                     return;
                 }
-                asyncResp->res.jsonValue = {
-                    {"@odata.type",
-                     "#PCIeDeviceCollection.PCIeDeviceCollection"},
-                    {"@odata.id",
-                     "/redfish/v1/Systems/" +
-                         std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                         "/PCIeDevices"},
-                    {"Name", "PCIe Device Collection"},
-                    {"Description", "Collection of PCIe Devices"},
-                    {"Members", nlohmann::json::array()},
-                    {"Members@odata.count", 0}};
-                redfish::nvidia_pcie_utils::getPCIeDeviceList(asyncResp,
-                                                              "Members");
+                dbus::utility::getSubTreePaths(
+                    std::string(nvidia_pcie_utils::pciePath) + "/", 1,
+                    std::array<std::string_view, 0>{},
+                    std::bind_front(
+                        nvidia_pcie_utils::afterGetSystemPCIeDevicePaths,
+                        asyncResp));
             });
 }
 
