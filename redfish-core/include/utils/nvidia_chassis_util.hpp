@@ -42,9 +42,11 @@
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 
 namespace redfish
@@ -94,6 +96,30 @@ void getChassisListForInBand(
 
 namespace nvidia_chassis_utils
 {
+
+inline void finishChassisOemResponse(
+    const std::function<void(crow::Response&)>& completionHandler,
+    crow::Response& res)
+{
+    auto oem = res.jsonValue.find("Oem");
+    if (oem != res.jsonValue.end() && oem->is_object())
+    {
+        auto nvidia = oem->find("Nvidia");
+        if (nvidia != oem->end() && nvidia->is_object() &&
+            nvidia->size() == 1 && nvidia->contains("@odata.type"))
+        {
+            oem->erase(nvidia);
+            if (oem->empty())
+            {
+                res.jsonValue.erase(oem);
+            }
+        }
+    }
+    if (completionHandler)
+    {
+        completionHandler(res);
+    }
+}
 
 using Associations =
     std::vector<std::tuple<std::string, std::string, std::string>>;
@@ -2653,6 +2679,12 @@ inline void handleChassisGetAllProperties(
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
+        // Remove a type-only OEM object after all asynchronous reads finish,
+        // before the existing completion handler processes the response.
+        auto completionHandler = asyncResp->res.releaseCompleteRequestHandler();
+        asyncResp->res.setCompleteRequestHandler(std::bind_front(
+            finishChassisOemResponse, std::move(completionHandler)));
+
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
         oem["@odata.type"] = "#NvidiaChassis.v1_16_0.NvidiaChassis";
