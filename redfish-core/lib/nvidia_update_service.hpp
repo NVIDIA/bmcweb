@@ -43,7 +43,11 @@
 #include "utils/hex_utils.hpp"
 #include "utils/sw_utils.hpp"
 
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <unistd.h>
 
 #include <boost/beast/http/fields.hpp>
 #include <boost/container/flat_map.hpp>
@@ -62,7 +66,10 @@
 #include <utils/fw_utils.hpp>
 
 #include <array>
+#include <cerrno>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <iterator>
@@ -98,6 +105,216 @@ static nlohmann::json::array_t preTaskMessages = {};
 constexpr const size_t firmwareImageLimitBytes =
     // NOLINTNEXTLINE(bugprone-implicit-widening-of-multiplication-result)
     BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
+
+// Directory in which firmware uploads are staged as anonymous regular files
+// instead of in a memfd.  bmcweb does not create it: a platform opts in by
+// providing it on storage that has room for a maximum-size image, for example
+// as a link to, or a bind mount of, a directory on eMMC.  Where it does not
+// exist, uploads are staged in a memfd.
+constexpr std::string_view firmwareStagingDirectory =
+    "/var/lib/bmcweb/fw-staging";
+
+// Free space, beyond firmwareImageLimitBytes, that must be left on the
+// staging filesystem before a file-backed upload is accepted. The VR-NVL
+// host BMC and vHMC stage on the same eMMC partition, and logs and dumps keep
+// writing to it during an update, so one maximum-size upload must not take
+// the last free blocks. Not consulted for memfd staging.
+constexpr const uint64_t firmwareStagingReserveBytes =
+    64ULL * 1024ULL * 1024ULL;
+
+/**
+ * @brief A firmware staging descriptor and what backs it.
+ */
+struct FirmwareStagingFd
+{
+    int fd = -1;
+    // An anonymous file in a staging directory, not a memfd.
+    bool fileBacked = false;
+};
+
+/**
+ * @brief Opens an anonymous firmware staging file in @p dir.
+ *
+ * O_TMPFILE, or on a filesystem without O_TMPFILE support, mkostemp() and an
+ * immediate unlink() so the image is never reachable by name.
+ *
+ * If @p dir is not a directory bmcweb can see, because the platform provides
+ * none or because the partition that holds it is not mounted yet, this
+ * creates a memfd instead.  If the directory is there but no file can be
+ * created in it (EROFS, EACCES, ENOSPC, ...), this fails: the platform
+ * stages on storage because the RAM a memfd takes may be needed elsewhere.
+ *
+ * @param[in] dir - staging directory
+ * @param[in] name - memfd name, or prefix of the fallback file name
+ * @return the descriptor and its backing; fd is -1 on failure
+ */
+inline FirmwareStagingFd openFirmwareStagingFdIn(std::string_view dir,
+                                                 const std::string& name)
+{
+    const std::string dirPath(dir);
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-vararg)
+    int fd = ::open(dirPath.c_str(), O_TMPFILE | O_RDWR | O_CLOEXEC,
+                    S_IRUSR | S_IWUSR);
+    // NOLINTEND(cppcoreguidelines-pro-type-vararg)
+    if (fd >= 0)
+    {
+        return {fd, true};
+    }
+    const int tmpfileErrno = errno;
+    struct stat dirStat{};
+    if (::stat(dirPath.c_str(), &dirStat) != 0 || !S_ISDIR(dirStat.st_mode))
+    {
+        BMCWEB_LOG_DEBUG("No firmware staging directory {} (errno={}); "
+                         "staging the upload in a memfd",
+                         dir, tmpfileErrno);
+        return {memfd_create(name.c_str(), 0), false};
+    }
+
+    std::string path = dirPath;
+    if (!path.ends_with('/'))
+    {
+        path += '/';
+    }
+    path += name;
+    path += ".XXXXXX";
+    fd = ::mkostemp(path.data(), O_CLOEXEC);
+    if (fd < 0)
+    {
+        BMCWEB_LOG_ERROR("Failed to create a firmware staging file in {}: "
+                         "O_TMPFILE errno={}, mkostemp errno={}",
+                         dir, tmpfileErrno, errno);
+        return {};
+    }
+    if (::unlink(path.c_str()) != 0)
+    {
+        // Refuse a staging file that stays reachable by name.
+        BMCWEB_LOG_ERROR("Failed to unlink firmware staging file {}: errno={}",
+                         path, errno);
+        ::close(fd);
+        return {};
+    }
+    return {fd, true};
+}
+
+/**
+ * @brief Opens the descriptor that stages a firmware upload.
+ *
+ * An anonymous regular file in firmwareStagingDirectory when the platform
+ * provides that directory, and otherwise a memfd, as before; see
+ * openFirmwareStagingFdIn().  Either way the update agent gets a seekable
+ * descriptor it can mmap.
+ *
+ * @param[in] name - memfd name, or prefix of the fallback file name
+ * @return the descriptor and its backing; fd is -1 on failure
+ */
+inline FirmwareStagingFd openFirmwareStagingFd(const std::string& name)
+{
+    return openFirmwareStagingFdIn(firmwareStagingDirectory, name);
+}
+
+/**
+ * @brief Whether the filesystem holding a firmware staging file has @p needed
+ * bytes available.
+ *
+ * Advisory only: another writer can take the space afterwards, so a failed
+ * write() stays authoritative.  Always true for a memfd, which
+ * firmwareImageLimitBytes bounds instead, and for a filesystem that reports
+ * no size.
+ *
+ * @param[in] fd - staging descriptor from openFirmwareStagingFd()
+ * @param[in] fileBacked - whether @p fd is a file in a staging directory
+ * @param[in] needed - bytes that must be available
+ */
+inline bool firmwareStagingHasSpaceFor(int fd, bool fileBacked, uint64_t needed)
+{
+    if (!fileBacked)
+    {
+        return true;
+    }
+
+    struct statvfs vfs{};
+    if (::fstatvfs(fd, &vfs) != 0)
+    {
+        BMCWEB_LOG_ERROR("fstatvfs failed on firmware staging file: errno={}",
+                         errno);
+        return false;
+    }
+    if (vfs.f_blocks == 0)
+    {
+        // No size to check against.
+        return true;
+    }
+    const uint64_t available = static_cast<uint64_t>(vfs.f_bavail) *
+                               static_cast<uint64_t>(vfs.f_frsize);
+    if (available < needed)
+    {
+        BMCWEB_LOG_ERROR(
+            "Firmware staging filesystem has {} bytes available, {} needed",
+            available, needed);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Flushes a firmware staging file before it is handed to the update
+ * agent.
+ *
+ * fdatasync() reports a write error the filesystem deferred, so the request
+ * fails here instead of inside the update agent.  POSIX_FADV_DONTNEED then
+ * drops the clean page cache; the update agent pages the image back in
+ * through its mapping.  No-op for a memfd.
+ *
+ * @param[in] fd - staging descriptor from openFirmwareStagingFd()
+ * @param[in] fileBacked - whether @p fd is a file in a staging directory
+ * @return false on failure, with errno set
+ */
+inline bool finalizeFirmwareStagingFd(int fd, bool fileBacked)
+{
+    if (!fileBacked)
+    {
+        return true;
+    }
+
+    if (::fdatasync(fd) != 0)
+    {
+        const int err = errno;
+        BMCWEB_LOG_ERROR("fdatasync failed on firmware staging file: errno={}",
+                         err);
+        errno = err;
+        return false;
+    }
+    // Advisory; the pages are reclaimable either way.
+    const int ret = ::posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+    if (ret != 0)
+    {
+        BMCWEB_LOG_DEBUG("posix_fadvise failed on firmware staging file: {}",
+                         ret);
+    }
+    return true;
+}
+
+/**
+ * @brief Reports a failed write to, or flush of, a firmware staging file.
+ *
+ * A full staging filesystem is 507 Insufficient Storage.  Any other error,
+ * and any memfd error, stays 500 Internal Error.
+ *
+ * @param[in] res - response
+ * @param[in] err - errno of the failed call
+ * @param[in] fileBacked - whether the descriptor is a file in a staging
+ *                         directory
+ */
+inline void firmwareStagingWriteError(crow::Response& res, int err,
+                                      bool fileBacked)
+{
+    if (fileBacked && (err == ENOSPC || err == EDQUOT))
+    {
+        messages::insufficientStorage(res);
+        return;
+    }
+    messages::internalError(res);
+}
 
 /**
  * @brief A session for asynchronously writing image data to a file.

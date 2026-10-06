@@ -188,7 +188,8 @@ inline std::string getRandomId()
 
 // This class Exists because PLDM mmaps the FD instead of streaming or reading
 // the FD.  This will be fixed in the future, but for now, do the reading for
-// PLDM
+// PLDM.  The FD is a memfd, or a file in firmwareStagingDirectory; see
+// openFirmwareStagingFd().
 struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
 {
     MemoryFileDescriptor memfd;
@@ -267,18 +268,58 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         BMCWEB_LOG_DEBUG("Putting {} bytes to buffer", bytesTransferred);
         bytesWritten += bytesTransferred;
 
-        // TODO(Ed) the third argument on this really shouldn't be required.
-        // It's not clear why every write rewinds
-        if (::write(memfd.fd, buffer.data(), bytesTransferred) !=
-            static_cast<ssize_t>(bytesTransferred))
+        if (!memfd.fileBacked)
         {
-            BMCWEB_LOG_ERROR("Failed to write to memfd");
-            messages::firmwarePackageStagingError(asyncResp->res, package.name,
-                                                  formatMiB(bytesWritten));
-            onError();
-            return;
+            // TODO(Ed) the third argument on this really shouldn't be
+            // required. It's not clear why every write rewinds
+            if (::write(memfd.fd, buffer.data(), bytesTransferred) !=
+                static_cast<ssize_t>(bytesTransferred))
+            {
+                BMCWEB_LOG_ERROR("Failed to write to memfd");
+                messages::firmwarePackageStagingError(
+                    asyncResp->res, package.name, formatMiB(bytesWritten));
+                onError();
+                return;
+            }
+        }
+        else
+        {
+            // Finish short writes, so only an error fails the upload.
+            std::span<const uint8_t> remaining(buffer.data(), bytesTransferred);
+            while (!remaining.empty())
+            {
+                ssize_t written =
+                    ::write(memfd.fd, remaining.data(), remaining.size());
+                if (written < 0 && errno == EINTR)
+                {
+                    continue;
+                }
+                if (written <= 0)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to write to staging file: errno={}",
+                        written < 0 ? errno : EIO);
+                    messages::firmwarePackageStagingError(
+                        asyncResp->res, package.name, formatMiB(bytesWritten));
+                    onError();
+                    return;
+                }
+                remaining = remaining.subspan(static_cast<size_t>(written));
+            }
         }
         doRead();
+    }
+
+    // Bytes in the staging file: streamed by this context, or staged by
+    // UpdateCtx when the file arrived before UpdateParameters.
+    size_t stagedSize() const
+    {
+        struct stat fileStat{};
+        if (fstat(memfd.fd, &fileStat) != 0 || fileStat.st_size < 0)
+        {
+            return bytesWritten;
+        }
+        return static_cast<size_t>(fileStat.st_size);
     }
 
     void doUpdate()
@@ -292,7 +333,20 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         const std::string serviceName = "xyz.openbmc_project.PLDM";
         const std::string objectPath = "/xyz/openbmc_project/software/pldm";
 
-        memfd.rewind();
+        if (!finalizeFirmwareStagingFd(memfd.fd, memfd.fileBacked))
+        {
+            messages::firmwarePackageStagingError(asyncResp->res, package.name,
+                                                  formatMiB(stagedSize()));
+            onError();
+            return;
+        }
+        if (!memfd.rewind())
+        {
+            messages::firmwarePackageStagingError(asyncResp->res, package.name,
+                                                  formatMiB(stagedSize()));
+            onError();
+            return;
+        }
         sdbusplus::message::unix_fd fd(memfd.fd);
 
         // Claim the guard atomically with the check at the dispatch point: a
@@ -309,8 +363,11 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         }
         redfish::fwUpdateInProgress = true;
 
+        // self holds the staging FD open until StartUpdate answers.  sd-bus
+        // sends a dup of it, so this only makes the lifetime explicit.
         dbus::utility::async_method_call(
-            [asyncResp{asyncResp}, payload = std::move(payload),
+            [asyncResp{asyncResp}, self{shared_from_this()},
+             payload = std::move(payload),
              fileGetSocket{std::move(fileGetSocket)}, objectPath,
              packageName{package.name}, onResponseReady{onResponseReady}](
                 const boost::system::error_code& ec1, sdbusplus::message_t& msg,
@@ -664,12 +721,17 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             ssize_t written = ::write(stagedUpdateFile->fd, remaining.data(),
                                       remaining.size());
-            if (written < 0 && errno == EINTR)
+            if (written < 0)
             {
-                continue;
+                if (errno == EINTR)
+                {
+                    continue;
+                }
+                return false;
             }
-            if (written <= 0)
+            if (written == 0)
             {
+                errno = EIO;
                 return false;
             }
             remaining = remaining.subspan(static_cast<size_t>(written));
@@ -1144,6 +1206,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                     failClientResponse();
                     return;
                 }
+                if (!firmwareStagingHasSpaceFor(
+                        stagedUpdateFile->fd, stagedUpdateFile->fileBacked,
+                        redfish::firmwareImageLimitBytes +
+                            redfish::firmwareStagingReserveBytes))
+                {
+                    messages::firmwarePackageStagingError(
+                        asyncResp->res, package.name, formatMiB(0));
+                    failClientResponse();
+                    return;
+                }
                 state = State::WAITING_FOR_UPDATE_FILE_DATA_BEFORE_PARAMETERS;
                 return;
             }
@@ -1223,7 +1295,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             }
             if (!appendStagedUpdateFile(data))
             {
-                BMCWEB_LOG_ERROR("Failed to write to staged update memfd");
+                BMCWEB_LOG_ERROR(
+                    "Failed to write to staged update file: errno={}", errno);
                 messages::firmwarePackageStagingError(
                     asyncResp->res, package.name,
                     formatMiB(getStagedUpdateFileSize().value_or(0)));

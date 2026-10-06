@@ -100,18 +100,42 @@ constexpr const char* updateInterface = "xyz.openbmc_project.Software.Update";
 struct MemoryFileDescriptor
 {
     int fd = -1;
+    // Nvidia modified: a file in firmwareStagingDirectory, not a memfd
+    bool fileBacked = false;
 
+    // Nvidia modified: a memfd, or a file in firmwareStagingDirectory
     explicit MemoryFileDescriptor(const std::string& filename) :
-        fd(memfd_create(filename.c_str(), 0))
+        MemoryFileDescriptor(openFirmwareStagingFd(filename))
     {}
 
-    MemoryFileDescriptor(const MemoryFileDescriptor&) = default;
-    MemoryFileDescriptor(MemoryFileDescriptor&& other) noexcept : fd(other.fd)
+    // Nvidia modified: takes ownership of an opened staging descriptor
+    explicit MemoryFileDescriptor(FirmwareStagingFd staged) :
+        fd(staged.fd), fileBacked(staged.fileBacked)
+    {}
+
+    // Nvidia modified: move-only, as a copy would close fd twice
+    MemoryFileDescriptor(const MemoryFileDescriptor&) = delete;
+    MemoryFileDescriptor(MemoryFileDescriptor&& other) noexcept :
+        fd(other.fd), fileBacked(other.fileBacked)
     {
         other.fd = -1;
     }
     MemoryFileDescriptor& operator=(const MemoryFileDescriptor&) = delete;
-    MemoryFileDescriptor& operator=(MemoryFileDescriptor&&) = default;
+    // Nvidia modified: the default would leave both objects owning fd
+    MemoryFileDescriptor& operator=(MemoryFileDescriptor&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if (fd != -1)
+            {
+                ::close(fd);
+            }
+            fd = other.fd;
+            fileBacked = other.fileBacked;
+            other.fd = -1;
+        }
+        return *this;
+    }
 
     ~MemoryFileDescriptor()
     {
@@ -1162,6 +1186,15 @@ inline void processUpdateRequest(
     }
 
     // Nvidia code starts here
+    if (!firmwareStagingHasSpaceFor(
+            memfd->fd, memfd->fileBacked,
+            firmwareImageLimitBytes + firmwareStagingReserveBytes))
+    {
+        messages::insufficientStorage(asyncResp->res);
+        fwUpdateInProgress = false;
+        return;
+    }
+
     bool foundUpdateFile = false;
     for (FormPart& formpart : req.multipart())
     {
@@ -1189,7 +1222,18 @@ inline void processUpdateRequest(
                 {
                     continue;
                 }
-                BMCWEB_LOG_ERROR("Failed to write UpdateFile to memfd");
+                const int err = errno;
+                BMCWEB_LOG_ERROR(
+                    "Failed to write UpdateFile to staging file: errno={}",
+                    err);
+                firmwareStagingWriteError(asyncResp->res, err,
+                                          memfd->fileBacked);
+                fwUpdateInProgress = false;
+                return;
+            }
+            if (written == 0)
+            {
+                BMCWEB_LOG_ERROR("Staging file accepted no UpdateFile data");
                 messages::internalError(asyncResp->res);
                 fwUpdateInProgress = false;
                 return;
@@ -1213,6 +1257,13 @@ inline void processUpdateRequest(
         messages::invalidUpload(asyncResp->res,
                                 "/redfish/v1/UpdateService/update-multipart",
                                 "Uploaded image file is empty");
+        fwUpdateInProgress = false;
+        return;
+    }
+
+    if (!finalizeFirmwareStagingFd(memfd->fd, memfd->fileBacked))
+    {
+        firmwareStagingWriteError(asyncResp->res, errno, memfd->fileBacked);
         fwUpdateInProgress = false;
         return;
     }

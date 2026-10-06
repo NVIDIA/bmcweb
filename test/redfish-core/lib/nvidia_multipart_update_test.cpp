@@ -14,7 +14,10 @@
 #include "nvidia_multipart_update.hpp"
 #include "nvidia_update_service.hpp"
 #include "task.hpp"
+#include "update_service.hpp"
 
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -29,12 +32,15 @@
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <unordered_map>
 #include <utility>
@@ -119,6 +125,119 @@ TEST(PLDMUpdateCtx, RejectsImageDataOverLimit)
     EXPECT_EQ(asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"][0]
                                       ["MessageArgs"][0],
               "nvfw_release.fwpkg");
+}
+
+TEST(PLDMUpdateCtx, WritesStreamedBytesToStagingFd)
+{
+    // Both backings: a memfd, as on platforms without the staging
+    // directory, and an anonymous file in one.
+    const std::string stagingDir =
+        std::filesystem::temp_directory_path().string();
+    for (const bool fileBacked : {false, true})
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        std::error_code ec;
+        crow::Request req("", ec);
+        task::Payload payload(req);
+        boost::asio::local::stream_protocol::socket socket(getIoContext());
+        bool failed = false;
+        auto staged = std::make_shared<MemoryFileDescriptor>(
+            fileBacked ? openFirmwareStagingFdIn(stagingDir, "fw")
+                       : FirmwareStagingFd{memfd_create("fw", 0), false});
+        ASSERT_GE(staged->fd, 0);
+        ASSERT_EQ(staged->fileBacked, fileBacked);
+        auto ctx = std::make_shared<PLDMUpdateCtx>(
+            asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+            std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, false,
+            []() {}, [&failed]() { failed = true; }, staged);
+        EXPECT_EQ(ctx->memfd.fileBacked, fileBacked);
+        constexpr std::string_view chunk = "fwpkg";
+        std::ranges::copy(chunk, ctx->buffer.begin());
+
+        ctx->gotBytes({}, chunk.size());
+
+        EXPECT_FALSE(failed);
+        EXPECT_EQ(asyncResp->res.resultInt(), 200);
+        EXPECT_EQ(ctx->bytesWritten, chunk.size());
+        EXPECT_EQ(ctx->stagedSize(), chunk.size());
+    }
+}
+
+TEST(PLDMUpdateCtx, FailedStagingWriteReportsStagingError)
+{
+    for (const bool fileBacked : {false, true})
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        std::error_code ec;
+        crow::Request req("", ec);
+        task::Payload payload(req);
+        boost::asio::local::stream_protocol::socket socket(getIoContext());
+        bool failed = false;
+        auto ctx = std::make_shared<PLDMUpdateCtx>(
+            asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+            std::vector<sdbusplus::object_path>{},
+            FirmwarePackageInfo{"nvfw_release.fwpkg", 1U}, false, []() {},
+            [&failed]() { failed = true; });
+        // A read-only descriptor makes the staging write fail.
+        ASSERT_EQ(close(ctx->memfd.fd), 0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        ctx->memfd.fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
+        ASSERT_GE(ctx->memfd.fd, 0);
+        ctx->memfd.fileBacked = fileBacked;
+
+        ctx->gotBytes({}, 1U);
+
+        EXPECT_TRUE(failed);
+        // Counted just before the write, so the write itself failed.
+        EXPECT_EQ(ctx->bytesWritten, 1U);
+        EXPECT_EQ(asyncResp->res.resultInt(), 507);
+        EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+                  "NvidiaUpdate.1.3.FirmwarePackageStagingError");
+        EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0],
+                  "nvfw_release.fwpkg");
+    }
+}
+
+TEST(PLDMUpdateCtx, FailedStagingFlushStopsDispatch)
+{
+    for (const bool fileBacked : {false, true})
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        std::error_code ec;
+        crow::Request req("", ec);
+        task::Payload payload(req);
+        boost::asio::local::stream_protocol::socket socket(getIoContext());
+        bool failed = false;
+        auto ctx = std::make_shared<PLDMUpdateCtx>(
+            asyncResp, std::move(payload), std::move(socket), "OnReset", false,
+            std::vector<sdbusplus::object_path>{}, FirmwarePackageInfo{}, false,
+            []() {}, [&failed]() { failed = true; });
+        // fdatasync() fails on a character device.  Only a staging file is
+        // flushed, so a memfd goes on to the in-progress gate.
+        ASSERT_EQ(close(ctx->memfd.fd), 0);
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        ctx->memfd.fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
+        ASSERT_GE(ctx->memfd.fd, 0);
+        ctx->memfd.fileBacked = fileBacked;
+        redfish::fwUpdateInProgress = true;
+
+        ctx->doUpdate();
+        redfish::fwUpdateInProgress = false;
+
+        EXPECT_TRUE(failed);
+        if (fileBacked)
+        {
+            EXPECT_EQ(asyncResp->res.resultInt(), 507);
+            EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+                      "NvidiaUpdate.1.3.FirmwarePackageStagingError");
+        }
+        else
+        {
+            EXPECT_EQ(asyncResp->res.resultInt(), 409);
+            EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+                      "NvidiaUpdate.1.3.FirmwareUpdateInProgress");
+        }
+    }
 }
 
 std::string expectedSetHeadersOutput(const std::string& boundary,
