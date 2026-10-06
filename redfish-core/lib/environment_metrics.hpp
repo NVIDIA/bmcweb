@@ -391,6 +391,12 @@ inline void handleEnvironmentMetricsHead(
         return;
     }
 
+    // HEAD must agree with GET (no 200 HEAD for a 404 GET).
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "EnvironmentMetrics"))
+    {
+        return;
+    }
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         std::bind_front(doEnvironmentMetricsHead, asyncResp, chassisId));
@@ -436,6 +442,11 @@ inline void handleEnvironmentMetricsGet(
         return;
     }
 
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "EnvironmentMetrics"))
+    {
+        return;
+    }
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         std::bind_front(doEnvironmentMetricsGet, asyncResp, chassisId));

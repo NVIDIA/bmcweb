@@ -889,6 +889,11 @@ inline void requestRoutesChassisControlsCollection(App& app)
                     redfish::nvidia_control_utils::getClockLimitControlObjects(
                         asyncResp, chassisID, *validChassisPath);
                 };
+                if (redfish::chassis_utils::pruneIfEROTChassis(
+                        asyncResp, chassisID, "Controls"))
+                {
+                    return;
+                }
                 redfish::chassis_utils::getValidChassisPath(
                     asyncResp, chassisID, std::move(getChassisPath));
             });

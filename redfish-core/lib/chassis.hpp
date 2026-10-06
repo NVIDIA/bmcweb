@@ -1421,6 +1421,13 @@ inline void handleChassisResetActionInfoGet(
     {
         return;
     }
+    // RoT chassis do not advertise Chassis.Reset; its ResetActionInfo would
+    // dangle.
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "ResetActionInfo"))
+    {
+        return;
+    }
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ResetActionInfo", chassisId);

@@ -10,6 +10,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/sensor_utils.hpp"
 
@@ -38,6 +39,11 @@ inline void requestRoutesThermal(App& app)
                 {
                     return;
                 }
+                if (redfish::chassis_utils::pruneIfEROTChassis(
+                        asyncResp, chassisName, "Thermal"))
+                {
+                    return;
+                }
 
                 auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
                     asyncResp, chassisName, sensors::dbus::thermalPaths,
@@ -55,6 +61,12 @@ inline void requestRoutesThermal(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                // PATCH must 404 like the pruned GET.
+                if (redfish::chassis_utils::pruneIfEROTChassis(
+                        asyncResp, chassisName, "Thermal"))
                 {
                     return;
                 }

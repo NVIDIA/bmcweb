@@ -13,10 +13,12 @@
 #include "utils/dbus_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
+#include <boost/url/format.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -918,6 +920,42 @@ inline std::vector<sdbusplus::object_path> getChassisFromManagedObj(
         }
     }
     return {res.begin(), res.end()};
+}
+
+// A RoT chassis id has a "_"-separated token ending in "RoT" (any case), e.g.
+// BlueField_ERoT_BMC_0, IRoT_CPU_0. Pure string test, no D-Bus.
+inline bool isRotChassisName(std::string_view chassisId)
+{
+    constexpr std::string_view rot = "RoT";
+    constexpr auto equalsIgnoreCase = [](std::string_view a,
+                                         std::string_view b) {
+        return std::ranges::equal(a, b, [](unsigned char x, unsigned char y) {
+            return std::tolower(x) == std::tolower(y);
+        });
+    };
+    for (const auto token : std::views::split(chassisId, '_'))
+    {
+        std::string_view tag(token.begin(), token.end());
+        if (tag.size() >= rot.size() &&
+            equalsIgnoreCase(tag.substr(tag.size() - rot.size()), rot))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// 404s resourceType and returns true if chassisId is a RoT chassis.
+inline bool pruneIfEROTChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& resourceType)
+{
+    if (!isRotChassisName(chassisId))
+    {
+        return false;
+    }
+    messages::resourceNotFound(asyncResp->res, resourceType, chassisId);
+    return true;
 }
 
 } // namespace chassis_utils

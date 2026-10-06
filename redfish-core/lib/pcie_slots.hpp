@@ -12,6 +12,7 @@
 #include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
 
@@ -245,6 +246,11 @@ inline void handlePCIeSlotCollectionGet(
         return;
     }
 
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
+                                                   "PCIeSlots"))
+    {
+        return;
+    }
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.PCIeSlot"};
     dbus::utility::getSubTree(

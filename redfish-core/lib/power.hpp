@@ -277,6 +277,11 @@ inline void handleChassisPowerGet(
     {
         return;
     }
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisName,
+                                                   "Power"))
+    {
+        return;
+    }
     asyncResp->res.jsonValue["PowerControl"] = nlohmann::json::array();
 
     auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
@@ -302,6 +307,12 @@ inline void handleChassisPowerPatch(
     const std::string& chassisName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    // PATCH must 404 like the pruned GET (no back door to power_cap writes).
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisName,
+                                                   "Power"))
     {
         return;
     }

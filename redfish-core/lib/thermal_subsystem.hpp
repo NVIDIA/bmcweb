@@ -106,6 +106,12 @@ inline void handleThermalSubsystemCollectionHead(
         return;
     }
 
+    // HEAD must agree with GET (no 200 HEAD for a 404 GET).
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "ThermalSubsystem"))
+    {
+        return;
+    }
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         std::bind_front(doThermalSubsystemCollectionHead, asyncResp,
@@ -122,23 +128,14 @@ inline void handleThermalSubsystemCollectionGet(
         return;
     }
 
-    // A Root-of-Trust (ERoT/IRoT) chassis has no ThermalSubsystem; the generic
-    // route would otherwise serve an empty, unlinked island collection. Prune
-    // it to 404 for RoT chassis so the route agrees with the (absent)
-    // advertisement on the chassis body.
-    redfish::chassis_utils::isEROTChassis(
-        chassisId, [asyncResp, chassisId](bool isEROT, bool) {
-            if (isEROT)
-            {
-                messages::resourceNotFound(asyncResp->res, "ThermalSubsystem",
-                                           chassisId);
-                return;
-            }
-            redfish::chassis_utils::getValidChassisPath(
-                asyncResp, chassisId,
-                std::bind_front(doThermalSubsystemCollection, asyncResp,
-                                chassisId));
-        });
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "ThermalSubsystem"))
+    {
+        return;
+    }
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doThermalSubsystemCollection, asyncResp, chassisId));
 }
 
 inline void requestRoutesThermalSubsystem(App& app)
