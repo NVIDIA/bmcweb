@@ -289,7 +289,9 @@ RedfishService::RedfishService(App& app)
         requestRoutesTelemetryService(app);
     }
 
-    if constexpr (BMCWEB_REDFISH_ROUTES_METRICREPORT)
+    // Unlinked from TelemetryService on BF (see telemetry_service.hpp).
+    if constexpr (BMCWEB_REDFISH_ROUTES_METRICREPORT &&
+                  !BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
     {
         requestRoutesMetricReportDefinitionCollection(app);
         requestRoutesMetricReportCollection(app);
