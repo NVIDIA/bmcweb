@@ -107,8 +107,8 @@ inline void handleThermalSubsystemCollectionHead(
     }
 
     // HEAD must agree with GET (no 200 HEAD for a 404 GET).
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                   "ThermalSubsystem"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "ThermalSubsystem"))
     {
         return;
     }
@@ -128,8 +128,8 @@ inline void handleThermalSubsystemCollectionGet(
         return;
     }
 
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                   "ThermalSubsystem"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "ThermalSubsystem"))
     {
         return;
     }

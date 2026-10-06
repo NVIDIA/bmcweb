@@ -1530,8 +1530,8 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
             {
                 return;
             }
-            if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                           "PCIeDevices"))
+            if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                          "PCIeDevices"))
             {
                 return;
             }

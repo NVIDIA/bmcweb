@@ -22,6 +22,7 @@
 #include "registries/privilege_registry.hpp"
 
 #include <app.hpp>
+#include <utils/chassis_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 
@@ -727,6 +728,11 @@ inline void requestPcieSlotsRoutes(App& app)
                             const std::string& chassisId) {
             BMCWEB_LOG_DEBUG("PCIeSlot doGet enter");
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                          "PCIeSlots"))
             {
                 return;
             }

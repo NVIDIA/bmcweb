@@ -77,8 +77,8 @@ inline void handlePowerSubsystemCollectionHead(
     }
 
     // HEAD must agree with GET (no 200 HEAD for a 404 GET).
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                   "PowerSubsystem"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "PowerSubsystem"))
     {
         return;
     }
@@ -97,8 +97,8 @@ inline void handlePowerSubsystemCollectionGet(
         return;
     }
 
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                   "PowerSubsystem"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "PowerSubsystem"))
     {
         return;
     }

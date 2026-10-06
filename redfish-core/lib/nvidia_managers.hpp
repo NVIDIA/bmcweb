@@ -895,6 +895,15 @@ inline void requestRoutesNvidiaManagerGetSelCapacity(App& app)
             });
 }
 
+namespace nvidia
+{
+// Shared by ActionInfo AllowableValues and POST validation so they can't drift.
+inline constexpr std::array<std::string_view, 3> syncOobTargetTypes{
+    "GPU", "NVSwitch", "Baseboard"};
+inline constexpr std::array<std::string_view, 2> asyncOobTargetTypes{
+    "GPU", "NVSwitch"};
+} // namespace nvidia
+
 /**
  * SyncOOBRawCommandActionInfo derived class for delivering Managers
  * RawOOBCommands AllowableValues using NvidiaSyncOOBRawCommandAction schema.
@@ -933,7 +942,7 @@ inline void requestRoutesNvidiaSyncOOBRawCommandActionInfo(App& app)
                      {{{"Name", "TargetType"},
                        {"Required", true},
                        {"DataType", "String"},
-                       {"AllowableValues", {"GPU", "NVSwitch", "Baseboard"}}},
+                       {"AllowableValues", nvidia::syncOobTargetTypes}},
                       {{"Name", "TargetInstanceId"},
                        {"Required", false},
                        {"DataType", "Number"}},
@@ -997,7 +1006,7 @@ inline void requestRoutesNvidiaAsyncOOBRawCommandActionInfo(App& app)
                      {{{"Name", "TargetType"},
                        {"Required", true},
                        {"DataType", "String"},
-                       {"AllowableValues", {"GPU", "NVSwitch"}}},
+                       {"AllowableValues", nvidia::asyncOobTargetTypes}},
                       {{"Name", "TargetInstanceId"},
                        {"Required", true},
                        {"DataType", "Number"}},
@@ -1056,6 +1065,15 @@ inline void requestRouteSyncRawOobCommand(App& app)
                         extDataIn))
                 {
                     BMCWEB_LOG_ERROR("Missing property");
+                    return;
+                }
+
+                if (std::ranges::find(nvidia::syncOobTargetTypes, targetType) ==
+                    nvidia::syncOobTargetTypes.end())
+                {
+                    messages::actionParameterValueNotInList(
+                        asyncResp->res, targetType, "TargetType",
+                        "SyncOOBRawCommand");
                     return;
                 }
 
@@ -1181,6 +1199,16 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                         "AsyncDataIn", asynDataIn))
                 {
                     BMCWEB_LOG_ERROR("Missing property");
+                    return;
+                }
+
+                if (std::ranges::find(nvidia::asyncOobTargetTypes,
+                                      targetType) ==
+                    nvidia::asyncOobTargetTypes.end())
+                {
+                    messages::actionParameterValueNotInList(
+                        asyncResp->res, targetType, "TargetType",
+                        "AsyncOOBRawCommand");
                     return;
                 }
 

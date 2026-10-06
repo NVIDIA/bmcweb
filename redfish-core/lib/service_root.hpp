@@ -71,12 +71,10 @@ inline void handleServiceRootGetImpl(
     }
     asyncResp->res.jsonValue["Chassis"]["@odata.id"] = "/redfish/v1/Chassis";
     // nvidida code starts here
-    if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES ||
-                  BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
-    {
-        asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
-            "/redfish/v1/ComponentIntegrity";
-    }
+    // Advertised on all platforms: the route is registered unconditionally
+    // in redfish_nvidia.cpp and carries real SPDM data on BF.
+    asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
+        "/redfish/v1/ComponentIntegrity";
     asyncResp->res.jsonValue["Fabrics"]["@odata.id"] = "/redfish/v1/Fabrics";
     // nvidida code ends here
     asyncResp->res.jsonValue["JsonSchemas"]["@odata.id"] =

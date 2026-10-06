@@ -39,7 +39,7 @@ inline void requestRoutesThermal(App& app)
                 {
                     return;
                 }
-                if (redfish::chassis_utils::pruneIfEROTChassis(
+                if (redfish::chassis_utils::pruneIfRotChassis(
                         asyncResp, chassisName, "Thermal"))
                 {
                     return;
@@ -65,7 +65,7 @@ inline void requestRoutesThermal(App& app)
                     return;
                 }
                 // PATCH must 404 like the pruned GET.
-                if (redfish::chassis_utils::pruneIfEROTChassis(
+                if (redfish::chassis_utils::pruneIfRotChassis(
                         asyncResp, chassisName, "Thermal"))
                 {
                     return;

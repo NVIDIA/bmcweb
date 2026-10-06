@@ -246,8 +246,8 @@ inline void handlePCIeSlotCollectionGet(
         return;
     }
 
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
-                                                   "PCIeSlots"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisID,
+                                                  "PCIeSlots"))
     {
         return;
     }

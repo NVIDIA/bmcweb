@@ -980,7 +980,7 @@ inline void addChassisSubresourceLinks(nlohmann::json& json,
 }
 
 // 404s resourceType and returns true if chassisId is a RoT chassis.
-inline bool pruneIfEROTChassis(
+inline bool pruneIfRotChassis(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& resourceType)
 {

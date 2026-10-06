@@ -277,8 +277,8 @@ inline void handleChassisPowerGet(
     {
         return;
     }
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisName,
-                                                   "Power"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisName,
+                                                  "Power"))
     {
         return;
     }
@@ -311,8 +311,8 @@ inline void handleChassisPowerPatch(
         return;
     }
     // PATCH must 404 like the pruned GET (no back door to power_cap writes).
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisName,
-                                                   "Power"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisName,
+                                                  "Power"))
     {
         return;
     }

@@ -4070,13 +4070,6 @@ inline void processComputerSystemGet(
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             nvidiaComputerSystemType();
-        // Advertise the Oem/Nvidia/Switch resource so the served three-port
-        // switch status (LinkStatus, ThreePortSwitchMode) is reachable by
-        // following links from the System, instead of being an unlinked
-        // island.
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["Switch"]["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia/Switch";
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
@@ -4088,6 +4081,15 @@ inline void processComputerSystemGet(
                                     "/Oem/Nvidia/SystemConfigProfile",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
         }
+    }
+    if constexpr (BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+    {
+        // Gated on the same flag as the route registration
+        // (requestRoutesNvidiaOemBf in nvidia_oem_dpu.hpp), independent of
+        // BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES.
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["Switch"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Oem/Nvidia/Switch",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
     if constexpr (BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)

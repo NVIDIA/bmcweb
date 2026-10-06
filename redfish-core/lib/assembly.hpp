@@ -397,8 +397,8 @@ inline void handleChassisAssemblyGet(
     }
 
     BMCWEB_LOG_DEBUG("Get chassis Assembly");
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
-                                                   "Assembly"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisID,
+                                                  "Assembly"))
     {
         return;
     }
@@ -416,8 +416,8 @@ inline void handleChassisAssemblyHead(
     {
         return;
     }
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
-                                                   "Assembly"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisID,
+                                                  "Assembly"))
     {
         return;
     }
@@ -501,8 +501,8 @@ inline void handleChassisAssemblyPatch(
     {
         return;
     }
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
-                                                   "Assembly"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisID,
+                                                  "Assembly"))
     {
         return;
     }

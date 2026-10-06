@@ -27,6 +27,7 @@
 #include <task.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
+#include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_stl_utils.hpp>
 #include <utils/nvidia_time_utils.hpp>
@@ -630,13 +631,18 @@ inline void requestRoutesComponentIntegrity(App& app)
                 "#ComponentIntegrityCollection.ComponentIntegrityCollection";
             asyncResp->res.jsonValue["Name"] = "ComponentIntegrity Collection";
 
-            const std::array<const char*, 1> interface = {
+            static constexpr std::array<std::string_view, 1> interface = {
                 "xyz.openbmc_project.SPDM.Responder"};
 
-            dbus::utility::async_method_call(
-                [asyncResp](const boost::system::error_code& ec,
-                            const dbus::utility::GetSubTreeType& subtree) {
-                    if (ec)
+            dbus::utility::getSubTreeReportNotFound(
+                rootSPDMDbusPath, 0, interface,
+                [asyncResp](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    // The link is advertised on every platform, so a platform
+                    // with no SPDM responders is an empty collection, not an
+                    // error.
+                    if (ec && !isObjectMapperNotFound(ec))
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -685,10 +691,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                                     currentMembers.size();
                             });
                     }
-                },
-                dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-                dbus_utils::mapperIntf, "GetSubTree", rootSPDMDbusPath, 0,
-                interface);
+                });
         });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/")

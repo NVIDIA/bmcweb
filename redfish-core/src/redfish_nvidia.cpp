@@ -342,13 +342,8 @@ void requestRoutesNvidia(crow::App& app)
 
     requestRoutesEROTChassisCertificate(app);
 
-    // ComponentIntegrity is unlinked from ServiceRoot on plain BF4 (see
-    // service_root.hpp); don't expose the route as an unreachable island.
-    if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES ||
-                  BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
-    {
-        requestRoutesComponentIntegrity(app);
-    }
+    // Advertised from the ServiceRoot on all platforms (see service_root.hpp).
+    requestRoutesComponentIntegrity(app);
     requestRoutesServiceConditions(app);
     requestRoutesChassisControls(app);
     requestRoutesChassisControlsCollection(app);

@@ -2454,8 +2454,8 @@ inline void handleSensorCollectionGet(
         return;
     }
 
-    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
-                                                   "Sensors"))
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "Sensors"))
     {
         return;
     }
