@@ -39,9 +39,11 @@
 #include <utils/port_utils.hpp>
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace redfish
 {
@@ -730,6 +732,89 @@ inline void populateNDFURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     });
 }
 
+inline std::string getNetworkAdapterResetType(const std::string& type)
+{
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOff")
+    {
+        return "ForceOff";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOn")
+    {
+        return "ForceOn";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceRestart")
+    {
+        return "ForceRestart";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulRestart")
+    {
+        return "GracefulRestart";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulShutdown")
+    {
+        return "GracefulShutdown";
+    }
+    return "";
+}
+
+inline void afterGetNetworkAdapterResetType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const boost::system::error_code& ec, const std::string& property)
+{
+    if (ec)
+    {
+        // POST reports the same failure as an internal error.
+        BMCWEB_LOG_ERROR("Failed to read ResetType of {}: {}", networkAdapterId,
+                         ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const std::string resetType = getNetworkAdapterResetType(property);
+    if (resetType.empty())
+    {
+        // POST rejects every ResetType for an unmapped value.
+        BMCWEB_LOG_WARNING("{} has an unmapped ResetType: {}", networkAdapterId,
+                           property);
+        return;
+    }
+    nlohmann::json::array_t allowableValues;
+    allowableValues.emplace_back(resetType);
+    asyncResp->res.jsonValue["Actions"]["#NetworkAdapter.Reset"] = {
+        {"target",
+         boost::urls::format(
+             "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Actions/NetworkAdapter.Reset",
+             chassisId, networkAdapterId)},
+        {"ResetType@Redfish.AllowableValues", std::move(allowableValues)}};
+}
+
+inline void afterGetNetworkAdapterResetObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& adapterPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        if (!isObjectMapperNotFound(ec))
+        {
+            BMCWEB_LOG_ERROR("Reset interface lookup for {} failed: {}",
+                             networkAdapterId, ec.message());
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+    if (object.empty())
+    {
+        return;
+    }
+    dbus::utility::getProperty<std::string>(
+        object.front().first, adapterPath, "xyz.openbmc_project.Control.Reset",
+        "ResetType",
+        std::bind_front(afterGetNetworkAdapterResetType, asyncResp, chassisId,
+                        networkAdapterId));
+}
+
 inline void doNetworkAdapter(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& networkAdapterId,
@@ -755,12 +840,14 @@ inline void doNetworkAdapter(
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports",
                             chassisId, networkAdapterId);
 
-    asyncResp->res.jsonValue["Actions"]["#NetworkAdapter.Reset"] = {
-        {"target",
-         boost::urls::format(
-             "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Actions/NetworkAdapter.Reset",
-             chassisId, networkAdapterId)},
-        {"ResetType@Redfish.AllowableValues", {"ForceRestart"}}};
+    // Advertise only what POST accepts: a ResetAsync service whose ResetType
+    // maps to a Redfish ResetType, which is then the only allowable value.
+    static constexpr std::array<std::string_view, 1> resetAsyncInterface{
+        "xyz.openbmc_project.Control.ResetAsync"};
+    dbus::utility::getDbusObjectReportNotFound(
+        *validNetworkAdapterPath, resetAsyncInterface,
+        std::bind_front(afterGetNetworkAdapterResetObject, asyncResp, chassisId,
+                        networkAdapterId, *validNetworkAdapterPath));
 
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
@@ -2191,32 +2278,6 @@ inline void handlePortMetricsGet(
                         networkAdapterId, portId));
 }
 
-inline std::string getNetworkAdapterResetType(const std::string& type)
-{
-    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOff")
-    {
-        return "ForceOff";
-    }
-    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOn")
-    {
-        return "ForceOn";
-    }
-    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceRestart")
-    {
-        return "ForceRestart";
-    }
-    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulRestart")
-    {
-        return "GracefulRestart";
-    }
-    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulShutdown")
-    {
-        return "GracefulShutdown";
-    }
-    // Unknown or others
-    return "";
-}
-
 inline void networkAdapterPostResetType(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& networkAdapterId, const std::string& objectPath,
@@ -2239,9 +2300,12 @@ inline void networkAdapterPostResetType(
 
     if (inventoryService == nullptr)
     {
-        BMCWEB_LOG_ERROR(
-            "networkAdapterPostResetType error service not implementing reset interface");
-        messages::internalError(resp->res);
+        // Same condition that hides the action on GET: unsupported, not an
+        // internal error.
+        BMCWEB_LOG_WARNING(
+            "NetworkAdapter.Reset not supported: {} has no reset interface",
+            networkAdapterId);
+        messages::actionNotSupported(resp->res, "NetworkAdapter.Reset");
         return;
     }
 

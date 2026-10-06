@@ -23,7 +23,6 @@
 #include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
-#include <boost/asio/readable_pipe.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 #include <dbus_utility.hpp>
@@ -63,10 +62,6 @@ static const std::string& truststoreBiosPath =
 static const std::string dpuFruObj = "xyz.openbmc_project.Control.dpu_fru";
 static const std::string dpuFruPath =
     "/xyz/openbmc_project/inventory/system/board";
-
-static const std::string socForceResetTraget =
-    "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-    "/Oem/Nvidia/SOC.ForceReset";
 
 static const char* const oemFruService =
     "xyz.openbmc_project.DPU.Config_oem_fru";
@@ -1880,54 +1875,6 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             bluefield::handleTruststoreCertificatesResetKeys, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/SOC.ForceReset/")
-        .privileges(redfish::privileges::postComputerSystem)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& systemName) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-            auto dataOut = std::make_shared<boost::asio::readable_pipe>(
-                crow::connections::systemBus->get_io_context());
-            auto dataErr = std::make_shared<boost::asio::readable_pipe>(
-                crow::connections::systemBus->get_io_context());
-            std::shared_ptr<boost::process::v2::process> p =
-                std::make_shared<boost::process::v2::process>(
-                    boost::process::v2::process(
-                        crow::connections::systemBus->get_io_context(),
-                        "/usr/sbin/mlnx_bf_reset_control",
-                        {"soc_hard_reset_ignore_host"},
-                        boost::process::v2::process_stdio{
-                            .in = nullptr, .out = *dataOut, .err = *dataErr}));
-            auto callback = [asyncResp, dataOut, dataErr,
-                             p](const boost::system::error_code& ec,
-                                int errorCode) mutable {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "mlnx_bf_reset_control script failed with error code: {} {}",
-                        ec, errorCode);
-                    messages::operationFailed(asyncResp->res);
-                    return;
-                }
-                BMCWEB_LOG_DEBUG("SOC Hard Reset");
-                messages::success(asyncResp->res);
-            };
-
-            p->async_wait(std::move(callback));
-        });
-
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {
         BMCWEB_ROUTE(
@@ -1998,11 +1945,12 @@ inline void requestRoutesNvidiaOemBf(App& app)
                     std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem";
-                auto& nvidia = asyncResp->res.jsonValue;
-                auto& actions = nvidia["Actions"];
-                auto& socForceReset = actions["#SOC.ForceReset"];
+                // maybe_unused: only the optional block below uses it.
+                [[maybe_unused]] auto& nvidia = asyncResp->res.jsonValue;
                 if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
                 {
+                    // Only here, so other builds don't emit "Actions": null.
+                    auto& actions = nvidia["Actions"];
                     auto& connectx = nvidia["Connectx"];
                     auto& hostRshimAction = actions["#HostRshim.Set"];
                     auto& modeAction = actions["#Mode.Set"];
@@ -2033,7 +1981,6 @@ inline void requestRoutesNvidiaOemBf(App& app)
                            ["ResetKeysType@Redfish.AllowableValues"] = {
                                "DeleteAllKeys"};
                 }
-                socForceReset["target"] = bluefield::socForceResetTraget;
                 bluefield::handleGetOemFru(app, asyncResp);
                 dbus::utility::getAllProperties(
                     bluefield::dpuFruObj, bluefield::dpuFruPath,

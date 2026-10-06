@@ -8,6 +8,8 @@
 #include "logging.hpp"
 #include "nvidia_dbus_utils.hpp"
 
+#include <boost/system/error_code.hpp>
+#include <boost/system/linux_error.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/exception.hpp>
@@ -21,6 +23,14 @@
 
 namespace redfish
 {
+
+// True only for an explicit "not found" reply from ObjectMapper. Other errors,
+// including io_error and host_unreachable, are real failures.
+inline bool isObjectMapperNotFound(const boost::system::error_code& ec)
+{
+    return ec.value() == boost::system::linux_error::bad_request_descriptor;
+}
+
 namespace dbus_utils
 {
 

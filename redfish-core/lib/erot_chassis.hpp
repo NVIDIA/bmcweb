@@ -718,8 +718,12 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                 populateRotChassisTrustedComponentsAndRotLinks(
                     asyncResp, chassisId, path, subtree);
-                firmware_info::updateIrreversibleConfigEnabled(asyncResp,
-                                                               chassisId);
+                // Its routes exist only under BMCWEB_NVIDIA_OEM_PROPERTIES.
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    firmware_info::updateIrreversibleConfigEnabled(asyncResp,
+                                                                   chassisId);
+                }
                 redfish::nvidia_chassis_utils::getChassisPolicyProperties(
                     asyncResp, chassisId);
 
