@@ -91,9 +91,22 @@ inline void handlePowerSubsystemCollectionGet(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(doPowerSubsystemCollection, asyncResp, chassisId));
+    // A Root-of-Trust (ERoT/IRoT) chassis has no PowerSubsystem; the generic
+    // route would otherwise serve an empty, unlinked island collection. Prune
+    // it to 404 for RoT chassis so the route agrees with the (absent)
+    // advertisement on the chassis body.
+    redfish::chassis_utils::isEROTChassis(chassisId, [asyncResp, chassisId](
+                                                         bool isEROT, bool) {
+        if (isEROT)
+        {
+            messages::resourceNotFound(asyncResp->res, "PowerSubsystem",
+                                       chassisId);
+            return;
+        }
+        redfish::chassis_utils::getValidChassisPath(
+            asyncResp, chassisId,
+            std::bind_front(doPowerSubsystemCollection, asyncResp, chassisId));
+    });
 }
 
 inline void requestRoutesPowerSubsystem(App& app)
