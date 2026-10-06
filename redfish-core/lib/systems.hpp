@@ -4073,6 +4073,13 @@ inline void processComputerSystemGet(
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             nvidiaComputerSystemType();
+        // Advertise the Oem/Nvidia/Switch resource so the served three-port
+        // switch status (LinkStatus, ThreePortSwitchMode) is reachable by
+        // following links from the System, instead of being an unlinked
+        // island.
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["Switch"]["@odata.id"] =
+            "/redfish/v1/Systems/" +
+            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia/Switch";
         if constexpr (BMCWEB_PROFILES_FEATURE)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]
