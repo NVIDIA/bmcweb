@@ -397,6 +397,11 @@ inline void handleChassisAssemblyGet(
     }
 
     BMCWEB_LOG_DEBUG("Get chassis Assembly");
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
+                                                   "Assembly"))
+    {
+        return;
+    }
     assembly_utils::getChassisAssembly(
         asyncResp, chassisID,
         std::bind_front(afterHandleChassisAssemblyGet, asyncResp, chassisID));
@@ -408,6 +413,11 @@ inline void handleChassisAssemblyHead(
     const std::string& chassisID)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
+                                                   "Assembly"))
     {
         return;
     }
@@ -488,6 +498,11 @@ inline void handleChassisAssemblyPatch(
     const std::string& chassisID)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisID,
+                                                   "Assembly"))
     {
         return;
     }

@@ -7,6 +7,7 @@
 #include "utils/chassis_utils.hpp"
 
 #include <boost/beast/http/status.hpp>
+#include <nlohmann/json.hpp>
 
 #include <memory>
 #include <string>
@@ -76,6 +77,37 @@ TEST(PruneIfRotChassis, NonRotChassisIsUntouched)
 
     EXPECT_FALSE(pruneIfRotChassis(asyncResp, "Bluefield_BMC", "Sensors"));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(AddChassisSubresourceLinks, RotChassisGetsNoLinks)
+{
+    for (const char* id :
+         {"BlueField_ERoT_CPU_0", "BlueField_IRoT_NIC_0", "erot_0"})
+    {
+        nlohmann::json json;
+        addChassisSubresourceLinks(json, id);
+        EXPECT_TRUE(json.is_null()) << id;
+    }
+}
+
+TEST(AddChassisSubresourceLinks, OtherChassisGetsTheLinks)
+{
+    nlohmann::json json;
+    addChassisSubresourceLinks(json, "BlueField_BMC_0");
+
+    for (const char* name : {"Sensors", "Assembly", "PCIeSlots", "Controls"})
+    {
+        ASSERT_TRUE(json.contains(name)) << name;
+        EXPECT_EQ(json[name]["@odata.id"],
+                  std::string("/redfish/v1/Chassis/BlueField_BMC_0/") + name);
+    }
+}
+
+TEST(AddChassisSubresourceLinks, NameDecidesNotASubstring)
+{
+    nlohmann::json json;
+    addChassisSubresourceLinks(json, "ERoTX_0");
+    EXPECT_TRUE(json.contains("Sensors"));
 }
 
 } // namespace

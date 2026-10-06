@@ -683,10 +683,14 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 asyncResp->res.jsonValue["Id"] = chassisId;
 
                 // Every RoT chassis has an SPDM certificate chain, so link
-                // Certificates on all platforms, BF included.
-                asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
-                    std::string("/redfish/v1/Chassis/") + chassisId +
-                    "/Certificates";
+                // Certificates on all platforms, BF included. The routes
+                // match by chassis name, so link only for such a name.
+                if (redfish::chassis_utils::isRotChassisName(chassisId))
+                {
+                    asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
+                        std::string("/redfish/v1/Chassis/") + chassisId +
+                        "/Certificates";
+                }
 
                 asyncResp->res.jsonValue["Links"]["ManagedBy"] = {
                     {{"@odata.id",

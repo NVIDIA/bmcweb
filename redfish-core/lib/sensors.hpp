@@ -2454,6 +2454,11 @@ inline void handleSensorCollectionGet(
         return;
     }
 
+    if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                   "Sensors"))
+    {
+        return;
+    }
     if (delegatedQuery.expandType != query_param::ExpandType::None)
     {
         // we perform efficient expand.

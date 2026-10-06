@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "background_copy.hpp"
 #include "boost_formatters.hpp"
@@ -14,6 +16,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <algorithm>
@@ -943,6 +946,37 @@ inline bool isRotChassisName(std::string_view chassisId)
         }
     }
     return false;
+}
+
+// Links the sub-resources that pruneIfRotChassis() 404s on a RoT chassis. A RoT
+// chassis gets none of them, so every link has a route behind it.
+inline void addChassisSubresourceLinks(nlohmann::json& json,
+                                       const std::string& chassisId)
+{
+    if (isRotChassisName(chassisId))
+    {
+        return;
+    }
+    const auto addLink = [&json, &chassisId](const std::string& name) {
+        json[name]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/{}", chassisId, name);
+    };
+    if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL &&
+                  BMCWEB_HOST_OS_FEATURES)
+    {
+        addLink("Thermal");
+        addLink("Power");
+    }
+    if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
+    {
+        addLink("ThermalSubsystem");
+        addLink("PowerSubsystem");
+        addLink("EnvironmentMetrics");
+    }
+    addLink("Sensors");
+    addLink("Assembly");
+    addLink("PCIeSlots");
+    addLink("Controls");
 }
 
 // 404s resourceType and returns true if chassisId is a RoT chassis.

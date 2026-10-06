@@ -2935,39 +2935,10 @@ inline void handleChassisGetAllProperties(
         }
     }
 
-    if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL &&
-                  BMCWEB_HOST_OS_FEATURES)
-    {
-        asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
-
-        // Power object
-        asyncResp->res.jsonValue["Power"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-    }
-
-    if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
-    {
-        asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/ThermalSubsystem",
-                                chassisId);
-        asyncResp->res.jsonValue["PowerSubsystem"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/PowerSubsystem",
-                                chassisId);
-        asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
-                                chassisId);
-    }
-
-    // SensorCollection
-    asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
+    chassis_utils::addChassisSubresourceLinks(asyncResp->res.jsonValue,
+                                              chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-
-    // Assembly collection
-    asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId);
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)
     {
@@ -2976,14 +2947,12 @@ inline void handleChassisGetAllProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
                                 chassisId);
     }
-    // PCIeSlots collection
-    asyncResp->res.jsonValue["PCIeSlots"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisId);
 
     // TrustedComponent collection (once per GET when already populated;
     // handleChassisGetAllProperties may run for multiple D-Bus interface
     // queries on the same chassis).
-    if (!asyncResp->res.jsonValue.contains("TrustedComponents"))
+    if (!chassis_utils::isRotChassisName(chassisId) &&
+        !asyncResp->res.jsonValue.contains("TrustedComponents"))
     {
         getChassisAssociatedEndpoint(
             chassisId,
@@ -3006,10 +2975,6 @@ inline void handleChassisGetAllProperties(
             },
             path);
     }
-
-    // Controls Collection
-    asyncResp->res.jsonValue["Controls"] = {
-        {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/Controls"}};
 
     // Links/ComputerSystems is emitted only on the chassis that actually hosts
     // the computer system, gated on a "computer_system" association authored

@@ -8,6 +8,7 @@
 #include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "query.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
@@ -1526,6 +1527,11 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisId) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (redfish::chassis_utils::pruneIfEROTChassis(asyncResp, chassisId,
+                                                           "PCIeDevices"))
             {
                 return;
             }

@@ -784,13 +784,17 @@ inline void handleChassisGetSubTree(
     // Nvidia added if condition for Host OS Features
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
-        asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
-                                chassisId);
-        asyncResp->res
-            .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
-                                chassisId);
+        // RoT chassis do not advertise Chassis.Reset, and 404 its ActionInfo.
+        if (!chassis_utils::isRotChassisName(chassisId))
+        {
+            asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Actions/Chassis.Reset", chassisId);
+            asyncResp->res
+                .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
+                                    chassisId);
+        }
     }
 
     // Nvidia Added code start
@@ -805,8 +809,12 @@ inline void handleChassisGetSubTree(
     addChassisResetOemAction(asyncResp, chassisId);
     // Nvidia Added code end
 
-    asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices", chassisId);
+    if (!chassis_utils::isRotChassisName(chassisId))
+    {
+        asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices",
+                                chassisId);
+    }
     if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
     {
         asyncResp->res.jsonValue["LogServices"] = {
