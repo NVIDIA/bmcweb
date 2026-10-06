@@ -36,6 +36,7 @@ inline constexpr std::array<std::string_view, 2> supportedPowerModes = {
 using PowerProfile = std::tuple<std::string, uint32_t, std::string>;
 using PowerProfiles = std::vector<PowerProfile>;
 using ProfileSnapshot = std::tuple<std::string, PowerProfiles, std::string>;
+using ServiceCallback = std::function<void(const std::string&)>;
 
 inline bool isSupportedPowerMode(std::string_view mode)
 {
@@ -70,15 +71,17 @@ inline bool matches(std::string_view chassis, std::string_view control)
 inline void populate(nlohmann::json& json, const std::string& mode,
                      const PowerProfiles& profiles = {})
 {
-    json = {{"@odata.type", "#Control.v1_3_0.Control"},
-            {"@odata.id", uri},
-            {"Id", controlId},
-            {"Name", "System Power Control"},
-            {"ControlType", "Power"},
-            {"ControlMode", "Automatic"},
-            {"PhysicalContext", "Accelerator"},
-            {"SetPointUnits", "W"},
-            {"SetPoint", nullptr}};
+    json["@odata.type"] = "#Control.v1_3_0.Control";
+    json["@odata.id"] = uri;
+    json["Id"] = controlId;
+    json["Name"] = "System Power Control";
+    json["ControlType"] = "Power";
+    // The approved LP30 Redfish contract defines ControlMode as the fixed,
+    // read-only Automatic value. D-Bus backs only the MaxQ/MaxP selector.
+    json["ControlMode"] = "Automatic";
+    json["PhysicalContext"] = "Accelerator";
+    json["SetPointUnits"] = "W";
+    json["SetPoint"] = nullptr;
     auto& nvidia = json["Oem"]["Nvidia"];
     nvidia["@odata.type"] = "#NvidiaControl.v1_0_0.NvidiaControl";
     nvidia["PowerMode@Redfish.AllowableValues"] = supportedPowerModes;
@@ -159,9 +162,42 @@ inline bool readPatch(nlohmann::json& input, crow::Response& response,
     return true;
 }
 
+inline void afterGetServiceObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ServiceCallback& callback, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Control", controlId);
+        return;
+    }
+    if (object.size() != 1)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    callback(object.front().first);
+}
+
+inline void afterGetPowerControlAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ServiceCallback& callback, const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& endpoints)
+{
+    if (ec || std::ranges::find(endpoints, path) == endpoints.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "Control", controlId);
+        return;
+    }
+    dbus::utility::getDbusObject(
+        std::string(path), std::array<std::string_view, 1>{interface},
+        std::bind_front(afterGetServiceObject, asyncResp, callback));
+}
+
 inline void withService(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::optional<std::string>& chassisPath,
-                        const std::function<void(const std::string&)>& callback)
+                        const ServiceCallback& callback)
 {
     if (!chassisPath)
     {
@@ -170,36 +206,9 @@ inline void withService(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     // Existence requires BOTH the chassis association and the actual provider.
     // A matching URI alone must not fabricate a control on another platform.
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.ObjectMapper", *chassisPath + "/power_controls",
-        "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, callback](const boost::system::error_code& ec,
-                              const std::vector<std::string>& endpoints) {
-            if (ec || std::ranges::find(endpoints, path) == endpoints.end())
-            {
-                messages::resourceNotFound(asyncResp->res, "Control",
-                                           controlId);
-                return;
-            }
-            dbus::utility::getDbusObject(
-                std::string(path), std::array<std::string_view, 1>{interface},
-                [asyncResp,
-                 callback](const boost::system::error_code& error,
-                           const dbus::utility::MapperGetObject& obj) {
-                    if (error || obj.empty())
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Control",
-                                                   controlId);
-                        return;
-                    }
-                    if (obj.size() != 1)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    callback(obj.front().first);
-                });
-        });
+    dbus::utility::getAssociationEndPoints(
+        *chassisPath + "/power_controls",
+        std::bind_front(afterGetPowerControlAssociation, asyncResp, callback));
 }
 
 inline void completeGet(
@@ -240,23 +249,37 @@ inline void completeSet(crow::Response& response,
     messages::success(response);
 }
 
+inline void getPowerProfile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service)
+{
+    dbus::utility::async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const ProfileSnapshot& snapshot) {
+            // object_server returns a tuple as ONE D-Bus struct.
+            const auto& [mode, profiles, profileStatus] = snapshot;
+            completeGet(asyncResp->res, ec, mode, profiles, profileStatus);
+        },
+        service, std::string(path), std::string(interface), "GetPowerProfile");
+}
+
+inline void setPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& mode,
+                         const std::string& service)
+{
+    dbus::utility::async_method_call(
+        [asyncResp](const boost::system::error_code& ec) {
+            completeSet(asyncResp->res, ec);
+        },
+        service, std::string(path), std::string(interface), "SetPowerMode",
+        mode);
+}
+
 inline void get(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::optional<std::string>& chassisPath)
 {
-    withService(
-        asyncResp, chassisPath, [asyncResp](const std::string& service) {
-            dbus::utility::async_method_call(
-                [asyncResp](const boost::system::error_code& ec,
-                            const ProfileSnapshot& snapshot) {
-                    // object_server returns a tuple as ONE D-Bus
-                    // struct, not three separate output arguments.
-                    const auto& [mode, profiles, profileStatus] = snapshot;
-                    completeGet(asyncResp->res, ec, mode, profiles,
-                                profileStatus);
-                },
-                service, std::string(path), std::string(interface),
-                "GetPowerProfile");
-        });
+    withService(asyncResp, chassisPath,
+                std::bind_front(getPowerProfile, asyncResp));
 }
 
 inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -264,13 +287,6 @@ inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& mode)
 {
     withService(asyncResp, chassisPath,
-                [asyncResp, mode](const std::string& service) {
-                    dbus::utility::async_method_call(
-                        [asyncResp](const boost::system::error_code& ec) {
-                            completeSet(asyncResp->res, ec);
-                        },
-                        service, std::string(path), std::string(interface),
-                        "SetPowerMode", mode);
-                });
+                std::bind_front(setPowerMode, asyncResp, mode));
 }
 } // namespace redfish::lpu_power_mode
