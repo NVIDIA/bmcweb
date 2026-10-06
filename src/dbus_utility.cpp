@@ -81,19 +81,44 @@ void checkDbusPathExists(const std::string& path,
         });
 }
 
+// With reportNotFound, ObjectMapper's ResourceNotFound reply is reported as
+// EBADR (see mapperNotFoundToEbadr); otherwise the error code is unchanged.
+static void getSubTreeImpl(
+    const std::string& path, int32_t depth,
+    std::span<const std::string_view> interfaces, bool reportNotFound,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreeResponse&)>&& callback)
+{
+    dbus::utility::async_method_call(
+        [callback = std::move(callback),
+         reportNotFound](const boost::system::error_code& ec,
+                         const sdbusplus::message_t& msg,
+                         const MapperGetSubTreeResponse& subtree) {
+            callback(reportNotFound ? mapperNotFoundToEbadr(ec, errorName(msg))
+                                    : ec,
+                     subtree);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", path, depth,
+        interfaces);
+}
+
 void getSubTree(const std::string& path, int32_t depth,
                 std::span<const std::string_view> interfaces,
                 std::function<void(const boost::system::error_code&,
                                    const MapperGetSubTreeResponse&)>&& callback)
 {
-    dbus::utility::async_method_call(
-        [callback = std::move(callback)](
-            const boost::system::error_code& ec,
-            const MapperGetSubTreeResponse& subtree) { callback(ec, subtree); },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", path, depth,
-        interfaces);
+    getSubTreeImpl(path, depth, interfaces, false, std::move(callback));
+}
+
+void getSubTreeReportNotFound(
+    const std::string& path, int32_t depth,
+    std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreeResponse&)>&& callback)
+{
+    getSubTreeImpl(path, depth, interfaces, true, std::move(callback));
 }
 
 void getSubTreePaths(

@@ -225,6 +225,14 @@ void getSubTree(
     std::function<void(const boost::system::error_code&,
                        const MapperGetSubTreeResponse&)>&& callback);
 
+// Like getSubTree, but ObjectMapper's ResourceNotFound error is reported as
+// EBADR (see mapperNotFoundToEbadr) so callers can use isObjectMapperNotFound.
+void getSubTreeReportNotFound(
+    const std::string& path, int32_t depth,
+    std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreeResponse&)>&& callback);
+
 void getSubTreePaths(
     const std::string& path, int32_t depth,
     std::span<const std::string_view> interfaces,

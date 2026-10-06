@@ -15,6 +15,7 @@
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/dbus_utils.hpp"
 
 #include <sdbusplus/unpack_properties.hpp>
 
@@ -444,12 +445,6 @@ inline void afterChassisDriveCollectionSubtreeGet(
             continue;
         }
 
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#DriveCollection.DriveCollection";
-        asyncResp->res.jsonValue["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Drives", chassisId);
-        asyncResp->res.jsonValue["Name"] = "Drive Collection";
-
         // Association lambda
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
@@ -458,8 +453,34 @@ inline void afterChassisDriveCollectionSubtreeGet(
                                    const dbus::utility::MapperEndPoints& resp) {
                 if (ec3)
                 {
-                    BMCWEB_LOG_ERROR("Error in chassis Drive association ");
+                    // No "/drive" association means the Drives link is not
+                    // advertised (see chassis.hpp): 404. Other errors must
+                    // not be masked as "absent".
+                    if (isObjectMapperNotFound(ec3))
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "DriveCollection", chassisId);
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Error in chassis Drive association: {}",
+                            ec3.message());
+                        messages::internalError(asyncResp->res);
+                    }
+                    return;
                 }
+                if (resp.empty())
+                {
+                    messages::resourceNotFound(asyncResp->res,
+                                               "DriveCollection", chassisId);
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#DriveCollection.DriveCollection";
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Drives", chassisId);
+                asyncResp->res.jsonValue["Name"] = "Drive Collection";
                 nlohmann::json& members = asyncResp->res.jsonValue["Members"];
                 // important if array is empty
                 members = nlohmann::json::array();

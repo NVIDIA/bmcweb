@@ -29,6 +29,7 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
+#include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_histogram_utils.hpp>
 #include <utils/nvidia_network_adapters_utils.hpp>
@@ -154,7 +155,7 @@ void getValidNetworkAdapterPath(
     }
 }
 
-inline void doNetworkAdaptersCollection(
+inline void doNetworkAdaptersCollectionImpl(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, std::vector<std::string>& chassisIntfList,
     const std::optional<std::string>& validChassisPath)
@@ -270,6 +271,56 @@ inline void doNetworkAdaptersCollection(
             asyncResp->res.jsonValue["Members@odata.count"] = members.size();
             return;
         });
+}
+
+inline void afterGetNetworkInterfaceSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, std::vector<std::string> chassisIntfList,
+    const std::optional<std::string>& validChassisPath,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
+{
+    if (ec && !isObjectMapperNotFound(ec))
+    {
+        BMCWEB_LOG_ERROR("NetworkInterface lookup failed: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || paths.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapterCollection",
+                                   chassisId);
+        return;
+    }
+    doNetworkAdaptersCollectionImpl(asyncResp, chassisId, chassisIntfList,
+                                    validChassisPath);
+}
+
+inline void doNetworkAdaptersCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+    // Mirror the chassis-side link: it is advertised only when the chassis
+    // has a NetworkInterface (on the chassis object or in its subtree).
+    static constexpr std::array<std::string_view, 1> netIfIface{
+        "xyz.openbmc_project.Inventory.Item.NetworkInterface"};
+    if (std::ranges::find(chassisIntfList, std::string(netIfIface[0])) !=
+        chassisIntfList.end())
+    {
+        doNetworkAdaptersCollectionImpl(asyncResp, chassisId, chassisIntfList,
+                                        validChassisPath);
+        return;
+    }
+    dbus::utility::getSubTreePaths(
+        *validChassisPath, 0, netIfIface,
+        std::bind_front(afterGetNetworkInterfaceSubTree, asyncResp, chassisId,
+                        chassisIntfList, validChassisPath));
 }
 
 inline std::string convertHealthToRF(const std::string& health)
