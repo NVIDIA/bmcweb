@@ -270,9 +270,13 @@ RedfishService::RedfishService(App& app)
     requestRoutesEventServiceSse(app);
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
-    requestRoutesFabricAdapters(app);
-    requestRoutesFabricAdapterCollection(app);
-    requestRoutesFabricPort(app);
+    // The FabricAdapters link on ComputerSystem is gated on this same flag.
+    if constexpr (BMCWEB_ENABLE_FABRIC_ADAPTER)
+    {
+        requestRoutesFabricAdapters(app);
+        requestRoutesFabricAdapterCollection(app);
+        requestRoutesFabricPort(app);
+    }
     requestRoutesSubmitTestEvent(app);
 
     if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)

@@ -54,6 +54,16 @@ inline void requestRoutesMetricReportCollection(App& app)
                     return;
                 }
 
+                // The MetricReports link is compiled out of TelemetryService
+                // on BF; 404 to match.
+                if constexpr (BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+                {
+                    messages::resourceNotFound(asyncResp->res,
+                                               "MetricReportCollection",
+                                               "MetricReports");
+                    return;
+                }
+
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#MetricReportCollection.MetricReportCollection";
                 asyncResp->res.jsonValue["@odata.id"] =

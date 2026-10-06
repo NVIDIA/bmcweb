@@ -357,6 +357,14 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
             {
                 return;
             }
+            // Without this flag the chassis LogServices link is compiled
+            // out; 404 to match.
+            if constexpr (!BMCWEB_NVIDIA_OEM_LOGSERVICES)
+            {
+                messages::resourceNotFound(asyncResp->res,
+                                           "LogServiceCollection", chassisId);
+                return;
+            }
             const std::array<std::string_view, 2> interfaces = {
                 "xyz.openbmc_project.Inventory.Item.Board",
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
