@@ -588,13 +588,19 @@ inline void populateRotChassisTrustedComponentsAndRotLinks(
         },
         inventoryPath);
 
-    if (firmware_info::hasProtectedComponentObjects(chassisId, subtree))
+    // The RoTProtectedComponents routes exist only under
+    // BMCWEB_NVIDIA_OEM_PROPERTIES; gate the link on the same flag.
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
-            {"@odata.id",
-             boost::urls::format(
-                 "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents",
-                 chassisId)}};
+        if (firmware_info::hasProtectedComponentObjects(chassisId, subtree))
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
+                {"@odata.id",
+                 boost::urls::format(
+                     "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents",
+                     chassisId)}};
+        }
     }
 }
 
