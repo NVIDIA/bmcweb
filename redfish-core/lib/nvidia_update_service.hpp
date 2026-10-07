@@ -69,6 +69,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
 
@@ -1151,12 +1152,19 @@ inline void extendUpdateServiceGet(
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    asyncResp->res
-        .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
-        {"target",
-         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
-        {"@Redfish.ActionInfo",
-         "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
+    // Check the file first: getAllowableValues() logs an error when it is
+    // missing, which is expected on platforms that don't ship it.
+    std::error_code mappingEc;
+    if (std::filesystem::exists(BMCWEB_FW_UUID_MAPPING_JSON, mappingEc) &&
+        !getAllowableValues().empty())
+    {
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
+            {"target",
+             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
+            {"@Redfish.ActionInfo",
+             "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
+    }
     if constexpr (BMCWEB_SCP_UPDATE)
     {
         asyncResp->res.jsonValue["Actions"]["Oem"]
