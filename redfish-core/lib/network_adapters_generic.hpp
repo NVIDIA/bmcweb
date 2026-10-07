@@ -1463,8 +1463,9 @@ inline void afterGetPortInterfaceForAssociation(
         return;
     }
 
-    sdbusplus::message::object_path path(objectPathToGetPortData);
-    if (path.filename() != portId || object.size() != 1)
+    // afterGetPortAllStates already matched the requested inventory port ID.
+    // Its associated data object may have a different name (C3_1 -> Port_0).
+    if (object.size() != 1)
     {
         messages::resourceNotFound(asyncResp->res, "Port", portId);
         return;
