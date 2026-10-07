@@ -31,6 +31,8 @@
 #include "registries/oem/nvidia_nvlink_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/oem/nvidia_account_message_registry.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/oem/nvidia_factory_reset_message_registry.hpp"
 
 #include <optional>
 #include <span>
@@ -105,6 +107,11 @@ inline std::optional<registries::HeaderAndUrl>
     if (NvidiaAccount::header.registryPrefix == registryName)
     {
         return HeaderAndUrl{NvidiaAccount::header, NvidiaAccount::url};
+    }
+    if (NvidiaFactoryReset::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{NvidiaFactoryReset::header,
+                            NvidiaFactoryReset::url};
     }
     // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)
@@ -181,6 +188,10 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (NvidiaAccount::header.registryPrefix == registryName)
     {
         return {NvidiaAccount::registry};
+    }
+    if (NvidiaFactoryReset::header.registryPrefix == registryName)
+    {
+        return {NvidiaFactoryReset::registry};
     }
     // Nvidia: added code end
     if constexpr (BMCWEB_BIOS)

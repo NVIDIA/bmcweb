@@ -1,0 +1,49 @@
+{
+    "@Redfish.Copyright": "Copyright 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.",
+    "@odata.type": "#MessageRegistry.v1_4_0.MessageRegistry",
+    "Description": "This registry defines NVIDIA factory-reset messages.",
+    "Id": "NvidiaFactoryReset.1.0.0",
+    "Language": "en",
+    "Messages": {
+        "AttestedWipeFailed": {
+            "Description": "Indicates that an attested wipe failed.",
+            "Message": "Attested wipe failed. Error: %1.",
+            "MessageSeverity": "Critical",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Read the error in this message, correct that condition, and retry the attested wipe.",
+            "Severity": "Critical"
+        },
+        "AttestedWipeSucceeded": {
+            "Description": "Indicates that an attested wipe completed successfully.",
+            "Message": "Attested wipe completed successfully.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "ParamTypes": [],
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "FactoryResetIgnored": {
+            "Description": "Indicates that a factory reset was ignored because the reset button was released early.",
+            "Message": "Factory reset ignored. Button released before %1 seconds.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "Hold the factory reset button for the required time to schedule a factory reset.",
+            "Severity": "OK"
+        },
+        "FactoryResetScheduled": {
+            "Description": "Indicates that a factory reset was scheduled because the reset button was held.",
+            "Message": "Factory reset scheduled. Button held for %1 seconds.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None.",
+            "Severity": "Warning"
+        }
+    },
+    "Name": "NVIDIA Factory Reset Message Registry",
+    "OwningEntity": "NVIDIA",
+    "RegistryPrefix": "NvidiaFactoryReset",
+    "RegistryVersion": "1.0.0"
+}
