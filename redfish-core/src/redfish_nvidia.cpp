@@ -26,6 +26,7 @@
 #include "nvidia_error_injection.hpp"
 #include "nvidia_fabric.hpp"
 #include "nvidia_fabric_config_update.hpp"
+#include "nvidia_igx.hpp"
 #include "nvidia_leak_detector.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_log_services_debug_token.hpp"
@@ -463,6 +464,11 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_MANAGER_USB_PORTS)
     {
         manager_usb_ports::requestRoutesManagerUSBPorts(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+    {
+        requestRoutesNvidiaIgxSerialConsole(app);
     }
     // Nvidia code starts here
 

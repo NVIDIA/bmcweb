@@ -28,6 +28,7 @@
 #include "nvidia_emmc_fullsecureerase.hpp"
 #include "nvidia_error_messages.hpp"
 #include "nvidia_event_service_manager.hpp"
+#include "nvidia_igx.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish.hpp"
@@ -1538,6 +1539,13 @@ inline void extendManagerOEM(
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
     oemNvidia["@odata.type"] = "#NvidiaManager.v1_9_0.NvidiaManager";
+    if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+    {
+        if (managerId == BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            nvidia_igx::advertiseSerialConsole(oemNvidia, managerId);
+        }
+    }
     oemNvidia["DebugTokenManagement"]["@odata.id"] = std::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     checkAndAddDOTBackupDataLink(asyncResp, managerId);
@@ -1692,6 +1700,12 @@ inline void extendManagerOEMActions(
         "/Actions/Oem/NvidiaManager.ResetToDefaults";
 
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+
+    if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+    {
+        nvidia_igx::advertiseSwitchSerialConsole(
+            oemActions, BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
 
     if constexpr (BMCWEB_COMMAND_SMBPBI_OOB)
     {
