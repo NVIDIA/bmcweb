@@ -22,6 +22,7 @@
 #include "logging.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_igx.hpp"
 #include "nvidia_refresh_inventory.hpp"
 #include "nvidia_system_processor_power_limits.hpp"
 #include "query.hpp"
@@ -4108,6 +4109,14 @@ inline void processComputerSystemGet(
         // nvidia_system_processor_power_limits.hpp; call only the helper here.
         redfish::nvidia_aggregate_power::advertiseSetProcessorPowerLimits(
             asyncResp, BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
+    {
+        if (systemName == BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            nvidia_igx::advertiseHostRecovery(asyncResp, systemName);
+        }
     }
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)

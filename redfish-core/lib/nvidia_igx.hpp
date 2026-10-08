@@ -39,10 +39,15 @@
 
 #include <chrono>
 #include <cstdint>
+#include <exception>
+#include <format>
 #include <functional>
+#include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 
 namespace redfish
 {
@@ -282,6 +287,448 @@ inline void handleSwitchSerialConsolePost(
         timeoutUs(75s), source);
 }
 
+// ---------------------------------------------------------------------------
+// Host recovery (Tegra RCM) — thin relay to com.nvidia.HostRecovery
+// ---------------------------------------------------------------------------
+//
+// GET  Systems/<id>/Oem/Nvidia/HostRecovery
+// POST Systems/<id>/Actions/Oem/NvidiaComputerSystem.EnterHostRecovery
+// POST Systems/<id>/Actions/Oem/NvidiaComputerSystem.CheckHostRecoveryStatus
+// POST Systems/<id>/Actions/Oem/NvidiaComputerSystem.ExitHostRecovery
+// POST Systems/<id>/Actions/Oem/NvidiaComputerSystem.
+//          AbandonUnverifiedRecoverySession
+//
+// The daemon owns all correlated state; bmcweb stays a thin relay. The
+// destructive actions require ConfigureComponents (postComputerSystem).
+
+constexpr const char* hostRecoveryService = "com.nvidia.HostRecovery";
+constexpr const char* hostRecoveryObject = "/com/nvidia/HostRecovery";
+constexpr const char* hostRecoveryIface = "com.nvidia.HostRecovery";
+
+inline void advertiseHostRecovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view systemId)
+{
+    nlohmann::json& oemNvidia = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidia["@odata.type"] =
+        "#NvidiaComputerSystem.v1_11_0.NvidiaComputerSystem";
+    oemNvidia["HostRecovery"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/HostRecovery", systemId);
+
+    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+    for (std::string_view action :
+         {"EnterHostRecovery", "CheckHostRecoveryStatus", "ExitHostRecovery",
+          "AbandonUnverifiedRecoverySession"})
+    {
+        oemActions[std::format("#NvidiaComputerSystem.{}", action)]["target"] =
+            boost::urls::format(
+                "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.{}",
+                systemId, action);
+    }
+}
+
+inline void hostRecoveryError(crow::Response& res, std::string_view name,
+                              std::string_view action)
+{
+    if (name == "com.nvidia.HostRecovery.Error.Busy")
+    {
+        messages::serviceTemporarilyUnavailable(res, "5");
+    }
+    else if (name == "com.nvidia.HostRecovery.Error.AttemptLimit")
+    {
+        messages::serviceTemporarilyUnavailable(res, "900");
+    }
+    else if (name == "com.nvidia.HostRecovery.Error.NotAcknowledged")
+    {
+        messages::actionParameterValueNotInList(
+            res, "false", "AcknowledgeUsbDisruption", action);
+    }
+    else if (name == "com.nvidia.HostRecovery.Error.PoweredOff" ||
+             name == "com.nvidia.HostRecovery.Error.NotSupported" ||
+             name == "org.freedesktop.DBus.Error.ServiceUnknown" ||
+             name == "org.freedesktop.DBus.Error.NameHasNoOwner")
+    {
+        messages::actionNotSupported(res, action);
+    }
+    else if (name == "org.freedesktop.DBus.Error.NoReply" ||
+             name == "org.freedesktop.DBus.Error.Timeout")
+    {
+        messages::serviceTemporarilyUnavailable(res, "10");
+    }
+    else
+    {
+        messages::internalError(res);
+    }
+}
+
+inline void hostRecoveryClassifyError(
+    crow::Response& res, const boost::system::error_code& ec,
+    sdbusplus::message_t& msg, std::string_view action)
+{
+    std::string_view name = dbusErrorName(msg);
+    BMCWEB_LOG_ERROR("HostRecovery.{} failed: {} [{}]", action, ec.message(),
+                     name);
+    hostRecoveryError(res, name, action);
+}
+
+// The daemon answers a successful call with a JSON snapshot of what actually
+// happened (Outcome / Message / RecoveryState / LastCheckStatus / ...).
+// Relaying a bare success would make an EnterFailed (strap pulse issued, host
+// never came back as APX) render exactly like a confirmed entry, so surface
+// the snapshot and let the outcome decide whether the action succeeded.
+inline void hostRecoveryRelayOutcome(
+    crow::Response& res, const std::string& payload, std::string_view action)
+{
+    nlohmann::json parsed = nlohmann::json::parse(payload, nullptr, false);
+    if (!parsed.is_object())
+    {
+        BMCWEB_LOG_ERROR("HostRecovery.{}: malformed reply: {}", action,
+                         payload);
+        messages::internalError(res);
+        return;
+    }
+
+    // Every field below comes from the daemon's single result builder, so a
+    // missing or wrong-typed one is a schema mismatch, not an absent option.
+    // Defaulting it would answer "Idle, not in recovery" with HTTP 200 to an
+    // operator whose reply could not be read. Collect first, publish only once
+    // the whole reply is sound.
+    bool valid = true;
+    auto stringField = [&parsed, &payload, &valid, action](const char* key) {
+        auto it = parsed.find(key);
+        if (it == parsed.end() || !it->is_string())
+        {
+            BMCWEB_LOG_ERROR(
+                "HostRecovery.{}: reply field '{}' missing or not a string: {}",
+                action, key, payload);
+            valid = false;
+            return std::string();
+        }
+        return it->get<std::string>();
+    };
+    auto boolField = [&parsed, &payload, &valid, action](const char* key) {
+        auto it = parsed.find(key);
+        if (it == parsed.end() || !it->is_boolean())
+        {
+            BMCWEB_LOG_ERROR(
+                "HostRecovery.{}: reply field '{}' missing or not a boolean: {}",
+                action, key, payload);
+            valid = false;
+            return false;
+        }
+        return it->get<bool>();
+    };
+
+    std::string outcome = stringField("Outcome");
+    std::string message = stringField("Message");
+    std::string recoveryState = stringField("RecoveryState");
+    bool recoveryActive = boolField("RecoveryActive");
+    std::string lastCheckStatus = stringField("LastCheckStatus");
+    std::string operationState = stringField("OperationState");
+    if (!valid)
+    {
+        messages::internalError(res);
+        return;
+    }
+
+    // NvidiaHostRecovery.v1_0_0.HostRecoveryActionResponse
+    res.jsonValue["Outcome"] = outcome;
+    res.jsonValue["Message"] = message;
+    res.jsonValue["RecoveryState"] = recoveryState;
+    res.jsonValue["RecoveryActive"] = recoveryActive;
+    res.jsonValue["LastCheckStatus"] = lastCheckStatus;
+    res.jsonValue["OperationState"] = operationState;
+
+    // Only Enter can fail this way. For the other actions the outcome is the
+    // resulting RecoveryState: a Check that runs fine on a host left in
+    // EnterFailed reports that state back, and is not itself a failure.
+    if (action == "EnterHostRecovery" && outcome == "EnterFailed")
+    {
+        messages::operationFailed(res);
+        return;
+    }
+    messages::success(res);
+}
+
+inline void hostRecoveryReportOutcome(
+    crow::Response& res, sdbusplus::message_t& msg, std::string_view action)
+{
+    std::string payload;
+    try
+    {
+        msg.read(payload);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("HostRecovery.{}: unreadable reply: {}", action,
+                         e.what());
+        messages::internalError(res);
+        return;
+    }
+    hostRecoveryRelayOutcome(res, payload, action);
+}
+
+// Only the NvidiaHostRecovery.v1_0_0 properties. The daemon's correlation
+// state (generation, revisions, evidence, timestamps) stays on D-Bus.
+inline void hostRecoverySnapshotToJson(
+    const dbus::utility::DBusPropertiesMap& props, nlohmann::json& j)
+{
+    for (const auto& [key, val] : props)
+    {
+        if (const std::string* s = std::get_if<std::string>(&val))
+        {
+            if (key == "RecoveryState" || key == "LastCheckStatus" ||
+                key == "OperationState")
+            {
+                j[key] = *s;
+            }
+        }
+        else if (const bool* b = std::get_if<bool>(&val))
+        {
+            if (key == "RecoveryActive")
+            {
+                j[key] = *b;
+            }
+        }
+        else if (const uint32_t* u = std::get_if<uint32_t>(&val))
+        {
+            if (key == "RecoveryAttemptCount")
+            {
+                j[key] = *u;
+            }
+        }
+    }
+}
+
+inline bool checkHostRecoverySystem(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return false;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return false;
+    }
+    return true;
+}
+
+inline void afterHostRecoveryGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& props)
+{
+    nlohmann::json& j = asyncResp->res.jsonValue;
+    if (ec)
+    {
+        // Only a genuinely absent daemon may be published as "feature not
+        // present": sd-bus maps ServiceUnknown to EHOSTUNREACH and
+        // NameHasNoOwner to ENXIO. Any other failure is not a confirmed
+        // negative; reporting it as one would make the WebUI hide an active
+        // recovery session on a transient blip.
+        if (ec.value() == boost::system::errc::host_unreachable ||
+            ec.value() == boost::system::errc::no_such_device_or_address)
+        {
+            BMCWEB_LOG_DEBUG("HostRecovery absent: {}", ec.message());
+            j["HostRecoveryAvailable"] = false;
+            j["RecoveryState"] = "Unknown";
+            j["LastCheckStatus"] = "Unknown";
+            j["OperationState"] = "Unknown";
+            return;
+        }
+        BMCWEB_LOG_ERROR("HostRecovery snapshot failed: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    j["HostRecoveryAvailable"] = true;
+    hostRecoverySnapshotToJson(props, j);
+}
+
+inline void handleHostRecoveryGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!checkHostRecoverySystem(app, req, asyncResp, systemName))
+    {
+        return;
+    }
+    nlohmann::json& j = asyncResp->res.jsonValue;
+    j["@odata.type"] = "#NvidiaHostRecovery.v1_0_0.NvidiaHostRecovery";
+    j["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/HostRecovery", systemName);
+    j["Id"] = "HostRecovery";
+    j["Name"] = "Host Recovery";
+    dbus::utility::getAllProperties(
+        hostRecoveryService, hostRecoveryObject, hostRecoveryIface,
+        std::bind_front(afterHostRecoveryGet, asyncResp));
+}
+
+inline void handleEnterHostRecoveryPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!checkHostRecoverySystem(app, req, asyncResp, systemName))
+    {
+        return;
+    }
+    bool verifyAfterEnter = true;
+    bool acknowledgeUsbDisruption = false;
+    if (!json_util::readJsonAction(req, asyncResp->res, "VerifyAfterEnter",
+                                   verifyAfterEnter, "AcknowledgeUsbDisruption",
+                                   acknowledgeUsbDisruption))
+    {
+        return;
+    }
+    if (!acknowledgeUsbDisruption)
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "false", "AcknowledgeUsbDisruption",
+            "EnterHostRecovery");
+        return;
+    }
+    using namespace std::chrono_literals;
+    // Must exceed the daemon's worst-case Enter time (105s: powerctrl lock
+    // 10s + route 5s + strap pulse 75s + APX window 10s + restore 5s), or the
+    // operator sees a failure for a recovery the daemon goes on to complete.
+    dbus::utility::async_method_call_timed(
+        [asyncResp](const boost::system::error_code& ec,
+                    sdbusplus::message_t& msg) {
+            if (ec)
+            {
+                hostRecoveryClassifyError(asyncResp->res, ec, msg,
+                                          "EnterHostRecovery");
+                return;
+            }
+            hostRecoveryReportOutcome(asyncResp->res, msg, "EnterHostRecovery");
+        },
+        hostRecoveryService, hostRecoveryObject, hostRecoveryIface, "Enter",
+        timeoutUs(150s), verifyAfterEnter, acknowledgeUsbDisruption);
+}
+
+inline void handleCheckHostRecoveryStatusPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!checkHostRecoverySystem(app, req, asyncResp, systemName))
+    {
+        return;
+    }
+    bool acknowledgeUsbDisruption = false;
+    if (!json_util::readJsonAction(req, asyncResp->res,
+                                   "AcknowledgeUsbDisruption",
+                                   acknowledgeUsbDisruption))
+    {
+        return;
+    }
+    if (!acknowledgeUsbDisruption)
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "false", "AcknowledgeUsbDisruption",
+            "CheckHostRecoveryStatus");
+        return;
+    }
+    using namespace std::chrono_literals;
+    dbus::utility::async_method_call_timed(
+        [asyncResp](const boost::system::error_code& ec,
+                    sdbusplus::message_t& msg) {
+            if (ec)
+            {
+                hostRecoveryClassifyError(asyncResp->res, ec, msg,
+                                          "CheckHostRecoveryStatus");
+                return;
+            }
+            hostRecoveryReportOutcome(asyncResp->res, msg,
+                                      "CheckHostRecoveryStatus");
+        },
+        hostRecoveryService, hostRecoveryObject, hostRecoveryIface,
+        "CheckStatus", timeoutUs(90s), acknowledgeUsbDisruption);
+}
+
+inline void handleExitHostRecoveryPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!checkHostRecoverySystem(app, req, asyncResp, systemName))
+    {
+        return;
+    }
+    // Exit restores the USB route and resets the host out of RCM, so it
+    // carries the same explicit acknowledgment gate as Enter and Check.
+    // com.nvidia.HostRecovery.ExitHostRecovery takes no acknowledgment
+    // argument, so the gate is enforced here only.
+    bool acknowledgeUsbDisruption = false;
+    std::optional<std::string> reason;
+    if (!json_util::readJsonAction(req, asyncResp->res,
+                                   "AcknowledgeUsbDisruption",
+                                   acknowledgeUsbDisruption, "Reason", reason))
+    {
+        return;
+    }
+    if (!acknowledgeUsbDisruption)
+    {
+        messages::actionParameterValueNotInList(
+            asyncResp->res, "false", "AcknowledgeUsbDisruption",
+            "ExitHostRecovery");
+        return;
+    }
+    using namespace std::chrono_literals;
+    dbus::utility::async_method_call_timed(
+        [asyncResp](const boost::system::error_code& ec,
+                    sdbusplus::message_t& msg) {
+            if (ec)
+            {
+                hostRecoveryClassifyError(asyncResp->res, ec, msg,
+                                          "ExitHostRecovery");
+                return;
+            }
+            hostRecoveryReportOutcome(asyncResp->res, msg, "ExitHostRecovery");
+        },
+        hostRecoveryService, hostRecoveryObject, hostRecoveryIface,
+        "ExitHostRecovery", timeoutUs(120s),
+        reason.value_or("Exited by operator over Redfish"));
+}
+
+inline void handleAbandonUnverifiedRecoverySessionPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!checkHostRecoverySystem(app, req, asyncResp, systemName))
+    {
+        return;
+    }
+    std::string reason;
+    if (!json_util::readJsonAction(req, asyncResp->res, "Reason", reason))
+    {
+        return;
+    }
+    using namespace std::chrono_literals;
+    dbus::utility::async_method_call_timed(
+        [asyncResp](const boost::system::error_code& ec,
+                    sdbusplus::message_t& msg) {
+            if (ec)
+            {
+                hostRecoveryClassifyError(asyncResp->res, ec, msg,
+                                          "AbandonUnverifiedRecoverySession");
+                return;
+            }
+            // The only action whose D-Bus method returns void: there is no
+            // outcome snapshot to relay.
+            messages::success(asyncResp->res);
+        },
+        hostRecoveryService, hostRecoveryObject, hostRecoveryIface,
+        "AbandonUnverifiedRecoverySession", timeoutUs(30s), reason);
+}
+
 } // namespace nvidia_igx
 
 inline void requestRoutesNvidiaIgxSerialConsole(App& app)
@@ -297,6 +744,43 @@ inline void requestRoutesNvidiaIgxSerialConsole(App& app)
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             nvidia_igx::handleSwitchSerialConsolePost, std::ref(app)));
+}
+
+inline void requestRoutesNvidiaIgxHostRecovery(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/HostRecovery/")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(nvidia_igx::handleHostRecoveryGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.EnterHostRecovery/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_igx::handleEnterHostRecoveryPost, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.CheckHostRecoveryStatus/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_igx::handleCheckHostRecoveryStatusPost, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.ExitHostRecovery/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_igx::handleExitHostRecoveryPost, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.AbandonUnverifiedRecoverySession/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_igx::handleAbandonUnverifiedRecoverySessionPost,
+            std::ref(app)));
 }
 
 } // namespace redfish

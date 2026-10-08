@@ -469,6 +469,7 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
     {
         requestRoutesNvidiaIgxSerialConsole(app);
+        requestRoutesNvidiaIgxHostRecovery(app);
     }
     // Nvidia code starts here
 
