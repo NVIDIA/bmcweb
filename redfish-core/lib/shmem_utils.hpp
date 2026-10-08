@@ -192,6 +192,9 @@ constexpr const std::string_view gpuSma = "GPU_SMA_";
 constexpr const std::string_view pmSma = "ProcessorModule_SMA_";
 constexpr const std::string_view nvSwitchSma = "NVSwitch_SMA_";
 constexpr const std::string_view gpuTemp = "GPU_\\d+_TEMP_";
+constexpr const std::string_view fanBoardFan = "FanBoard_\\d+_Fan_";
+constexpr const std::string_view psu = "PSU_";
+constexpr const std::string_view psuTemp = "PSU_\\d+_Temp_";
 constexpr const std::string_view hscc = "Chassis_0_HSCC_";
 constexpr const std::string_view dramTemp = "DramTemp_";
 
@@ -261,6 +264,12 @@ inline const MetricsReplacement hsccPlatformEnvironmentMetrics(hscc, "{HCWild}",
                                                                "HCWild");
 inline const MetricsReplacement memDramTempPlatformEnvironmentMetrics(
     dramTemp, "{MWild}", "MWild");
+inline const MetricsReplacement fanPlatformEnvironmentMetrics(
+    fanBoardFan, "{FanWild}", "FanWild");
+inline const MetricsReplacement psuPlatformEnvironmentMetrics(psu, "{PsuId}",
+                                                              "PsuId");
+inline const MetricsReplacement psuTempPlatformEnvironmentMetrics(
+    psuTemp, "{PsuTempId}", "PsuTempId");
 
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::regex& pattern, const std::string& value,
@@ -1079,6 +1088,12 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(memDramTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(fanPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(psuPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(psuTempPlatformEnvironmentMetrics,
+                                  allowedWildcards);
 
             metricsReplacements(chassisPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
@@ -1145,6 +1160,12 @@ inline void getShmemMetricsDefinitionWildCard(
                                 inputMetricProperties);
             metricsReplacements(memDramTempPlatformEnvironmentMetrics,
                                 wildCards, inputMetricProperties);
+            metricsReplacements(fanPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(psuPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(psuTempPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
         }
         else
         {
