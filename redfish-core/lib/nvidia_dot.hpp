@@ -95,9 +95,12 @@ inline void handleDOTErrorResult(
     }
     if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)
     {
-        BMCWEB_LOG_ERROR("DOT {} service unavailable: {}", actionName,
+        // nsmd sets Unavailable for MCTP-level send failures (CPU powered off,
+        // MCTP timeout). These are gateway errors: the request never reached
+        // the device. Report OperationFailed / HTTP 502.
+        BMCWEB_LOG_ERROR("DOT {} failed - device unreachable: {}", actionName,
                          errorMsg);
-        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
+        messages::operationFailed(asyncResp->res);
         return;
     }
     if (status ==
@@ -118,9 +121,15 @@ inline void handleDOTErrorResult(
     }
     if (status == nvidia_async_operation_utils::asyncStatusValueWriteFailure)
     {
-        BMCWEB_LOG_ERROR("DOT {} failed - device unreachable: {}", actionName,
-                         errorMsg);
-        messages::operationFailed(asyncResp->res);
+        BMCWEB_LOG_ERROR("DOT {} rejected by device: {}", actionName, errorMsg);
+        if (!errorMsg.empty())
+        {
+            messages::dotActionResponseError(asyncResp->res, errorMsg);
+        }
+        else
+        {
+            messages::internalError(asyncResp->res);
+        }
         return;
     }
     if (errorMsg.empty())
