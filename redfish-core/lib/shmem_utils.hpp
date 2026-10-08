@@ -26,10 +26,16 @@
 
 #include <nlohmann/json.hpp>
 
-#include <regex>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <set>
+#include <string>
 #include <string_view>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -39,6 +45,7 @@ namespace shmem
 struct MetricsReplacement
 {
     std::string searchPattern;   // The pattern to search for (e.g. chassisName)
+    std::string alternateSearchPattern;
     std::string wildcardPattern; // The wildcard pattern (e.g. "{BSWild}")
     std::string wildcardName;    // The name of the wildcard (e.g. "BSWild")
     mutable bool isEnabled; // Make isEnabled mutable so it can be modified even
@@ -49,6 +56,15 @@ struct MetricsReplacement
                        std::string_view name, bool enabled = false) :
         searchPattern(search), wildcardPattern(pattern),
         wildcardName(name), isEnabled(enabled)
+    {}
+
+    MetricsReplacement(
+        const std::array<std::string_view, 2>& searches,
+        std::string_view pattern, std::string_view name,
+                       bool enabled = false) :
+        searchPattern(searches.front()),
+        alternateSearchPattern(searches.back()),
+        wildcardPattern(pattern), wildcardName(name), isEnabled(enabled)
     {}
     // clang-format on
 };
@@ -156,7 +172,7 @@ constexpr const std::string_view metricReportUri =
 
 const static std::string gpuPrefix(platformGpuNamePrefix);
 constexpr const std::string_view platformChassisName(PLATFORMCHASSISNAME);
-// Matched with std::regex_search, so they also match platform-prefixed
+// Matched as substrings, so they also match platform-prefixed
 // names such as HGX_GPU_SXM_1.
 const static std::string chassisName = "Chassis_";
 const static std::string fpgaChassiName = "FPGA_";
@@ -168,15 +184,16 @@ const static std::string processorModule = "ProcessorModule_";
 const static std::string cpu = "CPU_";
 constexpr const std::string_view nvLink = "NVLink_";
 constexpr const std::string_view cLink = "CLink_";
-constexpr const std::string_view nvLinkType =
-    "(NVLink|InterswitchPort|NVLinkManagement)_";
+constexpr std::array<std::string_view, 3> nvLinkTypes = {
+    "NVLink", "InterswitchPort", "NVLinkManagement"};
+constexpr const std::string_view nvSwitchValue = "NVSwitch_";
 constexpr const std::string_view cpuProcessor = "CPU_";
 constexpr const std::string_view processor = "ProcessorModule_";
 constexpr const std::string_view pcieLink = "PCIeLink_";
 constexpr const std::string_view cpuCore = "CoreUtil_";
 constexpr const std::string_view networkAdapter = "NIC_";
-constexpr const std::string_view networkAdapterLink =
-    "(?:Port|NVLinkManagement)_";
+constexpr std::array<std::string_view, 2> networkAdapterLink = {
+    "Port_", "NVLinkManagement_"};
 constexpr const std::string_view gpmInstances = "UtilizationPercent/";
 constexpr const std::string_view nvLinkManagementNIC = "NIC_";
 constexpr const std::string_view nvLinkManagementNICPort = "Port_";
@@ -189,7 +206,7 @@ constexpr const std::string_view blueFieldSensor = "BlueField_";
 constexpr const std::string_view storageBP = "StorageBackplane_";
 constexpr const std::string_view storageDevice = "SSD_";
 constexpr const std::string_view networkAdapterConnectX = "ConnectX_";
-constexpr const std::string_view networkAdapterCX = "CX_(?:NIC_)?";
+constexpr std::array<std::string_view, 2> networkAdapterCX = {"CX_", "CX_NIC_"};
 constexpr const std::string_view inlet = "Chassis_0_Inlet_";
 constexpr const std::string_view pcb = "Chassis_0_PCB_";
 constexpr const std::string_view hsc = "Chassis_0_HSC_";
@@ -280,48 +297,268 @@ inline const MetricsReplacement psuPlatformEnvironmentMetrics(psu, "{PsuId}",
 inline const MetricsReplacement psuTempPlatformEnvironmentMetrics(
     psuTemp, "{PsuTempId}", "PsuTempId");
 
-inline void replaceNumber(const std::string& input, const std::string& key,
-                          const std::regex& pattern, const std::string& value,
+struct NumberMatch
+{
+    size_t numberBegin;
+    size_t numberEnd;
+};
+
+inline bool isAsciiDigit(char value)
+{
+    return value >= '0' && value <= '9';
+}
+
+inline size_t findDigitEnd(std::string_view input, size_t begin)
+{
+    size_t end = begin;
+    while (end < input.size() && isAsciiDigit(input[end]))
+    {
+        end++;
+    }
+    return end;
+}
+
+// MetricsReplacement::searchPattern is normally a literal prefix. The GPU
+// temperature pattern additionally contains a "\\d+" token. Match that small,
+// well-defined pattern language without constructing a regular expression.
+inline std::optional<NumberMatch> findNumberAfterPattern(
+    std::string_view input, std::string_view pattern)
+{
+    constexpr std::string_view digitToken = "\\d+";
+    size_t firstToken = pattern.find(digitToken);
+    if (firstToken == std::string_view::npos)
+    {
+        size_t patternPos = input.find(pattern);
+        while (patternPos != std::string_view::npos)
+        {
+            size_t numberBegin = patternPos + pattern.size();
+            size_t numberEnd = findDigitEnd(input, numberBegin);
+            if (numberEnd > numberBegin)
+            {
+                return NumberMatch{numberBegin, numberEnd};
+            }
+            patternPos = input.find(pattern, patternPos + 1);
+        }
+        return std::nullopt;
+    }
+
+    std::string_view prefix = pattern.substr(0, firstToken);
+    size_t matchBegin = input.find(prefix);
+    while (matchBegin != std::string_view::npos)
+    {
+        size_t inputPos = matchBegin + prefix.size();
+        size_t patternPos = firstToken;
+        bool matched = true;
+        while (patternPos < pattern.size())
+        {
+            if (pattern.substr(patternPos).starts_with(digitToken))
+            {
+                size_t digitEnd = findDigitEnd(input, inputPos);
+                if (digitEnd == inputPos)
+                {
+                    matched = false;
+                    break;
+                }
+                inputPos = digitEnd;
+                patternPos += digitToken.size();
+                continue;
+            }
+
+            size_t nextToken = pattern.find(digitToken, patternPos);
+            size_t literalEnd = nextToken == std::string_view::npos
+                                    ? pattern.size()
+                                    : nextToken;
+            std::string_view literal =
+                pattern.substr(patternPos, literalEnd - patternPos);
+            if (!input.substr(inputPos).starts_with(literal))
+            {
+                matched = false;
+                break;
+            }
+            inputPos += literal.size();
+            patternPos = literalEnd;
+        }
+
+        if (matched)
+        {
+            size_t numberEnd = findDigitEnd(input, inputPos);
+            if (numberEnd > inputPos)
+            {
+                return NumberMatch{inputPos, numberEnd};
+            }
+        }
+        matchBegin = input.find(prefix, matchBegin + 1);
+    }
+    return std::nullopt;
+}
+
+inline void insertNumberAfterPattern(
+    std::string_view input, std::string_view pattern, std::set<int64_t>& values)
+{
+    std::optional<NumberMatch> match = findNumberAfterPattern(input, pattern);
+    if (!match)
+    {
+        return;
+    }
+    values.insert(
+        stringToInt64(input.substr(match->numberBegin,
+                                   match->numberEnd - match->numberBegin))
+            .value_or(0));
+}
+
+inline void insertNumberAfterPattern(
+    std::string_view input, const std::array<std::string_view, 2>& patterns,
+    std::set<int64_t>& values)
+{
+    size_t bestPosition = std::string_view::npos;
+    std::optional<NumberMatch> bestMatch;
+    for (std::string_view pattern : patterns)
+    {
+        std::optional<NumberMatch> match =
+            findNumberAfterPattern(input, pattern);
+        if (match && match->numberBegin - pattern.size() < bestPosition)
+        {
+            bestPosition = match->numberBegin - pattern.size();
+            bestMatch = match;
+        }
+    }
+    if (bestMatch)
+    {
+        values.insert(
+            stringToInt64(
+                input.substr(bestMatch->numberBegin,
+                             bestMatch->numberEnd - bestMatch->numberBegin))
+                .value_or(0));
+    }
+}
+
+struct TypeNumberMatch
+{
+    std::string_view type;
+    int64_t id;
+};
+
+inline std::optional<TypeNumberMatch> findNvLinkTypeAndId(
+    std::string_view input)
+{
+    size_t bestPosition = std::string_view::npos;
+    std::optional<TypeNumberMatch> bestMatch;
+    for (std::string_view type : nvLinkTypes)
+    {
+        size_t position = input.find(type);
+        while (position != std::string_view::npos)
+        {
+            size_t separator = position + type.size();
+            if (separator < input.size() && input[separator] == '_')
+            {
+                size_t numberBegin = separator + 1;
+                size_t numberEnd = findDigitEnd(input, numberBegin);
+                if (numberEnd > numberBegin && position < bestPosition)
+                {
+                    bestPosition = position;
+                    bestMatch = TypeNumberMatch{
+                        type,
+                        stringToInt64(
+                            input.substr(numberBegin, numberEnd - numberBegin))
+                            .value_or(0)};
+                }
+            }
+            position = input.find(type, position + 1);
+        }
+    }
+    return bestMatch;
+}
+
+struct PortMatch
+{
+    std::string_view type;
+    int64_t id;
+};
+
+inline bool isWordCharacter(char value)
+{
+    return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
+           isAsciiDigit(value) || value == '_';
+}
+
+inline std::optional<PortMatch> findPort(std::string_view input)
+{
+    constexpr std::string_view portsPrefix = "/Ports/";
+    size_t prefixPos = input.find(portsPrefix);
+    while (prefixPos != std::string_view::npos)
+    {
+        size_t typeBegin = prefixPos + portsPrefix.size();
+        size_t wordEnd = typeBegin;
+        while (wordEnd < input.size() && isWordCharacter(input[wordEnd]))
+        {
+            wordEnd++;
+        }
+
+        size_t separator = wordEnd;
+        while (separator > typeBegin)
+        {
+            separator = input.rfind('_', separator - 1);
+            if (separator == std::string_view::npos || separator < typeBegin)
+            {
+                break;
+            }
+            size_t numberBegin = separator + 1;
+            size_t numberEnd = findDigitEnd(input, numberBegin);
+            if (separator == typeBegin || numberEnd == numberBegin)
+            {
+                continue;
+            }
+
+            return PortMatch{
+                input.substr(typeBegin, separator - typeBegin),
+                stringToInt64(
+                    input.substr(numberBegin, numberEnd - numberBegin))
+                    .value_or(0)};
+        }
+        prefixPos = input.find(portsPrefix, typeBegin);
+    }
+    return std::nullopt;
+}
+
+inline void replaceNumber(std::string_view input, std::string_view key,
+                          std::string_view value,
                           std::set<std::string>& replacedName)
 {
-    std::smatch match;
-    const std::string& res = input;
+    std::optional<NumberMatch> match = findNumberAfterPattern(input, key);
+    if (!match)
+    {
+        return;
+    }
+
     if (value == "{BSWild}" || value == "{PDBWild}" || value == "{BFSWild}")
     {
-        if (std::regex_search(res, match, pattern))
+        size_t lastSlashPos = input.find_last_of('/');
+        if (lastSlashPos != std::string_view::npos)
         {
-            size_t lastSlashPos = input.find_last_of('/');
-            if (lastSlashPos != std::string::npos)
-            {
-                std::string name = input.substr(lastSlashPos + 1);
-                replacedName.insert(name);
-            }
+            replacedName.emplace(input.substr(lastSlashPos + 1));
         }
     }
     else if (value == "{BF3SWild}")
     {
-        if (std::regex_search(res, match, pattern))
+        size_t lastSlashPos = input.find_last_of('/');
+        if (lastSlashPos == std::string_view::npos)
         {
-            size_t lastSlashPos = input.find_last_of('/');
-            if (lastSlashPos != std::string::npos)
-            {
-                std::string name = input.substr(lastSlashPos + 1);
-                if (std::regex_search(name, match, pattern))
-                {
-                    std::string wildName = key;
-                    wildName += "{BFWild}";
-                    wildName += match.suffix();
-                    replacedName.insert(wildName);
-                }
-            }
+            return;
+        }
+        std::string_view name = input.substr(lastSlashPos + 1);
+        match = findNumberAfterPattern(name, key);
+        if (match)
+        {
+            std::string wildName(key);
+            wildName += "{BFWild}";
+            wildName += name.substr(match->numberEnd);
+            replacedName.insert(std::move(wildName));
         }
     }
     else
     {
-        if (std::regex_search(res, match, pattern))
-        {
-            replacedName.insert(match[1].str());
-        }
+        replacedName.emplace(input.substr(
+            match->numberBegin, match->numberEnd - match->numberBegin));
     }
 }
 
@@ -348,8 +585,6 @@ inline void metricsReplacementsNonPlatformMetrics(
     bool allowNetworkAdapterNId = (wildcardSet.contains("NId"));
     bool allowNetworkAdapterCXId = (wildcardSet.contains("CXId"));
 
-    std::string nvSwitchValue = "NVSwitch_";
-    std::smatch match;
     std::set<int64_t> nvSwitchIdType1;
     std::set<int64_t> nvlinkIdType1;
     std::set<std::string> nvlinkType1;
@@ -374,28 +609,22 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
-                if (std::regex_search(property, match, switchPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvSwitchIdType1.insert(number);
-                }
+                insertNumberAfterPattern(property, nvSwitchValue,
+                                         nvSwitchIdType1);
             }
             if (allowLinkType || allowNvlinkId)
             {
-                std::regex nvLinkPattern(std::string(nvLinkType) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkPattern) &&
-                    match.size() > 2)
+                std::optional<TypeNumberMatch> link =
+                    findNvLinkTypeAndId(property);
+                if (link)
                 {
                     if (allowLinkType)
                     {
-                        nvlinkType1.insert(match[1].str());
+                        nvlinkType1.emplace(link->type);
                     }
                     if (allowNvlinkId)
                     {
-                        int64_t number =
-                            stringToInt64(match[2].str()).value_or(0);
-                        nvlinkIdType1.insert(number);
+                        nvlinkIdType1.insert(link->id);
                     }
                 }
             }
@@ -404,24 +633,15 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
-                if (std::regex_search(property, match, switchPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvSwitchIdType1.insert(number);
-                }
+                insertNumberAfterPattern(property, nvSwitchValue,
+                                         nvSwitchIdType1);
             }
         }
         if (deviceType == "PCIeRetimerMetrics")
         {
             if (allowRetimerId)
             {
-                std::regex retimerPattern(std::string(retimer) + "(\\d+)");
-                if (std::regex_search(property, match, retimerPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    retimerId.insert(number);
-                }
+                insertNumberAfterPattern(property, retimer, retimerId);
             }
         }
         if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
@@ -432,25 +652,14 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowGpuId)
             {
-                std::regex gpuPattern(std::string(gpuPrefix) + "(\\d+)");
-                if (std::regex_search(property, match, gpuPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    gpuId.insert(number);
-                }
+                insertNumberAfterPattern(property, gpuPrefix, gpuId);
             }
         }
         if (deviceType == "ProcessorGPMMetrics")
         {
             if (allowInstanceId)
             {
-                std::regex gpmInstancePattern(
-                    std::string(gpmInstances) + "(\\d+)");
-                if (std::regex_search(property, match, gpmInstancePattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    gpmInstance.insert(number);
-                }
+                insertNumberAfterPattern(property, gpmInstances, gpmInstance);
             }
         }
         if (deviceType == "ProcessorPortMetrics" ||
@@ -458,69 +667,40 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNvlinkId)
             {
-                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvlinkIdType1.insert(number);
-                }
+                insertNumberAfterPattern(property, nvLink, nvlinkIdType1);
             }
         }
         if (deviceType == "NetworkAdapterPortMetrics")
         {
             if (allowNetworkAdapterNId)
             {
-                std::regex networkAdapterPattern(
-                    std::string(networkAdapter) + "(\\d+)");
-                if (std::regex_search(property, match, networkAdapterPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    networkAdapterNId.insert(number);
-                }
+                insertNumberAfterPattern(property, networkAdapter,
+                                         networkAdapterNId);
             }
             if (allowNvlinkId)
             {
-                std::regex nvLinkManagementPattern(
-                    std::string(networkAdapterLink) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkManagementPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvLinkManagementId.insert(number);
-                }
+                insertNumberAfterPattern(property, networkAdapterLink,
+                                         nvLinkManagementId);
             }
             if (allowNetworkAdapterCXId)
             {
-                std::regex networkAdapterPattern(
-                    std::string(networkAdapterConnectX) + "(\\d+)");
-                if (std::regex_search(property, match, networkAdapterPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    networkAdapterCXId.insert(number);
-                }
+                insertNumberAfterPattern(property, networkAdapterConnectX,
+                                         networkAdapterCXId);
             }
         }
         if (deviceType == "PCIeRetimerPortMetrics")
         {
             if (allowRetimerId)
             {
-                std::regex pcieRetimerPattern(std::string(retimer) + "(\\d+)");
-                if (std::regex_search(property, match, pcieRetimerPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    retimerId.insert(number);
-                }
+                insertNumberAfterPattern(property, retimer, retimerId);
             }
             if (allowPortType && allowPortId)
             {
-                std::regex retimerPortPattern("/Ports/(\\w+)_(\\d+)");
-                if (std::regex_search(property, match, retimerPortPattern) &&
-                    match.size() > 2)
+                std::optional<PortMatch> port = findPort(property);
+                if (port)
                 {
-                    std::string portType = match[1].str();
-                    int64_t portId = stringToInt64(match[2].str()).value_or(0);
-
-                    portTypes.insert(portType);
-                    portIds.insert(portId);
+                    portTypes.emplace(port->type);
+                    portIds.insert(port->id);
                 }
             }
         }
@@ -528,107 +708,51 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowCpuId)
             {
-                std::regex cpuProcessorPattern(
-                    std::string(cpuProcessor) + "(\\d+)");
-                if (std::regex_search(property, match, cpuProcessorPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    cpuId.insert(number);
-                }
+                insertNumberAfterPattern(property, cpuProcessor, cpuId);
             }
             if (allowProcessorId)
             {
-                std::regex processorPattern(std::string(processor) + "(\\d+)");
-                if (std::regex_search(property, match, processorPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    processorId.insert(number);
-                }
+                insertNumberAfterPattern(property, processor, processorId);
             }
             if (allowCoreId)
             {
-                std::regex cpuCorePattern(std::string(cpuCore) + "(\\d+)");
-                if (std::regex_search(property, match, cpuCorePattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    coreId.insert(number);
-                }
+                insertNumberAfterPattern(property, cpuCore, coreId);
             }
             if (allowNvlinkId)
             {
-                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvLinkId.insert(number);
-                }
+                insertNumberAfterPattern(property, nvLink, nvLinkId);
             }
             if (allowCLinkId)
             {
-                std::regex cLinkPattern(std::string(cLink) + "(\\d+)");
-                if (std::regex_search(property, match, cLinkPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    cLinkId.insert(number);
-                }
+                insertNumberAfterPattern(property, cLink, cLinkId);
             }
             if (allowPCIeLinkId)
             {
-                std::regex pcieLinkPattern(std::string(pcieLink) + "(\\d+)");
-                if (std::regex_search(property, match, pcieLinkPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    pcieLinkId.insert(number);
-                }
+                insertNumberAfterPattern(property, pcieLink, pcieLinkId);
             }
         }
         if (deviceType == "HealthMetrics")
         {
             if (allowCpuId)
             {
-                std::regex cpuProcessorPattern(
-                    std::string(cpuProcessor) + "(\\d+)");
-                if (std::regex_search(property, match, cpuProcessorPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    cpuId.insert(number);
-                }
+                insertNumberAfterPattern(property, cpuProcessor, cpuId);
             }
             if (allowGpuId)
             {
-                std::regex gpuPattern(std::string(gpuPrefix) + "(\\d+)");
-                if (std::regex_search(property, match, gpuPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    gpuId.insert(number);
-                }
+                insertNumberAfterPattern(property, gpuPrefix, gpuId);
             }
             if (allowProcessorId)
             {
-                std::regex processorPattern(std::string(processor) + "(\\d+)");
-                if (std::regex_search(property, match, processorPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    processorId.insert(number);
-                }
+                insertNumberAfterPattern(property, processor, processorId);
             }
             if (allowRetimerId)
             {
-                std::regex pcieRetimerPattern(std::string(retimer) + "(\\d+)");
-                if (std::regex_search(property, match, pcieRetimerPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    retimerId.insert(number);
-                }
+                insertNumberAfterPattern(property, retimer, retimerId);
             }
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
-                if (std::regex_search(property, match, switchPattern))
-                {
-                    int64_t number = stringToInt64(match[1].str()).value_or(0);
-                    nvSwitchIdType1.insert(number);
-                }
+                insertNumberAfterPattern(property, nvSwitchValue,
+                                         nvSwitchIdType1);
             }
         }
     }
@@ -920,13 +1044,16 @@ inline void metricsReplacements(
     }
 
     std::set<std::string> wildCardValues;
-    // Compile regex once instead of recreating it in replaceNumber
-    std::regex pattern(replacement.searchPattern + "(\\d+)");
 
     for (const auto& property : inputMetricProperties)
     {
-        replaceNumber(property, replacement.searchPattern, pattern,
+        replaceNumber(property, replacement.searchPattern,
                       replacement.wildcardPattern, wildCardValues);
+        if (!replacement.alternateSearchPattern.empty())
+        {
+            replaceNumber(property, replacement.alternateSearchPattern,
+                          replacement.wildcardPattern, wildCardValues);
+        }
     }
 
     // insert set to json payload here
@@ -964,15 +1091,25 @@ inline void getShmemMetricsDefinitionWildCard(
             {
                 continue;
             }
-            std::string propertyStr = property.get<std::string>();
-            std::regex tokenRegex("\\{([^}]+)\\}");
-            std::smatch match;
-            std::string::const_iterator searchStart(propertyStr.cbegin());
-            while (std::regex_search(searchStart, propertyStr.cend(), match,
-                                     tokenRegex))
+            const std::string& propertyStr =
+                property.get_ref<const std::string&>();
+            size_t tokenBegin = propertyStr.find('{');
+            while (tokenBegin != std::string::npos)
             {
-                allowedWildcards.insert(match[1].str());
-                searchStart = match.suffix().first;
+                size_t tokenEnd = propertyStr.find('}', tokenBegin + 1);
+                if (tokenEnd == std::string::npos)
+                {
+                    break;
+                }
+                size_t nestedTokenBegin = propertyStr.find('{', tokenBegin + 1);
+                if (tokenEnd > tokenBegin + 1 &&
+                    (nestedTokenBegin == std::string::npos ||
+                     nestedTokenBegin > tokenEnd))
+                {
+                    allowedWildcards.emplace(propertyStr, tokenBegin + 1,
+                                             tokenEnd - tokenBegin - 1);
+                }
+                tokenBegin = propertyStr.find('{', tokenEnd + 1);
             }
         }
     }
