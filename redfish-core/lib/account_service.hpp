@@ -2292,14 +2292,7 @@ inline void handleAccountPatch(
         redfish::getUserPrivileges(*req.session);
     Privileges configureUsers = {"ConfigureUsers"};
     bool userHasConfigureUsers =
-<<<<<<< HEAD
         effectiveUserPrivileges.isSupersetOf(configureUsers);
-||||||| constructed merge base
-        effectiveUserPrivileges.isSupersetOf(configureUsers) &&
-        !req.session->isConfigureSelfOnly;
-=======
-        effectiveUserPrivileges.isSupersetOf(configureUsers) &&
-        !req.session->isConfigureSelfOnly;
 
     // ConfigureSelf accounts can only modify their own account
     if (!userHasConfigureUsers && !userSelf)
@@ -2325,40 +2318,17 @@ inline void handleAccountPatch(
     }
     // Nvidia code End here
 
->>>>>>> account_service: fix PATCH errors for self and read-only props
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
-<<<<<<< HEAD
-        if (!json_util::readJsonPatch(        //
-                req, asyncResp->res,          //
+        if (!json_util::readJsonObject(       //
+                *jsonRequest, asyncResp->res, //
                 "AccountTypes", accountTypes, //
                 "Enabled", enabled,           //
                 "Locked", locked,             //
                 "Password", password,         //
                 "RoleId", roleId,             //
                 "UserName", newUserName       //
-||||||| constructed merge base
-        if (!json_util::readJsonPatch(                    //
-                req, asyncResp->res,                      //
-                "AccountTypes", accountTypes,             //
-                "Enabled", enabled,                       //
-                "Locked", locked,                         //
-                "Password", password,                     //
-                "PasswordExpiration", passwordExpiration, //
-                "RoleId", roleId,                         //
-                "UserName", newUserName                   //
-=======
-        if (!json_util::readJsonObject(                   //
-                *jsonRequest, asyncResp->res,             //
-                "AccountTypes", accountTypes,             //
-                "Enabled", enabled,                       //
-                "Locked", locked,                         //
-                "Password", password,                     //
-                "PasswordExpiration", passwordExpiration, //
-                "RoleId", roleId,                         //
-                "UserName", newUserName                   //
->>>>>>> account_service: fix PATCH errors for self and read-only props
                 ))
         {
             return;
@@ -2368,9 +2338,8 @@ inline void handleAccountPatch(
     {
         // Nvidia code starts here.
         // These need ConfigureUsers: answer 403, not PropertyUnknown.
-        constexpr std::array<std::string_view, 6> configureUsersProperties = {
-            "AccountTypes",       "Enabled", "Locked",
-            "PasswordExpiration", "RoleId",  "UserName"};
+        constexpr std::array<std::string_view, 5> configureUsersProperties = {
+            "AccountTypes", "Enabled", "Locked", "RoleId", "UserName"};
         for (std::string_view property : configureUsersProperties)
         {
             if (jsonRequest->contains(property))
