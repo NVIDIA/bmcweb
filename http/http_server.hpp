@@ -178,6 +178,15 @@ class Server
             return;
         }
 
+        boost::system::error_code optionEc{};
+        socket->set_option(boost::asio::ip::tcp::no_delay(true), optionEc);
+        if (optionEc)
+        {
+            BMCWEB_LOG_WARNING(
+                "Failed to set TCP_NODELAY on accepted connection: {}",
+                optionEc.message());
+        }
+
         boost::asio::steady_timer timer(getIoContext());
         if (adaptorCtx == nullptr)
         {

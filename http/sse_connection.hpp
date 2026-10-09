@@ -209,6 +209,15 @@ class SSEConnection : public std::enable_shared_from_this<SSEConnection>
         }
         BMCWEB_LOG_DEBUG("Connected to: {}:{}, id: {}",
                          endpoint.address().to_string(), endpoint.port(), id);
+        boost::system::error_code optionEc{};
+        conn.set_option(boost::asio::ip::tcp::no_delay(true), optionEc);
+        if (optionEc)
+        {
+            BMCWEB_LOG_WARNING(
+                "Failed to set TCP_NODELAY for {}:{}, id: {}: {}",
+                endpoint.address().to_string(), endpoint.port(), id,
+                optionEc.message());
+        }
         if (sslConn)
         {
             doSslHandshake();
