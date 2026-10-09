@@ -977,6 +977,13 @@ inline void handleAuthMethodsPatch(
         authMethodsConfig);
     // Save configuration immediately
     persistent_data::getConfig().writeData();
+
+    if ((auth.basicAuth || auth.cookie || auth.sessionToken || auth.xToken ||
+         auth.tls) &&
+        asyncResp->res.result() == boost::beast::http::status::ok)
+    {
+        asyncResp->res.result(boost::beast::http::status::no_content);
+    }
 }
 
 /**
@@ -2519,6 +2526,10 @@ inline void handleAccountPatch(
                 userErrorMessageHandler(m.get_error(), asyncResp, newUser,
                                         username, "AccountTypes");
                 return;
+            }
+            if (asyncResp->res.result() == boost::beast::http::status::ok)
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
             }
 
             updateUserProperties(asyncResp, newUser, password, enabled, roleId,
