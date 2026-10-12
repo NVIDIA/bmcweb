@@ -1806,6 +1806,7 @@ inline void handleIPv4StaticPatch(
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
     const EthernetInterfaceData& ethData,
     const std::vector<IPv4AddressData>& ipv4Data,
+    std::optional<bool> dhcpv4Enabled,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::vector<AddressPatch> addresses;
@@ -1815,9 +1816,16 @@ inline void handleIPv4StaticPatch(
         return;
     }
 
-    // If we're setting the gateway to something new, delete the
-    // existing so we won't conflict
-    if (!ethData.defaultGateway.empty() && ethData.defaultGateway != gatewayOut)
+    // Nvidia code starts here
+    // Track the current DHCP state and the state requested by this PATCH.
+    const bool dhcpv4Active =
+        translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
+    const bool preserveDhcpGateway =
+        dhcpv4Enabled.value_or(dhcpv4Active) && gatewayOut.empty();
+    // Clear a changed gateway unless DHCP stays enabled without a static
+    // gateway.
+    if (!preserveDhcpGateway && !ethData.defaultGateway.empty() &&
+        ethData.defaultGateway != gatewayOut)
     {
         updateIPv4DefaultGateway(ifaceId, "", asyncResp);
     }
@@ -1866,19 +1874,15 @@ inline void handleIPv4StaticPatch(
             break;
         }
     }
-    // Nvidia code starts here
-    // Defaultgateway was cleared in handleDHCPPatch function.
-    bool dhcpCleared = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
-    // Nvidia code ends here
-    // now update to the new gateway.
-    // Default gateway is already empty, so no need to update if we're clearing
-    // Nvidia code starts here
-    if ((!gatewayOut.empty() && ethData.defaultGateway != gatewayOut) ||
-        (dhcpCleared))
-    // Nvidia code Ends here
+    // Apply the parsed gateway when it changes or DHCP was previously active.
+    // Preserve it when DHCP stays enabled without a static gateway.
+    if (!preserveDhcpGateway &&
+        ((!gatewayOut.empty() && ethData.defaultGateway != gatewayOut) ||
+         dhcpv4Active))
     {
         updateIPv4DefaultGateway(ifaceId, gatewayOut, asyncResp);
     }
+    // Nvidia code ends here
 }
 
 inline void handleStaticNameServersPatch(
@@ -2591,8 +2595,9 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
                     if (ipv4StaticAddresses)
                     {
-                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                              ethData, ipv4Data, asyncResp);
+                        handleIPv4StaticPatch(
+                            ifaceId, *ipv4StaticAddresses, ethData, ipv4Data,
+                            v4dhcpParms.dhcpv4Enabled, asyncResp);
                     }
 
                     if (staticNameServers)
