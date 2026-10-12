@@ -2248,12 +2248,6 @@ inline bool handleSatBMCCommitImagePost(
             return false;
         }
     }
-    else
-    {
-        RedfishAggregator::getSatelliteConfigs(
-            std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
-        // forward the request with empty target.
-    }
     return true;
 }
 
