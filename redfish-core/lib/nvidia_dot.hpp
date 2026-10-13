@@ -639,6 +639,11 @@ inline void afterDOTResourceDiscovery(
                             ["target"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.GetInfo",
         chassisId, componentId);
+
+    asyncResp->res.jsonValue["Actions"]["#NvidiaDOT.CAKBypass"]
+                            ["target"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/TrustedComponents/{}/Oem/Nvidia/DOT/Actions/NvidiaDOT.CAKBypass",
+        chassisId, componentId);
 }
 
 /**
@@ -1650,6 +1655,83 @@ inline void handleDOTGetInfoAction(
         });
 }
 
+inline void afterDOTCAKBypassServiceDiscovery(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& componentId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    auto servicePath =
+        findDOTServiceAndPath(asyncResp, componentId, "CAKBypass", ec, subtree);
+    if (!servicePath.has_value())
+    {
+        return;
+    }
+
+    const auto& [dotService, path] = *servicePath;
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKBypass: Calling Bypass on service '{}' at path '{}'",
+        dotService, path);
+
+    nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+        DOTResultType>(
+        asyncResp, std::chrono::seconds(15), dotService, path,
+        std::string(dot::dotActionIntf), "Bypass",
+        [asyncResp](const std::string& status, const DOTResultType* resultPtr) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("DOT CAKBypass succeeded");
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            handleDOTErrorResult(asyncResp, status, resultPtr,
+                                 "NvidiaDOT.CAKBypass");
+        });
+}
+
+inline void afterChassisValidationForDOTCAKBypass(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("DOT CAKBypass: Invalid chassis: {}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> interfaces = {dot::dotActionIntf};
+    dbus::utility::getSubTree("/xyz/openbmc_project", 0, interfaces,
+                              std::bind_front(afterDOTCAKBypassServiceDiscovery,
+                                              asyncResp, componentId));
+}
+
+inline void handleDOTCAKBypassAction(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& componentId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "DOT CAKBypass action called - Chassis: '{}', Component: '{}'",
+        chassisId, componentId);
+
+    validateChassisAndDOTComponent(
+        asyncResp, chassisId, componentId,
+        [asyncResp, chassisId, componentId]() {
+            redfish::chassis_utils::getValidChassisPath(
+                asyncResp, chassisId,
+                std::bind_front(afterChassisValidationForDOTCAKBypass,
+                                asyncResp, chassisId, componentId));
+        });
+}
+
 /**
  * @brief Handle DOT Install action request
  *
@@ -2630,6 +2712,13 @@ inline void requestRoutesNvidiaOemDOT(App& app)
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleDOTGetInfoAction, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/TrustedComponents/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOT.CAKBypass/")
+        .privileges(redfish::privileges::postChassis)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleDOTCAKBypassAction, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
