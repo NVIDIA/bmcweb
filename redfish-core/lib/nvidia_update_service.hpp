@@ -2127,6 +2127,7 @@ inline void handleSatBMCResponse(
  *
  *
  * @param[in] req  HTTP request
+ * @param[in] omitSatelliteTargets forward with empty Targets
  * @param[in] asyncResp Shared pointer to the response message
  * @param[in] ec Error code
  * @param[in] satelliteInfo satellite BMC information
@@ -2134,7 +2135,7 @@ inline void handleSatBMCResponse(
  * @return None
  */
 inline void forwardCommitImagePost(
-    const crow::Request& req,
+    const crow::Request& req, bool omitSatelliteTargets,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
@@ -2157,7 +2158,18 @@ inline void forwardCommitImagePost(
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
 
-    std::string data = req.body();
+    std::string data;
+    if (omitSatelliteTargets)
+    {
+        nlohmann::json::object_t body;
+        body["Targets"] = nlohmann::json::array_t();
+        data = nlohmann::json(body).dump(
+            -1, ' ', true, nlohmann::json::error_handler_t::replace);
+    }
+    else
+    {
+        data = req.body();
+    }
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
     client.sendDataWithCallback(
@@ -2205,8 +2217,15 @@ inline bool handleSatBMCCommitImagePost(
 
         bool prefix = false;
         bool noPrefix = false;
+        bool omitSatelliteTargets = false;
         for (auto& target : targetsCollection)
         {
+            if (target == boost::urls::format("/redfish/v1/Chassis/{}",
+                                              BMCWEB_RFA_HMC_UPDATE_TARGET)
+                              .buffer())
+            {
+                omitSatelliteTargets = true;
+            }
             std::string file = std::filesystem::path(target).filename();
             if (file.starts_with(rfaPrefix))
             {
@@ -2223,7 +2242,7 @@ inline bool handleSatBMCCommitImagePost(
             // targets with the prefix included only.
             RedfishAggregator::getInstance().getSatelliteConfigs(
                 std::bind_front(forwardCommitImagePost, std::ref(req),
-                                asyncResp));
+                                omitSatelliteTargets, asyncResp));
 
             // don't pass the request to the local
             return false;
