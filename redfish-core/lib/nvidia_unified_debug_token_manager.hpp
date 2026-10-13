@@ -351,6 +351,23 @@ inline void deviceEraseCallback(
             }
             aggregator->checkCompletion();
         }
+        else if (code == debug_token::debugTokenUnsupportedTypeNsmErrorCode)
+        {
+            // The device does not support the requested token type, so it
+            // holds no such token and there was nothing to erase. Same
+            // outcome as TOKEN_NOT_INSTALLED above, not a failure.
+            aggregator->completedDevices++;
+            aggregator->task->messages.emplace_back(
+                messages::debugTokenEraseSkipped(
+                    deviceId + " does not support the requested token type"));
+            if (aggregator->totalDevices > 0)
+            {
+                aggregator->task->percentComplete = static_cast<int>(
+                    (aggregator->completedDevices * 100) /
+                    aggregator->totalDevices);
+            }
+            aggregator->checkCompletion();
+        }
         else if (code == debug_token::debugTokenUnsupportedNsmErrorCode)
         {
             aggregator->addResult(deviceId, false, "Debug token unsupported");

@@ -41,12 +41,15 @@
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/unpack_properties.hpp>
+#include <utils/certificate_utils.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
+#include <utils/time_utils.hpp>
 
 #include <algorithm>
 
@@ -57,6 +60,8 @@ namespace erot
 {
 constexpr const char* spdmObjectPath = "/xyz/openbmc_project/SPDM";
 constexpr const char* spdmResponderIntf = "xyz.openbmc_project.SPDM.Responder";
+constexpr const char* certsCertificateIntf =
+    "xyz.openbmc_project.Certs.Certificate";
 constexpr const char* spdmServiceName = "xyz.openbmc_project.SPDM";
 using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
 
@@ -98,6 +103,11 @@ static void checkAssociationEndpointsForInstance(
         // used by the SPDM.
         const uint8_t* slot = nullptr;
         const erot::SPDMCertificates* certs = nullptr;
+        const std::vector<std::string>* keyUsage = nullptr;
+        const std::string* issuer = nullptr;
+        const std::string* subject = nullptr;
+        const uint64_t* notAfter = nullptr;
+        const uint64_t* notBefore = nullptr;
         for (const auto& interface : object.second)
         {
             if (interface.first == erot::spdmResponderIntf)
@@ -117,6 +127,18 @@ static void checkAssociationEndpointsForInstance(
                             BMCWEB_LOG_DEBUG("Slot ID:{}", *slot);
                         }
                     }
+                }
+            }
+            else if (interface.first == erot::certsCertificateIntf)
+            {
+                const bool success = sdbusplus::unpackPropertiesNoThrow(
+                    dbus_utils::UnpackErrorPrinter(), interface.second,
+                    "KeyUsage", keyUsage, "Issuer", issuer, "Subject", subject,
+                    "ValidNotAfter", notAfter, "ValidNotBefore", notBefore);
+                if (!success)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
                 }
             }
         }
@@ -148,6 +170,35 @@ static void checkAssociationEndpointsForInstance(
         certJson["SPDM"] = std::move(spdmObj);
 
         asyncResp->res.jsonValue = std::move(certJson);
+
+        if (keyUsage != nullptr && !keyUsage->empty())
+        {
+            asyncResp->res.jsonValue["KeyUsage"] = *keyUsage;
+        }
+
+        if (issuer != nullptr)
+        {
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Issuer"], *issuer);
+        }
+
+        if (subject != nullptr)
+        {
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Subject"], *subject);
+        }
+
+        if (notAfter != nullptr && *notAfter != 0)
+        {
+            asyncResp->res.jsonValue["ValidNotAfter"] =
+                redfish::time_utils::getDateTimeUintMs(*notAfter);
+        }
+
+        if (notBefore != nullptr && *notBefore != 0)
+        {
+            asyncResp->res.jsonValue["ValidNotBefore"] =
+                redfish::time_utils::getDateTimeUintMs(*notBefore);
+        }
 
         // If the certificate is found, add it to the response.
         if (certs != nullptr && !certs->empty())

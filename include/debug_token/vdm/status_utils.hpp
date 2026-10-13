@@ -106,7 +106,7 @@ enum class VdmTokenTypeIRoT
     JTAG_UNLOCK = 0x02,
     HW_UNLOCK = 0x04,
     RUNTIME_DEBUG = 0x08,
-    FEATURE_UNLOCK = 0x10
+    BOARD_CONFIG_OVERRIDE = 0x10
 };
 
 enum class VdmTokenTypeMCU
@@ -339,10 +339,10 @@ static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
         {
             tokenType = setOrAppend(tokenType, "RuntimeDebug");
         }
-        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::FEATURE_UNLOCK)) !=
-            0U)
+        if ((type & static_cast<uint32_t>(
+                        VdmTokenTypeIRoT::BOARD_CONFIG_OVERRIDE)) != 0U)
         {
-            tokenType = setOrAppend(tokenType, "FeatureUnlock");
+            tokenType = setOrAppend(tokenType, "BoardConfigOverride");
         }
         jsonObj["TokenType"] = tokenType;
     }

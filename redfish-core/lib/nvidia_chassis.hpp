@@ -13,6 +13,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_astra_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -478,6 +479,43 @@ inline void afterChassisSetRecoveryModeInterfacesFound(
             chassisId);
 }
 
+inline void afterChassisAstraInterfacesFound(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        return;
+    }
+    std::optional<nvidia_oem_chassis_astra::AstraResource> resource =
+        nvidia_oem_chassis_astra::AstraResource::fromSubtree(chassisId,
+                                                             subtree);
+    if (!resource)
+    {
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Astra"]["@odata.id"] =
+        resource->uri();
+}
+
+inline void afterChassisValidatedForAstra(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        return;
+    }
+
+    dbus::utility::getSubTree(*validChassisPath, 0,
+                              std::array<std::string_view, 1>{
+                                  nvidia_oem_chassis_astra::astraInterface},
+                              std::bind_front(afterChassisAstraInterfacesFound,
+                                              asyncResp, chassisId));
+}
+
 /**
  * @brief Get chassis OEM NVIDIA properties and actions
  *
@@ -510,6 +548,10 @@ inline void getChassisOemNvidiaProperties(
             std::bind_front(afterChassisSetRecoveryModeInterfacesFound,
                             asyncResp, chassisId));
     }
+
+    chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(afterChassisValidatedForAstra, asyncResp, chassisId));
 }
 
 /**

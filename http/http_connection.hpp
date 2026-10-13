@@ -9,6 +9,7 @@
 #include "forward_unauthorized.hpp"
 #include "http2_connection.hpp"
 #include "http_body.hpp"
+#include "http_body_limits.hpp"
 #include "http_connect_types.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
@@ -70,11 +71,6 @@ constexpr int maxHttp1Connections = 200;
 // concurrent streams, so a much lower connection cap is appropriate here
 // than for HTTP/1.1.
 constexpr int maxHttp2Connections = 40;
-
-// request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
-constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
-
-constexpr uint64_t loggedOutPostBodyLimit = 4096U;
 
 constexpr uint32_t httpHeaderLimit = 8192U;
 
@@ -330,20 +326,6 @@ class Connection :
         }
     }
 
-    // Nvidia code starts here
-    // requestAsyncResp's completion handler holds a shared_ptr back to this
-    // connection; drop it before reset() or ~AsyncResp fires
-    // completeRequest() a second time.
-    void releaseRequestAsyncResp()
-    {
-        if (requestAsyncResp)
-        {
-            requestAsyncResp->res.releaseCompleteRequestHandler();
-            requestAsyncResp.reset();
-        }
-    }
-    // Nvidia code ends here
-
     // returns whether connection was upgraded
     bool doUpgrade(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
@@ -379,7 +361,6 @@ class Connection :
                                     getConnectionCount());
                 res.result(boost::beast::http::status::service_unavailable);
                 keepAlive = false;
-                releaseRequestAsyncResp();
                 completeRequest(res);
                 return true;
             }
@@ -392,7 +373,6 @@ class Connection :
                 // Must complete the response ourselves; afterDoWrite() spots
                 // switching_protocols and calls upgradeToHttp2() once it's
                 // written.
-                releaseRequestAsyncResp();
                 completeRequest(res);
                 return true;
             }
@@ -490,28 +470,20 @@ class Connection :
                     BMCWEB_LOG_WARNING("Authentication failed");
 
                     std::shared_ptr<bmcweb::AsyncResp> asyncResp =
-                        requestAsyncResp;
+                        std::move(requestAsyncResp);
                     if (asyncResp)
                     {
-                        std::function<void(crow::Response&)>
-                            completeRequestHandler =
-                                asyncResp->res.releaseCompleteRequestHandler();
                         asyncResp->res = std::move(res);
-                        asyncResp->res.setCompleteRequestHandler(
-                            std::move(completeRequestHandler));
                     }
                     else
                     {
                         asyncResp =
                             std::make_shared<bmcweb::AsyncResp>(std::move(res));
-                        BMCWEB_LOG_DEBUG("Setting completion handler");
-                        asyncResp->res.setCompleteRequestHandler(
-                            [self(shared_from_this())](
-                                crow::Response& thisRes) {
-                                self->completeRequest(thisRes);
-                            });
                     }
-                    requestAsyncResp.reset();
+                    asyncResp->res.setCompleteRequestHandler(
+                        [self(shared_from_this())](crow::Response& thisRes) {
+                            self->completeRequest(thisRes);
+                        });
                     if (!handler->handleAuthFailed(req, asyncResp))
                     {
                         forward_unauthorized::sendUnauthorized(
@@ -525,21 +497,22 @@ class Connection :
         }
 
         // Nvidia code starts here
-        std::shared_ptr<bmcweb::AsyncResp> asyncResp = requestAsyncResp;
+        std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+            std::move(requestAsyncResp);
         if (!asyncResp)
         {
             asyncResp = std::make_shared<bmcweb::AsyncResp>();
-            asyncResp->res.setCompleteRequestHandler(
-                [self(shared_from_this())](crow::Response& thisRes) {
-                    self->completeRequest(thisRes);
-                });
         }
         // Nvidia code ends here
-        BMCWEB_LOG_DEBUG("Setting completion handler");
         if (doUpgrade(asyncResp))
         {
             return;
         }
+        BMCWEB_LOG_DEBUG("Setting completion handler");
+        asyncResp->res.setCompleteRequestHandler(
+            [self(shared_from_this())](crow::Response& thisRes) {
+                self->completeRequest(thisRes);
+            });
         std::string_view expectedEtag =
             req->getHeaderValue(boost::beast::http::field::if_none_match);
         if (!expectedEtag.empty())
@@ -548,7 +521,6 @@ class Connection :
         }
 
         // Nvidia code starts here
-        requestAsyncResp.reset();
         handler->handle(req, asyncResp);
         if (req)
         {
@@ -782,18 +754,19 @@ class Connection :
             acceptEncoding =
                 req->getHeaderValue(boost::beast::http::field::accept_encoding);
             keepAlive = parse.is_done() && req->keepAlive();
-            requestAsyncResp->res.setCompleteRequestHandler(
+            std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+                std::move(requestAsyncResp);
+            asyncResp->res.setCompleteRequestHandler(
                 [self(shared_from_this())](crow::Response& thisRes) {
                     self->completeRequest(thisRes);
                 });
-            if (!handler->handleAuthFailed(req, requestAsyncResp))
+            if (!handler->handleAuthFailed(req, asyncResp))
             {
                 forward_unauthorized::sendUnauthorized(
                     req->url().encoded_path(),
                     req->getHeaderValue("X-Requested-With"),
-                    req->getHeaderValue("Accept"), requestAsyncResp->res);
+                    req->getHeaderValue("Accept"), asyncResp->res);
             }
-            requestAsyncResp.reset();
             return;
         }
 
@@ -837,10 +810,6 @@ class Connection :
                 responseClass ==
                     boost::beast::http::status_class::client_error ||
                 responseClass == boost::beast::http::status_class::server_error;
-            requestAsyncResp->res.setCompleteRequestHandler(
-                [self(shared_from_this())](crow::Response& thisRes) {
-                    self->completeRequest(thisRes);
-                });
         }
 
         if (!parser)
@@ -850,9 +819,11 @@ class Connection :
 
         if (headersRejected)
         {
+            std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+                std::move(requestAsyncResp);
             pendingContinue = false;
             keepAlive = parser->is_done() && req && req->keepAlive();
-            requestAsyncResp.reset();
+            completeRequest(asyncResp->res);
             return;
         }
 

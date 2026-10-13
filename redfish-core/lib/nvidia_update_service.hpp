@@ -82,6 +82,9 @@ const std::string hashComputeInterface = "com.Nvidia.ComputeHash";
 constexpr auto retimerHashMaxTimeSec =
     180; // 2 mins for 2 attempts and 1 addional min as buffer
 // Only allow one update at a time
+// TODO hold the running update's task id here rather than a bool, so
+// FirmwareUpdateInProgress can name /redfish/v1/TaskService/Tasks/<id>
+// instead of the task collection.
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -410,6 +413,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     {
         return messages::bmcDriverErrorsDetected(arg1, arg2, arg3);
     }
+    if (msgId == "NvidiaResourceEvent.1.0.MCTPDiscoveryCommandFailed")
+    {
+        return messages::mctpDiscoveryCommandFailed(arg1, arg2, arg3);
+    }
     if (msgId == "ResourceEvent.1.2.ResourceErrorsDetected")
     {
         return messages::resourceErrorsDetectedFormatError(arg1, arg2);
@@ -421,6 +428,14 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     if (msgId == "OpenBMC.0.5.ServiceRestart")
     {
         return messages::serviceRestart(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.2.PreUpdateValidationFailed")
+    {
+        return messages::preUpdateValidationFailed();
+    }
+    if (msgId == "NvidiaUpdate.1.2.FirmwarePackageComponentImageMissing")
+    {
+        return messages::firmwarePackageComponentImageMissing(arg1);
     }
 
     return {};
@@ -1039,7 +1054,8 @@ inline bool areTargetsInvalidOrUnupdatable(
     const std::vector<std::string>& uriTargets,
     const std::vector<std::string>& updateables,
     const std::vector<std::string>& swInvPaths,
-    std::vector<sdbusplus::object_path>& validTargets)
+    std::vector<sdbusplus::object_path>& validTargets,
+    std::string& firstInvalidTarget)
 {
     bool hasAnyInvalidOrUnupdateableTarget = false;
     for (const std::string& target : uriTargets)
@@ -1063,6 +1079,10 @@ inline bool areTargetsInvalidOrUnupdatable(
             else
             {
                 hasAnyInvalidOrUnupdateableTarget = true;
+                if (firstInvalidTarget.empty())
+                {
+                    firstInvalidTarget = target;
+                }
                 BMCWEB_LOG_ERROR("Unupdatable Target: {}", target);
             }
         }
@@ -1070,6 +1090,10 @@ inline bool areTargetsInvalidOrUnupdatable(
         if (!validTarget)
         {
             hasAnyInvalidOrUnupdateableTarget = true;
+            if (firstInvalidTarget.empty())
+            {
+                firstInvalidTarget = target;
+            }
             BMCWEB_LOG_ERROR("Invalid Target: {}", target);
         }
     }
@@ -2751,29 +2775,33 @@ inline void addUnsupportedActionParametersMessages(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json::object_t& actionParametersObject)
 {
-    asyncResp->res.jsonValue.clear();
-    asyncResp->res.result(boost::beast::http::status::bad_request);
-    nlohmann::json& extendedInfo =
-        asyncResp->res.jsonValue["error"][messages::messageAnnotation];
+    nlohmann::json::array_t extendedInfo;
     for (const auto& [key, _] : actionParametersObject)
     {
         if (key == "Targets" || key == "ForceUpdate" ||
-            key == "@Redfish.OperationApplyTime")
+            key == "@Redfish.OperationApplyTime" || key == "Oem")
         {
             continue;
-        }
-        if (!extendedInfo.is_array())
-        {
-            extendedInfo = nlohmann::json::array();
         }
         nlohmann::json message =
             messages::actionParameterNotSupported(key, "UpdateParameters");
         message["Resolution"] =
             "Refer to DMTF Redfish Specification for valid UpdateParameters. "
-            "Currently supported  UpdateParameters are Targets, ForceUpdate and "
-            "@Redfish.OperationApplyTime.";
+            "Currently supported UpdateParameters are Targets, ForceUpdate, "
+            "Oem.Nvidia.PreUpdateValidation and @Redfish.OperationApplyTime.";
         extendedInfo.push_back(std::move(message));
     }
+    if (extendedInfo.empty())
+    {
+        // The parse failed on a supported parameter (wrong type, or an
+        // unknown key nested under Oem); keep the specific error that
+        // readJson already set instead of replacing it.
+        return;
+    }
+    asyncResp->res.jsonValue.clear();
+    asyncResp->res.result(boost::beast::http::status::bad_request);
+    asyncResp->res.jsonValue["error"][messages::messageAnnotation] =
+        std::move(extendedInfo);
 }
 
 inline void requestRoutesNvidiaUpdateService(App& app)

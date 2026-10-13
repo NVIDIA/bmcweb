@@ -985,7 +985,12 @@ inline void handleAuthMethodsPatch(
     // Save configuration immediately
     persistent_data::getConfig().writeData();
 
-    asyncResp->res.result(boost::beast::http::status::no_content);
+    if ((auth.basicAuth || auth.cookie || auth.sessionToken || auth.xToken ||
+         auth.tls) &&
+        asyncResp->res.result() == boost::beast::http::status::ok)
+    {
+        asyncResp->res.result(boost::beast::http::status::no_content);
+    }
 }
 
 /**
@@ -1221,9 +1226,10 @@ inline void afterVerifyUserExists(
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        params.username);
         }
-        else if (retval == PAM_AUTHTOK_ERR || retval == PAM_NEW_AUTHTOK_REQD)
+        else if (retval == PAM_AUTHTOK_ERR || retval == PAM_NEW_AUTHTOK_REQD ||
+                 retval == PAM_CONV_ERR)
         {
-            // If password is invalid
+            // If password is invalid (including PAM conversation overflow)
             messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
@@ -2440,11 +2446,36 @@ inline void handleAccountPatch(
     bool userHasConfigureUsers =
         effectiveUserPrivileges.isSupersetOf(configureUsers) &&
         !req.session->isConfigureSelfOnly;
+
+    // ConfigureSelf accounts can only modify their own account
+    if (!userHasConfigureUsers && !userSelf)
+    {
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
+    }
+
+    std::optional<nlohmann::json::object_t> jsonRequest =
+        json_util::readJsonPatchHelper(req, asyncResp->res);
+    if (!jsonRequest)
+    {
+        return;
+    }
+
+    // Nvidia code starts here.
+    // Id is read-only: report PropertyNotWritable, not PropertyUnknown.
+    if (jsonRequest->contains("Id"))
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+    // Nvidia code End here
+
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
-        if (!json_util::readJsonPatch(                    //
-                req, asyncResp->res,                      //
+        if (!json_util::readJsonObject(                   //
+                *jsonRequest, asyncResp->res,             //
                 "AccountTypes", accountTypes,             //
                 "Enabled", enabled,                       //
                 "Locked", locked,                         //
@@ -2459,16 +2490,24 @@ inline void handleAccountPatch(
     }
     else
     {
-        // ConfigureSelf accounts can only modify their own account
-        if (!userSelf)
+        // Nvidia code starts here.
+        // These need ConfigureUsers: answer 403, not PropertyUnknown.
+        constexpr std::array<std::string_view, 6> configureUsersProperties = {
+            "AccountTypes",       "Enabled", "Locked",
+            "PasswordExpiration", "RoleId",  "UserName"};
+        for (std::string_view property : configureUsersProperties)
         {
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
+            if (jsonRequest->contains(property))
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
         }
+        // Nvidia code End here
 
         // ConfigureSelf accounts can only modify their password
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Password",
-                                      password))
+        if (!json_util::readJsonObject(*jsonRequest, asyncResp->res, "Password",
+                                       password))
         {
             return;
         }
@@ -2499,6 +2538,10 @@ inline void handleAccountPatch(
                 userErrorMessageHandler(m.get_error(), asyncResp, newUser,
                                         username, "AccountTypes");
                 return;
+            }
+            if (asyncResp->res.result() == boost::beast::http::status::ok)
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
             }
 
             updateUserProperties(asyncResp, newUser, password, enabled, roleId,

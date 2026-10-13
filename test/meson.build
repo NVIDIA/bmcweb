@@ -38,6 +38,7 @@ srcfiles_unittest = files(
     'redfish-core/include/redfish_aggregator_test.cpp',
     'redfish-core/include/redfish_oem_routing_test.cpp',
     'redfish-core/include/redfish_test.cpp',
+    'redfish-core/include/registries/oem/nvidia_update_registry_test.cpp',
     'redfish-core/include/registries_test.cpp',
     'redfish-core/include/submit_test_event_test.cpp',
     'redfish-core/include/utils/collection_test.cpp',
@@ -48,6 +49,7 @@ srcfiles_unittest = files(
     'redfish-core/include/utils/ip_utils_test.cpp',
     'redfish-core/include/utils/json_utils_test.cpp',
     'redfish-core/include/utils/location_utils_test.cpp',
+    'redfish-core/include/utils/nvidia_async_operation_task_test.cpp',
     'redfish-core/include/utils/nvidia_chassis_util_test.cpp',
     'redfish-core/include/utils/nvidia_fabric_utils_test.cpp',
     'redfish-core/include/utils/nvidia_processor_utils_test.cpp',
@@ -68,6 +70,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/metadata_test.cpp',
     'redfish-core/lib/nvidia_fabric_config_update_test.cpp',
     'redfish-core/lib/nvidia_multipart_update_test.cpp',
+    'redfish-core/lib/nvidia_oem_chassis_astra_test.cpp',
     'redfish-core/lib/nvidia_oem_l1reset_test.cpp',
     'redfish-core/lib/nvidia_pcore_dump_test.cpp',
     'redfish-core/lib/openbmc_managers_test.cpp',
@@ -80,6 +83,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/telemetry_service_test.cpp',
     'redfish-core/lib/thermal_subsystem_test.cpp',
     'redfish-core/lib/update_service_test.cpp',
+    'redfish-core/lib/virtual_media_test.cpp',
 ) + test_sources
 
 if get_option('nvidia-dot-keyd-support').allowed()

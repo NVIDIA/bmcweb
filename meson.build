@@ -471,6 +471,10 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
+if get_option('nvidia-api-metrics').allowed()
+    srcfiles_bmcweb += files('http/nvidia_api_metrics.cpp')
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,
@@ -495,4 +499,3 @@ subdir('test')
 if (get_option('redfish-aggregation').enabled())
     subdir('event-listener')
 endif
-

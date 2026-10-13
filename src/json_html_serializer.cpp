@@ -241,6 +241,14 @@ static void dumpEscaped(std::string& out, const std::string& str)
                 stringBuffer[bytes++] = 'f';
                 stringBuffer[bytes++] = 'd';
 
+                // flush when fewer than 13 bytes remain, as the accept
+                // branch does; a code point may write up to 12 bytes
+                if (stringBuffer.size() - bytes < 13)
+                {
+                    out.append(stringBuffer.data(), bytes);
+                    bytes = 0;
+                }
+
                 bytesAfterLastAccept = bytes;
 
                 undumpedChars = 0;

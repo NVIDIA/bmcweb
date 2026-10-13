@@ -99,6 +99,23 @@ inline void accountTypeRestricted(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, accountTypeRestricted(arg1));
 }
 
+inline nlohmann::json preUpdateValidationFailed()
+{
+    std::array<std::string_view, 0> args{};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::preUpdateValidationFailed,
+        args);
+}
+
+inline nlohmann::json firmwarePackageComponentImageMissing(
+    std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(redfish::registries::NvidiaUpdate::Index::
+                            firmwarePackageComponentImageMissing,
+                        args);
+}
+
 inline nlohmann::json debugTokenAlreadyInstalled(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
@@ -292,12 +309,70 @@ inline nlohmann::json deviceDriverErrorsDetected(
                         args);
 }
 
+inline nlohmann::json mctpDiscoveryCommandFailed(
+    std::string_view arg1, std::string_view arg2, std::string_view arg3)
+{
+    std::array<std::string_view, 3> args{arg1, arg2, arg3};
+    return getLogNvidia(redfish::registries::NvidiaResourceEvent::Index::
+                            mCTPDiscoveryCommandFailed,
+                        args);
+}
+
 inline nlohmann::json headerValueInvalid(
     std::string_view arg1, std::string_view arg2, std::string_view arg3)
 {
     std::array<std::string_view, 3> args{arg1, arg2, arg3};
     return getLogNvidia(
         redfish::registries::NvidiaUpdate::Index::headerValueInvalid, args);
+}
+
+inline nlohmann::json malformedMultipartRequest(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::malformedMultipartRequest,
+        args);
+}
+
+inline nlohmann::json firmwarePackageSizeExceeded(
+    std::string_view arg1, std::string_view arg2, std::string_view arg3)
+{
+    std::array<std::string_view, 3> args{arg1, arg2, arg3};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwarePackageSizeExceeded,
+        args);
+}
+
+inline nlohmann::json firmwarePackageStagingError(std::string_view arg1,
+                                                  std::string_view arg2)
+{
+    std::array<std::string_view, 2> args{arg1, arg2};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwarePackageStagingError,
+        args);
+}
+
+inline nlohmann::json firmwareUpdateInProgress(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwareUpdateInProgress,
+        args);
+}
+
+inline nlohmann::json firmwareUpdateTargetInvalid(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwareUpdateTargetInvalid,
+        args);
+}
+
+inline nlohmann::json firmwarePackage(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::NvidiaUpdate::Index::firmwarePackage, args);
 }
 
 inline nlohmann::json activateSuccessful(std::string_view arg1,

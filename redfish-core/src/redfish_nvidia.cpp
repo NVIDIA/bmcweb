@@ -44,6 +44,7 @@
 #include "nvidia_network_adapters.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_nic_debug_token.hpp"
+#include "nvidia_oem_chassis_astra.hpp"
 #include "nvidia_oem_chassis_recovery.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "nvidia_oem_chassis_spi.hpp"
@@ -428,6 +429,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorResetMetrics(app);
         requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
         requestRoutesChassisOemNvidiaRecoveryActions(app);
+        requestRoutesNvidiaAstra(app);
         requestRoutesRefreshInventory(app);
         requestRoutesDeviceReset(app);
         requestRoutesPortResetTransceiver(app);

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025 NVIDIA CORPORATION &
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION &
  * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +18,7 @@
 
 #include "bmcweb_config.h"
 
-#include <syslog.h>
-#include <systemd/sd-journal.h>
+#include "nvidia_api_metrics.hpp"
 
 #include <boost/url/url_view_base.hpp>
 
@@ -40,7 +39,7 @@ namespace http
 {
 
 /**
- * @brief Log a Redfish API request to journal (for rsyslog filtering)
+ * @brief Submit an API request to the non-blocking metrics socket
  *
  * @param clientIp Client IP address
  * @param method HTTP method
@@ -58,13 +57,7 @@ inline void logRedfishRequest(std::string_view clientIp,
             return;
         }
 
-        // Log API metrics independently of the global bmcweb log level so they
-        // can be filtered and persisted separately by rsyslog
-        std::string_view uriBuffer = uri.buffer();
-        sd_journal_print(LOG_INFO, "API Metrics: IP=%.*s METHOD=%.*s URI=%.*s",
-                         static_cast<int>(clientIp.size()), clientIp.data(),
-                         static_cast<int>(method.size()), method.data(),
-                         static_cast<int>(uriBuffer.size()), uriBuffer.data());
+        api_metrics::submitApiMetrics(clientIp, method, uri.encoded_path());
     }
 }
 

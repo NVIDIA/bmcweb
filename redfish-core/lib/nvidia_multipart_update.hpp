@@ -6,6 +6,7 @@
 #include "logging.hpp"
 #include "multipart_parser.hpp"
 #include "multipart_serializer.hpp"
+#include "nvidia_messages.hpp"
 #include "redfish_aggregator.hpp"
 #include "task.hpp"
 #include "update_service.hpp"
@@ -19,6 +20,8 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/post.hpp>
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
 #include <format>
 #include <span>
@@ -38,6 +41,28 @@ inline boost::system::error_code errorHandler(unsigned int respCode)
     return boost::system::errc::make_error_code(boost::system::errc::success);
 };
 
+/**
+ * @brief Identifies the uploaded firmware package in NvidiaUpdate messages.
+ *
+ * name is the "filename" parameter of the UpdateFile part, or the part name
+ * when the client did not send one.  declaredSize is the request
+ * Content-Length: the size check runs while the upload streams, so the true
+ * package size is not known when the limit is crossed.
+ */
+struct FirmwarePackageInfo
+{
+    std::string name = "UpdateFile";
+    size_t declaredSize = 0;
+};
+
+inline std::string formatMiB(size_t bytes)
+{
+    // One decimal place: truncating to whole MiB renders a package that is
+    // barely over the limit as the same figure as the limit itself.
+    return std::format("{:.1f} MiB",
+                       static_cast<double>(bytes) / (1024.0 * 1024.0));
+}
+
 enum class TargetType
 {
     Error,
@@ -52,24 +77,37 @@ enum class TargetType
  * @param[in] asyncResp - Async response object
  * @param[in] errName - D-Bus error name from the StartUpdate reply
  */
+// D-Bus errors that mean the update agent never processed the request: it is
+// not running, or it did not answer in time.  Both are transient, so the
+// client is told to retry rather than that the service failed internally.
+constexpr std::array<std::string_view, 4> updateAgentUnreachableErrors{
+    "org.freedesktop.DBus.Error.ServiceUnknown",
+    "org.freedesktop.DBus.Error.NoReply", "org.freedesktop.DBus.Error.Timeout",
+    "org.freedesktop.DBus.Error.TimedOut"};
+
 inline void handleStartUpdateError(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::string_view errName)
 {
+    if (std::ranges::find(updateAgentUnreachableErrors, errName) !=
+        updateAgentUnreachableErrors.end())
+    {
+        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
+        return;
+    }
     if (errName == "xyz.openbmc_project.Software.Update.Error.InvalidImage")
     {
         messages::missingOrMalformedPart(asyncResp->res);
+        return;
     }
-    else
-    {
-        messages::internalError(asyncResp->res);
-    }
+    messages::internalError(asyncResp->res);
 }
 
 inline void handleStartUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload payload,
-    const std::string& target, const boost::system::error_code& ec,
-    const sdbusplus::message_t& msg, const sdbusplus::object_path& retPath,
+    const std::string& target, const std::string& packageName,
+    const boost::system::error_code& ec, const sdbusplus::message_t& msg,
+    const sdbusplus::object_path& retPath,
     const std::function<void()>& onResponseReady)
 {
     if (ec)
@@ -96,6 +134,10 @@ inline void handleStartUpdate(
 
     BMCWEB_LOG_INFO("Call to StartUpdate on {} Success, retPath = {}", target,
                     retPath.str);
+    // Report which package the task is applying; createTask() moves
+    // preTaskMessages into the task's Messages array.
+    redfish::preTaskMessages.emplace_back(
+        redfish::messages::firmwarePackage(packageName));
     createTask(asyncResp, std::move(payload), retPath);
     onResponseReady();
 }
@@ -104,8 +146,8 @@ inline void startSoftwareUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, Payload&& payload,
     boost::asio::local::stream_protocol::socket& fileGetSocket,
     const std::string& applyTime, const std::string& serviceName,
-    const sdbusplus::object_path& target, std::function<void()> onResponseReady,
-    const std::function<void()>& onError)
+    const sdbusplus::object_path& target, const std::string& packageName,
+    std::function<void()> onResponseReady, const std::function<void()>& onError)
 {
     BMCWEB_LOG_DEBUG("Starting software update for {}", target.str);
 
@@ -116,10 +158,8 @@ inline void startSoftwareUpdate(
     if (redfish::fwUpdateInProgress)
     {
         BMCWEB_LOG_ERROR("Update already in progress.");
-        redfish::messages::updateInProgressMsg(
-            asyncResp->res,
-            "Another update is in progress. Retry the update operation once "
-            "it is complete.");
+        redfish::messages::firmwareUpdateInProgress(
+            asyncResp->res, "/redfish/v1/TaskService/Tasks");
         onError();
         return;
     }
@@ -130,12 +170,13 @@ inline void startSoftwareUpdate(
 
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, payload = std::move(payload), target,
+        [asyncResp, payload = std::move(payload), target, packageName,
          onResponseReady = std::move(onResponseReady)](
             const boost::system::error_code& ec1, sdbusplus::message_t& msg,
             const sdbusplus::object_path& retPath) mutable {
             nvidia::handleStartUpdate(asyncResp, std::move(payload), target,
-                                      ec1, msg, retPath, onResponseReady);
+                                      packageName, ec1, msg, retPath,
+                                      onResponseReady);
         },
         serviceName, target, updateInterface, "StartUpdate", fd, applyTime);
 }
@@ -160,6 +201,8 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
     std::string applyTime;
     bool forceUpdate;
     std::vector<sdbusplus::object_path> targets;
+    FirmwarePackageInfo package;
+    bool preUpdateValidation;
 
     redfish::task::Payload payload;
     std::function<void()> onResponseReady;
@@ -171,6 +214,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         boost::asio::local::stream_protocol::socket&& fileGetSocketIn,
         const std::string& applyTimeIn, bool forceUpdateIn,
         const std::vector<sdbusplus::object_path>& targetsIn,
+        const FirmwarePackageInfo& packageIn, bool preUpdateValidationIn,
         std::function<void()> onResponseReadyIn,
         std::function<void()> onErrorIn,
         const std::shared_ptr<MemoryFileDescriptor>& memfdIn = nullptr) :
@@ -178,6 +222,7 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
                       : MemoryFileDescriptor(getRandomId())),
         asyncResp(asyncRespIn), fileGetSocket(std::move(fileGetSocketIn)),
         applyTime(applyTimeIn), forceUpdate(forceUpdateIn), targets(targetsIn),
+        package(packageIn), preUpdateValidation(preUpdateValidationIn),
         payload(std::move(payloadIn)),
         onResponseReady(std::move(onResponseReadyIn)),
         onError(std::move(onErrorIn))
@@ -213,7 +258,9 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         {
             BMCWEB_LOG_ERROR("UpdateFile exceeds image limit of {} bytes",
                              redfish::firmwareImageLimitBytes);
-            messages::payloadTooLarge(asyncResp->res);
+            messages::firmwarePackageSizeExceeded(
+                asyncResp->res, package.name, formatMiB(package.declaredSize),
+                formatMiB(redfish::firmwareImageLimitBytes));
             onError();
             return;
         }
@@ -226,7 +273,8 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
             static_cast<ssize_t>(bytesTransferred))
         {
             BMCWEB_LOG_ERROR("Failed to write to memfd");
-            messages::internalError(asyncResp->res);
+            messages::firmwarePackageStagingError(asyncResp->res, package.name,
+                                                  formatMiB(bytesWritten));
             onError();
             return;
         }
@@ -254,10 +302,8 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         if (redfish::fwUpdateInProgress)
         {
             BMCWEB_LOG_ERROR("Update already in progress.");
-            redfish::messages::updateInProgressMsg(
-                asyncResp->res,
-                "Another update is in progress. Retry the update operation "
-                "once it is complete.");
+            redfish::messages::firmwareUpdateInProgress(
+                asyncResp->res, "/redfish/v1/TaskService/Tasks");
             onError();
             return;
         }
@@ -266,15 +312,15 @@ struct PLDMUpdateCtx : public std::enable_shared_from_this<PLDMUpdateCtx>
         dbus::utility::async_method_call(
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocket{std::move(fileGetSocket)}, objectPath,
-             onResponseReady{onResponseReady}](
+             packageName{package.name}, onResponseReady{onResponseReady}](
                 const boost::system::error_code& ec1, sdbusplus::message_t& msg,
                 const sdbusplus::object_path& retPath) mutable {
                 nvidia::handleStartUpdate(asyncResp, std::move(payload),
-                                          objectPath, ec1, msg, retPath,
-                                          onResponseReady);
+                                          objectPath, packageName, ec1, msg,
+                                          retPath, onResponseReady);
             },
             serviceName, objectPath, updateInterface, "StartUpdate", fd,
-            applyTime, forceUpdate, targets);
+            applyTime, forceUpdate, targets, preUpdateValidation);
     }
 };
 
@@ -283,6 +329,7 @@ inline void startPLDMUpdate(
     boost::asio::local::stream_protocol::socket&& fileGetSocket,
     const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::object_path>& targets,
+    const FirmwarePackageInfo& package, bool preUpdateValidation,
     std::function<void()> onResponseReady, std::function<void()> onError,
     const std::shared_ptr<MemoryFileDescriptor>& memfd = nullptr)
 {
@@ -292,8 +339,8 @@ inline void startPLDMUpdate(
     std::shared_ptr<PLDMUpdateCtx> pldmUpdateCtx =
         std::make_shared<PLDMUpdateCtx>(
             asyncResp, std::move(payload), std::move(fileGetSocket), applyTime,
-            forceUpdate, targets, std::move(onResponseReady),
-            std::move(onError), memfd);
+            forceUpdate, targets, package, preUpdateValidation,
+            std::move(onResponseReady), std::move(onError), memfd);
     if (fileAlreadyLoaded)
     {
         boost::asio::post(getIoContext(),
@@ -308,14 +355,16 @@ inline void afterGetSubtreePathsSoftware(
     const std::shared_ptr<boost::asio::local::stream_protocol::socket>&
         fileGetSocket,
     const std::string& updateUriTarget, const std::string& dbusApplyTime,
-    const boost::system::error_code& ec,
+    const std::string& packageName, const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& swInvPaths,
     std::function<void()> onResponseReady, const std::function<void()>& onError)
 {
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get software inventory: {}", ec);
-        messages::internalError(asyncResp->res);
+        // The inventory lookup is unavailable (typically a restart); the
+        // client can retry.
+        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
         onError();
         return;
     }
@@ -343,7 +392,7 @@ inline void afterGetSubtreePathsSoftware(
                          path.second[0].first, softwarePath.str);
         startSoftwareUpdate(asyncResp, std::move(payload), *fileGetSocket,
                             dbusApplyTime, path.second[0].first, softwarePath,
-                            std::move(onResponseReady), onError);
+                            packageName, std::move(onResponseReady), onError);
         return;
     }
 
@@ -359,6 +408,7 @@ inline void afterGetSubtreePaths(
         fileGetSocket,
     const std::string& dbusApplyTime, bool forceUpdate,
     const std::vector<std::string>& uriTargets,
+    const FirmwarePackageInfo& package, bool preUpdateValidation,
     const boost::system::error_code& ec,
     const std::vector<std::string>& swInvPaths,
     std::function<void()> onResponseReady, std::function<void()> onError,
@@ -367,7 +417,9 @@ inline void afterGetSubtreePaths(
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to get software inventory: {}", ec);
-        messages::internalError(asyncResp->res);
+        // The inventory lookup is unavailable (typically a restart); the
+        // client can retry.
+        messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
         onError();
         return;
     }
@@ -381,19 +433,40 @@ inline void afterGetSubtreePaths(
         updateableFw.push_back(fwId);
     }
 
+    std::string firstInvalidTarget;
     if (areTargetsInvalidOrUnupdatable(uriTargets, updateableFw, swInvPaths,
-                                       validTargets))
+                                       validTargets, firstInvalidTarget))
     {
         BMCWEB_LOG_ERROR("Invalid targets provided");
-        messages::invalidObject(asyncResp->res,
-                                boost::urls::url_view("Targets"));
+        messages::firmwareUpdateTargetInvalid(asyncResp->res,
+                                              firstInvalidTarget);
         onError();
         return;
     }
 
     startPLDMUpdate(asyncResp, std::move(payload), std::move(*fileGetSocket),
-                    dbusApplyTime, forceUpdate, validTargets,
-                    std::move(onResponseReady), std::move(onError), memfd);
+                    dbusApplyTime, forceUpdate, validTargets, package,
+                    preUpdateValidation, std::move(onResponseReady),
+                    std::move(onError), memfd);
+}
+
+// Redfish resource type of a target that parseRfaUri() classifies as a
+// satellite target.
+inline std::string_view satelliteTargetType(std::string_view uri)
+{
+    if (uri.starts_with("/redfish/v1/Chassis/"))
+    {
+        return "Chassis";
+    }
+    if (uri.starts_with("/redfish/v1/Managers/"))
+    {
+        return "Manager";
+    }
+    if (uri.starts_with("/redfish/v1/UpdateService/SoftwareInventory/"))
+    {
+        return "SoftwareInventory";
+    }
+    return "FirmwareInventory";
 }
 
 inline TargetType parseRfaUri(std::string_view uri)
@@ -512,6 +585,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             BMCWEB_LOG_ERROR("Failed to set non-blocking: {}", ec2.message());
             return;
         }
+        package.declaredSize = incomingContentLength;
     }
 
     using SelfPtr = std::shared_ptr<UpdateCtx>;
@@ -551,6 +625,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     std::string pendingWriteBuffer;
     bool socketInUse = false;
     size_t incomingContentLength;
+    FirmwarePackageInfo package;
     MultiPartUpdate multiRet;
 
     std::string pendingFileDataBuffer;
@@ -790,6 +865,14 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             BMCWEB_LOG_ERROR("afterWritePartialData() failed: {}",
                              ec.message());
+            if (!isLocal && !responseReady)
+            {
+                // The connection to the satellite BMC dropped while the
+                // package was streaming; without this the response ends with
+                // no message at all. Once the satellite has answered, that
+                // answer is the response and may already be released.
+                messages::operationFailed(asyncResp->res);
+            }
             // The downstream socket is gone; discard the rest of the body and
             // keep reading so parseComplete can fire and the response ends.
             state = State::UPDATE_COMPLETE_ERROR;
@@ -928,10 +1011,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (redfish::fwUpdateInProgress)
         {
             BMCWEB_LOG_ERROR("Update already in progress.");
-            redfish::messages::updateInProgressMsg(
-                asyncResp->res,
-                "Another update is in progress. Retry the update operation "
-                "once it is complete.");
+            redfish::messages::firmwareUpdateInProgress(
+                asyncResp->res, "/redfish/v1/TaskService/Tasks");
             failClientResponse();
             return;
         }
@@ -941,7 +1022,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
     void beginUpdateFile(size_t remainingBodyLength)
     {
-        if (updateStarted)
+        // A failed parameter check leaves updateStarted false, so without the
+        // terminal-state test onParseComplete() runs this again and reports
+        // the same error twice.
+        if (updateStarted || state == State::UPDATE_COMPLETE_ERROR)
         {
             return;
         }
@@ -969,8 +1053,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 if (updateParametersReceived)
                 {
                     BMCWEB_LOG_ERROR("Duplicate UpdateParameters part");
-                    messages::propertyDuplicate(asyncResp->res,
-                                                "UpdateParameters");
+                    messages::malformedMultipartRequest(
+                        asyncResp->res, "duplicate UpdateParameters part",
+                        "Remove the duplicate UpdateParameters part and "
+                        "resubmit the request.");
                     failClientResponse();
                     return;
                 }
@@ -978,7 +1064,10 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 {
                     BMCWEB_LOG_ERROR(
                         "UpdateParameters part missing or invalid Content-Type");
-                    messages::missingOrMalformedPart(asyncResp->res);
+                    messages::malformedMultipartRequest(
+                        asyncResp->res,
+                        "the UpdateParameters part is missing a JSON "
+                        "Content-Type");
                     failClientResponse();
                     return;
                 }
@@ -989,7 +1078,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             if (!parseContentDisposition(fields, "UpdateFile"))
             {
                 BMCWEB_LOG_ERROR("Unexpected multipart form-data name");
-                messages::unrecognizedRequestBody(asyncResp->res);
+                messages::malformedMultipartRequest(
+                    asyncResp->res, "a part carries a malformed or unexpected "
+                                    "Content-Disposition");
                 failClientResponse();
                 return;
             }
@@ -1004,18 +1095,29 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                     BMCWEB_LOG_ERROR("UpdateFile Content-Type is not "
                                      "application/octet-stream: {}",
                                      ctIt->value());
-                    messages::missingOrMalformedPart(asyncResp->res);
+                    messages::malformedMultipartRequest(
+                        asyncResp->res,
+                        "the UpdateFile part Content-Type is not "
+                        "application/octet-stream");
                     failClientResponse();
                     return;
                 }
             }
 
+            std::string fileName = parseFormPartFileName(fields);
+            if (!fileName.empty())
+            {
+                package.name = std::move(fileName);
+            }
             updateFileHeadersSeen = true;
             updateFileRemainingBodyLength = remainingBodyLength;
             if (stagedUpdateFile)
             {
                 BMCWEB_LOG_ERROR("Duplicate UpdateFile part");
-                messages::propertyDuplicate(asyncResp->res, "UpdateFile");
+                messages::malformedMultipartRequest(
+                    asyncResp->res, "duplicate UpdateFile part",
+                    "Remove the duplicate UpdateFile part and resubmit the "
+                    "request.");
                 failClientResponse();
                 return;
             }
@@ -1029,7 +1131,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 if (stagedUpdateFile->fd < 0)
                 {
                     BMCWEB_LOG_ERROR("Failed to create staged update memfd");
-                    messages::internalError(asyncResp->res);
+                    messages::firmwarePackageStagingError(
+                        asyncResp->res, package.name, formatMiB(0));
                     failClientResponse();
                     return;
                 }
@@ -1049,14 +1152,16 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         if (state == State::UPDATE_COMPLETE)
         {
             BMCWEB_LOG_ERROR("Unexpected multipart part after UpdateFile");
-            messages::unrecognizedRequestBody(asyncResp->res);
+            messages::malformedMultipartRequest(
+                asyncResp->res, "a part follows the UpdateFile part");
             failClientResponse();
             return;
         }
 
         BMCWEB_LOG_ERROR("Unexpected multipart part in state {}",
                          static_cast<int>(state));
-        messages::unrecognizedRequestBody(asyncResp->res);
+        messages::malformedMultipartRequest(asyncResp->res,
+                                            "a part arrived out of order");
         failClientResponse();
     }
 
@@ -1081,7 +1186,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             if (!stagedUpdateFile)
             {
                 BMCWEB_LOG_ERROR("Staged update memfd missing");
-                messages::internalError(asyncResp->res);
+                messages::firmwarePackageStagingError(
+                    asyncResp->res, package.name, formatMiB(0));
                 failClientResponse();
                 return;
             }
@@ -1089,7 +1195,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             if (!fileSize)
             {
                 BMCWEB_LOG_ERROR("Failed to get staged update memfd size");
-                messages::internalError(asyncResp->res);
+                messages::firmwarePackageStagingError(
+                    asyncResp->res, package.name, formatMiB(0));
                 failClientResponse();
                 return;
             }
@@ -1099,14 +1206,19 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 BMCWEB_LOG_ERROR(
                     "Staged update exceeds memory limit of {} bytes",
                     redfish::firmwareImageLimitBytes);
-                messages::payloadTooLarge(asyncResp->res);
+                messages::firmwarePackageSizeExceeded(
+                    asyncResp->res, package.name,
+                    formatMiB(package.declaredSize),
+                    formatMiB(redfish::firmwareImageLimitBytes));
                 failClientResponse();
                 return;
             }
             if (!appendStagedUpdateFile(data))
             {
                 BMCWEB_LOG_ERROR("Failed to write to staged update memfd");
-                messages::internalError(asyncResp->res);
+                messages::firmwarePackageStagingError(
+                    asyncResp->res, package.name,
+                    formatMiB(getStagedUpdateFileSize().value_or(0)));
                 failClientResponse();
                 return;
             }
@@ -1225,7 +1337,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             if (!stagedBytes)
             {
                 BMCWEB_LOG_ERROR("Failed to get staged update memfd size");
-                messages::internalError(asyncResp->res);
+                messages::firmwarePackageStagingError(
+                    asyncResp->res, package.name, formatMiB(0));
                 failClientResponse();
                 return;
             }
@@ -1269,7 +1382,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
 
     void onHttpClientDataSendComplete(
         const std::shared_ptr<UpdateCtx>& /*self*/, const std::string& prefix,
-        bool /*keepAlive*/, int32_t /*connId*/, crow::Response& res)
+        const boost::urls::url& satelliteHost, bool /*keepAlive*/,
+        int32_t /*connId*/, crow::Response& res)
     {
         BMCWEB_LOG_DEBUG("Response code: {}", res.resultInt());
         BMCWEB_LOG_DEBUG("Response body: {}", *res.body());
@@ -1301,6 +1415,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             asyncResp->res.addHeader(retry_after, retryAfter);
         }
 
+        if (res.result() == boost::beast::http::status::bad_gateway)
+        {
+            // The request never reached the satellite BMC: unreachable,
+            // refused, TLS handshake failure or timeout.  processResponse()
+            // relays the 502 without a body, so name the host here.
+            messages::addMessageToErrorJson(
+                asyncResp->res.jsonValue,
+                messages::couldNotEstablishConnection(satelliteHost));
+        }
         redfish::RedfishAggregator::processResponse(prefix, asyncResp, res);
         responseReady = true;
         releaseClientResponseIfReady();
@@ -1337,6 +1460,11 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             updateParametersJson["ForceUpdate"] = *multiRet.params.forceUpdate;
         }
+        if (multiRet.params.preUpdateValidation)
+        {
+            updateParametersJson["Oem"]["Nvidia"]["PreUpdateValidation"] =
+                *multiRet.params.preUpdateValidation;
+        }
         using field = boost::beast::http::field;
         {
             boost::beast::http::fields headers;
@@ -1356,8 +1484,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         }
         {
             boost::beast::http::fields headers;
-            headers.set(field::content_disposition,
-                        "form-data; name=\"UpdateFile\"");
+            // Forward the package name so the satellite renders it too; it is
+            // sanitized at parse time, so it is safe in a quoted-string.
+            headers.set(
+                field::content_disposition,
+                std::format(R"(form-data; name="UpdateFile"; filename="{}")",
+                            package.name));
             headers.set(field::content_type, "application/octet-stream");
             multipartSerializer.beginPart(headers);
             BMCWEB_LOG_DEBUG("Putting update file headers");
@@ -1381,14 +1513,26 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             BMCWEB_LOG_ERROR("Failed to get satellite configs: {}",
                              ec.message());
-            messages::internalError(asyncResp->res);
+            // Satellite discovery is unavailable; the client can retry.
+            messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
             failClientResponse();
             return;
         }
         if (satelliteInfo.empty())
         {
             BMCWEB_LOG_ERROR("No satellite BMC configs found.");
-            messages::internalError(asyncResp->res);
+            // The request named satellite components but no Satellite
+            // Management Controller is configured.  Name every target the
+            // client sent; a target naming the satellite itself is dropped
+            // from the forwarded list, so that list cannot be used here.
+            if (multiRet.params.targets)
+            {
+                for (const std::string& uri : *multiRet.params.targets)
+                {
+                    messages::resourceNotFound(asyncResp->res,
+                                               satelliteTargetType(uri), uri);
+                }
+            }
             failClientResponse();
             return;
         }
@@ -1407,9 +1551,9 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 ensuressl::VerifyCertificate::NoVerify, 0);
         crow::ConnectionInfo& conn = *httpClient;
 
-        conn.callback =
-            std::bind_front(&UpdateCtx::onHttpClientDataSendComplete, this,
-                            shared_from_this(), satelliteInfo.begin()->first);
+        conn.callback = std::bind_front(
+            &UpdateCtx::onHttpClientDataSendComplete, this, shared_from_this(),
+            satelliteInfo.begin()->first, host);
 
         conn.req.target("/redfish/v1/UpdateService/update-multipart");
         BMCWEB_LOG_DEBUG(
@@ -1484,6 +1628,7 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
     bool handleSoftwareUpdate(
         const std::string& dbusApplyTime,
         const std::vector<std::string>& uriTargets,
+        const std::string& packageName,
         const std::shared_ptr<boost::asio::local::stream_protocol::socket>&
             fileGetSocketPtr)
     {
@@ -1514,15 +1659,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 "xyz.openbmc_project.Software.Update"},
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocketPtr, uriTargets, dbusApplyTime, softwareId,
-             onResponseReady{responseReadyCallback()},
+             packageName, onResponseReady{responseReadyCallback()},
              onError{failResponseCallback()}](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse&
                     swInvPaths) mutable {
                 afterGetSubtreePathsSoftware(
                     asyncResp, std::move(payload), fileGetSocketPtr, softwareId,
-                    dbusApplyTime, ec, swInvPaths, std::move(onResponseReady),
-                    onError);
+                    dbusApplyTime, packageName, ec, swInvPaths,
+                    std::move(onResponseReady), onError);
             });
         return true;
     }
@@ -1573,15 +1718,17 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         {
             state = State::UPDATE_COMPLETE;
         }
+        bool preUpdateValidation =
+            multiRet.params.preUpdateValidation.value_or(false);
 
         if (uriTargets.empty())
         {
             std::vector<sdbusplus::object_path> emptyTargets{};
             nvidia::startPLDMUpdate(
                 asyncResp, std::move(payload), std::move(fileGetSocket),
-                dbusApplyTime, forceUpdate, emptyTargets,
-                responseReadyCallback(), failResponseCallback(),
-                stagedUpdateFile);
+                dbusApplyTime, forceUpdate, emptyTargets, package,
+                preUpdateValidation, responseReadyCallback(),
+                failResponseCallback(), stagedUpdateFile);
             if (fileAlreadyStaged)
             {
                 stagedUpdateFile.reset();
@@ -1599,7 +1746,8 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
         // TODO Need to clean up the IST dbus paths so we can use the normal
         // call
         if (!fileAlreadyStaged &&
-            handleSoftwareUpdate(dbusApplyTime, uriTargets, fileGetSocketPtr))
+            handleSoftwareUpdate(dbusApplyTime, uriTargets, package.name,
+                                 fileGetSocketPtr))
         {
             beginLocalFileStreaming();
             return;
@@ -1615,14 +1763,15 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
                 "xyz.openbmc_project.Software.Version"},
             [asyncResp{asyncResp}, payload = std::move(payload),
              fileGetSocketPtr, dbusApplyTime, forceUpdate, uriTargets,
-             preloadedFile = std::move(preloadedFile),
-             onResponseReady{responseReadyCallback()},
+             package{package}, preloadedFile = std::move(preloadedFile),
+             preUpdateValidation, onResponseReady{responseReadyCallback()},
              onError{failResponseCallback()}](
                 const boost::system::error_code& ec,
                 const std::vector<std::string>& swInvPaths) mutable {
                 afterGetSubtreePaths(
                     asyncResp, std::move(payload), fileGetSocketPtr,
-                    dbusApplyTime, forceUpdate, uriTargets, ec, swInvPaths,
+                    dbusApplyTime, forceUpdate, uriTargets, package,
+                    preUpdateValidation, ec, swInvPaths,
                     std::move(onResponseReady), std::move(onError),
                     preloadedFile);
             });
@@ -1644,7 +1793,12 @@ inline void handleUpdateServiceMultipartUpdatePostHeaders(
     if (!MultipartParser::hasMultipartBoundary(contentType))
     {
         BMCWEB_LOG_ERROR("The request has unsupported media type");
-        messages::unsupportedMediaType(asyncResp->res);
+        asyncResp->res.result(
+            boost::beast::http::status::unsupported_media_type);
+        messages::addMessageToErrorJson(
+            asyncResp->res.jsonValue,
+            messages::headerValueInvalid(contentType, "Content-Type",
+                                         "multipart/form-data"));
         return;
     }
     std::string_view ct =

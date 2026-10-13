@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaAstra   v1.0.0                                                            -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/NetworkAdapter_v1.xml">
+    <edmx:Include Namespace="NetworkAdapter"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Fabric_v1.xml">
+    <edmx:Include Namespace="Fabric"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaAstra">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaAstra" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the state of Advanced Secure Trusted Resource Architecture (ASTRA) on the baseboard."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the state of Advanced Secure Trusted Resource Architecture (ASTRA) on the baseboard, aggregated across all East/West ConnectX NICs (network adapters).  ASTRA uses direct PCIe paths between the BlueField DPU and the East/West ConnectX NICs to create a unified control architecture.  It allows an operator to extend the trusted software stack running on the DPU to securely manage tenant isolation and network policies across the AI compute fabric.  These policies are programmed through the out-of-band DPU port and enforced directly in the NIC hardware, which ensures consistent control throughout the system.  The `AstraState` property reports both the active and the pending state, where a pending change takes effect after the next power cycle of the baseboard."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+            <Annotation Term="OData.Description" String="The Advanced Secure Trusted Resource Architecture (ASTRA) mode is changed by the `SetAstraMode` action rather than by a PATCH."/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/Nvidia/Astra</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="SetAstraMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the Advanced Secure Trusted Resource Architecture (ASTRA) mode on all East/West ConnectX NICs within this chassis."/>
+        <Annotation Term="OData.LongDescription" String="This action shall enable or disable Advanced Secure Trusted Resource Architecture (ASTRA) on all East/West ConnectX NICs within this chassis. The action shall return a task, and the requested setting shall take effect after the next power cycle of the baseboard. If enabling ASTRA fails on any device, the action shall attempt to roll back all devices to the disabled state. The task shall report the outcome of the overall request with `Success` or `OperationFailed` from the `Base` message registry. For each affected network adapter, the task shall report `PropertyValueModified` from the `Base` message registry when the pending `EastWestControlEnabled` value was written to the adapter's settings resource, and `DeviceDriverErrorsDetected` from the `NvidiaResourceEvent` message registry when the adapter could not be reached or the value or its rollback could not be written. The resulting pending state shall be reported by the `AstraState` property of this resource as `PendingEnable` or `PendingDisable` until it becomes active."/>
+        <Parameter Name="NvidiaAstra" Type="NvidiaAstra.v1_0_0.Actions"/>
+        <Parameter Name="AstraMode" Type="NvidiaAstra.v1_0_0.AstraMode" Nullable="false">
+          <Annotation Term="OData.Description" String="The Advanced Secure Trusted Resource Architecture (ASTRA) mode to request on all East/West ConnectX NICs in this chassis."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Advanced Secure Trusted Resource Architecture (ASTRA) mode to request on all East/West ConnectX NICs in this chassis.  The mode determines the pending `EastWestControlEnabled` value written to every network adapter in the `Links.NetworkAdapters` array."/>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaAstra.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaAstra" BaseType="NvidiaAstra.NvidiaAstra">
+        <Property Name="Actions" Type="NvidiaAstra.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="Links" Type="NvidiaAstra.v1_0_0.Links" Nullable="false">
+          <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
+        </Property>
+        <Property Name="AstraState" Type="NvidiaAstra.v1_0_0.AstraState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Advanced Secure Trusted Resource Architecture (ASTRA) state aggregated across all East/West ConnectX NICs."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Advanced Secure Trusted Resource Architecture (ASTRA) state aggregated across the network adapters in the `Links.NetworkAdapters` array.  The value shall reflect both the active and the pending `EastWestControlEnabled` values of those network adapters, where a pending value becomes active after the next power cycle of the baseboard.  A client shall invoke the `SetAstraMode` action to change the state."/>
+        </Property>
+      </EntityType>
+      <EnumType Name="AstraMode">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="Enable Advanced Secure Trusted Resource Architecture (ASTRA) on all East/West ConnectX NICs."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that Advanced Secure Trusted Resource Architecture (ASTRA) is to be enabled on all East/West ConnectX NICs in this chassis, by setting the pending `EastWestControlEnabled` value to `true` on every network adapter in the `Links.NetworkAdapters` array."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Disable Advanced Secure Trusted Resource Architecture (ASTRA) on all East/West ConnectX NICs."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that Advanced Secure Trusted Resource Architecture (ASTRA) is to be disabled on all East/West ConnectX NICs in this chassis, by setting the pending `EastWestControlEnabled` value to `false` on every network adapter in the `Links.NetworkAdapters` array."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="AstraState">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="Advanced Secure Trusted Resource Architecture (ASTRA) is enabled on all East/West ConnectX NICs."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the active and pending `EastWestControlEnabled` values are both `true` on every network adapter in the `Links.NetworkAdapters` array.  The switch in each Advanced Secure Trusted Resource Architecture (ASTRA) fabric, exposed through the `Links.PCIeTopologies` array, shall expose its PCIe ports, including one upstream port and one downstream port for each East/West ConnectX NIC connected to the switch.  Each of those NICs shall be accessible over that fabric."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Advanced Secure Trusted Resource Architecture (ASTRA) is disabled on all East/West ConnectX NICs."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the active and pending `EastWestControlEnabled` values are both `false` on every network adapter in the `Links.NetworkAdapters` array.  The switch in each Advanced Secure Trusted Resource Architecture (ASTRA) fabric, exposed through the `Links.PCIeTopologies` array, shall not expose its PCIe ports.  The East/West ConnectX NICs connected to the switch shall not be accessible over that fabric."/>
+        </Member>
+        <Member Name="PendingEnable">
+          <Annotation Term="OData.Description" String="Advanced Secure Trusted Resource Architecture (ASTRA) is disabled on all East/West ConnectX NICs and becomes enabled after the next power cycle of the baseboard."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the active `EastWestControlEnabled` value is `false` and the pending value is `true` on every network adapter in the `Links.NetworkAdapters` array.  Advanced Secure Trusted Resource Architecture (ASTRA) becomes enabled after the next power cycle of the baseboard."/>
+        </Member>
+        <Member Name="PendingDisable">
+          <Annotation Term="OData.Description" String="Advanced Secure Trusted Resource Architecture (ASTRA) is enabled on all East/West ConnectX NICs and becomes disabled after the next power cycle of the baseboard."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the active `EastWestControlEnabled` value is `true` and the pending value is `false` on every network adapter in the `Links.NetworkAdapters` array.  Advanced Secure Trusted Resource Architecture (ASTRA) becomes disabled after the next power cycle of the baseboard."/>
+        </Member>
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="The Advanced Secure Trusted Resource Architecture (ASTRA) state is not consistent across all East/West ConnectX NICs, or one or more of them are offline."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the active or pending `EastWestControlEnabled` values are not identical across the network adapters in the `Links.NetworkAdapters` array, or that one or more of those network adapters are offline or could not be reached.  Behavior in this state is undefined, and a client should invoke the `SetAstraMode` action to return the adapters to a consistent state."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Links" BaseType="Resource.Links">
+        <Annotation Term="OData.Description" String="The links to other resources that are related to this resource."/>
+        <Annotation Term="OData.LongDescription" String="This Redfish Specification-described type shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
+        <NavigationProperty Name="NetworkAdapters" Type="Collection(NetworkAdapter.NetworkAdapter)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to the East/West ConnectX NICs that this Advanced Secure Trusted Resource Architecture (ASTRA) resource affects."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `NetworkAdapter` that the `SetAstraMode` action affects.  The array shall include the East/West ConnectX NIC that provides the switch in each Advanced Secure Trusted Resource Architecture (ASTRA) fabric as well as the NICs connected to that switch."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="PCIeTopologies" Type="Collection(Fabric.Fabric)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to the Advanced Secure Trusted Resource Architecture (ASTRA) fabrics in this chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `Fabric` that represent the Advanced Secure Trusted Resource Architecture (ASTRA) fabrics in this chassis.  Each fabric shall contain the switch that provides the direct PCIe paths between the BlueField DPU and the East/West ConnectX NICs connected to it."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
