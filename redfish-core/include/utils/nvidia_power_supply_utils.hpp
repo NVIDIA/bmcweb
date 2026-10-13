@@ -157,12 +157,17 @@ inline void getNvidiaPowerSupplyMetrics(
         [asyncResp,
          chassisId](const boost::system::error_code& ec,
                     const dbus::utility::MapperEndPoints& sensorPaths) {
-            if (ec || sensorPaths.empty())
+            if (ec)
             {
-                messages::internalError(asyncResp->res);
-                BMCWEB_LOG_ERROR(
-                    "callback for getAssociationEndPoints in getNvidiaPowerSupplyMetrics fails: ",
-                    ec.message());
+                // The mapper omits associations whose sensor endpoints are
+                // unavailable. Metrics readings are optional in that case.
+                if (ec.value() != EBADR)
+                {
+                    messages::internalError(asyncResp->res);
+                    BMCWEB_LOG_ERROR(
+                        "callback for getAssociationEndPoints in getNvidiaPowerSupplyMetrics fails: {}",
+                        ec.message());
+                }
                 return;
             }
             // Iterate through the sensor paths to extract relevant data
