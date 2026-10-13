@@ -58,7 +58,7 @@ constexpr size_t maxEarlyLogs = 64;
 using TaskMessageFormatter = std::function<std::optional<nlohmann::json>(
     const nvidia_log_entry::LogEntryProperties&)>;
 
-inline void appendTaskOutcomeMessages(nlohmann::json& taskMessages,
+inline void appendTaskOutcomeMessages(nlohmann::json::array_t& taskMessages,
                                       size_t taskIndex, bool success)
 {
     const std::string index = std::to_string(taskIndex);

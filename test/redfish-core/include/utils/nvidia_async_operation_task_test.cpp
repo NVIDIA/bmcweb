@@ -100,14 +100,14 @@ TEST(NvidiaAsyncOperationTask, ReadsALogEntryFromItsInterfaces)
 
 TEST(NvidiaAsyncOperationTask, EndsWithTheOverallOutcome)
 {
-    nlohmann::json success = nlohmann::json::array();
+    nlohmann::json::array_t success;
     appendTaskOutcomeMessages(success, 7, true);
     ASSERT_EQ(success.size(), 2);
     EXPECT_EQ(success[0]["MessageId"], messages::success()["MessageId"]);
     EXPECT_EQ(success[1]["MessageId"],
               messages::taskCompletedOK("7")["MessageId"]);
 
-    nlohmann::json failure = nlohmann::json::array();
+    nlohmann::json::array_t failure;
     appendTaskOutcomeMessages(failure, 8, false);
     ASSERT_EQ(failure.size(), 2);
     EXPECT_EQ(failure[0]["MessageId"],
