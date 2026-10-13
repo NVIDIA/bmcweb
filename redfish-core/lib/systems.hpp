@@ -700,10 +700,6 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
 inline computer_system::BootSourceOverrideMode dbusToRfBootType(
     const std::string& dbusType)
 {
-    if (dbusType == "xyz.openbmc_project.Control.Boot.Type.Types.Legacy")
-    {
-        return computer_system::BootSourceOverrideMode::Legacy;
-    }
     if (dbusType == "xyz.openbmc_project.Control.Boot.Type.Types.EFI")
     {
         return computer_system::BootSourceOverrideMode::UEFI;
@@ -1064,7 +1060,7 @@ inline void getBootOverrideType(
             {
                 asyncResp->res.jsonValue
                     ["Boot"]["BootSourceOverrideMode@Redfish.AllowableValues"] =
-                    nlohmann::json::array_t({"Legacy", "UEFI"});
+                    nlohmann::json::array_t({"UEFI"});
             }
 
             computer_system::BootSourceOverrideMode rfType =
@@ -2091,11 +2087,7 @@ inline void setBootType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Source target specified
     BMCWEB_LOG_DEBUG("Boot type: {}", *bootType);
     // Figure out which DBUS interface and property to use
-    if (*bootType == "Legacy")
-    {
-        bootTypeStr = "xyz.openbmc_project.Control.Boot.Type.Types.Legacy";
-    }
-    else if (*bootType == "UEFI")
+    if (*bootType == "UEFI")
     {
         bootTypeStr = "xyz.openbmc_project.Control.Boot.Type.Types.EFI";
     }

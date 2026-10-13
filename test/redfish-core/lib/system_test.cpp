@@ -27,7 +27,7 @@ TEST(Systems, DbusToRfBootType)
 {
     EXPECT_EQ(
         dbusToRfBootType("xyz.openbmc_project.Control.Boot.Type.Types.Legacy"),
-        computer_system::BootSourceOverrideMode::Legacy);
+        computer_system::BootSourceOverrideMode::Invalid);
 
     EXPECT_EQ(
         dbusToRfBootType("xyz.openbmc_project.Control.Boot.Type.Types.EFI"),
