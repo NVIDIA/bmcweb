@@ -62,7 +62,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentDowngradeRejected",
@@ -76,7 +76,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Use a firmware package containing an upgrade for the installed component. To intentionally downgrade firmware, set the Redfish ForceUpdate parameter to true, then retry the update.",
+            "Use a firmware package containing an upgrade for the installed component. To intentionally downgrade firmware, set the Redfish ForceUpdate parameter to true, then retry the firmware update.",
         }},
     MessageEntry{
         "ComponentImageAuthenticationFailed",
@@ -90,7 +90,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Obtain a correctly signed firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
+            "Use a firmware package containing a correctly signed image for the target device, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentImageIdentical",
@@ -118,7 +118,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Use a firmware image with a security version that meets or exceeds the device's current security version, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Use a firmware package containing an image whose security version meets or exceeds the device's current security version, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentImageSigningKeyRevoked",
@@ -132,7 +132,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Verify the contents of the FW package. In production systems, this error suggests that a debug-signed image update was attempted without the debug token being installed. To resolve this, verify the debug token installation status using the LogService.CollectDiagnosticData API with the DebugTokenStatus parameter. If the tokens are not installed, follow the debug token installation steps and retry the update.",
+            "Use a firmware package signed with a key that the target device trusts. In production systems, this error indicates that a debug-signed image update was attempted without the debug token installed. Verify the debug token installation status using the LogService.CollectDiagnosticData API with the DebugTokenStatus parameter. If the tokens are not installed, follow the debug token installation steps, then retry the firmware update.",
         }},
     MessageEntry{
         "ComponentImageSkuMismatch",
@@ -146,7 +146,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Use a firmware package containing an image for the target SKU, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Use a firmware package containing an image for the target SKU, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentImageVerificationFailed",
@@ -161,7 +161,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Retry the firmware update. If the failure recurs with a known-good package, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update with a known-good firmware package. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentMetadataAuthenticationFailed",
@@ -175,7 +175,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Obtain the correct firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, verify the target device's trusted-key provisioning and collect the BMC and target-device logs.",
+            "Use a firmware package containing a correctly signed image for the target device, then retry the firmware update. If the failure persists, verify the target device's trusted-key provisioning, then collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "ComponentUpdateSkipped",
@@ -385,7 +385,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "FirmwareInRecovery",
@@ -455,7 +455,7 @@ static constexpr std::array registry =
             "Critical",
             0,
             {},
-            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "FirmwarePackageHeaderUnavailable",
@@ -465,7 +465,7 @@ static constexpr std::array registry =
             "Critical",
             0,
             {},
-            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "FirmwarePackageMetadataInvalid",
@@ -475,7 +475,7 @@ static constexpr std::array registry =
             "Critical",
             0,
             {},
-            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "FirmwarePackageNoMatchingDevices",
@@ -487,7 +487,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Verify that the firmware package is intended for this platform and contains images for the devices in this system, then retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source that contains images for the devices in this system, then retry the firmware update.",
         }},
     MessageEntry{
         "FirmwarePackageSizeExceeded",
@@ -526,7 +526,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "FirmwareUpdateBlockedByWriteProtection",
@@ -586,7 +586,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "HeaderValueInvalid",
@@ -637,7 +637,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
         }},
     MessageEntry{
         "PackageHeaderChecksumMismatch",
@@ -650,7 +650,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "PackagePayloadChecksumMismatch",
@@ -664,7 +664,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "PackageSignatureIntegrityFailed",
@@ -676,7 +676,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "PackageSignatureRequired",
@@ -688,7 +688,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Obtain a firmware package signed by an authority trusted by this BMC and containing the required NVIDIA signature header, then retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source that is signed by an authority trusted by this BMC and carries the NVIDIA signature header, then retry the firmware update.",
         }},
     MessageEntry{
         "PackageSignatureVerificationFailed",
@@ -700,7 +700,7 @@ static constexpr std::array registry =
             {
                 "string",
             },
-            "Obtain a firmware package signed by an authority trusted by this BMC, then retry the update. If signature verification still fails with a known-good package, verify that the BMC is provisioned with the required verification key. If the issue persists, collect the logs and contact support.",
+            "Obtain a valid firmware package for this platform from a trusted source that is signed by an authority trusted by this BMC, then retry the firmware update. If verification still fails with a known-good package, verify that the BMC is provisioned with the required verification key, then collect the logs and contact support.",
         }},
     MessageEntry{
         "PreUpdateValidationFailed",
@@ -747,7 +747,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Verify that the firmware package is intended for this platform and contains an image compatible with the requested target, then retry the firmware update.",
+            "Obtain a valid firmware package for this platform from a trusted source that contains an image for the requested target, then retry the firmware update.",
         }},
     MessageEntry{
         "RequestedTargetUnavailableForUpdate",
@@ -772,7 +772,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
         }},
     MessageEntry{
         "SignatureHeaderVersionUnsupported",
@@ -785,7 +785,7 @@ static constexpr std::array registry =
                 "string",
                 "string",
             },
-            "Obtain a firmware package that uses an NVIDIA signature-header version supported by this platform, then retry the update.",
+            "Obtain a valid firmware package for this platform from a trusted source that uses a supported NVIDIA signature-header version, then retry the firmware update.",
         }},
 
 };
