@@ -120,7 +120,12 @@ class ConnectionImpl : public Connection
         {
             return;
         }
-        if (ec)
+        if (ec == boost::asio::error::eof)
+        {
+            // Peer closed the stream normally; not a connection failure.
+            BMCWEB_LOG_DEBUG("Read EOF: {}", ec);
+        }
+        else if (ec)
         {
             BMCWEB_LOG_ERROR("Read error: {}", ec);
         }
