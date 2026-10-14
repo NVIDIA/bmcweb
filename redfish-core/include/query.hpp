@@ -172,6 +172,13 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         // If the request should be forwarded to a satellite BMC then we don't
         // want to write anything to the asyncResp since it will get overwritten
         // later.
+
+        // The satellite already applied $skip; applying it again here would
+        // give the wrong result.
+        if (!needToCallHandlers)
+        {
+            queryOpt->skip = std::nullopt;
+        }
     }
 
     // If this isn't a get, no need to do anything with parameters
