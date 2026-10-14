@@ -299,7 +299,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 2,
             "ParamTypes": ["string", "string"],
-            "Resolution": "Verify that the firmware package is intended for this platform and contains an image compatible with the requested target, then retry the firmware update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source that contains an image for the requested target, then retry the firmware update.",
             "Severity": "Critical"
         },
         "FirmwarePackageHeaderUnavailable": {
@@ -308,7 +308,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 0,
             "ParamTypes": [],
-            "Resolution": "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "FirmwarePackageHeaderInvalid": {
@@ -317,7 +317,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 0,
             "ParamTypes": [],
-            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "PackageHeaderChecksumMismatch": {
@@ -326,7 +326,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 2,
             "ParamTypes": ["string", "string"],
-            "Resolution": "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "PackagePayloadChecksumMismatch": {
@@ -335,7 +335,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "FirmwarePackageMetadataInvalid": {
@@ -344,7 +344,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 0,
             "ParamTypes": [],
-            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "SignatureHeaderMalformed": {
@@ -353,7 +353,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 2,
             "ParamTypes": ["string", "string"],
-            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, then retry the update. If the failure persists, collect the logs and package details, then contact support.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "SignatureHeaderVersionUnsupported": {
@@ -362,7 +362,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 2,
             "ParamTypes": ["string", "string"],
-            "Resolution": "Obtain a firmware package that uses an NVIDIA signature-header version supported by this platform, then retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source that uses a supported NVIDIA signature-header version, then retry the firmware update.",
             "Severity": "Critical"
         },
         "PackageSignatureIntegrityFailed": {
@@ -371,7 +371,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Download a fresh firmware package from a trusted source, verify it was transferred without corruption, and retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source, verify that it was transferred without corruption, then retry the firmware update. If the failure persists, collect the logs and package details, then contact support.",
             "Severity": "Critical"
         },
         "PackageSignatureVerificationFailed": {
@@ -380,7 +380,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Obtain a firmware package signed by an authority trusted by this BMC, then retry the update. If signature verification still fails with a known-good package, verify that the BMC is provisioned with the required verification key. If the issue persists, collect the logs and contact support.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source that is signed by an authority trusted by this BMC, then retry the firmware update. If verification still fails with a known-good package, verify that the BMC is provisioned with the required verification key, then collect the logs and contact support.",
             "Severity": "Critical"
         },
         "PackageSignatureRequired": {
@@ -389,7 +389,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Obtain a firmware package signed by an authority trusted by this BMC and containing the required NVIDIA signature header, then retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source that is signed by an authority trusted by this BMC and carries the NVIDIA signature header, then retry the firmware update.",
             "Severity": "Critical"
         },
         "ComponentImageIdentical": {
@@ -407,7 +407,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Use a firmware package containing an upgrade for the installed component. To intentionally downgrade firmware, set the Redfish ForceUpdate parameter to true, then retry the update.",
+            "Resolution": "Use a firmware package containing an upgrade for the installed component. To intentionally downgrade firmware, set the Redfish ForceUpdate parameter to true, then retry the firmware update.",
             "Severity": "Critical"
         },
         "FirmwarePackageNoMatchingDevices": {
@@ -416,7 +416,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Verify that the firmware package is intended for this platform and contains images for the devices in this system, then retry the update.",
+            "Resolution": "Obtain a valid firmware package for this platform from a trusted source that contains images for the devices in this system, then retry the firmware update.",
             "Severity": "Critical"
         },
         "FirmwareDownloadTimedOut": {
@@ -425,7 +425,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "FirmwareUpdateBlockedByWriteProtection": {
@@ -443,7 +443,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "FirmwareVerificationCompletionTimedOut": {
@@ -452,7 +452,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ComponentMetadataAuthenticationFailed": {
@@ -461,7 +461,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Obtain the correct firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, verify the target device's trusted-key provisioning and collect the BMC and target-device logs.",
+            "Resolution": "Use a firmware package containing a correctly signed image for the target device, then retry the firmware update. If the failure persists, verify the target device's trusted-key provisioning, then collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ComponentImageSecurityVersionRejected": {
@@ -470,7 +470,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Use a firmware image with a security version that meets or exceeds the device's current security version, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Use a firmware package containing an image whose security version meets or exceeds the device's current security version, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ComponentImageSigningKeyRevoked": {
@@ -479,7 +479,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Verify the contents of the FW package. In production systems, this error suggests that a debug-signed image update was attempted without the debug token being installed. To resolve this, verify the debug token installation status using the LogService.CollectDiagnosticData API with the DebugTokenStatus parameter. If the tokens are not installed, follow the debug token installation steps and retry the update.",
+            "Resolution": "Use a firmware package signed with a key that the target device trusts. In production systems, this error indicates that a debug-signed image update was attempted without the debug token installed. Verify the debug token installation status using the LogService.CollectDiagnosticData API with the DebugTokenStatus parameter. If the tokens are not installed, follow the debug token installation steps, then retry the firmware update.",
             "Severity": "Critical"
         },
         "ComponentImageAuthenticationFailed": {
@@ -488,7 +488,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Obtain a correctly signed firmware package for the target device from a trusted source, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Use a firmware package containing a correctly signed image for the target device, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ComponentImageSkuMismatch": {
@@ -497,7 +497,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 3,
             "ParamTypes": ["string", "string", "string"],
-            "Resolution": "Use a firmware package containing an image for the target SKU, then retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Use a firmware package containing an image for the target SKU, then retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ComponentImageVerificationFailed": {
@@ -506,7 +506,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 4,
             "ParamTypes": ["string", "string", "string", "string"],
-            "Resolution": "Retry the firmware update. If the failure recurs with a known-good package, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update with a known-good firmware package. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "ApplyCompleteTimedOut": {
@@ -515,7 +515,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 1,
             "ParamTypes": ["string"],
-            "Resolution": "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "PLDMCommandTimedOut": {
@@ -524,7 +524,7 @@
             "MessageSeverity": "Critical",
             "NumberOfArgs": 2,
             "ParamTypes": ["string", "string"],
-            "Resolution": "Retry the firmware update. If the failure recurs, collect the BMC and target-device logs and contact support.",
+            "Resolution": "Retry the firmware update. If the failure persists, collect the BMC and target-device logs and contact support.",
             "Severity": "Critical"
         },
         "PreUpdateValidationFailed": {
