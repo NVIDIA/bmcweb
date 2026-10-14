@@ -64,6 +64,11 @@ inline void handleChassisGetPreCheck(
     {
         return;
     }
+    // Install before the ERoT branch below: ERoT and IRoT chassis are built
+    // by getEROTChassis() and never reach handleChassisGetAllProperties(), so
+    // installing further down would leave their responses with no
+    // Oem.Nvidia.@odata.type at all.
+    redfish::nvidia_chassis_utils::installChassisOemResponseHandler(asyncResp);
     redfish::nvidia_chassis_utils::isEROTChassis(
         chassisId, [asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
             if (isEROT)
