@@ -5,9 +5,11 @@
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 
+#include <cerrno>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -157,6 +159,193 @@ TEST(PlatformPowerCycleUtils, MissingProviderRejectsFullPowerCycleAsUnsupported)
     EXPECT_EQ(response->res.result(), boost::beast::http::status::bad_request);
     EXPECT_EQ(response->res.jsonValue["error"]["code"],
               "Base.1.19.ActionParameterValueNotInList");
+}
+
+constexpr const char* cpuObject =
+    "/xyz/openbmc_project/control/power_cycle/cpu0";
+
+TEST(ComponentPowerCycle, SingleAssociatedObjectIsSelected)
+{
+    const dbus::utility::MapperGetSubTreeResponse subtree = {
+        {cpuObject,
+         {{"com.nvidia.Control.Platform.PowerCycle",
+           {std::string(interface)}}}}};
+
+    std::optional<ComponentPowerCycle> component =
+        findComponentPowerCycle(subtree);
+
+    ASSERT_TRUE(component);
+    if (!component)
+    {
+        return;
+    }
+    EXPECT_EQ(component->path, cpuObject);
+    EXPECT_EQ(component->capabilities.service,
+              "com.nvidia.Control.Platform.PowerCycle");
+    EXPECT_TRUE(component->capabilities.types.empty());
+}
+
+TEST(ComponentPowerCycle, NoOrSeveralObjectsSelectNothing)
+{
+    EXPECT_FALSE(findComponentPowerCycle({}));
+
+    const dbus::utility::MapperGetSubTreeResponse twoObjects = {
+        {cpuObject,
+         {{"com.nvidia.Control.Platform.PowerCycle",
+           {std::string(interface)}}}},
+        {"/xyz/openbmc_project/control/power_cycle/mcu0",
+         {{"com.nvidia.Control.Platform.PowerCycle",
+           {std::string(interface)}}}}};
+    EXPECT_FALSE(findComponentPowerCycle(twoObjects));
+
+    const dbus::utility::MapperGetSubTreeResponse twoServices = {
+        {cpuObject,
+         {{"com.nvidia.Control.Platform.PowerCycle.0",
+           {std::string(interface)}},
+          {"com.nvidia.Control.Platform.PowerCycle.1",
+           {std::string(interface)}}}}};
+    EXPECT_FALSE(findComponentPowerCycle(twoServices));
+}
+
+TEST(ComponentPowerCycle, MissingAssociationReportsNoObject)
+{
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleSubTree(
+        [&callbackCalled](const boost::system::error_code& ec,
+                          const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_FALSE(ec);
+            EXPECT_FALSE(component);
+            callbackCalled = true;
+        },
+        boost::system::error_code(EBADR, boost::system::system_category()), {});
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(ComponentPowerCycle, MapperFailureIsReported)
+{
+    const boost::system::error_code mapperError =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleSubTree(
+        [&callbackCalled,
+         &mapperError](const boost::system::error_code& ec,
+                       const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_EQ(ec, mapperError);
+            EXPECT_FALSE(component);
+            callbackCalled = true;
+        },
+        mapperError, {});
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(ComponentPowerCycle, EmptySubTreeReportsNoObject)
+{
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleSubTree(
+        [&callbackCalled](const boost::system::error_code& ec,
+                          const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_FALSE(ec);
+            EXPECT_FALSE(component);
+            callbackCalled = true;
+        },
+        {}, {});
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+const ComponentPowerCycle cpuObjectWithoutProperties{
+    cpuObject, {"com.nvidia.Control.Platform.PowerCycle", {}}, {}};
+
+TEST(ComponentPowerCycle, ReadPropertiesAreReported)
+{
+    const dbus::utility::DBusPropertiesMap properties = {
+        {"SupportedPowerCycleTypes",
+         std::vector<std::string>{std::string(componentPowerCycle)}},
+        {"Description", std::string("Power cycle the CPU and SSD.")}};
+
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleProperties(
+        [&callbackCalled](const boost::system::error_code& ec,
+                          const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_FALSE(ec);
+            ASSERT_TRUE(component);
+            if (!component)
+            {
+                return;
+            }
+            EXPECT_EQ(component->path, cpuObject);
+            EXPECT_TRUE(supports(component->capabilities, componentPowerCycle));
+            EXPECT_EQ(component->description, "Power cycle the CPU and SSD.");
+            callbackCalled = true;
+        },
+        cpuObjectWithoutProperties, {}, properties);
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(ComponentPowerCycle, MissingDescriptionIsEmpty)
+{
+    const dbus::utility::DBusPropertiesMap properties = {
+        {"SupportedPowerCycleTypes",
+         std::vector<std::string>{std::string(componentPowerCycle)}}};
+
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleProperties(
+        [&callbackCalled](const boost::system::error_code& ec,
+                          const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_FALSE(ec);
+            ASSERT_TRUE(component);
+            if (!component)
+            {
+                return;
+            }
+            EXPECT_TRUE(supports(component->capabilities, componentPowerCycle));
+            EXPECT_TRUE(component->description.empty());
+            callbackCalled = true;
+        },
+        cpuObjectWithoutProperties, {}, properties);
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(ComponentPowerCycle, WrongPropertyTypeIsReported)
+{
+    const dbus::utility::DBusPropertiesMap properties = {
+        {"Description", std::vector<std::string>{"not a string"}}};
+
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleProperties(
+        [&callbackCalled](const boost::system::error_code& ec,
+                          const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_TRUE(ec);
+            EXPECT_FALSE(component);
+            callbackCalled = true;
+        },
+        cpuObjectWithoutProperties, {}, properties);
+
+    EXPECT_TRUE(callbackCalled);
+}
+
+TEST(ComponentPowerCycle, PropertyReadFailureIsReported)
+{
+    const boost::system::error_code readError =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+
+    bool callbackCalled = false;
+    afterGetComponentPowerCycleProperties(
+        [&callbackCalled,
+         &readError](const boost::system::error_code& ec,
+                     const std::optional<ComponentPowerCycle>& component) {
+            EXPECT_EQ(ec, readError);
+            EXPECT_FALSE(component);
+            callbackCalled = true;
+        },
+        cpuObjectWithoutProperties, readError, {});
+
+    EXPECT_TRUE(callbackCalled);
 }
 } // namespace
 } // namespace redfish::nvidia_platform_power_cycle

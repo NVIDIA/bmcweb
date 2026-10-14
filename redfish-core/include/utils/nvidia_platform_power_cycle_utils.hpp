@@ -4,14 +4,17 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "utils/dbus_utils.hpp"
 
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/types.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -35,6 +38,8 @@ inline constexpr std::string_view auxPowerCycleForce =
     "com.nvidia.Control.Platform.PowerCycle.PowerCycleType.AuxPowerCycleForce";
 inline constexpr std::string_view fullPowerCycle =
     "com.nvidia.Control.Platform.PowerCycle.PowerCycleType.FullPowerCycle";
+inline constexpr std::string_view componentPowerCycle =
+    "com.nvidia.Control.Platform.PowerCycle.PowerCycleType.ComponentPowerCycle";
 
 inline constexpr std::string_view invalidArgumentError =
     "xyz.openbmc_project.Common.Error.InvalidArgument";
@@ -291,6 +296,163 @@ inline void requestFullPowerCycle(
 {
     requestPowerCycle(asyncResp, computerSystemIndex, fullPowerCycle,
                       "FullPowerCycle", actionName);
+}
+
+/**
+ * @brief Power-cycle object of a component that can be power-cycled on its
+ * own.
+ *
+ * The platform publishes one such object per component and associates it with
+ * the component's chassis inventory object through the "chassis" association,
+ * whose reverse is power_cycle.
+ */
+struct ComponentPowerCycle
+{
+    std::string path;
+    Capabilities capabilities;
+    // What the power cycle covers, for clients; may be empty.
+    std::string description;
+};
+
+using ComponentPowerCycleCallback = std::function<void(
+    const boost::system::error_code&, std::optional<ComponentPowerCycle>)>;
+
+/**
+ * @brief Select the power-cycle object of a chassis from the mapper reply.
+ *
+ * @return The object without its types, or std::nullopt unless exactly one
+ * object with exactly one service is associated.
+ */
+inline std::optional<ComponentPowerCycle> findComponentPowerCycle(
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (subtree.size() != 1)
+    {
+        if (!subtree.empty())
+        {
+            BMCWEB_LOG_ERROR(
+                "{} power-cycle objects are associated with one chassis",
+                subtree.size());
+        }
+        return std::nullopt;
+    }
+    const auto& [path, services] = subtree.front();
+    if (services.size() != 1)
+    {
+        BMCWEB_LOG_ERROR("Power-cycle object {} has {} providers", path,
+                         services.size());
+        return std::nullopt;
+    }
+    return ComponentPowerCycle{
+        path, Capabilities{services.front().first, {}}, {}};
+}
+
+inline void afterGetComponentPowerCycleProperties(
+    const ComponentPowerCycleCallback& callback,
+    const ComponentPowerCycle& component, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to read power-cycle object {}: {}",
+                         component.path, ec);
+        callback(ec, std::nullopt);
+        return;
+    }
+
+    const std::vector<std::string>* supportedTypes = nullptr;
+    const std::string* description = nullptr;
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties,
+        "SupportedPowerCycleTypes", supportedTypes, "Description", description);
+    if (!success)
+    {
+        callback(boost::system::errc::make_error_code(
+                     boost::system::errc::invalid_argument),
+                 std::nullopt);
+        return;
+    }
+
+    ComponentPowerCycle result{
+        component.path, Capabilities{component.capabilities.service, {}}, {}};
+    if (supportedTypes != nullptr)
+    {
+        result.capabilities.types = *supportedTypes;
+    }
+    if (description != nullptr)
+    {
+        result.description = *description;
+    }
+    callback({}, std::move(result));
+}
+
+inline void afterGetComponentPowerCycleSubTree(
+    ComponentPowerCycleCallback callback, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        // EBADR: the chassis has no power_cycle association.
+        if (ec.value() == EBADR)
+        {
+            callback({}, std::nullopt);
+            return;
+        }
+        BMCWEB_LOG_ERROR("Failed to find the chassis power-cycle object: {}",
+                         ec);
+        callback(ec, std::nullopt);
+        return;
+    }
+
+    std::optional<ComponentPowerCycle> component =
+        findComponentPowerCycle(subtree);
+    if (!component)
+    {
+        callback({}, std::nullopt);
+        return;
+    }
+    const std::string service = component->capabilities.service;
+    const std::string path = component->path;
+    dbus::utility::getAllProperties(
+        service, path, std::string(interface),
+        std::bind_front(afterGetComponentPowerCycleProperties,
+                        std::move(callback), std::move(*component)));
+}
+
+/**
+ * @brief Find the power-cycle object associated with a chassis.
+ *
+ * Reports std::nullopt, without an error, when the chassis has none.
+ *
+ * @param chassisPath Chassis inventory object path.
+ * @param callback Called with the object and its supported types.
+ */
+inline void getComponentPowerCycle(const std::string& chassisPath,
+                                   ComponentPowerCycleCallback callback)
+{
+    dbus::utility::getAssociatedSubTree(
+        sdbusplus::message::object_path(chassisPath + "/power_cycle"),
+        sdbusplus::message::object_path(
+            "/xyz/openbmc_project/control/power_cycle"),
+        0, std::array<std::string_view, 1>{interface},
+        std::bind_front(afterGetComponentPowerCycleSubTree,
+                        std::move(callback)));
+}
+
+inline void requestComponentPowerCycle(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ComponentPowerCycle& component, std::string_view redfishType,
+    std::string_view actionName)
+{
+    std::function<void(const boost::system::error_code&,
+                       const sdbusplus::message_t&)>
+        callback =
+            std::bind_front(afterRequestPowerCycle, asyncResp,
+                            std::string(redfishType), std::string(actionName));
+    dbus::utility::async_method_call(
+        std::move(callback), component.capabilities.service, component.path,
+        std::string(interface), std::string(method),
+        std::string(componentPowerCycle));
 }
 
 } // namespace redfish::nvidia_platform_power_cycle
