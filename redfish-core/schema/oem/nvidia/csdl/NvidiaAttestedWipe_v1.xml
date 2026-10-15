@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaAttestedWipe  v1.0.0                                                     -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.     -->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/ComponentIntegrity_v1.xml">
+    <edmx:Include Namespace="ComponentIntegrity"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaAttestedWipe">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaAttestedWipe" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The NVIDIA attested wipe resource associated with this manager."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the NVIDIA attested wipe service associated with this manager.  Attested wipe is a cryptographically authorized erasure of selected persistent data.  A client shall enroll an ECDSA P-384 public key, retrieve a nonce from the associated root of trust, and submit signatures over that nonce and the wipe configuration so the service can verify that the request is authentic, fresh. The resource shall also contain links to the ComponentIntegrity resources for the roots of trust that participate in the attested wipe sequence."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/AttestedWipe</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="EnrollWipeKey" IsBound="true">
+        <Annotation Term="OData.Description" String="This action enrolls the public key used to authorize a subsequent attested wipe."/>
+        <Annotation Term="OData.LongDescription" String="This action shall enroll the public key that the service uses to verify signatures provided to the `AttestedWipe` action.  The service shall reject the request if a key is already enrolled and the `Signature` parameter is absent or does not verify against the currently enrolled key."/>
+        <Parameter Name="NvidiaAttestedWipe" Type="NvidiaAttestedWipe.v1_0_0.Actions"/>
+        <Parameter Name="PublicKey" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The hexadecimal representation of the 96-byte ECDSA P-384 public key to enroll."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the hexadecimal representation of the 96-byte ECDSA P-384 public key to enroll, expressed as 192 hexadecimal characters."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9A-Fa-f]{192}$"/>
+        </Parameter>
+        <Parameter Name="Signature" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The hexadecimal representation of the 96-byte signature that authorizes replacing an already enrolled key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the hexadecimal representation of the 96-byte ECDSA P-384 signature, expressed as 192 hexadecimal characters, that the currently enrolled key produced over the new public key and the current nonce.  This parameter shall be required if a key is already enrolled."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9A-Fa-f]{192}$"/>
+        </Parameter>
+      </Action>
+      <Action Name="GetWipeNonce" IsBound="true">
+        <Annotation Term="OData.Description" String="This action retrieves the current nonce used in signed attested wipe requests."/>
+        <Annotation Term="OData.LongDescription" String="This action shall return the current nonce that the root of trust associated with this manager requires in signed attested wipe requests."/>
+        <Parameter Name="NvidiaAttestedWipe" Type="NvidiaAttestedWipe.v1_0_0.Actions"/>
+        <ReturnType Type="NvidiaAttestedWipe.v1_0_0.GetWipeNonceResponse" Nullable="false"/>
+      </Action>
+      <Action Name="AttestedWipe" IsBound="true">
+        <Annotation Term="OData.Description" String="This action performs an authorized wipe of the data selected in the signed configuration data."/>
+        <Annotation Term="OData.LongDescription" String="This action shall verify the provided signatures and initiate an attested wipe using the Base64-encoded configuration data."/>
+        <Parameter Name="NvidiaAttestedWipe" Type="NvidiaAttestedWipe.v1_0_0.Actions"/>
+        <Parameter Name="RotSignature" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The hexadecimal representation of the 96-byte signature that authorizes the RoT wipe request, produced over the current nonce."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the hexadecimal representation of the ECDSA P-384 signature over the RoT wipe request and the current nonce, expressed as 192 hexadecimal characters without a 0x prefix."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9A-Fa-f]{192}$"/>
+        </Parameter>
+        <Parameter Name="ConfigDataSignature" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The hexadecimal representation of the 96-byte signature over ConfigData."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the hexadecimal representation of the ECDSA P-384 signature over the Base64 ConfigData string exactly as posted, expressed as 192 hexadecimal characters without a 0x prefix."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9A-Fa-f]{192}$"/>
+        </Parameter>
+        <Parameter Name="ConfigData" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The Base64-encoded JSON document that selects the data to erase."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a Base64-encoded JSON object with the wipe configuration, including optional Settings, BMC, CPUSection, and NICSections properties."/>
+        </Parameter>
+      </Action>
+      <Action Name="RetrieveFlashLog" IsBound="true">
+        <Annotation Term="OData.Description" String="This action retrieves the BMC flash log for attested wipe operations."/>
+        <Annotation Term="OData.LongDescription" String="This action shall return the BMC flash log that records attested wipe operations and per-section hashes."/>
+        <Parameter Name="NvidiaAttestedWipe" Type="NvidiaAttestedWipe.v1_0_0.Actions"/>
+        <ReturnType Type="NvidiaAttestedWipe.v1_0_0.RetrieveFlashLogResponse" Nullable="false"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaAttestedWipe.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaAttestedWipe" BaseType="NvidiaAttestedWipe.NvidiaAttestedWipe">
+        <Property Name="Actions" Type="NvidiaAttestedWipe.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="Links" Type="NvidiaAttestedWipe.v1_0_0.Links" Nullable="false">
+          <Annotation Term="OData.Description" String="The links to resources that provide attested evidence of the wipe state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain links to resources that provide attested evidence of the wipe state for this attested wipe service."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <ComplexType Name="Links" BaseType="Resource.Links">
+        <Annotation Term="OData.Description" String="The links to resources that provide attested evidence of the wipe state."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain links to resources that provide attested evidence of the wipe state for this attested wipe service."/>
+        <NavigationProperty Name="ComponentIntegrity" Type="Collection(ComponentIntegrity.ComponentIntegrity)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ComponentIntegrity resources that provide attested evidence of the wipe state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain links to ComponentIntegrity resources that provide attested evidence of the wipe state of the associated roots of trust."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="GetWipeNonceResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from the `GetWipeNonce` action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from the `GetWipeNonce` action."/>
+        <Property Name="Nonce" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The hexadecimal representation of the 8-byte current nonce."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the hexadecimal representation of the 8-byte current nonce, expressed as 16 hexadecimal characters."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9A-Fa-f]{16}$"/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="RetrieveFlashLogResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from the `RetrieveFlashLog` action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the BMC flash log entries returned by the `RetrieveFlashLog` action."/>
+        <Property Name="FlashLog" Type="Collection(NvidiaAttestedWipe.v1_0_0.FlashLogEntry)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The entries in the BMC flash log."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the BMC flash log entries, ordered from oldest to newest."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="FlashLogEntry">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="An entry in the BMC flash log."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the name and Base64-encoded hash of a BMC flash section."/>
+        <Property Name="Section" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The name of the BMC flash section."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the BMC flash section."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="Hash" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Base64-encoded hash of the BMC flash section."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Base64-encoded hash of the BMC flash section."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

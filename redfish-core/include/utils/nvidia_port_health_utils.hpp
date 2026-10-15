@@ -52,11 +52,11 @@ constexpr std::string_view attentionTriggerReasonValuesPrefix =
 constexpr std::string_view attentionTriggerConfigurationValuesPrefix =
     "com.nvidia.NVLink.PortHealthMetrics.AttentionTriggerConfigurationValues.";
 
-// Redfish surface: NvidiaPortMetrics.v1_10_0 from the bundled OEM schema,
+// Redfish surface: NvidiaPortMetrics.v1_11_0 from the bundled OEM schema,
 // shared by the GPU (Systems/../Processors/../Ports/../Metrics) and NVSwitch
 // (Fabrics/../Switches/../Ports/../Metrics) PortMetrics resources.
 constexpr std::string_view nvlinkPortMetricsOdataType =
-    "#NvidiaPortMetrics.v1_10_0.NvidiaNVLinkPortMetrics";
+    "#NvidiaPortMetrics.v1_11_0.NvidiaNVLinkPortMetrics";
 // Key of the action in Actions.Oem.
 constexpr std::string_view clearEarlyHealthIndicationActionKey =
     "#NvidiaPortMetrics.ClearEarlyHealthIndication";
@@ -97,6 +97,7 @@ EnumType dbusMemberToEnum(std::string_view dbusValue, std::string_view prefix)
 
 /**
  * @brief EarlyHealthIndication D-Bus value to Redfish enum.
+ *
  *
  * @return std::nullopt for the D-Bus-only member Unavailable (the device
  *         reports the record unreadable): the caller renders null for every
@@ -157,7 +158,7 @@ inline nvidia_port_metrics::AttentionTriggerConfiguration
 }
 
 /**
- * @brief Render the NvidiaPortMetrics.v1_10_0 link health block and, when the
+ * @brief Render the NvidiaPortMetrics.v1_11_0 link health block and, when the
  *        device supports it, the ClearEarlyHealthIndication action.
  *
  * Consumes the GetAll property map of a port object. A port that does not
@@ -239,6 +240,14 @@ inline void populatePortHealthMetrics(
         if (*health != nvidia_port_metrics::EarlyHealthIndication::Invalid)
         {
             oemNvidia["EarlyHealthIndication"] = *health;
+        }
+        else
+        {
+            // Member not declared by the bundled schema (PDI ahead of the
+            // schema sync): omit rather than invent a value.
+            BMCWEB_LOG_WARNING(
+                "EarlyHealthIndication {} is not in the bundled schema; omitted",
+                *earlyHealthIndication);
         }
         if (attentionTriggerReason != nullptr)
         {

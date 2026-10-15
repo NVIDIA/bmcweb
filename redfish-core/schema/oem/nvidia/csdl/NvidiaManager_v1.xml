@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaManager  v1.9.0                                                           -->
+<!--# Redfish OEM Schema:  NvidiaManager  v1.10.0                                                          -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -36,6 +36,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTManagement_v1.xml">
     <edmx:Include Namespace="NvidiaDOTManagement"/>
     <edmx:Include Namespace="NvidiaDOTManagement.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaAttestedWipe_v1.xml">
+    <edmx:Include Namespace="NvidiaAttestedWipe"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
@@ -656,6 +659,18 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The Device Ownership Transfer (DOT) settings managed by this manager."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the Device Ownership Transfer (DOT) settings managed by this manager."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add the `AttestedWipe` resource."/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_9_0.NvidiaManager">
+        <NavigationProperty Name="AttestedWipe" Type="NvidiaAttestedWipe.NvidiaAttestedWipe" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the NVIDIA attested wipe resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to the NVIDIA attested wipe resource associated with this manager."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </ComplexType>
     </Schema>

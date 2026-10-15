@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.10.0                                                      -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.11.0                                                      -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -574,6 +574,28 @@
         <Member Name="Unknown">
           <Annotation Term="OData.Description" String="The early health indication is unavailable or not applicable."/>
         </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Link health is not supported on the device, or no link health metric is enabled on the port."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="NotMonitored">
+          <Annotation Term="OData.Description" String="The physical link is down and the device is not evaluating link health metrics."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
       </EnumType>
       <EnumType Name="AttentionTriggerReason">
         <Annotation Term="OData.Description" String="The possible reasons that caused the `EarlyHealthIndication` property to contain the value `Attention`."/>
@@ -636,6 +658,11 @@
           <Annotation Term="OData.Description" String="The Attention state was raised under a previous configuration and a parameter of an associated metric has since been modified."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_11_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add the `Disabled` and `NotMonitored` values to `EarlyHealthIndication`."/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_10_0.NvidiaNVLinkPortMetrics"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

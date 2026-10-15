@@ -3,6 +3,7 @@ if get_option('nvidia-oem-properties').allowed()
     schemas = [
         'NvidiaAstra_v1.xml',
         'NvidiaCable_v1.xml',
+        'NvidiaControl_v1.xml',
         'NvidiaCPER_v1.xml',
         'NvidiaChassis_v1.xml',
         'NvidiaComputerSystem_v1.xml',
