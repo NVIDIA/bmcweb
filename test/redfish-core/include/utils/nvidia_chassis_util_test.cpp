@@ -26,6 +26,7 @@
 #include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -177,6 +178,76 @@ TEST(ResolveNvidiaOemChassisType, DerivedTypeWinsOverGenericMembers)
 {
     EXPECT_EQ(resolvedType({{"HardwareWriteProtectedControl", true},
                             {"ErrorInjection", nlohmann::json::object()}}),
+              "#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
+}
+
+TEST(ResolveNvidiaOemChassisType, NoMembersAreUndeclaredForOneType)
+{
+    nlohmann::json sma = {{"LastResetReasons", nlohmann::json::array()},
+                          {"ErrorInjection", nlohmann::json::object()},
+                          {"PowerSmoothing", nlohmann::json::object()}};
+    EXPECT_TRUE(resolveNvidiaOemChassisType(sma, "").empty());
+
+    nlohmann::json rot = {{"AutomaticBackgroundCopyEnabled", false},
+                          {"BackgroundCopyStatus", "Completed"},
+                          {"ManualBootModeEnabled", false}};
+    EXPECT_TRUE(resolveNvidiaOemChassisType(rot, "").empty());
+
+    nlohmann::json generic = {{"SKU", "x"},
+                              {"HardwareWriteProtected", true},
+                              {"InbandUpdatePolicyEnabled", true}};
+    EXPECT_TRUE(resolveNvidiaOemChassisType(generic, "").empty());
+}
+
+// One response with members of NvidiaChassis, NvidiaSMAChassis and
+// NvidiaRoTChassis. No type declares all of them; the type and the reported
+// members must not depend on the order the members were added in.
+TEST(ResolveNvidiaOemChassisType, MembersOfSeveralTypes)
+{
+    const std::vector<std::pair<std::string, nlohmann::json>> members = {
+        {"SKU", "x"},                                 // NvidiaChassis
+        {"HardwareWriteProtected", true},             // NvidiaChassis
+        {"PowerSmoothing", nlohmann::json::object()}, // NvidiaSMAChassis
+        {"ErrorInjection", nlohmann::json::object()}, // NvidiaSMAChassis
+        {"ManualBootModeEnabled", false},             // NvidiaRoTChassis
+        {"AutomaticBackgroundCopyEnabled", true},     // NvidiaChassis, RoT
+    };
+    const std::vector<std::string> expectedUndeclared = {
+        "AutomaticBackgroundCopyEnabled", "HardwareWriteProtected",
+        "ManualBootModeEnabled", "SKU"};
+
+    for (bool reversed : {false, true})
+    {
+        crow::Response res;
+        res.jsonValue["@odata.id"] = "/redfish/v1/Chassis/Test";
+        nlohmann::json& oemNvidia = res.jsonValue["Oem"]["Nvidia"];
+        oemNvidia["@odata.type"] = "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
+        for (size_t i = 0; i < members.size(); i++)
+        {
+            const auto& [name, value] =
+                members[reversed ? members.size() - 1 - i : i];
+            oemNvidia[name] = value;
+        }
+
+        nlohmann::json copy = oemNvidia;
+        EXPECT_EQ(resolveNvidiaOemChassisType(copy, ""), expectedUndeclared);
+
+        finishChassisOemResponse(nullptr, res);
+        EXPECT_EQ(res.jsonValue["Oem"]["Nvidia"]["@odata.type"],
+                  "#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
+        EXPECT_EQ(res.jsonValue["Oem"]["Nvidia"].size(), members.size() + 1);
+    }
+}
+
+// IO_Board_SMA on the VR-NVL72 tray BMC.
+TEST(ResolveNvidiaOemChassisType, SmaWithGenericMember)
+{
+    nlohmann::json oemNvidia = {{"ErrorInjection", nlohmann::json::object()},
+                                {"HostManagementNetworkAccess", true},
+                                {"LastResetReasons", nlohmann::json::array()}};
+    EXPECT_EQ(resolveNvidiaOemChassisType(oemNvidia, ""),
+              std::vector<std::string>{"HostManagementNetworkAccess"});
+    EXPECT_EQ(oemNvidia["@odata.type"],
               "#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
 }
 
@@ -334,12 +405,17 @@ TEST(NvidiaOemChassisMembers, MatchCsdl)
                   "#" + type->second.newestNamespace + "." +
                       std::string(typeName));
 
-        // Every member the CSDL declares on this type is mapped to it, or is
-        // declared by more than one type.
+        if (family == NvidiaOemChassisFamily::Generic)
+        {
+            continue;
+        }
+        // Every member the CSDL declares on a derived type is mapped to it;
+        // NvidiaRoTChassis also declares the shared members.
         for (const std::string& name : type->second.members)
         {
-            if (std::ranges::find(nvidiaOemChassisSharedMembers, name) !=
-                nvidiaOemChassisSharedMembers.end())
+            if (family == NvidiaOemChassisFamily::RoT &&
+                std::ranges::find(nvidiaOemChassisSharedMembers, name) !=
+                    nvidiaOemChassisSharedMembers.end())
             {
                 continue;
             }
@@ -351,7 +427,10 @@ TEST(NvidiaOemChassisMembers, MatchCsdl)
         }
     }
 
-    // No table entry names a member the CSDL does not declare on its type.
+    const CsdlType& generic = types.at("NvidiaChassis");
+
+    // Every table entry is declared by its type, and not by NvidiaChassis,
+    // where it would select the wrong type.
     for (const NvidiaOemChassisMember& member : nvidiaOemChassisMembers)
     {
         const auto* typeName = std::ranges::find(
@@ -362,18 +441,16 @@ TEST(NvidiaOemChassisMembers, MatchCsdl)
         ASSERT_NE(type, types.end());
         EXPECT_TRUE(type->second.members.contains(std::string(member.name)))
             << typeName->second << "." << member.name;
+        EXPECT_FALSE(generic.members.contains(std::string(member.name)))
+            << "NvidiaChassis." << member.name;
     }
 
-    // Shared members really are declared by more than one type.
+    // Shared members are declared by both NvidiaChassis and NvidiaRoTChassis.
+    const CsdlType& rot = types.at("NvidiaRoTChassis");
     for (std::string_view shared : nvidiaOemChassisSharedMembers)
     {
-        int declaredBy = 0;
-        for (const auto& entry : types)
-        {
-            declaredBy +=
-                entry.second.members.contains(std::string(shared)) ? 1 : 0;
-        }
-        EXPECT_GT(declaredBy, 1) << shared;
+        EXPECT_TRUE(generic.members.contains(std::string(shared))) << shared;
+        EXPECT_TRUE(rot.members.contains(std::string(shared))) << shared;
     }
 }
 

@@ -51,6 +51,7 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -101,12 +102,12 @@ namespace nvidia_chassis_utils
 {
 
 /**
- * @brief NvidiaChassis OEM derived type that declares a member.
+ * @brief NvidiaChassis OEM derived type of a Chassis Oem.Nvidia object.
  *
  * NvidiaChassis.NvidiaChassis is abstract and disallows additional
- * properties, and the derived types below are siblings: none of them inherits
- * the members of another. The emitted @odata.type therefore has to name the
- * one derived type that declares the members actually present.
+ * properties, and its derived types are siblings: none of them inherits the
+ * members of another. The emitted @odata.type therefore has to name the one
+ * derived type that declares the members actually present.
  */
 enum class NvidiaOemChassisFamily
 {
@@ -123,28 +124,14 @@ struct NvidiaOemChassisMember
 };
 
 /**
- * @brief Members of each NvidiaChassis derived type, from NvidiaChassis_v1.xml.
+ * @brief Members that select NvidiaSMAChassis, NvidiaRoTChassis or
+ * NvidiaCBCChassis, from NvidiaChassis_v1.xml.
  *
- * nvidia_chassis_util_test checks this table against the CSDL.
+ * An object with none of them is an NvidiaChassis, so members of NvidiaChassis
+ * itself are not listed. nvidia_chassis_util_test checks this table against
+ * the CSDL.
  */
-constexpr std::array<NvidiaOemChassisMember, 29> nvidiaOemChassisMembers{{
-    {"HardwareWriteProtected", NvidiaOemChassisFamily::Generic},
-    {"HardwareWriteProtectedControl", NvidiaOemChassisFamily::Generic},
-    {"PCIeReferenceClockCount", NvidiaOemChassisFamily::Generic},
-    {"SerialNumber", NvidiaOemChassisFamily::Generic},
-    {"PartNumber", NvidiaOemChassisFamily::Generic},
-    {"StaticPowerHint", NvidiaOemChassisFamily::Generic},
-    {"DebugToken", NvidiaOemChassisFamily::Generic},
-    {"HardwareWriteProtectEnable", NvidiaOemChassisFamily::Generic},
-    {"Policies", NvidiaOemChassisFamily::Generic},
-    {"NVLink", NvidiaOemChassisFamily::Generic},
-    {"SKU", NvidiaOemChassisFamily::Generic},
-    {"HostManagementNetworkAccess", NvidiaOemChassisFamily::Generic},
-    {"WriteProtectDomains", NvidiaOemChassisFamily::Generic},
-    {"MemoryModuleIndexWithMaxTemperature", NvidiaOemChassisFamily::Generic},
-    {"EmbeddedProcessorOSState", NvidiaOemChassisFamily::Generic},
-    {"LastIntrusionDetected", NvidiaOemChassisFamily::Generic},
-    {"Astra", NvidiaOemChassisFamily::Generic},
+constexpr std::array<NvidiaOemChassisMember, 12> nvidiaOemChassisMembers{{
     {"ProtocolBridgeForDevices", NvidiaOemChassisFamily::Sma},
     {"LastResetReasons", NvidiaOemChassisFamily::Sma},
     {"ErrorInjection", NvidiaOemChassisFamily::Sma},
@@ -197,73 +184,76 @@ constexpr std::string_view nvidiaOemChassisType(NvidiaOemChassisFamily family)
  * has finished, so it is the only writer of the type and the result does not
  * depend on callback completion order.
  *
+ * An object with members of more than one derived type, or with members of
+ * NvidiaChassis next to those of a derived type, has no valid type. It gets the
+ * derived type of its first such member, and the members that type does not
+ * declare are logged and returned.
+ *
  * @param[in,out]   oemNvidia   The Oem.Nvidia object of a Chassis response.
  * @param[in]       chassisUri  The @odata.id of the response, for logging.
+ *
+ * @return Members the emitted type does not declare.
  */
-inline void resolveNvidiaOemChassisType(nlohmann::json& oemNvidia,
-                                        std::string_view chassisUri)
+inline std::vector<std::string> resolveNvidiaOemChassisType(
+    nlohmann::json& oemNvidia, std::string_view chassisUri)
 {
+    std::vector<std::string> undeclared;
     const nlohmann::json::object_t* members =
         oemNvidia.get_ptr<const nlohmann::json::object_t*>();
     if (members == nullptr)
     {
-        return;
+        return undeclared;
     }
 
     std::optional<NvidiaOemChassisFamily> derived;
-    std::string generic;
-    std::string conflicting;
-    std::string unknown;
+    for (const auto& item : *members)
+    {
+        const auto* member = std::ranges::find(
+            nvidiaOemChassisMembers, item.first, &NvidiaOemChassisMember::name);
+        if (member != nvidiaOemChassisMembers.end())
+        {
+            derived = member->family;
+            break;
+        }
+    }
+    if (!derived)
+    {
+        oemNvidia["@odata.type"] =
+            nvidiaOemChassisType(NvidiaOemChassisFamily::Generic);
+        return undeclared;
+    }
+
     for (const auto& item : *members)
     {
         const std::string& name = item.first;
-        if (name == "@odata.type" ||
-            std::ranges::find(nvidiaOemChassisSharedMembers, name) !=
-                nvidiaOemChassisSharedMembers.end())
-        {
-            continue;
-        }
         const auto* member = std::ranges::find(nvidiaOemChassisMembers, name,
                                                &NvidiaOemChassisMember::name);
-        if (member == nvidiaOemChassisMembers.end())
+        const bool declared =
+            name == "@odata.type" ||
+            (member != nvidiaOemChassisMembers.end() &&
+             member->family == *derived) ||
+            (*derived == NvidiaOemChassisFamily::RoT &&
+             std::ranges::find(nvidiaOemChassisSharedMembers, name) !=
+                 nvidiaOemChassisSharedMembers.end());
+        if (!declared)
         {
-            unknown += ' ';
-            unknown += name;
-        }
-        else if (member->family == NvidiaOemChassisFamily::Generic)
-        {
-            generic += ' ';
-            generic += name;
-        }
-        else if (!derived)
-        {
-            derived = member->family;
-        }
-        else if (*derived != member->family)
-        {
-            conflicting += ' ';
-            conflicting += name;
+            undeclared.emplace_back(name);
         }
     }
-
-    const NvidiaOemChassisFamily family =
-        derived.value_or(NvidiaOemChassisFamily::Generic);
-    if (!unknown.empty())
+    if (!undeclared.empty())
     {
-        BMCWEB_LOG_ERROR("{} Oem.Nvidia members not in NvidiaChassis_v1:{}",
-                         chassisUri, unknown);
-    }
-    if (derived && !generic.empty())
-    {
-        conflicting += generic;
-    }
-    if (!conflicting.empty())
-    {
+        std::string names;
+        for (const std::string& name : undeclared)
+        {
+            names += ' ';
+            names += name;
+        }
         BMCWEB_LOG_ERROR("{} Oem.Nvidia members not declared by {}:{}",
-                         chassisUri, nvidiaOemChassisType(family), conflicting);
+                         chassisUri, nvidiaOemChassisType(*derived), names);
     }
 
-    oemNvidia["@odata.type"] = nvidiaOemChassisType(family);
+    oemNvidia["@odata.type"] = nvidiaOemChassisType(*derived);
+    return undeclared;
 }
 
 inline void finishChassisOemResponse(
