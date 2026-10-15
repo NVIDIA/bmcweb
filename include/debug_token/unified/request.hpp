@@ -59,6 +59,12 @@ constexpr const int spdmTokenRequestTimeout = 60;
 
 using Result = std::variant<std::string, std::vector<uint8_t>>;
 using ResultCallback = std::function<void(const Result&)>;
+/**
+ * @brief Result string when spdmd rejected Refresh because the responder is
+ *        busy; the caller can retry
+ */
+inline constexpr std::string_view spdmResponderBusyRetry =
+    "SPDMResponderBusyRetry";
 
 /**
  * @brief Handler class for managing SPDM token requests
@@ -196,6 +202,8 @@ class Handler : public std::enable_shared_from_this<Handler>
     ResultCallback callback;
 
     std::string spdmObjectPath;
+    std::vector<uint8_t> nonce;
+    bool refreshReplyReceived = false;
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::unique_ptr<boost::asio::steady_timer> timer;
 
@@ -301,18 +309,26 @@ class Handler : public std::enable_shared_from_this<Handler>
     void run(const std::string& service, const std::string& objectPath)
     {
         spdmObjectPath = objectPath;
+        auto generatedNonce = generateSpdmNonce();
+        if (!generatedNonce)
+        {
+            errorHandler(shared_from_this(), "cannot generate SPDM nonce");
+            return;
+        }
+        nonce = std::move(*generatedNonce);
 
         createMatch();
         createTimer(spdmTokenRequestTimeout);
 
         std::vector<uint8_t> indices{
             spdmTokenTypeToMeasurementIndex(this->type)};
-        std::function<void(const boost::system::error_code&)> handler =
-            std::bind_front(&Handler::methodHandler, this, shared_from_this());
+        std::function<void(const boost::system::error_code&,
+                           sdbusplus::message_t&)>
+            handler = std::bind_front(&Handler::methodHandler, this,
+                                      shared_from_this());
         dbus::utility::async_method_call(
             handler, service, objectPath, spdmResponderIntf, "Refresh",
-            static_cast<uint8_t>(0), std::vector<uint8_t>(), indices,
-            static_cast<uint32_t>(0));
+            static_cast<uint8_t>(0), nonce, indices, static_cast<uint32_t>(0));
     }
 
     /**
@@ -366,6 +382,12 @@ class Handler : public std::enable_shared_from_this<Handler>
     void matchHandler(const std::shared_ptr<Handler>& self,
                       sdbusplus::message::message& msg)
     {
+        // A Status change before our Refresh reply is from the previous
+        // request. Our own state is read once the reply arrives.
+        if (!refreshReplyReceived)
+        {
+            return;
+        }
         std::string interface;
         dbus::utility::DBusPropertiesMap propertiesMap;
         msg.read(interface, propertiesMap);
@@ -457,6 +479,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      *
      * @param self The shared self pointer to the parent object
      * @param ec The error code from the DBus method call
+     * @param msg The DBus reply message
      *
      * @note This is the callback for the async_method_call to the SPDM Refresh
      * method
@@ -464,10 +487,17 @@ class Handler : public std::enable_shared_from_this<Handler>
      *       from the SPDM responder service
      */
     void methodHandler(const std::shared_ptr<Handler>& self,
-                       const boost::system::error_code& ec)
+                       const boost::system::error_code& ec,
+                       sdbusplus::message_t& msg)
     {
+        refreshReplyReceived = true;
         if (ec)
         {
+            if (isSpdmResponderBusy(msg))
+            {
+                errorHandler(self, std::string(spdmResponderBusyRetry));
+                return;
+            }
             errorHandler(self, "DBus error: " + ec.message());
             return;
         }
@@ -562,15 +592,27 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
         std::vector<uint8_t> signedMeasurements;
+        std::vector<uint8_t> resultNonce;
         uint32_t capabilities = 0;
         std::vector<std::tuple<uint8_t, std::string>> certificates;
         const bool success = sdbusplus::unpackPropertiesNoThrow(
             dbus_utils::UnpackErrorPrinter(), propertiesMap,
-            "SignedMeasurements", signedMeasurements, "Capabilities",
-            capabilities, "Certificate", certificates);
+            "SignedMeasurements", signedMeasurements, "Nonce", resultNonce,
+            "Capabilities", capabilities, "Certificate", certificates);
         if (!success)
         {
             errorHandler(self, "cannot unpack properties");
+            return;
+        }
+        // Another caller's result. spdmd rejects a Refresh while busy, so ours
+        // is still running; wait for it.
+        if (!spdmNonceMatches(nonce, resultNonce))
+        {
+            return;
+        }
+        if (signedMeasurements.empty())
+        {
+            errorHandler(self, "SignedMeasurements is empty");
             return;
         }
 

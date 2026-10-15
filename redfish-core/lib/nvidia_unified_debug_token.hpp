@@ -111,6 +111,11 @@ static void generateTokenRequestCallback(
         {
             messages::debugTokenUnsupported(asyncResp->res, componentId);
         }
+        else if (error == unified::spdm_request::spdmResponderBusyRetry)
+        {
+            // Another SPDM operation was using this responder.
+            messages::serviceTemporarilyUnavailable(asyncResp->res, "5");
+        }
         else
         {
             messages::resourceErrorsDetectedFormatError(
