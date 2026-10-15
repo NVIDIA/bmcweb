@@ -21,6 +21,7 @@
 #include <dbus_utility.hpp>
 #include <error_messages.hpp>
 #include <openbmc_dbus_rest.hpp>
+#include <ossl_random.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <task.hpp>
@@ -55,7 +56,52 @@ struct SPDMMeasurementData
     std::string signAlgo;
     uint8_t version{};
     std::string measurement;
+    std::vector<uint8_t> nonce;
 };
+
+/**
+ * @brief Generates a random 32-byte nonce for SPDM Refresh
+ * @return The nonce, or std::nullopt if random generation failed
+ */
+inline std::optional<std::vector<uint8_t>> generateSpdmNonce()
+{
+    bmcweb::OpenSSLGenerator gen;
+    std::vector<uint8_t> nonce(32);
+    for (uint8_t& byte : nonce)
+    {
+        byte = gen();
+        if (gen.error())
+        {
+            return std::nullopt;
+        }
+    }
+    return nonce;
+}
+
+/**
+ * @brief Checks whether spdmd's published Nonce is the one sent in Refresh
+ * @param sent The nonce sent in the Refresh call
+ * @param published The Nonce property published by spdmd with the result
+ * @return true if sent is a 32-byte nonce and equals published
+ */
+inline bool spdmNonceMatches(const std::vector<uint8_t>& sent,
+                             const std::vector<uint8_t>& published)
+{
+    return sent.size() == 32 && published == sent;
+}
+
+/**
+ * @brief Checks whether spdmd rejected Refresh because the responder is busy
+ * @param msg The D-Bus reply message of the Refresh call
+ * @return true if the reply is the Common.Error.Unavailable error
+ */
+inline bool isSpdmResponderBusy(const sdbusplus::message_t& msg)
+{
+    const sd_bus_error* dbusError = msg.get_error();
+    return dbusError != nullptr && dbusError->name != nullptr &&
+           std::string_view(dbusError->name) ==
+               "xyz.openbmc_project.Common.Error.Unavailable";
+}
 
 // Measurements for index 11 and 12 take around 17 seconds each,
 // for other indices it is around 1 second.
@@ -167,6 +213,16 @@ inline SPDMMeasurementData parseSPDMInterfaceProperties(
             config.measurement =
                 crow::utility::base64encode(config.measurement);
         }
+        else if (property.first == "Nonce")
+        {
+            const auto* nonce =
+                std::get_if<std::vector<uint8_t>>(&property.second);
+            if (nonce == nullptr)
+            {
+                continue;
+            }
+            config.nonce = *nonce;
+        }
     }
     return config;
 }
@@ -251,35 +307,58 @@ inline void getCertificateURI(
     });
 }
 
-/** @brief Populates taskResponse for a completed SPDMGetSignedMeasurements
- *         task per DSP0266 sect. 12.2. */
+/**
+ * @brief Populates taskResponse for a completed SPDMGetSignedMeasurements
+ *        task per DSP0266 sect. 12.2
+ * @param taskData The measurement task
+ * @param dataUri The URI of the action's data resource
+ * @param config The measurement result of this task
+ */
 inline void setSpdmMeasurementTaskResponse(
-    const std::shared_ptr<task::TaskData>& taskData, const std::string& objPath,
-    std::string dataUri)
+    const std::shared_ptr<task::TaskData>& taskData, std::string dataUri,
+    const SPDMMeasurementData& config)
 {
     taskData->taskResponse.emplace<task::TaskResponseCallback>(
-        [objPath, dataUri = std::move(dataUri)](
+        [dataUri = std::move(dataUri), measurement = config.measurement,
+         version = config.version, hashAlgo = config.hashAlgo,
+         signAlgo = config.signAlgo](
             const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
             aResp->res.addHeader(boost::beast::http::field::location, dataUri);
-            asyncGetSPDMMeasurementData(
-                objPath, [aResp](const SPDMMeasurementData& config,
-                                 const boost::system::error_code& ec) {
-                    if (ec)
-                    {
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue["@odata.type"] =
-                        "#ComponentIntegrity.v1_0_0."
-                        "SPDMGetSignedMeasurementsResponse";
-                    aResp->res.jsonValue["SignedMeasurements"] =
-                        config.measurement;
-                    aResp->res.jsonValue["Version"] =
-                        getVersionStr(config.version);
-                    aResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
-                    aResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
-                });
+            aResp->res.jsonValue["@odata.type"] =
+                "#ComponentIntegrity.v1_0_0."
+                "SPDMGetSignedMeasurementsResponse";
+            aResp->res.jsonValue["SignedMeasurements"] = measurement;
+            aResp->res.jsonValue["Version"] = getVersionStr(version);
+            aResp->res.jsonValue["HashingAlgorithm"] = hashAlgo;
+            aResp->res.jsonValue["SigningAlgorithm"] = signAlgo;
         });
+}
+
+/**
+ * @brief Gets the last nonce-matched result per responder, returned by /data
+ * @return Map of SPDM responder object path to its result
+ */
+inline std::map<std::string, SPDMMeasurementData>&
+    lastVerifiedSpdmMeasurements()
+{
+    static std::map<std::string, SPDMMeasurementData> results;
+    return results;
+}
+
+/**
+ * @brief Finishes the task as the task framework does on task::completed
+ * @param taskData The measurement task to finish
+ * @param objPath The SPDM responder object path of the task
+ */
+inline void finishSpdmMeasurementTask(
+    const std::shared_ptr<task::TaskData>& taskData, const std::string& objPath)
+{
+    taskData->timer.cancel();
+    taskData->finishTask();
+    task::TaskData::sendTaskEvent(taskData->state, taskData->index);
+    boost::asio::post(crow::connections::systemBus->get_io_context(),
+                      [taskData] { taskData->match.reset(); });
+    spdmMeasurementData.erase(objPath);
 }
 
 inline void handleSPDMGETSignedMeasurement(
@@ -338,6 +417,16 @@ inline void handleSPDMGETSignedMeasurement(
             return;
         }
     }
+    else
+    {
+        auto generatedNonce = generateSpdmNonce();
+        if (!generatedNonce)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        nonceVec = std::move(*generatedNonce);
+    }
     if (!slotID)
     {
         BMCWEB_LOG_DEBUG("SlotID is not given, setting it to default value");
@@ -372,9 +461,9 @@ inline void handleSPDMGETSignedMeasurement(
 
     // create a task to wait for the status property changed signal
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-        [id, objPath](boost::system::error_code ec,
-                      sdbusplus::message::message& msg,
-                      const std::shared_ptr<task::TaskData>& taskData) {
+        [id, objPath, nonceVec](
+            boost::system::error_code ec, sdbusplus::message::message& msg,
+            const std::shared_ptr<task::TaskData>& taskData) {
             if (ec)
             {
                 if (ec != boost::asio::error::operation_aborted)
@@ -409,21 +498,63 @@ inline void handleSPDMGETSignedMeasurement(
             if (*value ==
                 "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Success")
             {
-                std::string dataUri =
-                    "/redfish/v1/"
-                    "ComponentIntegrity/" +
-                    id +
-                    "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements/data";
-                taskData->payload->httpHeaders.emplace_back(
-                    "Location: " + dataUri);
-                setSpdmMeasurementTaskResponse(taskData, objPath, dataUri);
-                taskData->state = "Completed";
-                taskData->percentComplete = 100;
-                taskData->messages.emplace_back(
-                    messages::taskCompletedOK(std::to_string(taskData->index)));
-                taskData->finishTask();
-                spdmMeasurementData.erase(objPath);
-                return task::completed;
+                // This Success can be from the request that ran before ours.
+                // Complete only if the result has our nonce.
+                asyncGetSPDMMeasurementData(
+                    objPath,
+                    [id, objPath, nonceVec,
+                     taskData](const SPDMMeasurementData& config,
+                               const boost::system::error_code& getEc) {
+                        // The task can end before this reply, e.g. on an
+                        // Error Status or a failed Refresh.
+                        if (taskData->endTime)
+                        {
+                            return;
+                        }
+                        if (getEc)
+                        {
+                            taskData->state = "Aborted";
+                            taskData->messages.emplace_back(
+                                messages::resourceErrorsDetectedFormatError(
+                                    "SPDM measurements", getEc.message()));
+                        }
+                        else if (!spdmNonceMatches(nonceVec, config.nonce))
+                        {
+                            // Another caller's result. spdmd rejects a Refresh
+                            // while busy, so ours is still running; wait.
+                            BMCWEB_LOG_DEBUG(
+                                "Ignoring SPDM result on {} from another request",
+                                objPath);
+                            return;
+                        }
+                        else if (config.measurement.empty())
+                        {
+                            taskData->state = "Aborted";
+                            taskData->messages.emplace_back(
+                                messages::resourceErrorsDetectedFormatError(
+                                    "SPDM refresh",
+                                    "SignedMeasurements is empty"));
+                        }
+                        else
+                        {
+                            std::string dataUri =
+                                "/redfish/v1/ComponentIntegrity/" + id +
+                                "/Actions/ComponentIntegrity."
+                                "SPDMGetSignedMeasurements/data";
+                            taskData->payload->httpHeaders.emplace_back(
+                                "Location: " + dataUri);
+                            setSpdmMeasurementTaskResponse(
+                                taskData, std::move(dataUri), config);
+                            lastVerifiedSpdmMeasurements()[objPath] = config;
+                            taskData->state = "Completed";
+                            taskData->percentComplete = 100;
+                            taskData->messages.emplace_back(
+                                messages::taskCompletedOK(
+                                    std::to_string(taskData->index)));
+                        }
+                        finishSpdmMeasurementTask(taskData, objPath);
+                    });
+                return !task::completed;
             }
             if (startsWithPrefix(
                     *value,
@@ -454,17 +585,24 @@ inline void handleSPDMGETSignedMeasurement(
     task->payload.emplace(std::move(payload));
 
     dbus::utility::async_method_call(
-        [objPath, task](const boost::system::error_code ec) {
+        [objPath,
+         task](const boost::system::error_code ec, sdbusplus::message_t& msg) {
+            // The Status signal can arrive before this reply and end the task.
+            if (task->endTime)
+            {
+                return;
+            }
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to refresh the SPDM measurement {}",
                                  ec);
                 task->state = "Aborted";
                 task->messages.emplace_back(
-                    messages::resourceErrorsDetectedFormatError("SPDM refresh",
-                                                                ec.message()));
-                task->finishTask();
-                spdmMeasurementData.erase(objPath);
+                    messages::resourceErrorsDetectedFormatError(
+                        "SPDM refresh",
+                        isSpdmResponderBusy(msg) ? "responder is busy; retry"
+                                                 : ec.message()));
+                finishSpdmMeasurementTask(task, objPath);
                 return;
             }
         },
@@ -708,34 +846,24 @@ inline void requestRoutesComponentIntegrity(App& app)
             }
             const std::string objPath =
                 std::string(rootSPDMDbusPath) + "/" + id;
-            asyncGetSPDMMeasurementData(objPath, [asyncResp, id, objPath](
-                                                     const SPDMMeasurementData&
-                                                         config,
-                                                     const boost::system::
-                                                         error_code& ec) {
-                if (ec)
-                {
-                    if (ec.value() == EBADR)
-                    {
-                        messages::resourceNotFound(asyncResp->res,
-                                                   "ComponentIntegrity", id);
-                    }
-                    else
-                    {
-                        messages::internalError(asyncResp->res);
-                    }
-                    return;
-                }
-
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#ComponentIntegrity.v1_0_0.SPDMGetSignedMeasurementsResponse";
-                asyncResp->res.jsonValue["SignedMeasurements"] =
-                    config.measurement;
-                asyncResp->res.jsonValue["Version"] =
-                    getVersionStr(config.version);
-                asyncResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
-                asyncResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
-            });
+            // spdmd keeps only its latest result, which can be another
+            // caller's (e.g. a debug token request). Return only a result
+            // whose nonce matched a measurement Task.
+            const auto& verifiedResults = lastVerifiedSpdmMeasurements();
+            const auto verified = verifiedResults.find(objPath);
+            if (verified == verifiedResults.end())
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "SPDMGetSignedMeasurementsResponse", id);
+                return;
+            }
+            const SPDMMeasurementData& config = verified->second;
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ComponentIntegrity.v1_0_0.SPDMGetSignedMeasurementsResponse";
+            asyncResp->res.jsonValue["SignedMeasurements"] = config.measurement;
+            asyncResp->res.jsonValue["Version"] = getVersionStr(config.version);
+            asyncResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
+            asyncResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
         });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/"
