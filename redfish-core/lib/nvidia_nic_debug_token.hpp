@@ -64,8 +64,6 @@ inline void getChassisDebugToken(
                         {
                             auto& oemNvidia =
                                 asyncResp->res.jsonValue["Oem"]["Nvidia"];
-                            oemNvidia["@odata.type"] =
-                                "#NvidiaChassis.v1_3_0.NvidiaChassis";
                             oemNvidia["DebugToken"]["@odata.id"] =
                                 boost::urls::format(
                                     "/redfish/v1/Chassis/{}/Oem/Nvidia/DebugToken",

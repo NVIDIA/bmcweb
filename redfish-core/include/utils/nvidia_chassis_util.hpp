@@ -42,13 +42,17 @@
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -98,6 +102,161 @@ void getChassisListForInBand(
 namespace nvidia_chassis_utils
 {
 
+/**
+ * @brief NvidiaChassis OEM derived type of a Chassis Oem.Nvidia object.
+ *
+ * NvidiaChassis.NvidiaChassis is abstract and disallows additional
+ * properties, and its derived types are siblings: none of them inherits the
+ * members of another. The emitted @odata.type therefore has to name the one
+ * derived type that declares the members actually present.
+ */
+enum class NvidiaOemChassisFamily
+{
+    Generic,
+    Sma,
+    RoT,
+    Cbc,
+};
+
+struct NvidiaOemChassisMember
+{
+    std::string_view name;
+    NvidiaOemChassisFamily family;
+};
+
+/**
+ * @brief Members that select NvidiaSMAChassis, NvidiaRoTChassis or
+ * NvidiaCBCChassis, from NvidiaChassis_v1.xml.
+ *
+ * An object with none of them is an NvidiaChassis, so members of NvidiaChassis
+ * itself are not listed. nvidia_chassis_util_test checks this table against
+ * the CSDL.
+ */
+constexpr std::array<NvidiaOemChassisMember, 12> nvidiaOemChassisMembers{{
+    {"ProtocolBridgeForDevices", NvidiaOemChassisFamily::Sma},
+    {"LastResetReasons", NvidiaOemChassisFamily::Sma},
+    {"ErrorInjection", NvidiaOemChassisFamily::Sma},
+    {"PowerSmoothing", NvidiaOemChassisFamily::Sma},
+    {"IrreversibleConfigEnabled", NvidiaOemChassisFamily::RoT},
+    {"RoTProtectedComponents", NvidiaOemChassisFamily::RoT},
+    {"ManualBootModeEnabled", NvidiaOemChassisFamily::RoT},
+    {"FailoverPolicy", NvidiaOemChassisFamily::RoT},
+    {"RevisionId", NvidiaOemChassisFamily::Cbc},
+    {"ChassisPhysicalSlotNumber", NvidiaOemChassisFamily::Cbc},
+    {"ComputeTrayIndex", NvidiaOemChassisFamily::Cbc},
+    {"TopologyId", NvidiaOemChassisFamily::Cbc},
+}};
+
+/**
+ * @brief Members declared by both NvidiaChassis and NvidiaRoTChassis. They are
+ * valid under either type, so they never select one.
+ */
+constexpr std::array<std::string_view, 4> nvidiaOemChassisSharedMembers{
+    "AutomaticBackgroundCopyEnabled", "BackgroundCopyStatus",
+    "InbandUpdatePolicyEnabled", "ComponentsProtected"};
+
+/**
+ * @brief Newest version of each derived type in NvidiaChassis_v1.xml.
+ *
+ * Each version is a superset of the earlier ones, so the newest version
+ * declares every member the type has. nvidia_chassis_util_test checks these
+ * against the CSDL.
+ */
+constexpr std::string_view nvidiaOemChassisType(NvidiaOemChassisFamily family)
+{
+    switch (family)
+    {
+        case NvidiaOemChassisFamily::Sma:
+            return "#NvidiaChassis.v1_12_0.NvidiaSMAChassis";
+        case NvidiaOemChassisFamily::RoT:
+            return "#NvidiaChassis.v1_12_0.NvidiaRoTChassis";
+        case NvidiaOemChassisFamily::Cbc:
+            return "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
+        case NvidiaOemChassisFamily::Generic:
+        default:
+            return "#NvidiaChassis.v1_16_0.NvidiaChassis";
+    }
+}
+
+/**
+ * @brief Set Oem.Nvidia.@odata.type from the members of the finished object.
+ *
+ * Called from the response completion handler, after every asynchronous read
+ * has finished, so it is the only writer of the type and the result does not
+ * depend on callback completion order.
+ *
+ * An object with members of more than one derived type, or with members of
+ * NvidiaChassis next to those of a derived type, has no valid type. It gets the
+ * derived type of its first such member, and the members that type does not
+ * declare are logged and returned.
+ *
+ * @param[in,out]   oemNvidia   The Oem.Nvidia object of a Chassis response.
+ * @param[in]       chassisUri  The @odata.id of the response, for logging.
+ *
+ * @return Members the emitted type does not declare.
+ */
+inline std::vector<std::string> resolveNvidiaOemChassisType(
+    nlohmann::json& oemNvidia, std::string_view chassisUri)
+{
+    std::vector<std::string> undeclared;
+    const nlohmann::json::object_t* members =
+        oemNvidia.get_ptr<const nlohmann::json::object_t*>();
+    if (members == nullptr)
+    {
+        return undeclared;
+    }
+
+    std::optional<NvidiaOemChassisFamily> derived;
+    for (const auto& item : *members)
+    {
+        const auto* member = std::ranges::find(
+            nvidiaOemChassisMembers, item.first, &NvidiaOemChassisMember::name);
+        if (member != nvidiaOemChassisMembers.end())
+        {
+            derived = member->family;
+            break;
+        }
+    }
+    if (!derived)
+    {
+        oemNvidia["@odata.type"] =
+            nvidiaOemChassisType(NvidiaOemChassisFamily::Generic);
+        return undeclared;
+    }
+
+    for (const auto& item : *members)
+    {
+        const std::string& name = item.first;
+        const auto* member = std::ranges::find(nvidiaOemChassisMembers, name,
+                                               &NvidiaOemChassisMember::name);
+        const bool declared =
+            name == "@odata.type" ||
+            (member != nvidiaOemChassisMembers.end() &&
+             member->family == *derived) ||
+            (*derived == NvidiaOemChassisFamily::RoT &&
+             std::ranges::find(nvidiaOemChassisSharedMembers, name) !=
+                 nvidiaOemChassisSharedMembers.end());
+        if (!declared)
+        {
+            undeclared.emplace_back(name);
+        }
+    }
+    if (!undeclared.empty())
+    {
+        std::string names;
+        for (const std::string& name : undeclared)
+        {
+            names += ' ';
+            names += name;
+        }
+        BMCWEB_LOG_ERROR("{} Oem.Nvidia members not declared by {}:{}",
+                         chassisUri, nvidiaOemChassisType(*derived), names);
+    }
+
+    oemNvidia["@odata.type"] = nvidiaOemChassisType(*derived);
+    return undeclared;
+}
+
 inline void finishChassisOemResponse(
     const std::function<void(crow::Response&)>& completionHandler,
     crow::Response& res)
@@ -106,13 +265,26 @@ inline void finishChassisOemResponse(
     if (oem != res.jsonValue.end() && oem->is_object())
     {
         auto nvidia = oem->find("Nvidia");
-        if (nvidia != oem->end() && nvidia->is_object() &&
-            nvidia->size() == 1 && nvidia->contains("@odata.type"))
+        if (nvidia != oem->end() && nvidia->is_object())
         {
-            oem->erase(nvidia);
-            if (oem->empty())
+            std::string_view chassisUri;
+            auto odataId = res.jsonValue.find("@odata.id");
+            if (odataId != res.jsonValue.end())
             {
-                res.jsonValue.erase(oem);
+                const std::string* uri = odataId->get_ptr<const std::string*>();
+                if (uri != nullptr)
+                {
+                    chassisUri = *uri;
+                }
+            }
+            resolveNvidiaOemChassisType(*nvidia, chassisUri);
+            if (nvidia->size() == 1 && nvidia->contains("@odata.type"))
+            {
+                oem->erase(nvidia);
+                if (oem->empty())
+                {
+                    res.jsonValue.erase(oem);
+                }
             }
         }
     }
@@ -120,6 +292,23 @@ inline void finishChassisOemResponse(
     {
         completionHandler(res);
     }
+}
+
+/**
+ * @brief Install the Oem.Nvidia completion handler for one Chassis request.
+ *
+ * Must be installed once, at the start of the Chassis GET, not from a
+ * per-property or per-flavour path: chassis flavours are served by different
+ * code (ERoT and IRoT chassis are built by getEROTChassis(), which never
+ * reaches handleChassisGetAllProperties()), and a response whose handler was
+ * never installed would be emitted with no Oem.Nvidia.@odata.type at all.
+ */
+inline void installChassisOemResponseHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    auto completionHandler = asyncResp->res.releaseCompleteRequestHandler();
+    asyncResp->res.setCompleteRequestHandler(std::bind_front(
+        finishChassisOemResponse, std::move(completionHandler)));
 }
 
 using Associations =
@@ -766,8 +955,6 @@ inline void populateErrorInjectionChassis(
                 {
                     continue;
                 }
-                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaChassis.v1_12_0.NvidiaSMAChassis";
                 aResp->res
                     .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
                     "/redfish/v1/Chassis/" + chassisId +
@@ -802,8 +989,6 @@ inline void populatePowerSmoothingChassisIfPresent(
     {
         return;
     }
-    aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaChassis.v1_12_0.NvidiaSMAChassis";
     aResp->res.jsonValue["Oem"]["Nvidia"]["PowerSmoothing"]["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/Oem/Nvidia/PowerSmoothing";
 }
@@ -912,9 +1097,6 @@ inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 return; // no association = no failures
             }
-
-            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
 
             for (const std::string& resetObjPath : resp)
             {
@@ -1210,7 +1392,6 @@ inline void getOemCBCChassisAsset(
             }
 
             auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-            oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
             oem["ChassisPhysicalSlotNumber"] = trayTopology.chassisSlotNumber;
             oem["ComputeTrayIndex"] = trayTopology.trayIndex;
             oem["RevisionId"] = trayTopology.revision;
@@ -2686,15 +2867,10 @@ inline void handleChassisGetAllProperties(
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        // Remove a type-only OEM object after all asynchronous reads finish,
-        // before the existing completion handler processes the response.
-        auto completionHandler = asyncResp->res.releaseCompleteRequestHandler();
-        asyncResp->res.setCompleteRequestHandler(std::bind_front(
-            finishChassisOemResponse, std::move(completionHandler)));
-
-        // default oem data
-        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_16_0.NvidiaChassis";
+        // Oem.Nvidia.@odata.type is derived from the finished object by
+        // resolveNvidiaOemChassisType(), run from the completion handler
+        // installed once per request by installChassisOemResponseHandler();
+        // nothing writes it while members are still landing.
         populateWriteProtectDomainLink(asyncResp, chassisId);
         getEmbeddedProcessorOSState(asyncResp, path);
 
@@ -3301,9 +3477,6 @@ inline void getChassisPolicyPropertiesFromMapper(
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
     }
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaChassis.v1_12_0.NvidiaRoTChassis";
-
     for (std::string_view iface : policyInterfaces)
     {
         auto it = ifaceToService.find(iface);
