@@ -853,20 +853,8 @@ inline void handleChassisGetSubTree(
 
         getStorageLink(asyncResp, objPath);
 
-        // SMA OEM members; their @odata.type is resolved from the finished
-        // object, see resolveNvidiaOemChassisType().
-        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-        {
-            std::vector<std::string> mergedInterfaces;
-            for (const auto& [_, connectionIfaces] : connections)
-            {
-                mergedInterfaces.insert(mergedInterfaces.end(),
-                                        connectionIfaces.begin(),
-                                        connectionIfaces.end());
-            }
-            redfish::nvidia_chassis_utils::populateSmaChassisOem(
-                asyncResp, path, chassisId, mergedInterfaces);
-        }
+        redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
+            asyncResp, path, chassisId);
 
         for (const auto& [connectionName, interfaces] : connections)
         {
@@ -1020,6 +1008,9 @@ inline void handleChassisGetSubTree(
                             connectionName, interfaces);
                     getChassisStateWrapper(asyncResp, propertiesList,
                                            connectionName, path);
+                    redfish::nvidia_chassis_utils::
+                        populatePowerSmoothingChassisIfPresent(
+                            asyncResp, chassisId, interfaces);
                 });
 
             for (const auto& interface : interfaces)

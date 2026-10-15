@@ -931,6 +931,74 @@ inline void getProtocolBridgeForDevices(
     getChassisSwitchProtocolBridgeForDevices(aResp, objPath);
 }
 
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void populateErrorInjectionChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& chassisId)
+{
+    dbus::utility::async_method_call(
+        [aResp, chassisId, objPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                serviceMap) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("ErrorInjection object not found in {}",
+                                 objPath);
+                return;
+            }
+
+            for (const auto& [_, interfaces] : serviceMap)
+            {
+                if (std::ranges::find(
+                        interfaces,
+                        "com.nvidia.ErrorInjection.ErrorInjection") ==
+                    interfaces.end())
+                {
+                    continue;
+                }
+                aResp->res
+                    .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Oem/Nvidia/ErrorInjection";
+                return;
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject",
+        objPath + "/ErrorInjection", std::array<const char*, 0>());
+}
+
+/**
+ * @brief If the chassis exposes PowerSmoothing (EnergyStorageFeatures via
+ * D-Bus StateOfChargeFeatures), add the PowerSmoothing OEM link to the
+ * response. Same object path as chassis.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       chassisId   Redfish chassis id.
+ * @param[in]       interfaces  List of D-Bus interfaces on the chassis object.
+ */
+inline void populatePowerSmoothingChassisIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& chassisId, const std::vector<std::string>& interfaces)
+{
+    constexpr std::string_view stateOfChargeFeaturesIface =
+        "com.nvidia.PowerSmoothing.StateOfChargeFeatures";
+    if (std::ranges::find(interfaces, stateOfChargeFeaturesIface) ==
+        interfaces.end())
+    {
+        return;
+    }
+    aResp->res.jsonValue["Oem"]["Nvidia"]["PowerSmoothing"]["@odata.id"] =
+        "/redfish/v1/Chassis/" + chassisId + "/Oem/Nvidia/PowerSmoothing";
+}
+
 inline void getBootReasonProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& resetObjPath)
@@ -1016,71 +1084,31 @@ inline void getResetCounterMetricsObject(
             {"com.nvidia.ResetCounters.ResetCounterMetrics"}));
 }
 
-inline void afterGetErrorInjectionObject(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetObject& object)
-{
-    if (ec || object.empty())
-    {
-        // No ErrorInjection object; the feature is optional.
-        return;
-    }
-    aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Oem/Nvidia/ErrorInjection",
-                            chassisId);
-}
-
-inline void afterGetResetStatistics(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperEndPoints& endpoints)
-{
-    if (ec)
-    {
-        // No reset_statistics association; the feature is optional.
-        return;
-    }
-    for (const std::string& resetObjPath : endpoints)
-    {
-        getResetCounterMetricsObject(aResp, resetObjPath);
-    }
-}
-
-/**
- * @brief Populate the SMA chassis OEM members: PowerSmoothing,
- * ErrorInjection and LastResetReasons.
- *
- * Each lookup writes only its own member. Oem.Nvidia.@odata.type is set once
- * from the finished object by resolveNvidiaOemChassisType().
+/* * @brief Fill out reset statistics on chassis by
+ * requesting data from the given D-Bus association object.
  *
  * @param[in,out]   aResp       Async HTTP response.
- * @param[in]       objPath     D-Bus object of the chassis.
- * @param[in]       chassisId   Redfish chassis id.
- * @param[in]       interfaces  D-Bus interfaces on the chassis object.
+ * @param[in]       objPath     D-Bus object to query.
  */
-inline void populateSmaChassisOem(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
-    const std::string& chassisId, const std::vector<std::string>& interfaces)
+inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::string& objPath)
 {
-    if (std::ranges::find(interfaces,
-                          "com.nvidia.PowerSmoothing.StateOfChargeFeatures") !=
-        interfaces.end())
-    {
-        aResp->res.jsonValue["Oem"]["Nvidia"]["PowerSmoothing"]["@odata.id"] =
-            boost::urls::format(
-                "/redfish/v1/Chassis/{}/Oem/Nvidia/PowerSmoothing", chassisId);
-    }
+    BMCWEB_LOG_DEBUG("Get reset statistics on chassis");
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "xyz.openbmc_project.Association", "endpoints",
+        [aResp](const boost::system::error_code& ec,
+                const std::vector<std::string>& resp) {
+            if (ec)
+            {
+                return; // no association = no failures
+            }
 
-    constexpr std::array<std::string_view, 1> errorInjectionInterfaces = {
-        "com.nvidia.ErrorInjection.ErrorInjection"};
-    dbus::utility::getDbusObject(
-        objPath + "/ErrorInjection", errorInjectionInterfaces,
-        std::bind_front(afterGetErrorInjectionObject, aResp, chassisId));
-
-    dbus::utility::getAssociationEndPoints(
-        objPath + "/reset_statistics",
-        std::bind_front(afterGetResetStatistics, aResp));
+            for (const std::string& resetObjPath : resp)
+            {
+                getResetCounterMetricsObject(aResp, resetObjPath);
+            }
+        });
 }
 
 inline void getHealthByAssociation(
@@ -3719,6 +3747,8 @@ inline void populateChassisLinksOemAndStatus(
     redfish::nvidia_chassis_utils::getChassisProcessorLinks(asyncResp, objPath);
     redfish::nvidia_chassis_utils::getProtocolBridgeForDevices(
         asyncResp, objPath);
+    // get boot status
+    redfish::nvidia_chassis_utils::getResetStatistics(asyncResp, objPath);
     // Links association to connected fabric switches
     redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
         asyncResp, objPath);
