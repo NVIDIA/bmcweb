@@ -496,6 +496,42 @@ struct InsertMediaActionParams
 };
 
 /**
+ * @brief Set the InsertMedia error from a MountPoint LastError read.
+ */
+inline void applyInsertMediaLastError(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool invalidArgument,
+    const boost::system::error_code& ec, const std::string& lastError)
+{
+    if (ec || lastError.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "Virtual media mount failed and LastError was unavailable: {}", ec);
+        if (invalidArgument)
+        {
+            messages::actionParameterValueFormatError(
+                asyncResp->res, "", "UserName or Password",
+                "VirtualMedia.InsertMedia");
+            return;
+        }
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_ERROR("Virtual media mount failed: {}", lastError);
+    if (invalidArgument)
+    {
+        messages::actionParameterValueFormatError(
+            asyncResp->res, "", "UserName or Password",
+            "VirtualMedia.InsertMedia");
+        asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"].push_back(
+            messages::resourceErrorsDetectedFormatError("InsertMedia",
+                                                        lastError));
+        return;
+    }
+    messages::resourceErrorsDetectedFormatError(asyncResp->res, "InsertMedia",
+                                                lastError);
+}
+
+/**
  * @brief Function transceives data with dbus directly.
  *
  * All BMC state properties will be retrieved before sending reset request.
@@ -510,34 +546,8 @@ inline void reportVirtualMediaMountFailure(
         "LastError",
         [asyncResp, invalidArgument](const boost::system::error_code& ec,
                                      const std::string& lastError) {
-            if (ec || lastError.empty())
-            {
-                BMCWEB_LOG_ERROR(
-                    "Virtual media mount failed and LastError was unavailable: {}",
-                    ec);
-                if (invalidArgument)
-                {
-                    messages::actionParameterValueFormatError(
-                        asyncResp->res, "", "UserName or Password",
-                        "VirtualMedia.InsertMedia");
-                    return;
-                }
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            BMCWEB_LOG_ERROR("Virtual media mount failed: {}", lastError);
-            if (invalidArgument)
-            {
-                messages::actionParameterValueFormatError(
-                    asyncResp->res, "", "UserName or Password",
-                    "VirtualMedia.InsertMedia");
-                asyncResp->res.jsonValue["error"]["@Message.ExtendedInfo"]
-                    .push_back(messages::resourceErrorsDetectedFormatError(
-                        "InsertMedia", lastError));
-                return;
-            }
-            messages::resourceErrorsDetectedFormatError(
-                asyncResp->res, "InsertMedia", lastError);
+            applyInsertMediaLastError(asyncResp, invalidArgument, ec,
+                                      lastError);
         });
 }
 

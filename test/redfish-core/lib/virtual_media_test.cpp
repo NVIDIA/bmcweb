@@ -7,6 +7,7 @@
 #include "utils/json_utils.hpp"
 #include "virtual_media.hpp"
 
+#include <boost/asio/error.hpp>
 #include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -36,6 +37,11 @@ std::string messageId(const crow::Response& res)
         .at(0)
         .at("MessageId")
         .get<std::string>();
+}
+
+const nlohmann::json& extendedInfo(const crow::Response& res)
+{
+    return res.jsonValue.at("error").at("@Message.ExtendedInfo");
 }
 
 dbus::utility::DBusInterfacesMap process(bool active)
@@ -159,6 +165,80 @@ TEST(VirtualMediaGet, MissingCertificateIsOmitted)
     EXPECT_FALSE(resp->res.jsonValue.contains("VerifyCertificate"));
     EXPECT_EQ(resp->res.jsonValue["@odata.type"],
               "#VirtualMedia.v1_4_0.VirtualMedia");
+}
+
+TEST(InsertMediaLastError, UnavailableLastErrorReturnsInternalError)
+{
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec = boost::asio::error::invalid_argument;
+    applyInsertMediaLastError(resp, false, ec, "ignored when the read fails");
+
+    EXPECT_EQ(resp->res.result(),
+              boost::beast::http::status::internal_server_error);
+    const nlohmann::json& info = extendedInfo(resp->res);
+    ASSERT_EQ(info.size(), 1);
+    EXPECT_TRUE(info.at(0)
+                    .at("MessageId")
+                    .get<std::string>()
+                    .ends_with(".InternalError"));
+}
+
+TEST(InsertMediaLastError, EmptyLastErrorReturnsInternalError)
+{
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    applyInsertMediaLastError(resp, false, {}, "");
+
+    EXPECT_EQ(resp->res.result(),
+              boost::beast::http::status::internal_server_error);
+    EXPECT_TRUE(messageId(resp->res).ends_with(".InternalError"));
+}
+
+TEST(InsertMediaLastError, InvalidArgumentWithoutLastError)
+{
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    applyInsertMediaLastError(resp, true, {}, "");
+
+    EXPECT_EQ(resp->res.result(), boost::beast::http::status::bad_request);
+    const nlohmann::json& info = extendedInfo(resp->res);
+    ASSERT_EQ(info.size(), 1);
+    EXPECT_TRUE(info.at(0)
+                    .at("MessageId")
+                    .get<std::string>()
+                    .ends_with(".ActionParameterValueFormatError"));
+    EXPECT_EQ(info.at(0).at("MessageArgs").at(1), "UserName or Password");
+    EXPECT_EQ(info.at(0).at("MessageArgs").at(2), "VirtualMedia.InsertMedia");
+}
+
+TEST(InsertMediaLastError, InvalidArgumentAppendsLastError)
+{
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    applyInsertMediaLastError(resp, true, {}, "certificate rejected");
+
+    EXPECT_EQ(resp->res.result(), boost::beast::http::status::bad_request);
+    const nlohmann::json& info = extendedInfo(resp->res);
+    ASSERT_EQ(info.size(), 2);
+    EXPECT_TRUE(info.at(0)
+                    .at("MessageId")
+                    .get<std::string>()
+                    .ends_with(".ActionParameterValueFormatError"));
+    EXPECT_EQ(info.at(1).at("MessageId"),
+              "ResourceEvent.1.0.3.ResourceErrorsDetected");
+    EXPECT_EQ(info.at(1).at("MessageArgs").at(0), "InsertMedia");
+    EXPECT_EQ(info.at(1).at("MessageArgs").at(1), "certificate rejected");
+}
+
+TEST(InsertMediaLastError, LastErrorIsTheFailureResponse)
+{
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    applyInsertMediaLastError(resp, false, {}, "certificate rejected");
+
+    EXPECT_EQ(resp->res.result(),
+              boost::beast::http::status::internal_server_error);
+    const nlohmann::json& info = extendedInfo(resp->res);
+    ASSERT_EQ(info.size(), 1);
+    EXPECT_EQ(info.at(0).at("MessageId"),
+              "ResourceEvent.1.0.3.ResourceErrorsDetected");
+    EXPECT_EQ(info.at(0).at("MessageArgs").at(1), "certificate rejected");
 }
 
 TEST(VirtualMediaPatch, NullIsRejectedAndFalseIsPreserved)
