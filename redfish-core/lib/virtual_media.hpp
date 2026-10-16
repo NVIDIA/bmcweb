@@ -11,10 +11,10 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-#include "nvidia_error_messages.hpp"
 #include "generated/enums/virtual_media.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_error_messages.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
@@ -536,9 +536,8 @@ inline void reportVirtualMediaMountFailure(
                         "InsertMedia", lastError));
                 return;
             }
-            messages::resourceErrorsDetectedFormatError(asyncResp->res,
-                                                        "InsertMedia",
-                                                        lastError);
+            messages::resourceErrorsDetectedFormatError(
+                asyncResp->res, "InsertMedia", lastError);
         });
 }
 
