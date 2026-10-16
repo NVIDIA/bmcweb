@@ -613,6 +613,34 @@ TEST(Http2Connection, UnauthenticatedStreamingHeadersSendOneResponse)
     conn->close();
 }
 
+TEST(Http2Connection, PendingReadAfterCloseIsNotDispatched)
+{
+    boost::asio::io_context io;
+    TestStream stream(io);
+    TestStream output(io);
+    stream.connect(output);
+
+    const std::string request =
+        makeHttp2StreamingRequest("/redfish/v1/SessionService/Sessions");
+    boost::asio::write(output, boost::asio::buffer(request));
+
+    Http2RejectedStreamHandler handler;
+    std::function<std::string()> date([]() { return "TestTime"; });
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+    auto conn = std::make_shared<
+        HTTP2Connection<TestStream, Http2RejectedStreamHandler>>(
+        boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
+        &handler, date, HttpType::HTTP, nullptr,
+        boost::asio::ip::address_v4::loopback());
+
+    conn->start();
+    conn->close();
+    io.run();
+
+    EXPECT_EQ(handler.headersCalled, 0U);
+    EXPECT_EQ(handler.bodyDispatchCount, 0U);
+}
+
 // Matches runUntilDone() in test/http/http_connection_fuzzer.cpp: poll
 // until no immediate work is left, then close the client side once (which
 // may unblock a pending server read and generate more work, e.g. the
