@@ -17,6 +17,8 @@
 #include <sdbusplus/message/native_types.hpp>
 
 #include <chrono>
+#include <cstdint>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -296,7 +298,8 @@ class MountVmLegacyBus : public ::testing::Test
         // A non-sdbusplus exception is returned as InvalidArgs. The flag is
         // captured so this function is not implicitly noreturn.
         bool registered = legacy->register_method(
-            "Mount", [invalidArgument](std::string, bool, MountFd) -> bool {
+            "Mount",
+            [invalidArgument](const std::string&, bool, MountFd) -> bool {
                 if (invalidArgument)
                 {
                     throw std::runtime_error("rejected");
