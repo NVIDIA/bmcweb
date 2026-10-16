@@ -1103,7 +1103,7 @@ class HTTP2Connection :
 
     void writeBuffer()
     {
-        if (isWriting)
+        if (closed || isWriting)
         {
             return;
         }
@@ -1130,6 +1130,10 @@ class HTTP2Connection :
 
     void close()
     {
+        if (std::exchange(closed, true))
+        {
+            return;
+        }
         cancelDeadlineTimer();
         adaptor.next_layer().close();
     }
@@ -1153,6 +1157,12 @@ class HTTP2Connection :
             }
             close();
             BMCWEB_LOG_DEBUG("{} from read(1)", logPtr(this));
+            return;
+        }
+        // A read queued before close can still complete with buffered data.
+        // The connection is terminal; do not dispatch frames or schedule I/O.
+        if (closed)
+        {
             return;
         }
         std::span<uint8_t> bufferSpan{inBuffer.data(), bytesTransferred};
@@ -1198,6 +1208,10 @@ class HTTP2Connection :
     // just because no new stream has opened or closed recently.
     void refreshDeadline()
     {
+        if (closed)
+        {
+            return;
+        }
         // If a multipart upload is in progress and the Multipart timer is
         // already running, let it run to its absolute 1-hour deadline rather
         // than sliding it forward on each received chunk (mirrors HTTP/1
@@ -1260,7 +1274,7 @@ class HTTP2Connection :
 
     void startDeadline(DeadlineTimerType timerType)
     {
-        if (timerStarted)
+        if (closed || timerStarted)
         {
             return;
         }
@@ -1296,6 +1310,10 @@ class HTTP2Connection :
 
     void doRead()
     {
+        if (closed)
+        {
+            return;
+        }
         BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
         if (httpType == HttpType::HTTPS)
         {
@@ -1326,6 +1344,8 @@ class HTTP2Connection :
     HttpType httpType = HttpType::BOTH;
     boost::asio::ssl::stream<Adaptor> adaptor;
     bool isWriting = false;
+    // Terminal lifecycle state. Async completions may still arrive after close.
+    bool closed = false;
 
     nghttp2_session ngSession;
 
