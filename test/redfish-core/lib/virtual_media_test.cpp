@@ -293,19 +293,16 @@ class MountVmLegacyBus : public ::testing::Test
     {
         auto legacy = server->add_interface(
             objectPath, "xyz.openbmc_project.VirtualMedia.Legacy");
-        bool registered = false;
-        if (invalidArgument)
-        {
-            registered = legacy->register_method(
-                "Mount", [](std::string, bool, MountFd) -> bool {
+        // A non-sdbusplus exception is returned as InvalidArgs. The flag is
+        // captured so this function is not implicitly noreturn.
+        bool registered = legacy->register_method(
+            "Mount", [invalidArgument](std::string, bool, MountFd) -> bool {
+                if (invalidArgument)
+                {
                     throw std::runtime_error("rejected");
-                });
-        }
-        else
-        {
-            registered = legacy->register_method(
-                "Mount", [](std::string, bool, MountFd) { return false; });
-        }
+                }
+                return false;
+            });
         auto resp = std::make_shared<bmcweb::AsyncResp>();
         auto mountPoint = server->add_interface(
             objectPath, "xyz.openbmc_project.VirtualMedia.MountPoint");
