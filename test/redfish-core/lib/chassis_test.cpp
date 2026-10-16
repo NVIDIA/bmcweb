@@ -7,6 +7,7 @@
 #include "http_response.hpp"
 #include "nvidia_chassis.hpp"
 #include "nvidia_platform_power_cycle.hpp"
+#include "utils/nvidia_platform_power_cycle_utils.hpp"
 
 #include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>

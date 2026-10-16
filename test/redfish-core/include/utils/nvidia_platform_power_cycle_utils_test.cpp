@@ -1,8 +1,12 @@
+#include "async_resp.hpp"
 #include "utils/nvidia_platform_power_cycle_utils.hpp"
 
 #include <boost/beast/http/status.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <gtest/gtest.h>

@@ -291,6 +291,13 @@ inline void afterGetAuxPowerCapabilitiesForRequest(
             return;
     }
 
+    if (!capabilities)
+    {
+        BMCWEB_LOG_ERROR("Platform AUX backend selected without capabilities");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
     requestPowerCycleWithCapabilities(asyncResp, 0, *capabilities,
                                       requestedType, resetType,
                                       "NvidiaChassis.AuxPowerReset");
