@@ -23,6 +23,7 @@
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "pam_authenticate.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
@@ -38,6 +39,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <string_view>
 
@@ -2521,6 +2523,298 @@ inline void requestRoutesBiosSettings(App& app)
             std::bind_front(handleBiosSettingsPatch, std::ref(app)));
 }
 
+namespace nvidia_bios_password
+{
+constexpr const char* biosConfigPasswordIface =
+    "xyz.openbmc_project.BIOSConfig.Password";
+constexpr const char* biosPasswordInitializedProperty = "PasswordInitialized";
+constexpr const char* biosPasswordSyncProperty = "PasswordSync";
+} // namespace nvidia_bios_password
+
+/**
+ * Returns false if newPassword contains any non-ASCII byte. Only the new
+ * secret is checked; do not echo the password value back in error messages.
+ */
+inline bool biosChangePasswordNewPasswordIsAscii(std::string_view newPassword)
+{
+    for (char passwordByte : newPassword)
+    {
+        const unsigned char octet = static_cast<unsigned char>(passwordByte);
+        if (octet == 0 || octet > 0x7f)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Response for every rejected password input (wrong OldPassword, NewPassword
+ * non-ASCII or rejected by the PAM password rules). It names neither
+ * OldPassword nor NewPassword and is identical for all of them: a rules
+ * rejection only happens after OldPassword was verified, so a distinct
+ * response would confirm a guessed OldPassword.
+ */
+inline void biosChangePasswordInvalidPassword(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    messages::actionParameterValueError(asyncResp->res, "Password",
+                                        "ChangePassword");
+}
+
+/**
+ * Maps a failed PAM call (OldPassword authentication or password update) to
+ * the Redfish response. Credential and NewPassword rule rejections return
+ * biosChangePasswordInvalidPassword(); any other code is a PAM service/module
+ * failure. The PAM code is only logged.
+ */
+inline void biosChangePasswordReportPamFailure(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, int pamRet,
+    const std::string& userName)
+{
+    BMCWEB_LOG_ERROR("Bios.ChangePassword: PAM failed for user {} with code {}",
+                     userName, pamRet);
+    switch (pamRet)
+    {
+        case PAM_AUTH_ERR:
+        case PAM_USER_UNKNOWN:
+        case PAM_PERM_DENIED:
+        case PAM_MAXTRIES:
+        case PAM_AUTHTOK_ERR:
+        case PAM_NEW_AUTHTOK_REQD:
+        case PAM_CONV_ERR:
+            biosChangePasswordInvalidPassword(asyncResp);
+            return;
+        default:
+            messages::internalError(asyncResp->res);
+            return;
+    }
+}
+
+/**
+ * Completes Bios.ChangePassword once PasswordSync=true was (or was not) set.
+ * If it was not set, the password is reverted to oldPassword. The unnamed
+ * parameter keeps the per-user in-flight guard alive until this returns, so
+ * the revert is covered as well.
+ */
+inline void afterBiosChangePasswordSetSync(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& userName, const std::string& oldPassword,
+    const char* pamService, const std::shared_ptr<void>& /*inFlight*/,
+    const boost::system::error_code& setEc)
+{
+    if (setEc)
+    {
+        BMCWEB_LOG_ERROR(
+            "Bios.ChangePassword: failed to set PasswordSync for user {}: {}, reverting password",
+            userName, setEc);
+        // PasswordSync was never changed, so restoring oldPassword returns
+        // BMC state to exactly what it was before the request.
+        if (pamUpdatePassword(userName, oldPassword, pamService) != PAM_SUCCESS)
+        {
+            BMCWEB_LOG_CRITICAL(
+                "Bios.ChangePassword: failed to revert password for user {}; BMC and UEFI passwords now differ",
+                userName);
+        }
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_INFO(
+        "Bios.ChangePassword: password changed successfully for user {}",
+        userName);
+    messages::success(asyncResp->res);
+}
+
+/**
+ * Runs after reading PasswordInitialized: validates state, authenticates
+ * oldPassword via PAM, updates the password via PAM, then sets
+ * PasswordSync=true via D-Bus. PasswordSync is only published once the new
+ * password is committed, so a pending BMC->UEFI sync is never cleared by a
+ * failed change and IPMI never reads the old hash while the flag is set. If
+ * PasswordSync cannot be set, the password is reverted to oldPassword.
+ */
+inline void doBiosChangePasswordAfterGetInitialized(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& reqUrl, const std::string& userName,
+    const std::string& oldPassword, const std::string& newPassword,
+    const char* pamService, bool passwordInitialized,
+    const std::string& biosPasswordService, const std::string& biosPasswordPath,
+    const std::shared_ptr<void>& inFlight)
+{
+    if (!passwordInitialized)
+    {
+        BMCWEB_LOG_ERROR(
+            "Bios.ChangePassword: PasswordInitialized is false for user {}",
+            userName);
+        messages::resourceAtUriUnauthorized(asyncResp->res, reqUrl,
+                                            "UEFI must set password first");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+    int pamRet =
+        pamAuthenticateUser(userName, oldPassword, std::nullopt, pamService);
+    if (pamRet != PAM_SUCCESS)
+    {
+        biosChangePasswordReportPamFailure(asyncResp, pamRet, userName);
+        return;
+    }
+    pamRet = pamUpdatePassword(userName, newPassword, pamService);
+    if (pamRet != PAM_SUCCESS)
+    {
+        biosChangePasswordReportPamFailure(asyncResp, pamRet, userName);
+        return;
+    }
+    // Publish the pending sync only after the new password is committed.
+    // setProperty passes the handler to sdbusplus, which deduces its argument
+    // types, so the bound function is wrapped in a std::function.
+    dbus::utility::setProperty(
+        biosPasswordService, biosPasswordPath,
+        nvidia_bios_password::biosConfigPasswordIface,
+        nvidia_bios_password::biosPasswordSyncProperty, true,
+        std::function<void(const boost::system::error_code&)>(
+            std::bind_front(afterBiosChangePasswordSetSync, asyncResp, userName,
+                            oldPassword, pamService, inFlight)));
+}
+
+/**
+ * Runs after reading PasswordInitialized from bios-settings-mgr.
+ */
+inline void afterBiosChangePasswordGetInitialized(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& reqUrl, const std::string& userName,
+    const std::string& oldPassword, const std::string& newPassword,
+    const std::string& service, const std::string& path,
+    const std::shared_ptr<void>& inFlight, const boost::system::error_code& ec,
+    bool passwordInitialized)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Bios.ChangePassword: failed to read PasswordInitialized for user {}: {}",
+            userName, ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    doBiosChangePasswordAfterGetInitialized(
+        asyncResp, reqUrl, userName, oldPassword, newPassword, "uefipassword",
+        passwordInitialized, service, path, inFlight);
+}
+
+/**
+ * Runs after looking up the BIOS Password D-Bus object: reads
+ * PasswordInitialized from the owning service.
+ */
+inline void afterBiosChangePasswordGetSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& reqUrl, const std::string& userName,
+    const std::string& oldPassword, const std::string& newPassword,
+    const std::shared_ptr<void>& inFlight, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "Bios.ChangePassword: Failed to look up BIOS Password object: {}",
+            ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (subtree.empty() || subtree[0].second.empty())
+    {
+        BMCWEB_LOG_ERROR("Bios.ChangePassword: BIOS Password object not found");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const auto& [path, services] = subtree[0];
+    const auto& [service, interfaces] = services[0];
+
+    dbus::utility::getProperty<bool>(
+        service, path, nvidia_bios_password::biosConfigPasswordIface,
+        nvidia_bios_password::biosPasswordInitializedProperty,
+        std::bind_front(afterBiosChangePasswordGetInitialized, asyncResp,
+                        reqUrl, userName, oldPassword, newPassword, service,
+                        path, inFlight));
+}
+
+/**
+ * ChangePassword POST handler used when bios-password-pam is enabled.
+ *
+ * Authenticates OldPassword and writes NewPassword via PAM (service
+ * "uefipassword", pam_unix.so backed) for the ArmBios account, and tracks
+ * BMC->UEFI sync state via PasswordInitialized/PasswordSync on
+ * xyz.openbmc_project.BIOSConfig.Password (owned by bios-settings-mgr).
+ * nvidia-ipmi-oem's Get/Set BIOS Password IPMI commands complete the sync to
+ * UEFI.
+ */
+inline void handleBiosChangePasswordPostPam(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    std::string userName;
+    std::string oldPassword;
+    std::string newPassword;
+    if (!redfish::json_util::readJsonAction(
+            req, asyncResp->res, "PasswordName", userName, "OldPassword",
+            oldPassword, "NewPassword", newPassword))
+    {
+        return;
+    }
+
+    // Enforce ASCII-only on the new secret only; the response is the same as
+    // for a wrong OldPassword and does not echo the password.
+    if (!biosChangePasswordNewPasswordIsAscii(newPassword))
+    {
+        biosChangePasswordInvalidPassword(asyncResp);
+        return;
+    }
+
+    BMCWEB_LOG_INFO("Bios.ChangePassword: POST received for user {}", userName);
+
+    if (userName != "ArmBios")
+    {
+        BMCWEB_LOG_ERROR("Bios.ChangePassword: rejected non-ArmBios user {}",
+                         userName);
+        messages::resourceAtUriUnauthorized(
+            asyncResp->res, req.url(), "Can't change user other than ArmBios");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+
+    boost::urls::url reqUrl = req.url();
+
+    // One change per user at a time: an overlapping request is rejected, never
+    // queued. The guard is released when the last callback holding it is
+    // destroyed, after any revert, so a revert cannot overwrite a later change.
+    static std::set<std::string> changing;
+    if (!changing.insert(userName).second)
+    {
+        messages::resourceInUse(asyncResp->res);
+        return;
+    }
+    std::shared_ptr<void> inFlight(nullptr, [userName](void*) {
+        changing.erase(userName);
+    });
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project", 0,
+        std::array<std::string_view, 1>{
+            nvidia_bios_password::biosConfigPasswordIface},
+        std::bind_front(afterBiosChangePasswordGetSubTree, asyncResp, reqUrl,
+                        userName, oldPassword, newPassword, inFlight));
+}
+
 /**
  * ChangePassword class supports handle POST method for bios.
  * The class retrieves and sends data directly to D-Bus.
@@ -2612,8 +2906,10 @@ inline void requestRoutesBiosChangePassword(App& app)
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Systems/<str>/Bios/Actions/Bios.ChangePassword/")
         .privileges(redfish::privileges::postBios)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleBiosChangePasswordPost, std::ref(app)));
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            BMCWEB_BIOS_PASSWORD_PAM ? handleBiosChangePasswordPostPam
+                                     : handleBiosChangePasswordPost,
+            std::ref(app)));
 }
 
 /**

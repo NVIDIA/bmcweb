@@ -1270,6 +1270,12 @@ option(
     description: 'Enable the DPU BIOS Redfish API.',
 )
 option(
+    'bios-password-pam',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Bios.ChangePassword for the ArmBios account through PAM (uefipassword service, yescrypt) with PasswordSync tracking on the BIOSConfig.Password D-Bus interface, instead of the BIOSConfig.Password ChangePassword D-Bus method.',
+)
+option(
     'ipmi',
     type: 'feature',
     value: 'enabled',

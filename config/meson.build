@@ -59,6 +59,7 @@ conf_data.set('MFG_TEST_TIMEOUT', get_option('manufacturing-test-timeout'))
 feature_options = [
     'basic-auth',
     'bios',
+    'bios-password-pam',
     'check-oem-diagnostic-type',
     'command-shell',
     'command-smbpbi-oob',
@@ -430,3 +431,12 @@ configure_file(
 
 # Copy pam-webserver to etc/pam.d
 install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')
+
+# PAM service for the BIOS (UEFI) ArmBios password, see pam-uefipassword
+if get_option('bios-password-pam').allowed()
+    install_data(
+        'pam-uefipassword',
+        install_dir: '/etc/pam.d/',
+        rename: 'uefipassword',
+    )
+endif

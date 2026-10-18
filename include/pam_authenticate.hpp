@@ -122,10 +122,12 @@ inline int pamFunctionConversation(int numMsg, const struct pam_message** msgs,
  * @param username The provided username aka account name.
  * @param password The provided password.
  * @param token The provided MFA token.
+ * @param service The PAM service (stack under /etc/pam.d) to authenticate
+ *                against.
  * @returns PAM error code or PAM_SUCCESS for success. */
-inline int pamAuthenticateUser(std::string_view username,
-                               std::string_view password,
-                               std::optional<std::string> token)
+inline int pamAuthenticateUser(
+    std::string_view username, std::string_view password,
+    std::optional<std::string> token, const char* service = "webserver")
 {
     std::string userStr(username);
     PasswordData data;
@@ -145,7 +147,7 @@ inline int pamAuthenticateUser(std::string_view username,
     const struct pam_conv localConversation = {pamFunctionConversation, &data};
     pam_handle_t* localAuthHandle = nullptr; // this gets set by pam_start
 
-    int retval = pam_start("webserver", userStr.c_str(), &localConversation,
+    int retval = pam_start(service, userStr.c_str(), &localConversation,
                            &localAuthHandle);
     if (retval != PAM_SUCCESS)
     {
@@ -172,7 +174,8 @@ inline int pamAuthenticateUser(std::string_view username,
 }
 
 inline int pamUpdatePassword(const std::string& username,
-                             const std::string& password)
+                             const std::string& password,
+                             const char* service = "webserver")
 {
     PasswordData data;
     if (int ret = data.addPrompt("New password: ", password);
@@ -188,7 +191,7 @@ inline int pamUpdatePassword(const std::string& username,
     const struct pam_conv localConversation = {pamFunctionConversation, &data};
     pam_handle_t* localAuthHandle = nullptr; // this gets set by pam_start
 
-    int retval = pam_start("webserver", username.c_str(), &localConversation,
+    int retval = pam_start(service, username.c_str(), &localConversation,
                            &localAuthHandle);
 
     if (retval != PAM_SUCCESS)
