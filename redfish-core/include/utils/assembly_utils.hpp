@@ -13,10 +13,13 @@
 #include <asm-generic/errno.h>
 
 #include <boost/system/error_code.hpp>
+#include <boost/system/linux_error.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -24,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace redfish
@@ -39,6 +43,61 @@ namespace assembly_utils
 using AssemblyCallback =
     std::function<void(const boost::system::error_code&,
                        const std::vector<std::string>& sortedAssemblyList)>;
+
+using AssemblyPropertiesCallback =
+    std::function<void(const boost::system::error_code&,
+                       const dbus::utility::DBusPropertiesMap& properties)>;
+
+/**
+ * @brief Gets the MemberId of an assembly in the Assemblies array.
+ * @param[in] assemblyIndex - Position of the assembly in the sorted list.
+ * @param[in] properties - All properties of the assembly.
+ * @return Its AssemblyID property if it has one, otherwise its position.
+ */
+inline std::string getAssemblyMemberId(
+    std::size_t assemblyIndex,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    // A GetAll on all interfaces may list AssemblyID more than once; the last
+    // one wins, as it always has in the Assembly resource.
+    std::string memberId = std::to_string(assemblyIndex);
+    for (const auto& [propertyName, value] : properties)
+    {
+        const uint64_t* assemblyId = std::get_if<uint64_t>(&value);
+        if (propertyName == "AssemblyID" && assemblyId != nullptr)
+        {
+            memberId = std::to_string(*assemblyId);
+        }
+    }
+    return memberId;
+}
+
+/**
+ * @brief Gets all properties of an assembly from the first service that
+ * implements it.
+ * @param[in] assemblyPath - Assembly object path.
+ * @param[in] object - Mapper GetObject response for the assembly, filtered on
+ * the assembly interfaces.
+ * @param[in] callback - Called with the properties, or with an error if they
+ * could not be read or no service hosts the assembly.
+ */
+inline void getAllAssemblyProperties(
+    const std::string& assemblyPath,
+    const dbus::utility::MapperGetObject& object,
+    AssemblyPropertiesCallback&& callback)
+{
+    if (object.empty())
+    {
+        // No service hosts the assembly: fail as the mapper does for a
+        // missing object.
+        callback(boost::system::linux_error::make_error_code(
+                     boost::system::linux_error::bad_request_descriptor),
+                 {});
+        return;
+    }
+    dbus::utility::getAllProperties(object.front().first, assemblyPath, "",
+                                    std::move(callback));
+}
 
 inline void afterGetChassisAssemblyFallback(
     AssemblyCallback& callback, const boost::system::error_code& ec,
