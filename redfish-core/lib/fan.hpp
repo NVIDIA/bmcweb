@@ -102,6 +102,12 @@ inline void handleFanCollectionHead(
         return;
     }
 
+    // HEAD must agree with GET.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId, "Fans"))
+    {
+        return;
+    }
+
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         // ast-grep-ignore: long-lambda
@@ -125,6 +131,12 @@ inline void handleFanCollectionGet(
     const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    // RoT chassis have no Fans: 404.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId, "Fans"))
     {
         return;
     }

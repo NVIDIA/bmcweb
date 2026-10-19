@@ -116,6 +116,13 @@ inline void handlePowerSupplyCollectionHead(
         return;
     }
 
+    // HEAD must agree with GET.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "PowerSupplyCollection"))
+    {
+        return;
+    }
+
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         // ast-grep-ignore: long-lambda
@@ -140,6 +147,13 @@ inline void handlePowerSupplyCollectionGet(
     const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    // RoT chassis have no PowerSupplies: 404.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "PowerSupplyCollection"))
     {
         return;
     }

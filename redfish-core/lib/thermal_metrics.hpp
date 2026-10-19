@@ -195,6 +195,13 @@ inline void handleThermalMetricsHead(
         return;
     }
 
+    // HEAD must agree with GET.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "ThermalMetrics"))
+    {
+        return;
+    }
+
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         std::bind_front(doThermalMetricsHead, asyncResp, chassisId));
@@ -206,6 +213,13 @@ inline void handleThermalMetricsGet(
     const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    // RoT chassis have no ThermalMetrics: 404.
+    if (redfish::chassis_utils::pruneIfRotChassis(asyncResp, chassisId,
+                                                  "ThermalMetrics"))
     {
         return;
     }
