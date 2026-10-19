@@ -65,8 +65,10 @@
 #include <filesystem>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -1563,19 +1565,26 @@ inline void handlePostComputeDigest(
 
 /**
  * @brief Get allowable value for particular firmware inventory
- * The function gets allowable values from config file
- * /usr/share/bmcweb/fw_mctp_mapping.json.
- * and returns the allowable value if exists in the collection
+ * When the optional allow-list file (fw_uuid_mapping.json) is installed, the
+ * function returns the allowable value if it exists in that list. When no
+ * allow-list is installed every inventory path is accepted here and the
+ * ImageCopy discovery in the POST handler decides.
  *
  * @param[in] inventoryPathIn - firmware inventory path.
  * @returns Pair of boolean value if the allowable value exists
- * and the object of AllowableValue who contains inventory path
- * and assigned to its MCTP EID.
+ * and the object of AllowableValue who contains the inventory path.
  */
 inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
     const std::string_view inventoryPathIn)
 {
     std::pair<bool, CommitImageValueEntry> result;
+
+    if (!isCommitImageAllowListConfigured())
+    {
+        result.first = true;
+        result.second.inventoryUri = std::string(inventoryPathIn);
+        return result;
+    }
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
     auto it = std::ranges::find(allowableValues, inventoryPathIn,
@@ -1596,9 +1605,9 @@ inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
 
 /**
  * @brief Check whether firmware inventory is allowable
- * The function gets allowable values from config file
- * /usr/share/bmcweb/fw_mctp_mapping.json.
- * and check if the firmware inventory is in this collection
+ * When the optional allow-list file (fw_uuid_mapping.json) is installed, checks
+ * that the firmware inventory is in it. Without the file there is no
+ * restriction (true); the ImageCopy discovery decides the targets.
  *
  * @param[in] inventoryPathIn - firmware inventory path.
  * @returns boolean value indicates whether firmware inventory
@@ -1606,6 +1615,11 @@ inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
  */
 inline bool isInventoryAllowableValue(const std::string_view inventoryPathIn)
 {
+    if (!isCommitImageAllowListConfigured())
+    {
+        return true;
+    }
+
     bool isAllowable = false;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
@@ -1660,6 +1674,58 @@ inline void updateParametersForCommitImageInfo(
             allowableValues.push_back(
                 "/redfish/v1/UpdateService/FirmwareInventory/" + fwId);
         }
+    }
+
+    parameters.push_back(parameterTargets);
+}
+
+/**
+ * @brief Update parameters for GET Method CommitImageInfo from the ImageCopy
+ * discovery. Used when no allow-list file is installed: the allowable targets
+ * are the software objects associated with a chassis that implements
+ * com.nvidia.ImageCopy.
+ *
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] chassisMap Chassis name to software paths found by
+ *                       collectImageCopySoftwarePaths
+ *
+ * @return None
+ */
+inline void updateParametersForCommitImageInfoFromImageCopy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::map<std::string, ChassisInfo>& chassisMap)
+{
+    asyncResp->res.jsonValue["Parameters"] = nlohmann::json::array();
+    nlohmann::json& parameters = asyncResp->res.jsonValue["Parameters"];
+
+    nlohmann::json parameterTargets;
+    parameterTargets["Name"] = "Targets";
+    parameterTargets["Required"] = false;
+    parameterTargets["DataType"] = "StringArray";
+    parameterTargets["AllowableValues"] = nlohmann::json::array();
+
+    nlohmann::json& allowableValues = parameterTargets["AllowableValues"];
+
+    std::set<std::string> firmwareIds;
+    for (const auto& [chassisName, chassisInfo] : chassisMap)
+    {
+        for (const auto& softwarePath : chassisInfo.softwarePaths)
+        {
+            std::string fwId = sdbusplus::object_path(softwarePath).filename();
+            if (fwId.empty())
+            {
+                BMCWEB_LOG_DEBUG("Cannot parse firmware ID from {}",
+                                 softwarePath);
+                continue;
+            }
+            firmwareIds.insert(std::move(fwId));
+        }
+    }
+
+    for (const auto& fwId : firmwareIds)
+    {
+        allowableValues.push_back(
+            "/redfish/v1/UpdateService/FirmwareInventory/" + fwId);
     }
 
     parameters.push_back(parameterTargets);
@@ -1805,8 +1871,9 @@ inline void handleCommitImagePost(
                     }
                     else
                     {
-                        // When no targets specified, only include paths that
-                        // are in the allowable values list
+                        // When no targets specified, include the ImageCopy
+                        // paths that pass the allow-list (all of them when no
+                        // allow-list file is installed)
                         if (isInventoryAllowableValue(path))
                         {
                             matchingPaths.push_back(path);
@@ -2452,13 +2519,30 @@ inline void handleCommitImageActionInfoGet(
                 return;
             }
             BMCWEB_LOG_DEBUG("Request URL: {}", req.url());
-            updateParametersForCommitImageInfo(asyncResp, subtree);
-            if constexpr (BMCWEB_REDFISH_AGGREGATION)
+            auto forwardToSatellites = [asyncResp, &req]() {
+                if constexpr (BMCWEB_REDFISH_AGGREGATION)
+                {
+                    RedfishAggregator::getInstance().getSatelliteConfigs(
+                        std::bind_front(forwardCommitImageActionInfo,
+                                        std::ref(req), asyncResp));
+                }
+            };
+            if (isCommitImageAllowListConfigured())
             {
-                RedfishAggregator::getInstance().getSatelliteConfigs(
-                    std::bind_front(forwardCommitImageActionInfo, std::ref(req),
-                                    asyncResp));
+                updateParametersForCommitImageInfo(asyncResp, subtree);
+                forwardToSatellites();
+                return;
             }
+            // No allow-list file: the targets are the software objects
+            // associated with a chassis that implements com.nvidia.ImageCopy
+            collectImageCopySoftwarePaths(
+                asyncResp,
+                [asyncResp, forwardToSatellites](
+                    const std::map<std::string, ChassisInfo>& chassisMap) {
+                    updateParametersForCommitImageInfoFromImageCopy(
+                        asyncResp, chassisMap);
+                    forwardToSatellites();
+                });
         });
 }
 

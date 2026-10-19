@@ -397,6 +397,14 @@ inline nlohmann::json imageCopyError(
                           {"Resolution", resolution}};
 }
 
+/**
+ * @brief Optional allow-list of firmware inventory paths for CommitImage.
+ *
+ * The list is read from the FW UUID mapping file. The file is optional: when
+ * it is absent (or has no entries) the list is empty and no allow-list is
+ * applied; the targets are then decided by the com.nvidia.ImageCopy interface
+ * discovery alone (see collectImageCopySoftwarePaths).
+ */
 inline std::vector<CommitImageValueEntry> getAllowableValues()
 {
     static std::vector<CommitImageValueEntry> allowableValues;
@@ -410,7 +418,9 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
 
     if (!fs::exists(configPath))
     {
-        BMCWEB_LOG_ERROR("The file doesn't exist: {}", configPath);
+        BMCWEB_LOG_DEBUG(
+            "No CommitImage allow-list file ({}), using ImageCopy discovery",
+            configPath);
         return allowableValues;
     }
 
@@ -449,6 +459,17 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
         }
     }
     return allowableValues;
+}
+
+/**
+ * @brief Whether a CommitImage allow-list is configured on this image
+ *
+ * @return true when the mapping file exists and has entries; false when the
+ *         targets are decided by ImageCopy discovery alone
+ */
+inline bool isCommitImageAllowListConfigured()
+{
+    return !getAllowableValues().empty();
 }
 
 /**
