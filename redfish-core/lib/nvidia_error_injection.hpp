@@ -22,6 +22,7 @@
 #include "dbus_utility.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
@@ -41,6 +42,7 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <string_view>
 namespace redfish
 {
@@ -648,53 +650,82 @@ inline void patchProcessorErrorInjectionData(
 }
 
 template <typename Handler>
+inline void afterGetErrorInjectionNetworkAdapterPaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& chassisPath, const Handler& handler,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
+{
+    if (ec)
+    {
+        if (ec == boost::system::errc::io_error)
+        {
+            messages::resourceNotFound(aResp->res, "NetworkAdapter",
+                                       networkAdapterId);
+            return;
+        }
+        BMCWEB_LOG_ERROR(
+            "DBUS response error failed to get network adapter paths");
+        messages::internalError(aResp->res);
+        return;
+    }
+    // Match the complete path so CX_0/NIC_0 cannot select
+    // Bay_C_CX_0/NetworkAdapters/Bay_C_CX_NIC_0.
+    std::string path = chassisPath + "/NetworkAdapters/" + networkAdapterId;
+    if (std::ranges::find(paths, path) == paths.end())
+    {
+        messages::resourceNotFound(aResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+    getErrorInjectionService(
+        aResp, path,
+        [chassisId, networkAdapterId,
+         handler](const std::string& service, const std::string& objPath) {
+            std::string uri = "/redfish/v1/Chassis/" + chassisId +
+                              "/NetworkAdapters/" + networkAdapterId;
+            handler(uri, service, objPath);
+        });
+}
+
+template <typename Handler>
+inline void afterGetErrorInjectionNetworkAdapterChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    Handler handler, const std::optional<std::string>& chassisPath)
+{
+    if (!chassisPath)
+    {
+        messages::resourceNotFound(aResp->res, "Chassis", chassisId);
+        return;
+    }
+    dbus::utility::getSubTreePaths(
+        *chassisPath, 0,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.NetworkInterface"},
+        std::bind_front(afterGetErrorInjectionNetworkAdapterPaths<Handler>,
+                        aResp, chassisId, networkAdapterId, *chassisPath,
+                        std::move(handler)));
+}
+
+template <typename Handler>
 inline void getNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                               const std::string& chassisId,
                               const std::string& networkAdapterId,
-                              Handler&& handler)
+                              Handler handler)
 {
-    dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory/", 0,
-        std::array<std::string_view, 1>{
-            "xyz.openbmc_project.Inventory.Item.NetworkInterface"},
-        [chassisId, networkAdapterId, aResp,
-         handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error failed to get network adapter paths");
-                messages::internalError(aResp->res);
-
-                return;
-            }
-            for (const auto& path : paths)
-            {
-                if (!path.ends_with(networkAdapterId) ||
-                    path.find(chassisId) == std::string::npos)
-                {
-                    continue;
-                }
-
-                getErrorInjectionService(
-                    aResp, path,
-                    [chassisId, networkAdapterId, aResp,
-                     handler](const std::string& service,
-                              const std::string& objPath) {
-                        std::string uri = "/redfish/v1/Chassis/";
-                        uri += chassisId;
-                        uri += "/NetworkAdapters/";
-                        uri += networkAdapterId;
-                        handler(uri, service, objPath);
-                    });
-                return;
-            }
-            // Object not found
-            messages::resourceNotFound(
-                aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
-                networkAdapterId);
-        });
+    if (networkAdapterId.empty())
+    {
+        messages::resourceNotFound(aResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+    chassis_utils::getValidChassisPath(
+        aResp, chassisId,
+        std::bind_front(afterGetErrorInjectionNetworkAdapterChassis<Handler>,
+                        aResp, chassisId, networkAdapterId,
+                        std::move(handler)));
 }
 
 inline void getNetworkAdapterErrorInjectionData(
