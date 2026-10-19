@@ -2767,6 +2767,16 @@ inline void handleLogServicesDumpCollectDiagnosticDataPost(
         return;
     }
 
+    // NVIDIA code starts here
+    if constexpr (BMCWEB_VHMC_HOST)
+    {
+        if (dumpType == "BMC")
+        {
+            precheckBmcOemDumpAndCreateDump(asyncResp, req);
+            return;
+        }
+    }
+    // NVIDIA code ends here
     createDump(asyncResp, req, dumpType);
 }
 

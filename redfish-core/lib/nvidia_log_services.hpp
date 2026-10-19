@@ -48,6 +48,7 @@
 #include <utils/log_services_util.hpp>
 #include <utils/origin_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -55,6 +56,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -1491,6 +1493,13 @@ inline bool parseBmcOemDumpRequest(
     {
         if (param.first == "DiagnosticType")
         {
+            // The dump manager takes an empty type as no type, and would
+            // run a standard dump from these parameters.
+            const std::string* type = std::get_if<std::string>(&param.second);
+            if (type == nullptr || type->empty())
+            {
+                break;
+            }
             return true;
         }
     }
@@ -1504,6 +1513,61 @@ void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const crow::Request& req, const std::string& dumpType);
 void downloadDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& entryID, const std::string& dumpType);
+
+// The Manager dump forwards every key=value pair of OEMDiagnosticDataType
+// to the dump manager as a create parameter, so take only a value that the
+// ActionInfo advertises, exactly; false once an error is set.
+inline bool checkBmcOemDiagnosticDataType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::string>& oemAllowableValues,
+    const std::string& oemDiagnosticDataType)
+{
+    if (std::ranges::find(oemAllowableValues, oemDiagnosticDataType) !=
+        oemAllowableValues.end())
+    {
+        return true;
+    }
+    BMCWEB_LOG_ERROR("OEMDiagnosticDataType is not an advertised value: {}",
+                     oemDiagnosticDataType);
+    messages::actionParameterValueError(asyncResp->res, "OEMDiagnosticDataType",
+                                        "LogService.CollectDiagnosticData");
+    return false;
+}
+
+// Manager dump CollectDiagnosticData with vhmc-host: checks an OEM request
+// against the advertised values, as the System dump's precheck does.
+inline void precheckBmcOemDumpAndCreateDump(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req)
+{
+    std::optional<std::string> diagnosticDataType;
+    std::optional<std::string> oemDiagnosticDataType;
+    if (!redfish::json_util::readJsonAction(
+            req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
+            "OEMDiagnosticDataType", oemDiagnosticDataType))
+    {
+        return;
+    }
+    if (!diagnosticDataType || *diagnosticDataType != "OEM" ||
+        !oemDiagnosticDataType)
+    {
+        // Not a complete OEM request: createDump() handles it as before.
+        createDump(asyncResp, req, "BMC");
+        return;
+    }
+    // A copy: an HTTP/2 stream that closes before the reply takes req along.
+    auto reqCopy = std::make_shared<crow::Request>(req.copy());
+    redfish::getOEMDiagnosticAllowableValues(
+        "Manager", [asyncResp, reqCopy, oemDiagnosticDataType](
+                       const std::vector<std::string>& oemAllowableValues) {
+            if (!checkBmcOemDiagnosticDataType(asyncResp, oemAllowableValues,
+                                               *oemDiagnosticDataType))
+            {
+                return;
+            }
+            createDump(asyncResp, *reqCopy, "BMC");
+        });
+}
 
 inline void precheckOemDiagDataTypeAndCreateDump(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
