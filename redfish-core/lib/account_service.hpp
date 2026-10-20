@@ -51,9 +51,11 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <random>
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -67,6 +69,7 @@ constexpr const char* adConfigObject =
     "/xyz/openbmc_project/user/ldap/active_directory";
 
 constexpr const char* rootUserDbusPath = "/xyz/openbmc_project/user/";
+
 constexpr const char* ldapRootObject = "/xyz/openbmc_project/user/ldap";
 constexpr const char* ldapDbusService = "xyz.openbmc_project.Ldap.Config";
 constexpr const char* ldapConfigInterface =
@@ -74,6 +77,52 @@ constexpr const char* ldapConfigInterface =
 constexpr const char* ldapEnableInterface = "xyz.openbmc_project.Object.Enable";
 constexpr const char* ldapPrivMapperInterface =
     "xyz.openbmc_project.User.PrivilegeMapper";
+
+// The ETag of a ManagerAccount is a hash of its GET body, but the password is
+// write-only ("Password": null), so changing it would not change the ETag
+// (DSP0266 13.5.1: user accounts shall support ETags). Remember, per account,
+// when bmcweb last set its password and mix that into the account's ETag.
+// bmcweb is single threaded, so no locking is needed.
+struct AccountEtagState
+{
+    // Per-process random value: ETags also differ after a bmcweb restart
+    uint64_t nonce = 0;
+    // Strictly increasing, so a new value is never one handed out before
+    uint64_t counter = 0;
+    std::unordered_map<std::string, uint64_t> passwordChange;
+};
+
+inline AccountEtagState& getAccountEtagState()
+{
+    static AccountEtagState state = [] {
+        AccountEtagState s;
+        std::random_device rd;
+        s.nonce = (static_cast<uint64_t>(rd()) << 32) | rd();
+        return s;
+    }();
+    return state;
+}
+
+// Call when the password of the account was set (also on account creation, so
+// that a deleted and re-created account never repeats an earlier ETag).
+inline void accountPasswordChanged(const std::string& username)
+{
+    AccountEtagState& state = getAccountEtagState();
+    state.passwordChange[username] = ++state.counter;
+}
+
+inline void accountRemoved(const std::string& username)
+{
+    getAccountEtagState().passwordChange.erase(username);
+}
+
+inline void setAccountEtagSalt(crow::Response& res, const std::string& username)
+{
+    const AccountEtagState& state = getAccountEtagState();
+    auto it = state.passwordChange.find(username);
+    uint64_t change = it != state.passwordChange.end() ? it->second : 0;
+    res.setEtagSalt(std::format("{}:{}", state.nonce, change));
+}
 
 struct LDAPRoleMapData
 {
@@ -1245,6 +1294,7 @@ inline void afterVerifyUserExists(
         }
         else
         {
+            accountPasswordChanged(params.username);
             // Remove existing sessions of the user when password
             // changed
             persistent_data::SessionStore::getInstance()
@@ -1960,6 +2010,7 @@ inline void processAfterCreateUser(
         return;
     }
 
+    accountPasswordChanged(username);
     messages::created(asyncResp->res);
     asyncResp->res.addHeader("Location",
                              "/redfish/v1/AccountService/Accounts/" + username);
@@ -2361,6 +2412,7 @@ inline void handleAccountGet(
                 "/redfish/v1/AccountService/Accounts/{}", accountName);
             asyncResp->res.jsonValue["Id"] = accountName;
             asyncResp->res.jsonValue["UserName"] = accountName;
+            setAccountEtagSalt(asyncResp->res, accountName);
         });
 }
 
@@ -2409,6 +2461,7 @@ inline void handleAccountDelete(
                 return;
             }
 
+            accountRemoved(username);
             messages::accountRemoved(asyncResp->res);
         },
         "xyz.openbmc_project.User.Manager", userPath,
@@ -2545,6 +2598,8 @@ inline void handleAccountPatch(
                                         username, "AccountTypes");
                 return;
             }
+            accountRemoved(username);
+            accountPasswordChanged(newUser);
             if (asyncResp->res.result() == boost::beast::http::status::ok)
             {
                 asyncResp->res.result(boost::beast::http::status::no_content);

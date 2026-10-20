@@ -221,5 +221,108 @@ TEST(HttpResponse, ZstdHandleEncodingDoesNotCloseFileFd)
     EXPECT_EQ(getData(res.response), data);
 }
 
+// Response with a non-empty body and 200 status, so that an ETag is computed
+crow::Response makeEtagResponse()
+{
+    crow::Response res;
+    res.result(boost::beast::http::status::ok);
+    res.jsonValue["Password"] = nullptr;
+    res.jsonValue["UserName"] = "user";
+    return res;
+}
+
+TEST(HttpResponse, EtagWithoutSaltIsStable)
+{
+    crow::Response a = makeEtagResponse();
+    crow::Response b = makeEtagResponse();
+    EXPECT_FALSE(a.getCurrentEtag().empty());
+    EXPECT_EQ(a.getCurrentEtag(), b.getCurrentEtag());
+}
+
+TEST(HttpResponse, EtagSaltChangesEtag)
+{
+    crow::Response res = makeEtagResponse();
+    std::string unsalted = res.getCurrentEtag();
+
+    res.setEtagSalt("1:1");
+    std::string salted = res.getCurrentEtag();
+    EXPECT_NE(salted, unsalted);
+    // Same salt gives the same ETag
+    EXPECT_EQ(res.getCurrentEtag(), salted);
+
+    res.setEtagSalt("1:2");
+    EXPECT_NE(res.getCurrentEtag(), salted);
+    EXPECT_NE(res.getCurrentEtag(), unsalted);
+
+    // An empty salt gives back the unsalted ETag
+    res.setEtagSalt("");
+    EXPECT_EQ(res.getCurrentEtag(), unsalted);
+}
+
+TEST(HttpResponse, EtagSaltIsClearedByClear)
+{
+    crow::Response res = makeEtagResponse();
+    std::string unsalted = res.getCurrentEtag();
+    res.setEtagSalt("1:1");
+    ASSERT_NE(res.getCurrentEtag(), unsalted);
+
+    res.clear();
+    res.result(boost::beast::http::status::ok);
+    res.jsonValue["Password"] = nullptr;
+    res.jsonValue["UserName"] = "user";
+    EXPECT_EQ(res.getCurrentEtag(), unsalted);
+}
+
+TEST(HttpResponse, EtagSaltSurvivesMove)
+{
+    crow::Response res = makeEtagResponse();
+    res.setEtagSalt("1:1");
+    std::string salted = res.getCurrentEtag();
+
+    crow::Response moved(std::move(res));
+    EXPECT_EQ(moved.getCurrentEtag(), salted);
+
+    crow::Response assigned;
+    assigned = std::move(moved);
+    EXPECT_EQ(assigned.getCurrentEtag(), salted);
+}
+
+TEST(HttpResponse, EtagHeaderUsesSalt)
+{
+    crow::Response plain = makeEtagResponse();
+    plain.setResponseEtagAndHandleNotModified();
+    std::string plainHeader(plain.getHeaderValue("ETag"));
+
+    crow::Response salted = makeEtagResponse();
+    salted.setEtagSalt("1:1");
+    salted.setResponseEtagAndHandleNotModified();
+    std::string saltedHeader(salted.getHeaderValue("ETag"));
+
+    EXPECT_FALSE(plainHeader.empty());
+    EXPECT_FALSE(saltedHeader.empty());
+    EXPECT_NE(plainHeader, saltedHeader);
+}
+
+TEST(HttpResponse, IfNoneMatchComparesSaltedEtag)
+{
+    crow::Response first = makeEtagResponse();
+    first.setEtagSalt("1:1");
+    std::string current = first.getCurrentEtag();
+
+    // Client sends the ETag it got for the current state: not modified
+    crow::Response same = makeEtagResponse();
+    same.setExpectedEtag(current);
+    same.setEtagSalt("1:1");
+    same.setResponseEtagAndHandleNotModified();
+    EXPECT_EQ(same.result(), boost::beast::http::status::not_modified);
+
+    // The salt changed since (e.g. password changed): full response
+    crow::Response changed = makeEtagResponse();
+    changed.setExpectedEtag(current);
+    changed.setEtagSalt("1:2");
+    changed.setResponseEtagAndHandleNotModified();
+    EXPECT_EQ(changed.result(), boost::beast::http::status::ok);
+}
+
 } // namespace
 } // namespace crow

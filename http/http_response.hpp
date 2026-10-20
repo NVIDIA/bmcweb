@@ -104,7 +104,7 @@ struct Response
         response(std::move(res.response)), jsonValue(std::move(res.jsonValue)),
         requestExpectedEtag(std::move(res.requestExpectedEtag)),
         currentOverrideEtag(std::move(res.currentOverrideEtag)),
-        completed(res.completed)
+        etagSalt(std::move(res.etagSalt)), completed(res.completed)
     {
         // See note in operator= move handler for why this is needed.
         if (!res.completed)
@@ -131,6 +131,7 @@ struct Response
         jsonValue = std::move(r.jsonValue);
         requestExpectedEtag = std::move(r.requestExpectedEtag);
         currentOverrideEtag = std::move(r.currentOverrideEtag);
+        etagSalt = std::move(r.etagSalt);
 
         // Only need to move completion handler if not already completed
         // Note, there are cases where we might move out of a Response object
@@ -268,6 +269,15 @@ struct Response
         completed = false;
         requestExpectedEtag = std::nullopt;
         currentOverrideEtag = std::nullopt;
+        etagSalt.clear();
+    }
+
+    // Mixes state that is not visible in jsonValue (e.g. write-only
+    // properties such as passwords) into the ETag, so that a change to such
+    // state still produces a new ETag. Must not contain secrets.
+    void setEtagSalt(std::string_view salt)
+    {
+        etagSalt = salt;
     }
 
     void setCurrentOverrideEtag(std::string_view newEtag)
@@ -298,8 +308,7 @@ struct Response
             return currentOverrideEtag.value();
         }
 
-        size_t hashval = std::hash<nlohmann::json>{}(jsonValue);
-        return std::format("\"{:08X}\"", hashval);
+        return std::format("\"{:08X}\"", computeHash());
     }
 
     void write(std::string&& bodyPart)
@@ -426,8 +435,22 @@ struct Response
         }
     }
 
+    size_t computeHash() const
+    {
+        size_t hashval = std::hash<nlohmann::json>{}(jsonValue);
+        if (!etagSalt.empty())
+        {
+            // boost::hash_combine style mixing
+            hashval ^= std::hash<std::string>{}(etagSalt) +
+                       static_cast<size_t>(0x9e3779b97f4a7c15ULL) +
+                       (hashval << 6) + (hashval >> 2);
+        }
+        return hashval;
+    }
+
     std::optional<std::string> requestExpectedEtag;
     std::optional<std::string> currentOverrideEtag;
+    std::string etagSalt;
     bool completed = false;
     std::function<void(Response&)> completeRequestHandler;
 };
