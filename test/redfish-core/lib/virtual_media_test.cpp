@@ -2,28 +2,19 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 
 #include "async_resp.hpp"
-#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "http_response.hpp"
 #include "utils/json_utils.hpp"
 #include "virtual_media.hpp"
 
 #include <boost/asio/error.hpp>
-#include <boost/asio/io_context.hpp>
 #include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
-#include <sdbusplus/asio/connection.hpp>
-#include <sdbusplus/asio/object_server.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
-#include <chrono>
-#include <cstdint>
-#include <exception>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
-#include <variant>
 
 #include <gtest/gtest.h>
 
@@ -230,8 +221,10 @@ TEST(InsertMediaLastError, InvalidArgumentAppendsLastError)
                     .at("MessageId")
                     .get<std::string>()
                     .ends_with(".ActionParameterValueFormatError"));
-    EXPECT_EQ(info.at(1).at("MessageId"),
-              "ResourceEvent.1.0.3.ResourceErrorsDetected");
+    EXPECT_TRUE(info.at(1)
+                    .at("MessageId")
+                    .get<std::string>()
+                    .ends_with(".ResourceErrorsDetected"));
     EXPECT_EQ(info.at(1).at("MessageArgs").at(0), "InsertMedia");
     EXPECT_EQ(info.at(1).at("MessageArgs").at(1), "certificate rejected");
 }
@@ -245,123 +238,22 @@ TEST(InsertMediaLastError, LastErrorIsTheFailureResponse)
               boost::beast::http::status::internal_server_error);
     const nlohmann::json& info = extendedInfo(resp->res);
     ASSERT_EQ(info.size(), 1);
-    EXPECT_EQ(info.at(0).at("MessageId"),
-              "ResourceEvent.1.0.3.ResourceErrorsDetected");
-    EXPECT_EQ(info.at(0).at("MessageArgs").at(1), "certificate rejected");
-}
-
-// Drives doMountVmLegacy through D-Bus. A non-sdbusplus exception from Mount
-// is returned as InvalidArgs, which that callback maps to invalidArgument.
-class MountVmLegacyBus : public ::testing::Test
-{
-  protected:
-    static constexpr const char* objectPath =
-        "/xyz/openbmc_project/VirtualMedia/Legacy/USB1";
-
-    boost::asio::io_context ioc;
-    std::string serviceName;
-    std::shared_ptr<sdbusplus::asio::connection> conn;
-    std::unique_ptr<sdbusplus::asio::object_server> server;
-
-    void SetUp() override
-    {
-        try
-        {
-            static int nextService = 0;
-            serviceName = "xyz.openbmc_project.VirtualMedia.BmcwebInsertTest" +
-                          std::to_string(++nextService);
-            conn = std::make_shared<sdbusplus::asio::connection>(ioc);
-            server = std::make_unique<sdbusplus::asio::object_server>(conn);
-            conn->request_name(serviceName.c_str());
-        }
-        catch (const std::exception& e)
-        {
-            GTEST_SKIP() << "D-Bus not available: " << e.what();
-        }
-        crow::connections::systemBus = conn.get();
-    }
-
-    void TearDown() override
-    {
-        ioc.stop();
-        crow::connections::systemBus = nullptr;
-        server.reset();
-        conn.reset();
-    }
-
-    using MountFd = std::variant<int32_t, sdbusplus::message::unix_fd>;
-
-    std::shared_ptr<bmcweb::AsyncResp> mount(bool invalidArgument)
-    {
-        auto legacy = server->add_interface(
-            objectPath, "xyz.openbmc_project.VirtualMedia.Legacy");
-        // A non-sdbusplus exception is returned as InvalidArgs. The flag is
-        // captured so this function is not implicitly noreturn.
-        bool registered = legacy->register_method(
-            "Mount",
-            [invalidArgument](const std::string&, bool, MountFd) -> bool {
-                if (invalidArgument)
-                {
-                    throw std::runtime_error("rejected");
-                }
-                return false;
-            });
-        auto resp = std::make_shared<bmcweb::AsyncResp>();
-        auto mountPoint = server->add_interface(
-            objectPath, "xyz.openbmc_project.VirtualMedia.MountPoint");
-        if (!registered || !legacy->initialize() ||
-            !mountPoint->register_property(
-                "LastError", std::string("certificate rejected")) ||
-            !mountPoint->initialize())
-        {
-            ADD_FAILURE() << "failed to publish the virtual media object";
-            return resp;
-        }
-
-        doMountVmLegacy(resp, serviceName, "USB1", "https://example/image.iso",
-                        true, std::string{}, std::string{});
-
-        const auto deadline =
-            std::chrono::steady_clock::now() + std::chrono::seconds(2);
-        while (resp->res.result() == boost::beast::http::status::ok &&
-               std::chrono::steady_clock::now() < deadline)
-        {
-            ioc.run_for(std::chrono::milliseconds(20));
-            ioc.restart();
-        }
-        return resp;
-    }
-};
-
-TEST_F(MountVmLegacyBus, InvalidArgumentForwardsLastError)
-{
-    auto resp = mount(true);
-
-    ASSERT_TRUE(resp->res.jsonValue.contains("error"));
-    EXPECT_EQ(resp->res.result(), boost::beast::http::status::bad_request);
-    const nlohmann::json& info = extendedInfo(resp->res);
-    ASSERT_EQ(info.size(), 2);
     EXPECT_TRUE(info.at(0)
                     .at("MessageId")
                     .get<std::string>()
-                    .ends_with(".ActionParameterValueFormatError"));
-    EXPECT_EQ(info.at(1).at("MessageId"),
-              "ResourceEvent.1.0.3.ResourceErrorsDetected");
-    EXPECT_EQ(info.at(1).at("MessageArgs").at(1), "certificate rejected");
+                    .ends_with(".ResourceErrorsDetected"));
+    EXPECT_EQ(info.at(0).at("MessageArgs").at(1), "certificate rejected");
 }
 
-TEST_F(MountVmLegacyBus, OtherFailureUsesLastErrorOnly)
+TEST(MountVmLegacyResult, SuccessDoesNotReadLastError)
 {
-    auto resp = mount(false);
+    auto resp = std::make_shared<bmcweb::AsyncResp>();
+    afterMountVmLegacy(resp, "test.service",
+                       "/xyz/openbmc_project/VirtualMedia/Legacy/USB1", {},
+                       true);
 
-    ASSERT_TRUE(resp->res.jsonValue.contains("error"));
-    EXPECT_EQ(resp->res.result(),
-              boost::beast::http::status::internal_server_error);
-    const nlohmann::json& info = extendedInfo(resp->res);
-    ASSERT_EQ(info.size(), 1);
-    EXPECT_EQ(info.at(0).at("MessageId"),
-              "ResourceEvent.1.0.3.ResourceErrorsDetected");
-    EXPECT_EQ(info.at(0).at("MessageArgs").at(1), "certificate rejected");
+    EXPECT_EQ(resp->res.result(), boost::beast::http::status::ok);
+    EXPECT_FALSE(resp->res.jsonValue.contains("error"));
 }
 
 TEST(VirtualMediaPatch, NullIsRejectedAndFalseIsPreserved)

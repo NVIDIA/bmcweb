@@ -496,24 +496,39 @@ struct InsertMediaActionParams
 };
 
 /**
+ * @brief Answer InsertMedia when MountPoint LastError cannot be reported.
+ */
+inline void respondInsertMediaWithoutLastError(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool invalidArgument)
+{
+    if (invalidArgument)
+    {
+        messages::actionParameterValueFormatError(
+            asyncResp->res, "", "UserName or Password",
+            "VirtualMedia.InsertMedia");
+        return;
+    }
+    messages::internalError(asyncResp->res);
+}
+
+/**
  * @brief Set the InsertMedia error from a MountPoint LastError read.
  */
 inline void applyInsertMediaLastError(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool invalidArgument,
     const boost::system::error_code& ec, const std::string& lastError)
 {
-    if (ec || lastError.empty())
+    if (ec)
     {
         BMCWEB_LOG_ERROR(
             "Virtual media mount failed and LastError was unavailable: {}", ec);
-        if (invalidArgument)
-        {
-            messages::actionParameterValueFormatError(
-                asyncResp->res, "", "UserName or Password",
-                "VirtualMedia.InsertMedia");
-            return;
-        }
-        messages::internalError(asyncResp->res);
+        respondInsertMediaWithoutLastError(asyncResp, invalidArgument);
+        return;
+    }
+    if (lastError.empty())
+    {
+        BMCWEB_LOG_ERROR("Virtual media mount failed and LastError was empty");
+        respondInsertMediaWithoutLastError(asyncResp, invalidArgument);
         return;
     }
     BMCWEB_LOG_ERROR("Virtual media mount failed: {}", lastError);
@@ -532,9 +547,7 @@ inline void applyInsertMediaLastError(
 }
 
 /**
- * @brief Function transceives data with dbus directly.
- *
- * All BMC state properties will be retrieved before sending reset request.
+ * @brief Read MountPoint LastError and set the InsertMedia error response.
  */
 inline void reportVirtualMediaMountFailure(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -551,6 +564,35 @@ inline void reportVirtualMediaMountFailure(
         });
 }
 
+/**
+ * @brief Log a failed Legacy Mount and report MountPoint LastError.
+ */
+inline void afterMountVmLegacy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objectPath,
+    const boost::system::error_code& ec, bool success)
+{
+    if (!ec && success)
+    {
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("Service responded with error");
+    }
+    reportVirtualMediaMountFailure(asyncResp, service, objectPath,
+                                   ec == boost::system::errc::invalid_argument);
+}
+
+/**
+ * @brief Function transceives data with dbus directly.
+ *
+ * All BMC state properties will be retrieved before sending reset request.
+ */
 inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service, const std::string& name,
                             const std::string& imageUrl, bool rw,
@@ -610,17 +652,9 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     path /= name;
     dbus::utility::async_method_call(
         asyncResp,
-        // ast-grep-ignore: long-lambda
         [asyncResp, service, objectPath = path.str](
             const boost::system::error_code& ec, bool success) {
-            if (!ec && success)
-            {
-                return;
-            }
-            BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
-            reportVirtualMediaMountFailure(
-                asyncResp, service, objectPath,
-                ec == boost::system::errc::invalid_argument);
+            afterMountVmLegacy(asyncResp, service, objectPath, ec, success);
         },
         service, path.str, "xyz.openbmc_project.VirtualMedia.Legacy", "Mount",
         imageUrl, rw, fdVariant);
