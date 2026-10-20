@@ -1444,6 +1444,65 @@ inline void precheckOemDiagDataTypeAndCreateDump(
         });
 }
 
+inline void handleEventLogServicePatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::optional<nlohmann::json> oemObject;
+
+    // readJsonPatch() fails unless Oem is present; checked again so that
+    // clang-tidy can see it.
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oemObject) ||
+        !oemObject)
+    {
+        return;
+    }
+
+    std::optional<nlohmann::json> oemNvidiaObject;
+
+    if (!json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
+                             oemNvidiaObject))
+    {
+        return;
+    }
+
+    // An Oem object without Nvidia has nothing to change here.
+    if (!oemNvidiaObject)
+    {
+        return;
+    }
+
+    std::optional<bool> autoClearResolvedLogEnabled;
+
+    if (!json_util::readJson(*oemNvidiaObject, asyncResp->res,
+                             "AutoClearResolvedLogEnabled",
+                             autoClearResolvedLogEnabled))
+    {
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Set Log Purge Policy");
+
+    if (autoClearResolvedLogEnabled)
+    {
+        dbus::utility::setProperty(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Namespace",
+            "AutoClearResolvedLogEnabled", *autoClearResolvedLogEnabled,
+            [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            });
+    }
+}
+
 inline void requestRoutesEventLogServicePatch(App& app)
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
@@ -1453,57 +1512,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                               "/LogServices/EventLog/")
             .privileges(redfish::privileges::patchLogService)
             .methods(boost::beast::http::verb::patch)(
-                [&app](const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                    {
-                        return;
-                    }
-                    std::optional<nlohmann::json> oemObject;
-
-                    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem",
-                                                  oemObject))
-                    {
-                        return;
-                    }
-
-                    std::optional<nlohmann::json> oemNvidiaObject;
-
-                    if (!json_util::readJson(*oemObject, asyncResp->res,
-                                             "Nvidia", oemNvidiaObject))
-                    {
-                        return;
-                    }
-
-                    std::optional<bool> autoClearResolvedLogEnabled;
-
-                    if (!json_util::readJson(*oemNvidiaObject, asyncResp->res,
-                                             "AutoClearResolvedLogEnabled",
-                                             autoClearResolvedLogEnabled))
-                    {
-                        return;
-                    }
-                    BMCWEB_LOG_DEBUG("Set Log Purge Policy");
-
-                    if (autoClearResolvedLogEnabled)
-                    {
-                        dbus::utility::setProperty(
-                            "xyz.openbmc_project.Logging",
-                            "/xyz/openbmc_project/logging",
-                            "xyz.openbmc_project.Logging.Namespace",
-                            "AutoClearResolvedLogEnabled",
-                            *autoClearResolvedLogEnabled,
-                            [asyncResp](const boost::system::error_code& ec) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_DEBUG("DBUS response error {}",
-                                                     ec);
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                            });
-                    }
-                });
+                std::bind_front(handleEventLogServicePatch, std::ref(app)));
     }
 }
 
