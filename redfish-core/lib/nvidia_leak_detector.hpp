@@ -25,6 +25,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
 
 #include <cerrno>
 #include <functional>
@@ -721,6 +722,23 @@ inline void doLeakDetectorCollection(
         *validChassisPath + "/contained_by", {leakDetectorInventoryInterface});
 }
 
+inline void doLeakDetectorCollectionIfSupported(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validLeakDetectionPath)
+{
+    if (!validLeakDetectionPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "LeakDetectorCollection",
+                                   "LeakDetectors");
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doLeakDetectorCollection, asyncResp, chassisId));
+}
+
 inline void handleLeakDetectorCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -731,9 +749,10 @@ inline void handleLeakDetectorCollectionGet(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
-        std::bind_front(doLeakDetectorCollection, asyncResp, chassisId));
+        std::bind_front(doLeakDetectorCollectionIfSupported, asyncResp,
+                        chassisId));
 }
 
 inline void handleLeakDetectorCollectionHead(
@@ -746,14 +765,15 @@ inline void handleLeakDetectorCollectionHead(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
-        [asyncResp,
-         chassisId](const std::optional<std::string>& validChassisPath) {
-            if (!validChassisPath)
+        [asyncResp](
+            const std::optional<std::string>& validLeakDetectionPath) {
+            if (!validLeakDetectionPath)
             {
-                messages::resourceNotFound(asyncResp->res, "Chassis",
-                                           chassisId);
+                messages::resourceNotFound(asyncResp->res,
+                                           "LeakDetectorCollection",
+                                           "LeakDetectors");
                 return;
             }
             asyncResp->res.addHeader(
