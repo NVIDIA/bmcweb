@@ -44,8 +44,9 @@ inline void doLeakDetection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     if (!validChassisPath)
     {
-        BMCWEB_LOG_WARNING("Not a valid chassis ID{}", chassisId);
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        BMCWEB_LOG_DEBUG("{}: No leak detection", chassisId);
+        messages::resourceNotFound(asyncResp->res, "LeakDetection",
+                                   "LeakDetection");
         return;
     }
     asyncResp->res.addHeader(
@@ -93,14 +94,15 @@ inline void handleLeakDetectionHead(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
             if (!validChassisPath)
             {
-                messages::resourceNotFound(asyncResp->res, "Chassis",
-                                           chassisId);
+                BMCWEB_LOG_DEBUG("{}: No leak detection", chassisId);
+                messages::resourceNotFound(asyncResp->res, "LeakDetection",
+                                           "LeakDetection");
                 return;
             }
             asyncResp->res.addHeader(
