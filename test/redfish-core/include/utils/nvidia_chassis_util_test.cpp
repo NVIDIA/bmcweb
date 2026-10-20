@@ -38,6 +38,18 @@ namespace
 constexpr const char* hostNetworkAccessPath =
     "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess";
 
+TEST(LeakDetectorBelongsToChassis, RequiresExactPathComponent)
+{
+    constexpr std::string_view endpoint =
+        "/xyz/openbmc_project/inventory/system/chassis/Chassis_0";
+
+    EXPECT_TRUE(
+        leakDetectorBelongsToChassis(std::string(endpoint), "Chassis_0"));
+    EXPECT_FALSE(leakDetectorBelongsToChassis(std::string(endpoint), "0"));
+    EXPECT_FALSE(
+        leakDetectorBelongsToChassis(std::string(endpoint), "assis_0"));
+}
+
 // Walk with find()/contains() rather than operator[]: on a const json a
 // missing key is undefined behavior, and absence is what these tests assert.
 bool hasHostNetworkAccess(const bmcweb::AsyncResp& asyncResp)

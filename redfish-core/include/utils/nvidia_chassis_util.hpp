@@ -2459,46 +2459,56 @@ inline void setChassisHostNetworkEnable(
                                value, handler);
 }
 
+inline bool leakDetectorBelongsToChassis(const std::string& endpoint,
+                                         const std::string& chassisId)
+{
+    sdbusplus::object_path endpointPath(endpoint);
+    return endpointPath.filename() == chassisId;
+}
+
 template <typename Callback>
 inline void checkAssociatedChassis(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, Callback&& callback,
-    const dbus::utility::MapperGetSubTreePathsResponse& chassisPaths)
+    const std::shared_ptr<const dbus::utility::MapperGetSubTreePathsResponse>&
+        chassisPaths,
+    size_t pathIndex)
 {
-    auto foundFlag = std::make_shared<bool>(false);
-
-    // Loop through all chassis paths to check their associations
-    for (const std::string& chassisPath : chassisPaths)
+    if (pathIndex >= chassisPaths->size())
     {
-        dbus::utility::getAssociationEndPoints(
-            chassisPath + "/chassis",
-            [asyncResp, chassisId, callback, foundFlag,
-             chassisPath](const boost::system::error_code& ec,
-                          const dbus::utility::MapperEndPoints& endpoints) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("No association endpoint found for {}: {}",
-                                     chassisPath, ec);
-                    return;
-                }
+        callback(std::nullopt);
+        return;
+    }
 
+    const std::string& chassisPath = (*chassisPaths)[pathIndex];
+    dbus::utility::getAssociationEndPoints(
+        chassisPath + "/chassis",
+        [asyncResp, chassisId, callback = std::forward<Callback>(callback),
+         chassisPaths, pathIndex,
+         chassisPath](const boost::system::error_code& ec,
+                      const dbus::utility::MapperEndPoints& endpoints) mutable {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("No association endpoint found for {}: {}",
+                                 chassisPath, ec);
+            }
+            else
+            {
                 for (const std::string& endpoint : endpoints)
                 {
-                    if (endpoint.ends_with(chassisId))
+                    if (leakDetectorBelongsToChassis(endpoint, chassisId))
                     {
-                        if (!*foundFlag)
-                        {
-                            *foundFlag = true;
-                            BMCWEB_LOG_DEBUG(
-                                "Found associated chassis endpoint: {}",
-                                endpoint);
-                            callback(std::optional<std::string>(endpoint));
-                        }
+                        BMCWEB_LOG_DEBUG(
+                            "Found associated chassis endpoint: {}", endpoint);
+                        callback(std::optional<std::string>(endpoint));
                         return;
                     }
                 }
-            });
-    }
+            }
+
+            checkAssociatedChassis(asyncResp, chassisId, std::move(callback),
+                                   chassisPaths, pathIndex + 1);
+        });
 }
 
 template <typename Callback>
@@ -2536,7 +2546,12 @@ inline void validLeakDetectionCallback(
     }
 
     // If not found in direct paths, check associated chassis
-    checkAssociatedChassis(asyncResp, chassisId, callback, chassisPaths);
+    auto sharedChassisPaths =
+        std::make_shared<const dbus::utility::MapperGetSubTreePathsResponse>(
+            chassisPaths);
+    checkAssociatedChassis(asyncResp, chassisId,
+                           std::forward<Callback>(callback), sharedChassisPaths,
+                           0);
 }
 
 template <typename Callback>
