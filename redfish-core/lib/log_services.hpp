@@ -1083,10 +1083,13 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         "xyz.openbmc_project.Common.Error.InvalidArgument") ==
                     dbusError->name)
                 {
-                    messages::propertyValueIncorrect(asyncResp->res,
-                                                     "DiagnosticType",
-                                                     *oemDiagnosticDataType);
-                    return;
+                    if (oemDiagnosticDataType)
+                    {
+                        messages::propertyValueIncorrect(
+                            asyncResp->res, "DiagnosticType",
+                            *oemDiagnosticDataType);
+                        return;
+                    }
                 }
                 // NVIDIA code ends here
                 // Other Dbus errors such as:
