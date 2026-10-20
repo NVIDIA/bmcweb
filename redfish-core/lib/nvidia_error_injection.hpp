@@ -617,10 +617,15 @@ inline void patchChassisErrorInjectionData(
 inline void getProcessorErrorInjectionData(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& processorId)
+    const std::string& systemName, const std::string& processorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     getProcessor(aResp, processorId,
@@ -633,10 +638,15 @@ inline void getProcessorErrorInjectionData(
 inline void patchProcessorErrorInjectionData(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& processorId)
+    const std::string& systemName, const std::string& processorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
     auto properties = parseErrorInjectionJson(req, aResp);
@@ -1023,16 +1033,16 @@ inline void requestRoutesErrorInjection(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(getChassisActivateActionInfo, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Processors/<str>/Oem/Nvidia/ErrorInjection/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/ErrorInjection/")
         .privileges(redfish::privileges::getProcessorCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(getProcessorErrorInjectionData, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Processors/<str>/Oem/Nvidia/ErrorInjection/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/ErrorInjection/")
         .privileges(redfish::privileges::patchProcessorCollection)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(patchProcessorErrorInjectionData, std::ref(app)));

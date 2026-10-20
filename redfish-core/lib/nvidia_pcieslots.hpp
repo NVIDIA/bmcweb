@@ -100,14 +100,16 @@ inline nlohmann::json buildOem(
 // populated by other code paths are preserved.
 inline void attachOem(nlohmann::json& slotJson, const nlohmann::json& oem)
 {
-    if (oem.empty())
+    const nlohmann::json::object_t* oemObj =
+        oem.get_ptr<const nlohmann::json::object_t*>();
+    if (oemObj == nullptr || oemObj->empty())
     {
         return;
     }
     nlohmann::json& dst = slotJson["Oem"]["Nvidia"];
-    for (const auto& kv : oem.items())
+    for (const auto& [key, value] : *oemObj)
     {
-        dst[kv.key()] = kv.value();
+        dst[key] = value;
     }
 }
 

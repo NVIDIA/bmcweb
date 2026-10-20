@@ -1446,10 +1446,17 @@ inline void precheckOemDiagDataTypeAndCreateDump(
 
 inline void handleEventLogServicePatch(
     crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     std::optional<nlohmann::json> oemObject;
@@ -1507,9 +1514,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/LogServices/EventLog/")
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/EventLog/")
             .privileges(redfish::privileges::patchLogService)
             .methods(boost::beast::http::verb::patch)(
                 std::bind_front(handleEventLogServicePatch, std::ref(app)));

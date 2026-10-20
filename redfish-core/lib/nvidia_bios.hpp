@@ -889,8 +889,8 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_string())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                             key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -906,8 +906,8 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_boolean())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                             key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -934,8 +934,8 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         if (!propertyValueTypeValid)
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                             key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -953,8 +953,8 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res,
-                                                 attrJson[key].dump(), key);
+                messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                                 key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -973,8 +973,8 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res,
-                                                 attrJson[key].dump(), key);
+                messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                                 key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -992,22 +992,22 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_array())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
+                                             key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (attrJson[key].empty())
         {
             messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key].dump());
+                                             attrJson[key]);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (!attrJson[key][0].is_string())
         {
             messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key].dump());
+                                             attrJson[key]);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -1390,9 +1390,20 @@ inline void setBiosCurrentOrPendingAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json& pendingAttrJson, bool biosFlag)
 {
+    const nlohmann::json::object_t* pendingAttrObj =
+        pendingAttrJson.get_ptr<const nlohmann::json::object_t*>();
+    if (pendingAttrObj == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Attributes is not an object");
+        messages::propertyValueTypeError(asyncResp->res, pendingAttrJson,
+                                         "Attributes");
+        return;
+    }
+    std::shared_ptr<const nlohmann::json::object_t> pendingAttrMap =
+        std::make_shared<const nlohmann::json::object_t>(*pendingAttrObj);
     dbus::utility::getDbusObject(
         biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
-        [asyncResp, pendingAttrJson,
+        [asyncResp, pendingAttrMap,
          biosFlag](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -1404,7 +1415,7 @@ inline void setBiosCurrentOrPendingAttr(
             const std::string& biosService = objType.begin()->first;
             dbus::utility::getProperty<BaseBIOSTable>(
                 biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
-                [asyncResp, pendingAttrJson, biosService,
+                [asyncResp, pendingAttrMap, biosService,
                  biosFlag](const boost::system::error_code& ec2,
                            const BaseBIOSTable& baseBiosTableResp) {
                     if (ec2)
@@ -1417,17 +1428,17 @@ inline void setBiosCurrentOrPendingAttr(
                     auto baseBiosTable =
                         std::make_shared<BaseBIOSTable>(baseBiosTableResp);
                     PendingAttrType pendingAttrs{};
-                    for (const auto& pendingAttrIt : pendingAttrJson.items())
+                    for (const auto& pendingAttrIt : *pendingAttrMap)
                     {
                         // Check whether the requested attribute is available
                         // inside BaseBIOSTable or not
-                        auto attrIt = baseBiosTable->find(pendingAttrIt.key());
+                        auto attrIt = baseBiosTable->find(pendingAttrIt.first);
                         if (attrIt == baseBiosTable->end())
                         {
                             BMCWEB_LOG_ERROR("Not Found Attribute {}",
-                                             pendingAttrIt.key());
+                                             pendingAttrIt.first);
                             messages::propertyValueNotInList(
-                                asyncResp->res, pendingAttrIt.key(),
+                                asyncResp->res, pendingAttrIt.first,
                                 "Attributes");
                             return;
                         }
@@ -1471,10 +1482,10 @@ inline void setBiosCurrentOrPendingAttr(
                             }
 
                             std::string attrReqVal;
-                            if (pendingAttrIt.value().is_string())
+                            if (pendingAttrIt.second.is_string())
                             {
                                 attrReqVal =
-                                    pendingAttrIt.value().get<std::string>();
+                                    pendingAttrIt.second.get<std::string>();
                                 bool found =
                                     std::ranges::find(enumValues, attrReqVal) !=
                                     enumValues.end();
@@ -1484,32 +1495,31 @@ inline void setBiosCurrentOrPendingAttr(
                                         "Requested Attribute Value invalid");
                                     messages::propertyValueNotInList(
                                         asyncResp->res, attrReqVal,
-                                        pendingAttrIt.key());
+                                        pendingAttrIt.first);
                                     return;
                                 }
                             }
-                            else if (pendingAttrIt.value().is_number_integer())
+                            else if (pendingAttrIt.second.is_number_integer())
                             {
-                                if (!jsonFitsInt64(pendingAttrIt.value()))
+                                if (!jsonFitsInt64(pendingAttrIt.second))
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Requested Attribute Value out of range");
                                     messages::propertyValueOutOfRange(
-                                        asyncResp->res,
-                                        pendingAttrIt.value().dump(),
-                                        pendingAttrIt.key());
+                                        asyncResp->res, pendingAttrIt.second,
+                                        pendingAttrIt.first);
                                     return;
                                 }
                                 int64_t idx =
-                                    pendingAttrIt.value().get<int64_t>();
+                                    pendingAttrIt.second.get<int64_t>();
                                 if (idx < 0 || idx >= static_cast<int64_t>(
                                                           enumValues.size()))
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Requested Attribute Value invalid");
                                     messages::propertyValueOutOfRange(
-                                        asyncResp->res, pendingAttrIt.value(),
-                                        pendingAttrIt.key());
+                                        asyncResp->res, pendingAttrIt.second,
+                                        pendingAttrIt.first);
                                     return;
                                 }
                                 attrReqVal =
@@ -1520,9 +1530,8 @@ inline void setBiosCurrentOrPendingAttr(
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res,
-                                    pendingAttrIt.value().dump(),
-                                    pendingAttrIt.key());
+                                    asyncResp->res, pendingAttrIt.second,
+                                    pendingAttrIt.first);
                                 return;
                             }
 
@@ -1534,24 +1543,23 @@ inline void setBiosCurrentOrPendingAttr(
                             else
                             {
                                 pendingAttrs.insert(std::make_pair(
-                                    pendingAttrIt.key(),
+                                    pendingAttrIt.first,
                                     std::make_tuple(attrItType, attrReqVal)));
                             }
                         }
                         else if (attrType == "String")
                         {
-                            if (!pendingAttrIt.value().is_string())
+                            if (!pendingAttrIt.second.is_string())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res,
-                                    pendingAttrIt.value().dump(),
-                                    pendingAttrIt.key());
+                                    asyncResp->res, pendingAttrIt.second,
+                                    pendingAttrIt.first);
                                 return;
                             }
                             std::string attrReqVal =
-                                pendingAttrIt.value().get<std::string>();
+                                pendingAttrIt.second.get<std::string>();
 
                             {
                                 const std::vector<AttrBoundType> boundValues =
@@ -1623,7 +1631,7 @@ inline void setBiosCurrentOrPendingAttr(
                                         "Requested Attribute Value invalid");
                                     messages::propertyValueOutOfRange(
                                         asyncResp->res, attrReqVal,
-                                        pendingAttrIt.key());
+                                        pendingAttrIt.first);
                                     return;
                                 }
                             }
@@ -1636,24 +1644,23 @@ inline void setBiosCurrentOrPendingAttr(
                             else
                             {
                                 pendingAttrs.insert(std::make_pair(
-                                    pendingAttrIt.key(),
+                                    pendingAttrIt.first,
                                     std::make_tuple(attrItType, attrReqVal)));
                             }
                         }
                         else if (attrType == "Boolean")
                         {
-                            if (!pendingAttrIt.value().is_boolean())
+                            if (!pendingAttrIt.second.is_boolean())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res,
-                                    pendingAttrIt.value().dump(),
-                                    pendingAttrIt.key());
+                                    asyncResp->res, pendingAttrIt.second,
+                                    pendingAttrIt.first);
                                 return;
                             }
                             int64_t attrReqVal = static_cast<int64_t>(
-                                pendingAttrIt.value().get<bool>());
+                                pendingAttrIt.second.get<bool>());
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(
@@ -1662,34 +1669,32 @@ inline void setBiosCurrentOrPendingAttr(
                             else
                             {
                                 pendingAttrs.insert(std::make_pair(
-                                    pendingAttrIt.key(),
+                                    pendingAttrIt.first,
                                     std::make_tuple(attrItType, attrReqVal)));
                             }
                         }
                         else if (attrType == "Integer")
                         {
-                            if (!pendingAttrIt.value().is_number_integer())
+                            if (!pendingAttrIt.second.is_number_integer())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res,
-                                    pendingAttrIt.value().dump(),
-                                    pendingAttrIt.key());
+                                    asyncResp->res, pendingAttrIt.second,
+                                    pendingAttrIt.first);
                                 return;
                             }
-                            if (!jsonFitsInt64(pendingAttrIt.value()))
+                            if (!jsonFitsInt64(pendingAttrIt.second))
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value out of range");
                                 messages::propertyValueOutOfRange(
-                                    asyncResp->res,
-                                    pendingAttrIt.value().dump(),
-                                    pendingAttrIt.key());
+                                    asyncResp->res, pendingAttrIt.second,
+                                    pendingAttrIt.first);
                                 return;
                             }
                             int64_t attrReqVal =
-                                pendingAttrIt.value().get<int64_t>();
+                                pendingAttrIt.second.get<int64_t>();
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(
@@ -1698,7 +1703,7 @@ inline void setBiosCurrentOrPendingAttr(
                             else
                             {
                                 pendingAttrs.emplace(
-                                    pendingAttrIt.key(),
+                                    pendingAttrIt.first,
                                     std::make_tuple(attrItType, attrReqVal));
                             }
                         }
@@ -2200,7 +2205,7 @@ static void updateBiosAttrRegistry(
                                 attrIt.second)));
 
                         auto it = std::ranges::find_if(
-                            attributes, [&](const nlohmann::json& attr) {
+                            attributes, [&attrIt](const nlohmann::json& attr) {
                                 return attr["AttributeName"] == attrIt.first;
                             });
 
@@ -2349,10 +2354,17 @@ inline void handleBiosServicePut(
  */
 inline void handleBiosServicePatch(
     crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     if (req.session == nullptr)
@@ -2428,9 +2440,7 @@ inline void requestRoutesOemBios(App& app)
 
     if constexpr (BMCWEB_DPU_BIOS)
     {
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Systems/" +
-                         std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Bios/")
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/")
             .privileges(redfish::privileges::patchBios)
             .methods(boost::beast::http::verb::patch)(
                 std::bind_front(handleBiosServicePatch, std::ref(app)));
@@ -2743,7 +2753,8 @@ inline void handleBiosAttrRegistryPut(
                 return;
             }
             biosRegistryJson["Id"] = "BiosAttributeRegistry";
-            outputFile << biosRegistryJson.dump();
+            outputFile << biosRegistryJson.dump(
+                -1, ' ', false, nlohmann::json::error_handler_t::replace);
             outputFile.close();
 
             auto attributes = biosRegistryJson["RegistryEntries"]["Attributes"];

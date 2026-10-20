@@ -773,17 +773,21 @@ void getEthernetIfaceDataHost(
 
 inline void requestHostEthernetInterfacesRoutes(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/EthernetInterfaces/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/EthernetInterfaces/")
         .privileges(redfish::privileges::getEthernetInterfaceCollection)
         .methods(
             boost::beast::http::verb::
-                get)([&app](
-                         const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& systemName) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
 
@@ -842,16 +846,20 @@ inline void requestHostEthernetInterfacesRoutes(App& app)
                 {"xyz.openbmc_project.Network.EthernetInterface"});
         });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/EthernetInterfaces/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::getEthernetInterface)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& ifaceId) {
+                   const std::string& systemName, const std::string& ifaceId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getEthernetIfaceDataHost(

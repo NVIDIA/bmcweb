@@ -1069,9 +1069,10 @@ inline bool areTargetsInvalidOrUnupdatable(
         std::string softwarePath =
             "/xyz/openbmc_project/software/" + componentName;
 
-        if (std::ranges::any_of(swInvPaths, [&](const std::string& path) {
-                return path.find(softwarePath) != std::string::npos;
-            }))
+        if (std::ranges::any_of(
+                swInvPaths, [&softwarePath](const std::string& path) {
+                    return path.find(softwarePath) != std::string::npos;
+                }))
         {
             validTarget = true;
 

@@ -24,6 +24,7 @@
 #include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "http_response.hpp"
+#include "json_formatters.hpp"
 #include "logging.hpp"
 
 #include <app.hpp>
@@ -245,8 +246,7 @@ inline void handleDiagResultGet(
                     !item.contains("ResultMask") ||
                     !item["ResultMask"].is_array())
                 {
-                    BMCWEB_LOG_ERROR("Malformed DiagResult entry: {}",
-                                     item.dump());
+                    BMCWEB_LOG_ERROR("Malformed DiagResult entry: {}", item);
                     messages::internalError(asyncResp->res);
                     return;
                 }
@@ -255,7 +255,7 @@ inline void handleDiagResultGet(
                     if (!fitsInUnsigned<uint8_t>(maskByte))
                     {
                         BMCWEB_LOG_ERROR("Malformed DiagResult entry: {}",
-                                         item.dump());
+                                         item);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -551,7 +551,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if (!json.is_object())
     {
         BMCWEB_LOG_ERROR("{} is not an object: {}", processorDiagStateParam,
-                         json.dump());
+                         json);
         messages::actionParameterValueTypeError(
             aResp->res, json, processorDiagStateParam,
             setProcessorDiagModeAction);
@@ -561,14 +561,14 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const auto propIt = json.find(std::string(prop));
     if (propIt == json.end())
     {
-        BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json.dump());
+        BMCWEB_LOG_ERROR("Couldn't get {} from JSON {}", prop, json);
         messages::actionParameterMissing(aResp->res, setProcessorDiagModeAction,
                                          prop);
         return false;
     }
     if (!propIt->is_boolean())
     {
-        BMCWEB_LOG_ERROR("{} is not a boolean in JSON {}", prop, json.dump());
+        BMCWEB_LOG_ERROR("{} is not a boolean in JSON {}", prop, json);
         messages::actionParameterValueTypeError(aResp->res, *propIt, prop,
                                                 setProcessorDiagModeAction);
         return false;
@@ -726,8 +726,10 @@ inline bool validateDiagSysConfig(
             BMCWEB_LOG_ERROR(
                 "Config Type value exceeds maximum allowed limit of 1");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["ConfigType"].dump(), "ConfigType",
-                configProcessorDiagAction);
+                asyncResp->res,
+                item["ConfigType"].dump(
+                    -1, ' ', false, nlohmann::json::error_handler_t::replace),
+                "ConfigType", configProcessorDiagAction);
             return false;
         }
         if (item["TestDuration"].get<uint64_t>() > 255)
@@ -735,8 +737,10 @@ inline bool validateDiagSysConfig(
             BMCWEB_LOG_ERROR(
                 "TestDuration value exceeds maximum allowed limit of 255");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["TestDuration"].dump(), "TestDuration",
-                configProcessorDiagAction);
+                asyncResp->res,
+                item["TestDuration"].dump(
+                    -1, ' ', false, nlohmann::json::error_handler_t::replace),
+                "TestDuration", configProcessorDiagAction);
             return false;
         }
         // NSM_DIAG_MAX_DYNAMIC_DATA_SIZE (libnsm/diagnostics.h): reject
@@ -764,8 +768,11 @@ inline bool validateDiagSysConfig(
                 BMCWEB_LOG_ERROR(
                     "DynamicData value exceeds maximum allowed limit of 255");
                 messages::actionParameterValueOutOfRange(
-                    asyncResp->res, dynamicDataVal.dump(), "DynamicData",
-                    configProcessorDiagAction);
+                    asyncResp->res,
+                    dynamicDataVal.dump(
+                        -1, ' ', false,
+                        nlohmann::json::error_handler_t::replace),
+                    "DynamicData", configProcessorDiagAction);
                 return false;
             }
         }
@@ -783,7 +790,8 @@ inline bool handleDiagSysConfigPostReq(
         return false;
     }
 
-    std::string jsonString = diagSysConfigCap.dump();
+    std::string jsonString = diagSysConfigCap.dump(
+        -1, ' ', false, nlohmann::json::error_handler_t::replace);
 
     dbus::utility::setProperty(
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
@@ -843,8 +851,10 @@ inline bool validateDiagTidConfig(
         {
             BMCWEB_LOG_ERROR("Tid value exceeds maximum allowed limit of 255");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["Tid"].dump(), "Tid",
-                configProcessorDiagTidAction);
+                asyncResp->res,
+                item["Tid"].dump(-1, ' ', false,
+                                 nlohmann::json::error_handler_t::replace),
+                "Tid", configProcessorDiagTidAction);
             return false;
         }
         if (item["TestDuration"].get<uint64_t>() > 255)
@@ -852,8 +862,10 @@ inline bool validateDiagTidConfig(
             BMCWEB_LOG_ERROR(
                 "TestDuration value exceeds maximum allowed limit of 255");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["TestDuration"].dump(), "TestDuration",
-                configProcessorDiagTidAction);
+                asyncResp->res,
+                item["TestDuration"].dump(
+                    -1, ' ', false, nlohmann::json::error_handler_t::replace),
+                "TestDuration", configProcessorDiagTidAction);
             return false;
         }
         if (item["Loops"].get<uint64_t>() > 65535)
@@ -861,8 +873,10 @@ inline bool validateDiagTidConfig(
             BMCWEB_LOG_ERROR(
                 "Loops value exceeds maximum allowed limit of 65535");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["Loops"].dump(), "Loops",
-                configProcessorDiagTidAction);
+                asyncResp->res,
+                item["Loops"].dump(-1, ' ', false,
+                                   nlohmann::json::error_handler_t::replace),
+                "Loops", configProcessorDiagTidAction);
             return false;
         }
         if (item["LogLevel"].get<uint64_t>() > 255)
@@ -870,8 +884,10 @@ inline bool validateDiagTidConfig(
             BMCWEB_LOG_ERROR(
                 "LogLevel value exceeds maximum allowed limit of 255");
             messages::actionParameterValueOutOfRange(
-                asyncResp->res, item["LogLevel"].dump(), "LogLevel",
-                configProcessorDiagTidAction);
+                asyncResp->res,
+                item["LogLevel"].dump(-1, ' ', false,
+                                      nlohmann::json::error_handler_t::replace),
+                "LogLevel", configProcessorDiagTidAction);
             return false;
         }
         unsigned tidValue = item["Tid"].get<unsigned>();
@@ -907,8 +923,11 @@ inline bool validateDiagTidConfig(
                 BMCWEB_LOG_ERROR(
                     "DynamicData value exceeds maximum allowed limit of 255");
                 messages::actionParameterValueOutOfRange(
-                    asyncResp->res, dynamicDataVal.dump(), "DynamicData",
-                    configProcessorDiagTidAction);
+                    asyncResp->res,
+                    dynamicDataVal.dump(
+                        -1, ' ', false,
+                        nlohmann::json::error_handler_t::replace),
+                    "DynamicData", configProcessorDiagTidAction);
                 return false;
             }
         }
@@ -924,7 +943,8 @@ inline bool handleDiagTidConfigPostReq(
         BMCWEB_LOG_ERROR("DiagTidConfig Json is not proper");
         return false;
     }
-    std::string jsonString = diagTidConfigCap.dump();
+    std::string jsonString = diagTidConfigCap.dump(
+        -1, ' ', false, nlohmann::json::error_handler_t::replace);
 
     dbus::utility::setProperty(
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",

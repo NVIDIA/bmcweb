@@ -724,7 +724,6 @@ TEST(hashJsonWithoutKey, HashObject)
     EXPECT_EQ(originalHash, hashJsonWithoutKey(obj, "other"));
 
     nlohmann::json modifiedObj;
-    // ast-grep-ignore: bmcweb.common-errors.throwing-json-items
     for (const auto& element : obj.items())
     {
         // Hash with ignored key is different from original hash

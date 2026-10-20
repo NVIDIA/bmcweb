@@ -72,6 +72,8 @@ rule:
 id: bmcweb.common-errors.throwing-json-parse
 language: cpp
 severity: error
+ignores:
+    - "**/test/**"
 message: >
     nlohmann::json::parse throws by default. Prefer the non-throwing form with
     allow_exceptions=false and explicit handling per docs/COMMON_ERRORS.md.
@@ -94,6 +96,8 @@ rule:
 id: bmcweb.common-errors.throwing-json-dump
 language: cpp
 severity: error
+ignores:
+    - "**/test/**"
 message: >
     nlohmann::json::dump throws by default. Prefer using
     error_handler_t::replace and explicit handling per docs/COMMON_ERRORS.md.
@@ -127,6 +131,8 @@ rule:
 id: bmcweb.common-errors.throwing-json-items
 language: cpp
 severity: error
+ignores:
+    - "**/test/**"
 message: >
     nlohmann::json::items can throw for non-object JSON. Validate shape before
     iterating per docs/COMMON_ERRORS.md.

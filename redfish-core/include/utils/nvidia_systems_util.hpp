@@ -143,7 +143,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         BMCWEB_LOG_DEBUG("New BootOrder length is incorrect");
                         messages::propertyValueIncorrect(
                             aResp->res, "Boot/BootOrder",
-                            nlohmann::json(bootOrder).dump());
+                            nlohmann::json(bootOrder));
                         return;
                     }
                     // Check every bootReference of acitve BootOrder
@@ -158,7 +158,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                              bootReference);
                             messages::propertyValueIncorrect(
                                 aResp->res, "Boot/BootOrder",
-                                nlohmann::json(bootOrder).dump());
+                                nlohmann::json(bootOrder));
                             return;
                         }
                     }

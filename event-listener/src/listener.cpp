@@ -23,6 +23,7 @@
 #include <sdbusplus/server/manager.hpp>
 
 #include <algorithm>
+#include <charconv>
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
@@ -513,7 +514,15 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     const auto address = net::ip::make_address(argv[1]);
-    const auto port = static_cast<unsigned short>(std::atoi(argv[2]));
+    unsigned short port = 0;
+    std::string_view portStr(argv[2]);
+    auto [ptr, ec] =
+        std::from_chars(portStr.data(), portStr.data() + portStr.size(), port);
+    if (ec != std::errc() || ptr != portStr.data() + portStr.size())
+    {
+        std::cerr << "Invalid port: " << argv[2] << "\n";
+        return EXIT_FAILURE;
+    }
     std::string host(argv[1]);
     host += std::string(":");
     host += std::string(argv[2]);

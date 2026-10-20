@@ -427,14 +427,19 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
     const Json emptyJson{};
 
     auto entries = data.value("FwUuidMap", emptyJson);
-    for (const auto& element : entries.items())
+    const Json::object_t* entriesObj = entries.get_ptr<const Json::object_t*>();
+    if (entriesObj == nullptr)
+    {
+        return allowableValues;
+    }
+    for (const auto& element : *entriesObj)
     {
         try
         {
             CommitImageValueEntry allowableVal;
 
-            allowableVal.inventoryUri = element.key();
-            allowableVal.uuid = static_cast<std::string>(element.value());
+            allowableVal.inventoryUri = element.first;
+            allowableVal.uuid = static_cast<std::string>(element.second);
 
             allowableValues.push_back(allowableVal);
         }

@@ -163,7 +163,8 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
                 nlohmann::json postJson = {{"Destination", dest},
                                            {"Protocol", "Redfish"}};
 
-                auto data = postJson.dump();
+                auto data = postJson.dump(
+                    -1, ' ', false, nlohmann::json::error_handler_t::replace);
                 url.set_path(path);
                 client->sendDataWithCallback(
                     std::move(data), url, ensuressl::VerifyCertificate::Verify,

@@ -14,4 +14,6 @@ rule:
 constraints:
     ROUTE:
         not:
-            kind: string_literal
+            any:
+                - kind: string_literal
+                - kind: concatenated_string

@@ -128,7 +128,14 @@ inline void enableTLSAuth()
     {
         if (!std::filesystem::exists(dropinDir))
         {
-            std::filesystem::create_directory(dropinDir);
+            std::error_code ec;
+            std::filesystem::create_directory(dropinDir, ec);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "TLSAuthEnable drop-in socket configuration file: {}",
+                    ec.message());
+            }
         }
         std::ofstream out(confPath.string());
         out << "[Socket]" << '\n';
@@ -1010,15 +1017,22 @@ inline void requestRoutesNvidiaAsyncOOBRawCommandActionInfo(App& app)
 
 inline void requestRouteSyncRawOobCommand(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
-                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                          "/Actions/Oem/NvidiaManager.SyncOOBRawCommand/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.SyncOOBRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
 
@@ -1133,15 +1147,22 @@ inline void requestRouteSyncRawOobCommand(App& app)
 
 inline void requestRouteAsyncRawOobCommand(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
-                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                          "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.AsyncOOBRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
 

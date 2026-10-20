@@ -92,8 +92,12 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
     }
     if (debug)
     {
-        BMCWEB_LOG_DEBUG("jIn:\n", jIn.dump());
-        BMCWEB_LOG_DEBUG("jOut:\n", jOut.dump());
+        BMCWEB_LOG_DEBUG(
+            "jIn:\n",
+            jIn.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+        BMCWEB_LOG_DEBUG("jOut:\n",
+                         jOut.dump(-1, ' ', false,
+                                   nlohmann::json::error_handler_t::replace));
         BMCWEB_LOG_DEBUG(
             "---------------------------------------------------------------------\n\n\n\n");
     }

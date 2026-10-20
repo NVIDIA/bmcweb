@@ -255,10 +255,17 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
     }
 
     void setAction(crow::App& app, const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName)
     {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -1923,25 +1930,22 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/HostRshim.Set/")
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Actions/HostRshim.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
                                 &bluefield::hostRshim, std::ref(app)));
 
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/LFWP.Set/")
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/<str>/Oem/Nvidia/Actions/LFWP.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
                                 &bluefield::lfwp, std::ref(app)));
 
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/Mode.Set/")
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/<str>/Oem/Nvidia/Actions/Mode.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
@@ -1949,9 +1953,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
         BMCWEB_ROUTE(
             app,
-            "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set/")
+            "/redfish/v1/Systems/<str>/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(std::bind_front(
                 &bluefield::DpuActionSetAndGetProp::setAction,
@@ -2078,15 +2080,21 @@ inline void requestRoutesNvidiaOemBf(App& app)
             });
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Connectx/StrapOptions/")
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Connectx/StrapOptions/")
             .privileges(redfish::privileges::getComputerSystem)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& systemName) {
                     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                     {
+                        return;
+                    }
+                    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "ComputerSystem", systemName);
                         return;
                     }
                     auto& strapOptionsJson =
@@ -2098,15 +2106,22 @@ inline void requestRoutesNvidiaOemBf(App& app)
                     bluefield::starpOptionsMask.getProperty(&mask, asyncResp);
                 });
 
-        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Connectx/ExternalHostPrivileges/")
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/Systems/<str>/Oem/Nvidia/Connectx/ExternalHostPrivileges/")
             .privileges(redfish::privileges::getComputerSystem)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& systemName) {
                     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                     {
+                        return;
+                    }
+                    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "ComputerSystem", systemName);
                         return;
                     }
                     auto& hostPriv =

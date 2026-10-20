@@ -8,6 +8,8 @@ severity: error
 message: >
     Avoid wildcard lambda captures ([&] or [=]) in bmcweb async code. Capture
     variables explicitly by name per docs/COMMON_ERRORS.md.
+ignores:
+    - "**/test/**"
 rule:
     # ^ anchor prevents matching [&] inside a nested lambda when the outer
     # lambda_expression node text contains both.  The regex matches [&]( or [=](

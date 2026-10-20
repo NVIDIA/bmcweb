@@ -472,9 +472,12 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
                             }
                         }
                     }
-                    nlohmann::json::array_t& arrRef =
-                        entriesArray.get_ref<nlohmann::json::array_t&>();
-                    redfish::json_util::sortJsonArrayByKey(arrRef, "Id");
+                    nlohmann::json::array_t* arrPtr =
+                        entriesArray.get_ptr<nlohmann::json::array_t*>();
+                    if (arrPtr != nullptr)
+                    {
+                        redfish::json_util::sortJsonArrayByKey(*arrPtr, "Id");
+                    }
                     asyncResp->res.jsonValue["Members@odata.count"] =
                         entriesArray.size();
                 },

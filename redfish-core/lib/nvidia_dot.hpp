@@ -1072,7 +1072,7 @@ inline bool parseKeyStructure(
 
     if (!keyJson.is_object())
     {
-        messages::actionParameterValueTypeError(res, keyJson.dump(), actionName,
+        messages::actionParameterValueTypeError(res, keyJson, actionName,
                                                 keyName);
         return false;
     }
@@ -1458,7 +1458,7 @@ inline bool parseSignatureStructure(
 {
     if (!sigJson.is_object())
     {
-        messages::actionParameterValueTypeError(res, sigJson.dump(), actionName,
+        messages::actionParameterValueTypeError(res, sigJson, actionName,
                                                 sigName);
         return false;
     }

@@ -43,6 +43,7 @@ inline void handleSetUpRedfishRoute(
 
 inline void requestRoutes(App& app)
 {
+    // ast-grep-ignore: bmcweb.common-errors.route-constructed-in-aggregate
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
                           std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
                           "<str>/LogServices/Dump/Entries/<str>/attachment/")
@@ -50,6 +51,7 @@ inline void requestRoutes(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleSetUpRedfishRoute, std::ref(app), "BMC"));
 
+    // ast-grep-ignore: bmcweb.common-errors.route-constructed-in-aggregate
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
                           "<str>/LogServices/Dump/Entries/<str>/attachment/")
@@ -59,6 +61,7 @@ inline void requestRoutes(App& app)
 
     if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
     {
+        // ast-grep-ignore: bmcweb.common-errors.route-constructed-in-aggregate
         BMCWEB_ROUTE(app,
                      "/redfish/v1/Systems/" +
                          std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +

@@ -653,16 +653,23 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     /**
      * Functions triggers appropriate requests on DBus
      */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 validateProcessorAndGetWorkloadPowerInfo(asyncResp,
@@ -671,15 +678,21 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles/")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<std::string> profileMaskAsStr;
@@ -707,15 +720,21 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/EnableProfilesActionInfo/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/EnableProfilesActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::string actionInfoURI =
@@ -743,15 +762,21 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles/")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
 
@@ -779,16 +804,22 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/DisableProfilesActionInfo/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/DisableProfilesActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& systemName,
                             const std::string& processorId) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::string actionInfoURI =
@@ -820,15 +851,21 @@ inline void requestRoutesProcessorWorkloadPowerProfileCollection(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Profiles/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Profiles/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 getProcessorWorkloadPowerProfileCollectionData(asyncResp,
@@ -843,16 +880,22 @@ inline void requestRoutesProcessorWorkloadPowerProfile(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Profiles/<str>/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Profiles/<str>/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId,
                    const std::string& profileId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 validateProcessorWorkloadPowerProfile(asyncResp, processorId,

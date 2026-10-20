@@ -69,7 +69,8 @@ inline void updateResolution(
         }
         else
         {
-            oldResolution = oldResJson.dump();
+            oldResolution = oldResJson.dump(
+                -1, ' ', false, nlohmann::json::error_handler_t::replace);
         }
         resolution = oldResolution + resolution;
         extendedInfoArr[0]["Resolution"] = resolution;
@@ -115,7 +116,8 @@ inline std::string composeMessage(const std::string& messageId,
             }
             else
             {
-                argVal = arg.dump();
+                argVal = arg.dump(-1, ' ', false,
+                                  nlohmann::json::error_handler_t::replace);
             }
             message.replace(argPos, argStr.length(), argVal);
         }

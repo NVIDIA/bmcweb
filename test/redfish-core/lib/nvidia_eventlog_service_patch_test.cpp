@@ -90,7 +90,8 @@ TEST(NvidiaEventLogServicePatch, OemWithoutNvidiaChangesNothing)
     App app;
     crow::Request req = eventLogPatchRequest(R"({"Oem":{}})");
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    handleEventLogServicePatch(app, req, asyncResp);
+    handleEventLogServicePatch(app, req, asyncResp,
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
     EXPECT_EQ(firstMessageId(asyncResp->res.jsonValue), nullptr);
 }
@@ -100,7 +101,8 @@ TEST(NvidiaEventLogServicePatch, EmptyNvidiaChangesNothing)
     App app;
     crow::Request req = eventLogPatchRequest(R"({"Oem":{"Nvidia":{}}})");
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    handleEventLogServicePatch(app, req, asyncResp);
+    handleEventLogServicePatch(app, req, asyncResp,
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
     EXPECT_EQ(firstMessageId(asyncResp->res.jsonValue), nullptr);
 }
@@ -110,7 +112,8 @@ TEST(NvidiaEventLogServicePatch, UnknownOemPropertyIsRejected)
     App app;
     crow::Request req = eventLogPatchRequest(R"({"Oem":{"Bogus":true}})");
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    handleEventLogServicePatch(app, req, asyncResp);
+    handleEventLogServicePatch(app, req, asyncResp,
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
     const std::string* id = firstMessageId(asyncResp->res.jsonValue);
     ASSERT_NE(id, nullptr);
@@ -123,7 +126,8 @@ TEST(NvidiaEventLogServicePatch, UnknownNvidiaPropertyIsRejected)
     crow::Request req =
         eventLogPatchRequest(R"({"Oem":{"Nvidia":{"Bogus":true}}})");
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    handleEventLogServicePatch(app, req, asyncResp);
+    handleEventLogServicePatch(app, req, asyncResp,
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
     const std::string* id = firstMessageId(asyncResp->res.jsonValue);
     ASSERT_NE(id, nullptr);
@@ -135,7 +139,8 @@ TEST(NvidiaEventLogServicePatch, NonObjectOemIsRejected)
     App app;
     crow::Request req = eventLogPatchRequest(R"({"Oem":"Nvidia"})");
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-    handleEventLogServicePatch(app, req, asyncResp);
+    handleEventLogServicePatch(app, req, asyncResp,
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
 }
 

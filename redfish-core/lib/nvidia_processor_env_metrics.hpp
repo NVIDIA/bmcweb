@@ -332,16 +332,21 @@ inline void requestRoutesEdppReset(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/"
-            "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName,
                    const std::string& processorId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 redfish::processor_utils::getProcessorObject(

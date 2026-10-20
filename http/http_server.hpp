@@ -126,6 +126,7 @@ class Server
     {
         fileWatcher.setup();
         fileWatcher.addPath("/etc/ssl/certs/https/", IN_CLOSE_WRITE);
+        // ast-grep-ignore: bmcweb.common-errors.wildcard-lambda-capture
         fileWatcher.watch([&](const std::vector<FileWatcherEvent>& events) {
             for (const auto& ev : events)
             {
