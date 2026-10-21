@@ -1925,7 +1925,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
     {
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/HostRshim.Set")
+                              "/Oem/Nvidia/Actions/HostRshim.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
@@ -1933,7 +1933,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/LFWP.Set")
+                              "/Oem/Nvidia/Actions/LFWP.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
@@ -1941,7 +1941,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/Mode.Set")
+                              "/Oem/Nvidia/Actions/Mode.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
@@ -1951,7 +1951,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
             app,
             "/redfish/v1/Systems/" +
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set")
+                "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(std::bind_front(
                 &bluefield::DpuActionSetAndGetProp::setAction,
@@ -2080,7 +2080,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
     {
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Connectx/StrapOptions")
+                              "/Oem/Nvidia/Connectx/StrapOptions/")
             .privileges(redfish::privileges::getComputerSystem)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,
@@ -2100,7 +2100,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Connectx/ExternalHostPrivileges")
+                              "/Oem/Nvidia/Connectx/ExternalHostPrivileges/")
             .privileges(redfish::privileges::getComputerSystem)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,

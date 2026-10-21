@@ -14,6 +14,6 @@ constraints:
     ROUTE:
         # Match route strings that start with "/" but do not end with "/".
         # Exclude <path> captures which should not have a trailing slash.
-        regex: ^"\/.*[^\/]"$
+        regex: (?s)^"\/.*[^\/]"$
         not:
             regex: "<path>"

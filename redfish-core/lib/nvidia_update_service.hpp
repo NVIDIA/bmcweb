@@ -2848,7 +2848,7 @@ inline void requestRoutesNvidiaUpdateService(App& app)
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/Actions/Oem/"
-             "NvidiaSoftwareInventory.ComputeDigest")
+             "NvidiaSoftwareInventory.ComputeDigest/")
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleComputeDigestPost, std::ref(app)));

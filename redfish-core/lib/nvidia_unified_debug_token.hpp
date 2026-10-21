@@ -709,27 +709,27 @@ inline void requestRoutesUnifiedDebugToken(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleUnifiedTokenStatus, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>"
-                      "/Oem/Nvidia/EraseTokenActionInfo")
+                      "/Oem/Nvidia/EraseTokenActionInfo/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleEraseTokenActionInfo, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>"
-                      "/token")
+                      "/token/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleTokenDataGet, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>"
-                      "/Actions/Oem/NvidiaTrustedComponent.EraseToken")
+                      "/Actions/Oem/NvidiaTrustedComponent.EraseToken/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleUnifiedEraseToken, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>"
-                      "/Actions/Oem/NvidiaTrustedComponent.GenerateToken")
+                      "/Actions/Oem/NvidiaTrustedComponent.GenerateToken/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleUnifiedGenerateTokenRequest, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/TrustedComponents/<str>"
-                      "/install-token")
+                      "/install-token/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleUnifiedInstallToken, std::ref(app)));
