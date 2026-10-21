@@ -10,6 +10,7 @@
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_manager_logservices_journal.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utility.hpp"
@@ -70,6 +71,7 @@ inline void handleManagersLogServiceJournalGet(
         BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     etag_utils::setEtagOmitDateTimeHandler(asyncResp);
+    getJournalSyslogFilters(asyncResp);
 }
 
 inline void readJournalEntries(
@@ -322,6 +324,8 @@ inline void requestRoutesBMCJournalLogService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleManagersLogServiceJournalGet, std::ref(app)));
+
+    requestRoutesJournalSyslogFilters(app);
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/LogServices/Journal/Entries/")
         .privileges(redfish::privileges::getLogEntryCollection)
