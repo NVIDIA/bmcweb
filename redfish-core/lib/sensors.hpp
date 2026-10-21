@@ -2475,6 +2475,104 @@ inline void handleSensorCollectionGet(
                                chassisId, sensors::sensorsNodeStr));
 }
 
+inline void sensorPropertiesToJson(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath,
+    const ::dbus::utility::DBusPropertiesMap& sensorProperties,
+    InventoryItem* inventoryItem)
+{
+    sdbusplus::object_path path(sensorPath);
+    std::string name = path.filename();
+    path = path.parent_path();
+    std::string type = path.filename();
+    sensor_utils::objectPropertiesToJson(
+        name, type, sensor_utils::ChassisSubNode::sensorsNode, sensorProperties,
+        asyncResp->res.jsonValue, inventoryItem);
+}
+
+inline void afterGetSensorInventoryPresence(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& inventoryPath, const std::string& sensorPath,
+    const std::shared_ptr<::dbus::utility::DBusPropertiesMap>& sensorProperties,
+    const boost::system::error_code& ec, bool present)
+{
+    // Optional inventory may disappear after the mapper lookup.
+    if (ec.value() == EBADR)
+    {
+        sensorPropertiesToJson(asyncResp, sensorPath, *sensorProperties,
+                               nullptr);
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Failed to read sensor inventory presence: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    InventoryItem inventoryItem(inventoryPath);
+    inventoryItem.isPresent = present;
+    sensorPropertiesToJson(asyncResp, sensorPath, *sensorProperties,
+                           &inventoryItem);
+}
+
+inline void afterGetSensorInventorySubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath,
+    const std::shared_ptr<::dbus::utility::DBusPropertiesMap>& sensorProperties,
+    const boost::system::error_code& ec,
+    const ::dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        if (ec.value() == EBADR)
+        {
+            sensorPropertiesToJson(asyncResp, sensorPath, *sensorProperties,
+                                   nullptr);
+            return;
+        }
+        BMCWEB_LOG_ERROR("Failed to get sensor inventory subtree: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // Missing associations and endpoints without Inventory.Item are optional.
+    if (subtree.empty())
+    {
+        sensorPropertiesToJson(asyncResp, sensorPath, *sensorProperties,
+                               nullptr);
+        return;
+    }
+
+    const auto& [inventoryPath, services] = subtree.front();
+    if (services.empty())
+    {
+        sensorPropertiesToJson(asyncResp, sensorPath, *sensorProperties,
+                               nullptr);
+        return;
+    }
+
+    const std::string& service = services.front().first;
+    ::dbus::utility::getProperty<bool>(
+        service, inventoryPath, "xyz.openbmc_project.Inventory.Item", "Present",
+        std::bind_front(afterGetSensorInventoryPresence, asyncResp,
+                        inventoryPath, sensorPath, sensorProperties));
+}
+
+inline void getSensorInventory(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath,
+    const std::shared_ptr<::dbus::utility::DBusPropertiesMap>& sensorProperties)
+{
+    sdbusplus::object_path associationPath(sensorPath);
+    associationPath /= "inventory";
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Inventory.Item"};
+    ::dbus::utility::getAssociatedSubTree(
+        associationPath, sdbusplus::object_path("/"), 0, interfaces,
+        std::bind_front(afterGetSensorInventorySubtree, asyncResp, sensorPath,
+                        sensorProperties));
+}
+
 inline void getSensorFromDbus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& sensorPath,
@@ -2501,13 +2599,10 @@ inline void getSensorFromDbus(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            sdbusplus::object_path path(sensorPath);
-            std::string name = path.filename();
-            path = path.parent_path();
-            std::string type = path.filename();
-            sensor_utils::objectPropertiesToJson(
-                name, type, sensor_utils::ChassisSubNode::sensorsNode,
-                valuesDict, asyncResp->res.jsonValue, nullptr);
+            auto sensorProperties =
+                std::make_shared<::dbus::utility::DBusPropertiesMap>(
+                    valuesDict);
+            getSensorInventory(asyncResp, sensorPath, sensorProperties);
         });
 }
 
