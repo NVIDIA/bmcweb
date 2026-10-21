@@ -1087,10 +1087,20 @@ class Connection :
         {
             urlView = req->url();
         }
+
+        const bool isFileBacked = res.response.body().file().is_open();
+        if (isFileBacked)
+        {
+            // The socket is closed once a streamed body is written (see
+            // afterDoWrite), so tell the client not to reuse it. Otherwise a
+            // keep-alive client sends its next request on a dead connection.
+            keepAlive = false;
+            res.keepAlive(false);
+        }
         res.preparePayload(urlView, chunked);
 
         // Per-chunk loop resets the stall timer; async_write would time out.
-        if (res.response.body().file().is_open())
+        if (isFileBacked)
         {
             responseWasStreaming = true;
             // NVIDIA code start

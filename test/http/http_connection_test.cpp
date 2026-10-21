@@ -26,6 +26,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -158,6 +160,98 @@ TEST(http_connection, RequestPropogates)
     // Nvidia code ends here
     EXPECT_EQ(outStr, expected);
     EXPECT_TRUE(clock.wascalled);
+}
+
+struct FileHandler
+{
+    template <typename Adaptor>
+    static void handleUpgrade(
+        const std::shared_ptr<Request>& /*req*/,
+        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
+        Adaptor&& /*adaptor*/)
+    {
+        EXPECT_FALSE(true);
+    }
+
+    static void handleHeaders(
+        const std::shared_ptr<Request>& /*req*/,
+        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
+        std::move_only_function<void()> headersCompleteCallback)
+    {
+        headersCompleteCallback();
+    }
+
+    void handle(const std::shared_ptr<Request>& /*req*/,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) const
+    {
+        EXPECT_EQ(asyncResp->res.openFile(path), crow::OpenCode::Success);
+    }
+
+    static bool handleAuthFailed(
+        const std::shared_ptr<Request>& /*req*/,
+        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/)
+    {
+        return false;
+    }
+
+    std::filesystem::path path;
+};
+
+TEST(http_connection, FileResponseToKeepAliveClientSendsConnectionClose)
+{
+    std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "bmcweb_file_response_test";
+    {
+        std::ofstream file(path);
+        file << "file body";
+    }
+
+    boost::asio::io_context io;
+    ClockFake clock;
+    TestStream stream(io);
+    TestStream out(io);
+    stream.connect(out);
+
+    out.write_some(boost::asio::buffer("GET / HTTP/1.1\r\n"
+                                       "Host: openbmc_project.xyz\r\n"
+                                       "Connection: keep-alive\r\n\r\n"));
+    FileHandler handler;
+    handler.path = path;
+    boost::asio::steady_timer timer(io);
+    std::function<std::string()> date(
+        std::bind_front(&ClockFake::getDateStr, &clock));
+
+    boost::asio::ssl::context context{boost::asio::ssl::context::tls};
+    std::shared_ptr<Connection<TestStream, FileHandler>> conn =
+        std::make_shared<Connection<TestStream, FileHandler>>(
+            &handler, HttpType::HTTP, std::move(timer), date,
+            boost::asio::ssl::stream<TestStream>(std::move(stream), context));
+    conn->disableAuth();
+    conn->start();
+
+    // Streamed responses close the socket after the body, so the client must
+    // be told not to reuse the connection.
+    std::string outStr;
+    bool sawBody = false;
+    for (size_t operation = 0; operation < 1000; operation++)
+    {
+        if (io.run_one() == 0)
+        {
+            break;
+        }
+        outStr = out.str();
+        if (outStr.find("file body") != std::string::npos)
+        {
+            sawBody = true;
+            break;
+        }
+    }
+    std::filesystem::remove(path);
+    ASSERT_TRUE(sawBody) << outStr;
+    EXPECT_NE(outStr.find("Connection: close\r\n"), std::string::npos)
+        << outStr;
+    EXPECT_EQ(outStr.find("Connection: keep-alive"), std::string::npos)
+        << outStr;
 }
 
 TEST(http_connection, AuthFailedCallsHandler)
