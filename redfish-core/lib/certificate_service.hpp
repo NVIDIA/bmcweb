@@ -794,10 +794,15 @@ inline void handleGenerateCSRAction(
             asyncResp->res, "KeyPairAlgorithm", "GenerateCSR");
         return;
     }
-    // supporting only up to 3072 bits for key bit length for
-    // RSA algorithm due to time consumed in generating private key
-    if (*optKeyPairAlgorithm == "RSA" && *optKeyBitLength > rsaKeyBitLength)
+    // supporting only 3072 bits for key bit length for
+    // RSA algorithm due to time consumed in generating private key.
+    // Reject anything else here instead of letting CSR generation
+    // fail later with an internal error.
+    if (*optKeyPairAlgorithm == "RSA" && *optKeyBitLength != rsaKeyBitLength)
     {
+        BMCWEB_LOG_ERROR(
+            "GenerateCSR: KeyBitLength {} is not supported, supported RSA KeyBitLength: {}",
+            *optKeyBitLength, rsaKeyBitLength);
         messages::propertyValueNotInList(
             asyncResp->res, std::to_string(*optKeyBitLength), "KeyBitLength");
         return;
