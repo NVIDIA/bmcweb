@@ -341,12 +341,24 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
     void extendTimer(const std::chrono::seconds& timeout)
     {
+        // A task that already reached a terminal state must not be re-armed.
+        // A progress update that is dispatched after the final status (e.g.
+        // Progress=100 right behind Status=Completed) would otherwise let the
+        // timer expire and report TaskCancelled for a task that completed.
+        if (endTime.has_value())
+        {
+            return;
+        }
         timer.expires_after(timeout);
         timer.async_wait(
             [self = shared_from_this()](boost::system::error_code ec) {
                 if (ec == boost::asio::error::operation_aborted)
                 {
                     return; // completed successfully
+                }
+                if (self->endTime.has_value())
+                {
+                    return; // already finished, nothing left to cancel
                 }
                 if (!ec)
                 {

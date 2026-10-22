@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/system/error_code.hpp>
@@ -30,6 +31,10 @@
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -200,6 +205,54 @@ TEST_F(ProcessProgressPropertiesTest, BothProgressAndStatusProcessed)
     EXPECT_EQ(taskData->state, "Completed");
     EXPECT_EQ(taskData->percentComplete, 100);
     EXPECT_FALSE(taskData->messages.empty());
+}
+
+TEST_F(ProcessProgressPropertiesTest, ProgressAfterFinishedTaskIsIgnored)
+{
+    std::shared_ptr<task::TaskData> taskData = createTestTask();
+    dbus::utility::DBusPropertiesMap done = makeStatusProps(
+        "xyz.openbmc_project.Common.Progress.OperationStatus.Completed");
+    ASSERT_TRUE(processProgressProperties(done, taskData));
+    // The match handler finishes the task once the callback returns completed.
+    taskData->finishTask();
+
+    // Progress=100 is delivered right behind Status=Completed.
+    dbus::utility::DBusPropertiesMap props = makeProgressProps(100);
+    bool result = processProgressProperties(props, taskData);
+
+    EXPECT_FALSE(result);
+    EXPECT_EQ(taskData->state, "Completed");
+    // The timer must not have been re-armed (default expiry is the epoch).
+    EXPECT_EQ(taskData->timer.expiry(),
+              boost::asio::steady_timer::time_point{});
+}
+
+TEST_F(ProcessProgressPropertiesTest, StatusAfterFinishedTaskIsIgnored)
+{
+    std::shared_ptr<task::TaskData> taskData = createTestTask();
+    taskData->state = "Completed";
+    taskData->finishTask();
+
+    dbus::utility::DBusPropertiesMap props = makeStatusProps(
+        "xyz.openbmc_project.Common.Progress.OperationStatus.Failed");
+    bool result = processProgressProperties(props, taskData);
+
+    // No second completion, no state change.
+    EXPECT_FALSE(result);
+    EXPECT_EQ(taskData->state, "Completed");
+}
+
+TEST_F(ProcessProgressPropertiesTest, ExtendTimerOnFinishedTaskDoesNotArm)
+{
+    std::shared_ptr<task::TaskData> taskData = createTestTask();
+    taskData->state = "Completed";
+    taskData->finishTask();
+
+    taskData->extendTimer(std::chrono::seconds(0));
+    ioc.run_for(std::chrono::milliseconds(100));
+
+    // Before the fix the timer expired and flipped the task to Cancelled.
+    EXPECT_EQ(taskData->state, "Completed");
 }
 
 TEST_F(ProcessProgressPropertiesTest,
