@@ -4,7 +4,7 @@
 
 #include "async_resp.hpp"
 #include "error_messages.hpp"
-#include "nvidia_error_messages.hpp"
+#include "logging.hpp"
 
 #include <memory>
 #include <string>
@@ -20,13 +20,16 @@ inline bool handleNvidiaCertError(
     if (dbusErrorName ==
         "xyz.openbmc_project.Certs.Error.CertificateLimitReached")
     {
+        BMCWEB_LOG_ERROR("Certificate limit reached: {}", reason);
         messages::createLimitReachedForResource(asyncResp->res);
         return true;
     }
     if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
     {
-        messages::resourceErrorsDetectedFormatError(asyncResp->res,
-                                                    "Certificate", reason);
+        BMCWEB_LOG_ERROR("Certificate Already exists: {}", reason);
+        messages::resourceAlreadyExists(asyncResp->res, "Certificate",
+                                        "CertificateString",
+                                        "<posted certificate>");
         return true;
     }
     return false;
