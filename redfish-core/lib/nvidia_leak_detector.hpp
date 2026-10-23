@@ -874,7 +874,8 @@ inline void handleLeakDetectorPatch(
         *policyProperties.reactionDelaySeconds < 0)
     {
         messages::propertyValueOutOfRange(
-            asyncResp->res, *policyProperties.reactionDelaySeconds,
+            asyncResp->res,
+            std::to_string(*policyProperties.reactionDelaySeconds),
             "ReactionDelaySeconds");
         return;
     }

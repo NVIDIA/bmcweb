@@ -20,6 +20,7 @@
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/pcie_util.hpp"
 
@@ -525,7 +526,9 @@ inline void requestRoutesPCIeEqualization(App& app)
                 if (!txAmplitude)
                 {
                     messages::propertyValueTypeError(
-                        asyncResp->res, *txAmplitudeJson, "TxAmplitude");
+                        asyncResp->res,
+                        json_util::messageArgToString(*txAmplitudeJson),
+                        "TxAmplitude");
                     return;
                 }
 

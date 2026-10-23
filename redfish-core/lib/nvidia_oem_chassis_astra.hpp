@@ -131,14 +131,7 @@ inline std::optional<nlohmann::json> resolveAstraMessage(
 
     if (msgId == "Base.1.19.PropertyValueModified")
     {
-        // The value arrives as JSON text (nsmd logs true or false); parse it so
-        // a boolean reaches MessageArgs as true, not the quoted string "true".
-        nlohmann::json value = nlohmann::json::parse(arg(1), nullptr, false);
-        if (value.is_discarded())
-        {
-            value = std::string(arg(1));
-        }
-        return messages::propertyValueModified(arg(0), value);
+        return messages::propertyValueModified(arg(0), arg(1));
     }
     if (msgId == "NvidiaResourceEvent.1.0.DeviceDriverErrorsDetected")
     {

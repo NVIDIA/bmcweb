@@ -1308,7 +1308,7 @@ inline void patchAppliedOperatingConfig(
         expectedPrefix.size() == appliedConfigUri.size())
     {
         messages::propertyValueIncorrect(resp->res, "AppliedOperatingConfig",
-                                         appliedConfigUri);
+                                         appliedConfigUri.buffer());
         return;
     }
 

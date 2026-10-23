@@ -891,8 +891,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_string())
         {
-            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                             key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -908,8 +909,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_boolean())
         {
-            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                             key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -936,8 +938,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         if (!propertyValueTypeValid)
         {
-            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                             key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -955,8 +958,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                                 key);
+                messages::propertyValueTypeError(
+                    asyncResp->res,
+                    json_util::messageArgToString(attrJson[key]), key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -975,8 +979,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                                 key);
+                messages::propertyValueTypeError(
+                    asyncResp->res,
+                    json_util::messageArgToString(attrJson[key]), key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -994,22 +999,25 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_array())
         {
-            messages::propertyValueTypeError(asyncResp->res, attrJson[key],
-                                             key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (attrJson[key].empty())
         {
-            messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key]);
+            messages::propertyValueIncorrect(
+                asyncResp->res, key,
+                json_util::messageArgToString(attrJson[key]));
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (!attrJson[key][0].is_string())
         {
-            messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key]);
+            messages::propertyValueIncorrect(
+                asyncResp->res, key,
+                json_util::messageArgToString(attrJson[key]));
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -1397,8 +1405,9 @@ inline void setBiosCurrentOrPendingAttr(
     if (pendingAttrObj == nullptr)
     {
         BMCWEB_LOG_ERROR("Attributes is not an object");
-        messages::propertyValueTypeError(asyncResp->res, pendingAttrJson,
-                                         "Attributes");
+        messages::propertyValueTypeError(
+            asyncResp->res, json_util::messageArgToString(pendingAttrJson),
+            "Attributes");
         return;
     }
     std::shared_ptr<const nlohmann::json::object_t> pendingAttrMap =
@@ -1432,6 +1441,7 @@ inline void setBiosCurrentOrPendingAttr(
                     PendingAttrType pendingAttrs{};
                     for (const auto& pendingAttrIt : *pendingAttrMap)
                     {
+                        const nlohmann::json& reqVal = pendingAttrIt.second;
                         // Check whether the requested attribute is available
                         // inside BaseBIOSTable or not
                         auto attrIt = baseBiosTable->find(pendingAttrIt.first);
@@ -1484,10 +1494,9 @@ inline void setBiosCurrentOrPendingAttr(
                             }
 
                             std::string attrReqVal;
-                            if (pendingAttrIt.second.is_string())
+                            if (reqVal.is_string())
                             {
-                                attrReqVal =
-                                    pendingAttrIt.second.get<std::string>();
+                                attrReqVal = reqVal.get<std::string>();
                                 bool found =
                                     std::ranges::find(enumValues, attrReqVal) !=
                                     enumValues.end();
@@ -1501,26 +1510,27 @@ inline void setBiosCurrentOrPendingAttr(
                                     return;
                                 }
                             }
-                            else if (pendingAttrIt.second.is_number_integer())
+                            else if (reqVal.is_number_integer())
                             {
-                                if (!jsonFitsInt64(pendingAttrIt.second))
+                                if (!jsonFitsInt64(reqVal))
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Requested Attribute Value out of range");
                                     messages::propertyValueOutOfRange(
-                                        asyncResp->res, pendingAttrIt.second,
+                                        asyncResp->res,
+                                        json_util::messageArgToString(reqVal),
                                         pendingAttrIt.first);
                                     return;
                                 }
-                                int64_t idx =
-                                    pendingAttrIt.second.get<int64_t>();
+                                int64_t idx = reqVal.get<int64_t>();
                                 if (idx < 0 || idx >= static_cast<int64_t>(
                                                           enumValues.size()))
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Requested Attribute Value invalid");
                                     messages::propertyValueOutOfRange(
-                                        asyncResp->res, pendingAttrIt.second,
+                                        asyncResp->res,
+                                        json_util::messageArgToString(reqVal),
                                         pendingAttrIt.first);
                                     return;
                                 }
@@ -1532,7 +1542,8 @@ inline void setBiosCurrentOrPendingAttr(
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res, pendingAttrIt.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(reqVal),
                                     pendingAttrIt.first);
                                 return;
                             }
@@ -1551,17 +1562,17 @@ inline void setBiosCurrentOrPendingAttr(
                         }
                         else if (attrType == "String")
                         {
-                            if (!pendingAttrIt.second.is_string())
+                            if (!reqVal.is_string())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res, pendingAttrIt.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(reqVal),
                                     pendingAttrIt.first);
                                 return;
                             }
-                            std::string attrReqVal =
-                                pendingAttrIt.second.get<std::string>();
+                            std::string attrReqVal = reqVal.get<std::string>();
 
                             {
                                 const std::vector<AttrBoundType> boundValues =
@@ -1652,17 +1663,18 @@ inline void setBiosCurrentOrPendingAttr(
                         }
                         else if (attrType == "Boolean")
                         {
-                            if (!pendingAttrIt.second.is_boolean())
+                            if (!reqVal.is_boolean())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res, pendingAttrIt.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(reqVal),
                                     pendingAttrIt.first);
                                 return;
                             }
-                            int64_t attrReqVal = static_cast<int64_t>(
-                                pendingAttrIt.second.get<bool>());
+                            int64_t attrReqVal =
+                                static_cast<int64_t>(reqVal.get<bool>());
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(
@@ -1677,26 +1689,27 @@ inline void setBiosCurrentOrPendingAttr(
                         }
                         else if (attrType == "Integer")
                         {
-                            if (!pendingAttrIt.second.is_number_integer())
+                            if (!reqVal.is_number_integer())
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
-                                    asyncResp->res, pendingAttrIt.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(reqVal),
                                     pendingAttrIt.first);
                                 return;
                             }
-                            if (!jsonFitsInt64(pendingAttrIt.second))
+                            if (!jsonFitsInt64(reqVal))
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Requested Attribute Value out of range");
                                 messages::propertyValueOutOfRange(
-                                    asyncResp->res, pendingAttrIt.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(reqVal),
                                     pendingAttrIt.first);
                                 return;
                             }
-                            int64_t attrReqVal =
-                                pendingAttrIt.second.get<int64_t>();
+                            int64_t attrReqVal = reqVal.get<int64_t>();
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(

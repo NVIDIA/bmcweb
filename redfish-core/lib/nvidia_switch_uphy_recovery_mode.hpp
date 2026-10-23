@@ -213,7 +213,8 @@ inline void handleSwitchUPhyRecoveryModeResetToDefaults(
     if (!actionParams.is_object())
     {
         messages::actionParameterValueTypeError(
-            asyncResp->res, actionParams, "request body", "ResetToDefaults");
+            asyncResp->res, json_util::messageArgToString(actionParams),
+            "request body", "ResetToDefaults");
         return;
     }
     if (!actionParams.empty())

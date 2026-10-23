@@ -106,10 +106,7 @@ TEST(NvidiaPCoreDumpTest, MapCreateDumpDbusErrorInvalidArgumentNamesPCoreIds)
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
     const nlohmann::json args = firstMessageArgs(asyncResp->res);
     ASSERT_EQ(args.size(), 2);
-    // actionParameterValueError takes its first argument as const
-    // nlohmann::json& and dump()s it, so a bare parameter name comes back
-    // quoted.
-    EXPECT_EQ(args[0], "\"PCoreIds\"");
+    EXPECT_EQ(args[0], "PCoreIds");
     EXPECT_EQ(args[1], "NvidiaProcessor.CollectPCoreDump");
 }
 

@@ -32,6 +32,7 @@
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/message.hpp>
 #include <utils/chassis_utils.hpp>
+#include <utils/json_utils.hpp>
 #include <utils/memfd_utils.hpp>
 #include <utils/nvidia_async_call_utils.hpp>
 
@@ -89,8 +90,8 @@ inline void handleDOTErrorResult(
     if (status == nvidia_async_operation_utils::asyncStatusValueInvalidArgument)
     {
         BMCWEB_LOG_ERROR("DOT {} invalid argument: {}", actionName, errorMsg);
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(errorMsg), actionName);
+        messages::actionParameterValueError(asyncResp->res, errorMsg,
+                                            actionName);
         return;
     }
     if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)
@@ -1072,8 +1073,8 @@ inline bool parseKeyStructure(
 
     if (!keyJson.is_object())
     {
-        messages::actionParameterValueTypeError(res, keyJson, actionName,
-                                                keyName);
+        messages::actionParameterValueTypeError(
+            res, json_util::messageArgToString(keyJson), keyName, actionName);
         return false;
     }
 
@@ -1458,8 +1459,8 @@ inline bool parseSignatureStructure(
 {
     if (!sigJson.is_object())
     {
-        messages::actionParameterValueTypeError(res, sigJson, actionName,
-                                                sigName);
+        messages::actionParameterValueTypeError(
+            res, json_util::messageArgToString(sigJson), sigName, actionName);
         return false;
     }
 
@@ -2555,8 +2556,7 @@ inline void handleDOTRecoverDOTAction(
             "DOT Recovery: DOTData size {} exceeds maximum allowed size {}",
             dotDataBase64.size(), maxBase64Size);
         messages::actionParameterValueFormatError(
-            asyncResp->res, nlohmann::json(dotDataBase64), "DOTData",
-            "NvidiaDOT.RecoverDOT");
+            asyncResp->res, dotDataBase64, "DOTData", "NvidiaDOT.RecoverDOT");
         return;
     }
 
@@ -2565,8 +2565,7 @@ inline void handleDOTRecoverDOTAction(
     {
         BMCWEB_LOG_ERROR("DOT Recovery: Failed to decode base64 DOT data");
         messages::actionParameterValueFormatError(
-            asyncResp->res, nlohmann::json(dotDataBase64), "DOTData",
-            "NvidiaDOT.RecoverDOT");
+            asyncResp->res, dotDataBase64, "DOTData", "NvidiaDOT.RecoverDOT");
         return;
     }
 

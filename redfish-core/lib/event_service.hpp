@@ -169,7 +169,7 @@ inline void requestRoutesEventService(App& app)
                     if ((*retryAttempts < 1) || (*retryAttempts > 3))
                     {
                         messages::propertyValueOutOfRange(
-                            asyncResp->res, *retryAttempts,
+                            asyncResp->res, std::to_string(*retryAttempts),
                             "DeliveryRetryAttempts");
                         return;
                     }
@@ -183,7 +183,7 @@ inline void requestRoutesEventService(App& app)
                     if ((*retryInterval < 5) || (*retryInterval > 180))
                     {
                         messages::propertyValueOutOfRange(
-                            asyncResp->res, *retryInterval,
+                            asyncResp->res, std::to_string(*retryInterval),
                             "DeliveryRetryIntervalSeconds");
                         return;
                     }
@@ -585,7 +585,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         if (value == nullptr)
                         {
                             messages::propertyValueFormatError(
-                                asyncResp->res, item.second,
+                                asyncResp->res,
+                                json_util::messageArgToString(item.second),
                                 "HttpHeaders/" + item.first);
                             return;
                         }
@@ -733,7 +734,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
                 {
                     messages::propertyValueOutOfRange(
-                        asyncResp->res, *hbIntervalMinutes,
+                        asyncResp->res, std::to_string(*hbIntervalMinutes),
                         "HeartbeatIntervalMinutes");
                     return;
                 }
@@ -939,7 +940,8 @@ inline void requestRoutesEventDestination(App& app)
                             if (value == nullptr)
                             {
                                 messages::propertyValueFormatError(
-                                    asyncResp->res, it.second,
+                                    asyncResp->res,
+                                    json_util::messageArgToString(it.second),
                                     "HttpHeaders/" + it.first);
                                 return;
                             }
@@ -986,7 +988,7 @@ inline void requestRoutesEventDestination(App& app)
                     if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
                     {
                         messages::propertyValueOutOfRange(
-                            asyncResp->res, *hbIntervalMinutes,
+                            asyncResp->res, std::to_string(*hbIntervalMinutes),
                             "HeartbeatIntervalMinutes");
                         return;
                     }

@@ -26,6 +26,7 @@
 #include "http_response.hpp"
 #include "json_formatters.hpp"
 #include "logging.hpp"
+#include "utils/json_utils.hpp"
 
 #include <app.hpp>
 #include <boost/beast/http/status.hpp>
@@ -553,8 +554,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         BMCWEB_LOG_ERROR("{} is not an object: {}", processorDiagStateParam,
                          json);
         messages::actionParameterValueTypeError(
-            aResp->res, json, processorDiagStateParam,
-            setProcessorDiagModeAction);
+            aResp->res, json_util::messageArgToString(json),
+            processorDiagStateParam, setProcessorDiagModeAction);
         return false;
     }
 
@@ -569,8 +570,9 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if (!propIt->is_boolean())
     {
         BMCWEB_LOG_ERROR("{} is not a boolean in JSON {}", prop, json);
-        messages::actionParameterValueTypeError(aResp->res, *propIt, prop,
-                                                setProcessorDiagModeAction);
+        messages::actionParameterValueTypeError(
+            aResp->res, json_util::messageArgToString(*propIt), prop,
+            setProcessorDiagModeAction);
         return false;
     }
 
@@ -702,8 +704,8 @@ inline bool validateDiagSysConfig(
     {
         BMCWEB_LOG_ERROR("DiagSysConfig should be an array");
         messages::actionParameterValueTypeError(
-            asyncResp->res, diagSysConfigJson, processorDiagSysConfigParam,
-            configProcessorDiagAction);
+            asyncResp->res, json_util::messageArgToString(diagSysConfigJson),
+            processorDiagSysConfigParam, configProcessorDiagAction);
         return false;
     }
 
@@ -717,8 +719,8 @@ inline bool validateDiagSysConfig(
         {
             BMCWEB_LOG_ERROR("Invalid item in DiagSysConfig");
             messages::actionParameterValueFormatError(
-                asyncResp->res, item, processorDiagSysConfigParam,
-                configProcessorDiagAction);
+                asyncResp->res, json_util::messageArgToString(item),
+                processorDiagSysConfigParam, configProcessorDiagAction);
             return false;
         }
         if (item["ConfigType"].get<uint64_t>() > 1)
@@ -759,8 +761,9 @@ inline bool validateDiagSysConfig(
             {
                 BMCWEB_LOG_ERROR("Invalid type in 'DynamicData' array");
                 messages::actionParameterValueTypeError(
-                    asyncResp->res, dynamicDataVal, "DynamicData",
-                    configProcessorDiagAction);
+                    asyncResp->res,
+                    json_util::messageArgToString(dynamicDataVal),
+                    "DynamicData", configProcessorDiagAction);
                 return false;
             }
             if (dynamicDataVal.get<uint64_t>() > 255)
@@ -824,8 +827,8 @@ inline bool validateDiagTidConfig(
     {
         BMCWEB_LOG_ERROR("DiagTidConfig should be an array");
         messages::actionParameterValueTypeError(
-            asyncResp->res, diagTidConfigJson, processorDiagTidConfigParam,
-            configProcessorDiagTidAction);
+            asyncResp->res, json_util::messageArgToString(diagTidConfigJson),
+            processorDiagTidConfigParam, configProcessorDiagTidAction);
         return false;
     }
 
@@ -842,8 +845,8 @@ inline bool validateDiagTidConfig(
         {
             BMCWEB_LOG_ERROR("Invalid item in DiagTidConfig");
             messages::actionParameterValueFormatError(
-                asyncResp->res, item, processorDiagTidConfigParam,
-                configProcessorDiagTidAction);
+                asyncResp->res, json_util::messageArgToString(item),
+                processorDiagTidConfigParam, configProcessorDiagTidAction);
             return false;
         }
 
@@ -914,8 +917,9 @@ inline bool validateDiagTidConfig(
             {
                 BMCWEB_LOG_ERROR("Invalid type in 'DynamicData' array");
                 messages::actionParameterValueTypeError(
-                    asyncResp->res, dynamicDataVal, "DynamicData",
-                    configProcessorDiagTidAction);
+                    asyncResp->res,
+                    json_util::messageArgToString(dynamicDataVal),
+                    "DynamicData", configProcessorDiagTidAction);
                 return false;
             }
             if (dynamicDataVal.get<uint64_t>() > 255)
