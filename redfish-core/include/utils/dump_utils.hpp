@@ -930,6 +930,11 @@ inline void getDumpServiceInfo(
         asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
                                 ["target"] = boost::urls::format(
             "{}/Actions/LogService.CollectDiagnosticData", dumpPath);
+        // NVIDIA code starts here
+        asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
+                                ["@Redfish.ActionInfo"] =
+            boost::urls::format("{}/CollectDiagnosticDataActionInfo", dumpPath);
+        // NVIDIA code ends here
     }
 
     etag_utils::setEtagOmitDateTimeHandler(asyncResp);
