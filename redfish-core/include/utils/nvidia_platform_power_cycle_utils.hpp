@@ -43,6 +43,8 @@ inline constexpr std::string_view componentPowerCycle =
 
 inline constexpr std::string_view invalidArgumentError =
     "xyz.openbmc_project.Common.Error.InvalidArgument";
+inline constexpr std::string_view unsupportedRequestError =
+    "xyz.openbmc_project.Common.Error.UnsupportedRequest";
 inline constexpr std::string_view notAllowedError =
     "xyz.openbmc_project.Common.Error.NotAllowed";
 inline constexpr std::string_view unavailableError =
@@ -192,6 +194,14 @@ inline void afterRequestPowerCycle(
     {
         BMCWEB_LOG_WARNING(
             "Platform power-cycle request rejected as invalid: {}", ec);
+        messages::actionParameterValueNotInList(asyncResp->res, redfishType,
+                                                "ResetType", actionName);
+        return;
+    }
+    if (errorName == unsupportedRequestError)
+    {
+        BMCWEB_LOG_WARNING(
+            "Platform power-cycle type is not supported by the object: {}", ec);
         messages::actionParameterValueNotInList(asyncResp->res, redfishType,
                                                 "ResetType", actionName);
         return;
