@@ -313,8 +313,8 @@ inline void requestFullPowerCycle(
  * own.
  *
  * The platform publishes one such object per component and associates it with
- * the component's chassis inventory object through the "chassis" association,
- * whose reverse is power_cycle.
+ * the component's chassis inventory object through the "powering" association,
+ * whose reverse is powered_by.
  */
 struct ComponentPowerCycle
 {
@@ -402,7 +402,7 @@ inline void afterGetComponentPowerCycleSubTree(
 {
     if (ec)
     {
-        // EBADR: the chassis has no power_cycle association.
+        // EBADR: the chassis has no powered_by association.
         if (ec.value() == EBADR)
         {
             callback({}, std::nullopt);
@@ -441,7 +441,7 @@ inline void getComponentPowerCycle(const std::string& chassisPath,
                                    ComponentPowerCycleCallback callback)
 {
     dbus::utility::getAssociatedSubTree(
-        sdbusplus::message::object_path(chassisPath + "/power_cycle"),
+        sdbusplus::message::object_path(chassisPath + "/powered_by"),
         sdbusplus::message::object_path(
             "/xyz/openbmc_project/control/power_cycle"),
         0, std::array<std::string_view, 1>{interface},
