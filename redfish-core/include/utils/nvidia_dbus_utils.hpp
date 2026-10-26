@@ -173,6 +173,11 @@ inline std::string getReqMode(const bool& enabled)
 inline const char* toPhysicalContext(const std::string& physicalContext)
 {
     if (physicalContext ==
+        "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.Accelerator")
+    {
+        return "Accelerator";
+    }
+    if (physicalContext ==
         "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.Back")
     {
         return "Back";
