@@ -139,6 +139,11 @@ inline std::optional<std::string> convertDriveFormFactor(
 
 inline std::optional<std::string> convertDriveOperation(const std::string& op)
 {
+    if (op == "xyz.openbmc_project.Nvme.Operation.OperationType.NoOperation")
+    {
+        // No operation is in progress, so there is nothing to report
+        return std::nullopt;
+    }
     if (op == "xyz.openbmc_project.Nvme.Operation.OperationType.Sanitize")
     {
         return "Sanitize";
@@ -481,6 +486,11 @@ inline void getDriveOperation(
 
             std::optional<std::string> operationName =
                 convertDriveOperation(op);
+            if (!operationName)
+            {
+                // Do not publish a placeholder entry for an idle drive
+                return;
+            }
             getDriveProgress(asyncResp, connectionName, path, operationName);
         });
 }
