@@ -173,7 +173,7 @@ inline void requestRoutesNvidiaSmbios(App& app)
     {
         BMCWEB_ROUTE(
             app,
-            "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable")
+            "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable/")
             .privileges(redfish::privileges::postComputerSystem)
             .methods(boost::beast::http::verb::post)(std::bind_front(
                 smbios::pushSmbiosTablePrivilegeCheck, std::ref(app)));

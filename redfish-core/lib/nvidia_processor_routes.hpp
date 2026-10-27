@@ -81,7 +81,7 @@ inline void requestRoutesProcessorSettings(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Settings")
+                      "Settings/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -97,7 +97,7 @@ inline void requestRoutesProcessorSettings(App& app)
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Settings")
+                      "Settings/")
         .privileges(redfish::privileges::patchProcessor)
         .methods(
             boost::beast::http::verb::
@@ -251,7 +251,7 @@ inline void requestRoutesProcessorReset(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Actions/Processor.Reset")
+                      "Actions/Processor.Reset/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

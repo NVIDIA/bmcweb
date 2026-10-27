@@ -1009,7 +1009,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
                           std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                          "/Actions/Oem/NvidiaManager.SyncOOBRawCommand")
+                          "/Actions/Oem/NvidiaManager.SyncOOBRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -1132,7 +1132,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
                           std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                          "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand")
+                          "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

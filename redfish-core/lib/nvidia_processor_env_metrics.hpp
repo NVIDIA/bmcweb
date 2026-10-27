@@ -321,7 +321,7 @@ inline void requestRoutesEdppReset(App& app)
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
             "/Processors/<str>/"
-            "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp")
+            "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -351,7 +351,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Processors/<str>/"
-        "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint")
+        "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint/")
 
         .privileges({{"ConfigureComponents"}})
         .methods(boost::beast::http::verb::post)(

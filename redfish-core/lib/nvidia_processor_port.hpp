@@ -73,7 +73,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports")
+                      "Ports/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -711,7 +711,7 @@ inline void requestRoutesProcessorPort(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>")
+                      "Ports/<str>/")
         .privileges(redfish::privileges::getProcessor)
         .methods(
             boost::beast::http::verb::
@@ -1580,7 +1580,7 @@ inline void afterGetProcessorSubtreeForMetrics(
 inline void requestRoutesProcessorPortMetrics(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Metrics")
+                      "Ports/<str>/Metrics/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -1612,7 +1612,7 @@ inline void requestRoutesClearPCIeCountersActionInfo(App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Systems/<str>/Processors/<str>/"
-                 "Ports/<str>/Metrics/Oem/Nvidia/ClearPCIeCountersActionInfo")
+                 "Ports/<str>/Metrics/Oem/Nvidia/ClearPCIeCountersActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -1674,7 +1674,7 @@ inline void getPortDisableFutureStatus(
 inline void requestRoutesProcessorPortSettings(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Settings")
+                      "Ports/<str>/Settings/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -1723,7 +1723,7 @@ inline void requestRoutesProcessorPortSettings(App& app)
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Settings")
+                      "Ports/<str>/Settings/")
         .privileges(redfish::privileges::patchProcessor)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,

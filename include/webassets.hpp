@@ -219,7 +219,17 @@ inline void addFile(App& app, const std::filesystem::directory_entry& dir)
         forward_unauthorized::hasWebuiRoute() = true;
     }
 
-    app.routeDynamic(webpath)(
+    // Nvidia code starts here
+    // Register Redfish files (e.g. /redfish/v1/schema/*.xml) with a trailing
+    // slash so the router also matches them without one, like every other
+    // Redfish route.
+    std::string route = webpath.string();
+    if (route.starts_with("/redfish/") && !route.ends_with('/'))
+    {
+        route += '/';
+    }
+    // Nvidia code ends here
+    app.routeDynamic(route)(
         [file = std::move(
              file)](const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {

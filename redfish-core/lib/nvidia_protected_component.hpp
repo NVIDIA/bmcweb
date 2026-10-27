@@ -2218,7 +2218,7 @@ inline void requestRoutesChassisFirmwareInfo(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/Oem/NvidiaRoT/RoTProtectedComponents/<str>"
-        "/Actions/NvidiaRoTProtectedComponent.UpdateMinimumSecurityVersion")
+        "/Actions/NvidiaRoTProtectedComponent.UpdateMinimumSecurityVersion/")
         .privileges(redfish::privileges::postActionInfo)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleUpdateMinSecVersionAction, std::ref(app)));
@@ -2226,7 +2226,7 @@ inline void requestRoutesChassisFirmwareInfo(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/Oem/NvidiaRoT/RoTProtectedComponents/<str>"
-        "/RevokeKeysActionInfo")
+        "/RevokeKeysActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleRevokeKeysActionInfo, std::ref(app)));
@@ -2234,7 +2234,7 @@ inline void requestRoutesChassisFirmwareInfo(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/Oem/NvidiaRoT/RoTProtectedComponents/<str>"
-        "/Actions/NvidiaRoTProtectedComponent.RevokeKeys")
+        "/Actions/NvidiaRoTProtectedComponent.RevokeKeys/")
         .privileges(redfish::privileges::postActionInfo)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleRevokeKeysAction, std::ref(app)));

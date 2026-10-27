@@ -189,21 +189,19 @@ inline void handleCpuDebugTokenResourceInfo(
     const std::string resourceUri = std::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken", systemName);
 
-    std::string resUri(req.url().buffer());
-    getCpuEid(asyncResp, [asyncResp, systemName, resourceUri,
-                          resUri](uint32_t eid) {
+    getCpuEid(asyncResp, [asyncResp, systemName, resourceUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::DEBUG_TOKEN_QUERY, std::monostate(), asyncResp,
-            [systemName, resourceUri,
-             resUri](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                     uint32_t, const std::string& stdOut, const std::string&,
-                     const boost::system::error_code& ec, int errorCode) {
+            [systemName, resourceUri](
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1, uint32_t,
+                const std::string& stdOut, const std::string&,
+                const boost::system::error_code& ec, int errorCode) {
                 auto& resJson = asyncResp1->res.jsonValue;
                 resJson["TokenType"] = "CRCS";
                 resJson["@odata.type"] =
                     "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
-                resJson["@odata.id"] = resUri;
+                resJson["@odata.id"] = resourceUri;
                 resJson["Id"] = "CPUDebugToken";
                 resJson["Name"] = systemName + " Debug Token Resource"s;
 
@@ -677,17 +675,17 @@ inline void requestRoutesCpuDebugToken([[maybe_unused]] App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleCpuInstallTokenActionInfo, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-                      "/Actions/NvidiaDebugToken.DisableToken")
+                      "/Actions/NvidiaDebugToken.DisableToken/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleCpuDisableToken, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-                      "/Actions/NvidiaDebugToken.GenerateToken")
+                      "/Actions/NvidiaDebugToken.GenerateToken/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleCpuGenerateToken, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-                      "/Actions/NvidiaDebugToken.InstallToken")
+                      "/Actions/NvidiaDebugToken.InstallToken/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleCpuInstallToken, std::ref(app)));

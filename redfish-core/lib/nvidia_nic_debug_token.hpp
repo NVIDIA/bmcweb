@@ -156,8 +156,12 @@ inline void handleNICGenerateTokenActionInfo(
     }
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
-        [asyncResp, chassisId, resUri{std::string(req.url().buffer())}](
-            const std::optional<std::string>& valid) {
+        [asyncResp, chassisId,
+         resUri{std::string(
+             boost::urls::format(
+                 "/redfish/v1/Chassis/{}/Oem/Nvidia/DebugToken/GenerateTokenActionInfo",
+                 chassisId)
+                 .buffer())}](const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
@@ -195,8 +199,12 @@ inline void handleNICInstallTokenActionInfo(
     }
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
-        [asyncResp, chassisId, resUri{std::string(req.url().buffer())}](
-            const std::optional<std::string>& valid) {
+        [asyncResp, chassisId,
+         resUri{std::string(
+             boost::urls::format(
+                 "/redfish/v1/Chassis/{}/Oem/Nvidia/DebugToken/InstallTokenActionInfo",
+                 chassisId)
+                 .buffer())}](const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
@@ -384,20 +392,20 @@ inline void requestRoutesChassisDebugToken(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleNICInstallTokenActionInfo, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken"
-                      "/Actions/NvidiaDebugToken.DisableToken")
+                      "/Actions/NvidiaDebugToken.DisableToken/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleNICTargetedTokenOp<nic::action::Operation::DisableTokens>,
             std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken"
-                      "/Actions/NvidiaDebugToken.GenerateToken")
+                      "/Actions/NvidiaDebugToken.GenerateToken/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleNICTargetedTokenOp<
                                 nic::action::Operation::GenerateTokenRequest>,
                             std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken"
-                      "/Actions/NvidiaDebugToken.InstallToken")
+                      "/Actions/NvidiaDebugToken.InstallToken/")
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleNICTargetedTokenOp<nic::action::Operation::InstallToken>,

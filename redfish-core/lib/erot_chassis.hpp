@@ -373,7 +373,10 @@ static void handleChassisCertificateInstanceGet(
         return;
     }
 
-    std::string requestPath = std::string(req.url().encoded_path());
+    std::string requestPath =
+        boost::urls::format("/redfish/v1/Chassis/{}/Certificates/{}", chassisID,
+                            certificateID)
+            .buffer();
     BMCWEB_LOG_DEBUG("URL={}", requestPath);
 
     redfish::nvidia_chassis_utils::isEROTChassis(
@@ -555,7 +558,9 @@ static void handleChassisCertificateCollectionGet(
         return;
     }
 
-    std::string requestPath = std::string(req.url().encoded_path());
+    std::string requestPath =
+        boost::urls::format("/redfish/v1/Chassis/{}/Certificates", chassisID)
+            .buffer();
     BMCWEB_LOG_DEBUG("URL={}", requestPath);
 
     nlohmann::json::object_t collectionJson;

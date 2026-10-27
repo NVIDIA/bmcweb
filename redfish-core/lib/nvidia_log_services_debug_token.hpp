@@ -314,7 +314,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
     // backward compatibility with existing clients.
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData")
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData/")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
