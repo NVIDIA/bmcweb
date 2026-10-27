@@ -63,6 +63,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/nvidia_oem_chassis_astra_test.cpp',
     'redfish-core/lib/nvidia_oem_l1reset_test.cpp',
     'redfish-core/lib/nvidia_pcore_dump_test.cpp',
+    'redfish-core/lib/nvidia_storage_test.cpp',
     'redfish-core/lib/power_subsystem_test.cpp',
     'redfish-core/lib/service_root_test.cpp',
     'redfish-core/lib/system_test.cpp',
