@@ -67,6 +67,8 @@ enum class EarlyHealthIndication{
     Healthy,
     Attention,
     Unknown,
+    Disabled,
+    NotMonitored,
 };
 
 enum class AttentionTriggerReason{
@@ -150,6 +152,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EarlyHealthIndication, {
     {EarlyHealthIndication::Healthy, "Healthy"},
     {EarlyHealthIndication::Attention, "Attention"},
     {EarlyHealthIndication::Unknown, "Unknown"},
+    {EarlyHealthIndication::Disabled, "Disabled"},
+    {EarlyHealthIndication::NotMonitored, "NotMonitored"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(AttentionTriggerReason, {

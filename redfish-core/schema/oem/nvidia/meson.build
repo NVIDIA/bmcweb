@@ -2,6 +2,7 @@ if get_option('nvidia-oem-properties').allowed()
     # Mapping from option key name to schemas that should be installed if that option is enabled
     schemas = [
         'NvidiaAstra_v1.xml',
+        'NvidiaAttestedWipe_v1.xml',
         'NvidiaCable_v1.xml',
         'NvidiaCPER_v1.xml',
         'NvidiaChassis_v1.xml',
@@ -25,6 +26,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaHistogramCollection_v1.xml',
         'NvidiaHistogram_v1.xml',
         'NvidiaHostPrivilegeConfig_v1.xml',
+        'NvidiaHostRecovery_v1.xml',
         'NvidiaLogEntry_v1.xml',
         'NvidiaLogService_v1.xml',
         'NvidiaManagedEntityCollection_v1.xml',
@@ -68,6 +70,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaRoTImageSlot_v1.xml',
         'NvidiaRoTProtectedComponentCollection_v1.xml',
         'NvidiaRoTProtectedComponent_v1.xml',
+        'NvidiaSerialConsole_v1.xml',
         'NvidiaSoftwareInventory_v1.xml',
         'NvidiaSwitchLTXMode_v1.xml',
         'NvidiaSwitchPowerCapMode_v1.xml',

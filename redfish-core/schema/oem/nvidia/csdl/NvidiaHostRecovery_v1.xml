@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaHostRecovery v1.0.0                                                       -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHostRecovery">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHostRecovery" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The NvidiaHostRecovery schema describes the recovery mode state of the host processor of a computer system."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the recovery mode state of a host processor that the manager can force into its USB recovery bootloader, such as the Tegra recovery mode (RCM).  Recovery is entered and left with the `EnterHostRecovery`, `CheckHostRecoveryStatus`, `ExitHostRecovery`, and `AbandonUnverifiedRecoverySession` actions on the computer system that contains this resource."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Oem/Nvidia/HostRecovery</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHostRecovery.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHostRecovery" BaseType="NvidiaHostRecovery.NvidiaHostRecovery">
+        <Property Name="HostRecoveryAvailable" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether the service that controls host recovery is running."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the service that controls host recovery is running.  If `false`, `RecoveryState`, `LastCheckStatus`, and `OperationState` shall contain `Unknown`, `RecoveryActive` and `RecoveryAttemptCount` shall be absent, and the service shall reject the host recovery actions."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="RecoveryActive" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether a recovery session is active."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether a recovery session is active.  A session starts when `EnterHostRecovery` resets the host into recovery.  It ends when entry into recovery fails, when the host is reset or powered off, when the host is seen to leave recovery, or when `AbandonUnverifiedRecoverySession` completes."/>
+        </Property>
+        <Property Name="RecoveryState" Type="NvidiaHostRecovery.v1_0_0.RecoveryState" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The recovery state of the host."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the recovery state of the host, as correlated by the manager from the recovery requests it issued and the evidence it observed."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="LastCheckStatus" Type="NvidiaHostRecovery.v1_0_0.LastCheckStatus" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The result of the most recent probe for the host recovery device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the result of the most recent probe for the host recovery device, made by either the `EnterHostRecovery` or the `CheckHostRecoveryStatus` action."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="OperationState" Type="NvidiaHostRecovery.v1_0_0.OperationState" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The host recovery operation in progress."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host recovery operation in progress.  The service shall reject a host recovery action while this property contains a value other than `Idle`."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="RecoveryAttemptCount" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of recovery attempts in the current attempt window."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of `EnterHostRecovery` attempts in the current attempt window since the manager last booted.  The service may reject further attempts once an implementation-defined limit is reached, until the window ends."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+      </EntityType>
+      <EnumType Name="RecoveryState">
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="No recovery session is tracked, or the state is not known."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that no recovery session is tracked, that a session was abandoned, or that the service that controls host recovery is not running."/>
+        </Member>
+        <Member Name="Requested">
+          <Annotation Term="OData.Description" String="Recovery was requested, but entry is not confirmed."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host was reset into recovery and that entry into recovery has not been confirmed."/>
+        </Member>
+        <Member Name="Confirmed">
+          <Annotation Term="OData.Description" String="The host is confirmed to be in recovery."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host recovery device was detected, or that boot evidence confirmed entry into recovery."/>
+        </Member>
+        <Member Name="EnterFailed">
+          <Annotation Term="OData.Description" String="Recovery was requested, but the host was not detected in recovery."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host was reset into recovery and that the host recovery device was not detected afterwards."/>
+        </Member>
+        <Member Name="ExitRequested">
+          <Annotation Term="OData.Description" String="A reset out of recovery was issued."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host was reset out of recovery and has not yet been seen to boot normally."/>
+        </Member>
+        <Member Name="ExitObserved">
+          <Annotation Term="OData.Description" String="The host was seen to leave recovery."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host was seen to boot normally after a recovery session."/>
+        </Member>
+        <Member Name="PoweredOff">
+          <Annotation Term="OData.Description" String="The host was powered off during a recovery session."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the host was powered off while a recovery session was active."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="LastCheckStatus">
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The service that controls host recovery is not running."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the service that controls host recovery is not running."/>
+        </Member>
+        <Member Name="NeverRun">
+          <Annotation Term="OData.Description" String="No probe has run."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that no probe for the host recovery device has run."/>
+        </Member>
+        <Member Name="Detected">
+          <Annotation Term="OData.Description" String="The host recovery device was detected."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the most recent probe detected the host recovery device."/>
+        </Member>
+        <Member Name="NotDetected">
+          <Annotation Term="OData.Description" String="The host recovery device was not detected."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the most recent probe completed without detecting the host recovery device."/>
+        </Member>
+        <Member Name="TimedOut">
+          <Annotation Term="OData.Description" String="The probe timed out."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the most recent probe did not complete in time."/>
+        </Member>
+        <Member Name="RouteFailed">
+          <Annotation Term="OData.Description" String="The host USB port could not be routed to the manager."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the most recent probe could not route the host USB port to the manager."/>
+        </Member>
+        <Member Name="EnumerationFailed">
+          <Annotation Term="OData.Description" String="USB enumeration failed."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the most recent probe could not enumerate the USB devices on the host USB port."/>
+        </Member>
+        <Member Name="RestoreFailed">
+          <Annotation Term="OData.Description" String="The host USB port could not be routed back to the external connector."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that, after the most recent probe, the host USB port could not be routed back to the external connector.  The service may retry for a limited time.  The value remains until a later check reports a different status, even if a retry restores the routing."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="OperationState">
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The service that controls host recovery is not running."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the service that controls host recovery is not running."/>
+        </Member>
+        <Member Name="Idle">
+          <Annotation Term="OData.Description" String="No operation is in progress."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that no host recovery operation is in progress."/>
+        </Member>
+        <Member Name="EnteringRecovery">
+          <Annotation Term="OData.Description" String="The host is being put into recovery."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that an `EnterHostRecovery` action is in progress."/>
+        </Member>
+        <Member Name="Resetting">
+          <Annotation Term="OData.Description" String="The host is being reset out of recovery."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that an `ExitHostRecovery` action is in progress."/>
+        </Member>
+        <Member Name="Checking">
+          <Annotation Term="OData.Description" String="The host recovery device is being probed."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that a `CheckHostRecoveryStatus` action is in progress."/>
+        </Member>
+        <Member Name="RestoringUsb">
+          <Annotation Term="OData.Description" String="The host USB port is being routed back to the external connector."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that the service is routing the host USB port back to the external connector."/>
+        </Member>
+        <Member Name="Abandoning">
+          <Annotation Term="OData.Description" String="A recovery session is being abandoned."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that an `AbandonUnverifiedRecoverySession` action is in progress."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="HostRecoveryActionResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The result of a host recovery action."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the result of a host recovery action and the recovery state after it completed."/>
+        <Property Name="Outcome" Type="NvidiaHostRecovery.v1_0_0.RecoveryState" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The recovery state that the action resulted in."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the recovery state that the action resulted in."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="Message" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A human-readable description of the result."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a human-readable description of the result of the action."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="RecoveryState" Type="NvidiaHostRecovery.v1_0_0.RecoveryState" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The recovery state of the host after the action."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the value of `RecoveryState` in the NvidiaHostRecovery resource when the action completed."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="RecoveryActive" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether a recovery session is active after the action."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the value of `RecoveryActive` in the NvidiaHostRecovery resource when the action completed."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="LastCheckStatus" Type="NvidiaHostRecovery.v1_0_0.LastCheckStatus" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The result of the most recent probe after the action."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the value of `LastCheckStatus` in the NvidiaHostRecovery resource when the action completed."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="OperationState" Type="NvidiaHostRecovery.v1_0_0.OperationState" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The host recovery operation in progress after the action."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the value of `OperationState` in the NvidiaHostRecovery resource when the action completed."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

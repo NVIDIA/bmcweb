@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.10.0                                                    -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.11.0                                                    -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -29,6 +29,10 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemConfigProfile_v1.xml">
     <edmx:Include Namespace="NvidiaSystemConfigProfile"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHostRecovery_v1.xml">
+    <edmx:Include Namespace="NvidiaHostRecovery"/>
+    <edmx:Include Namespace="NvidiaHostRecovery.v1_0_0"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
@@ -238,6 +242,89 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_10_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="EnterHostRecovery" IsBound="true">
+        <Annotation Term="OData.Description" String="This action puts the host processor into its recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall route the host USB port to the manager, reset the host processor into its USB recovery mode, and, if `VerifyAfterEnter` is `true`, probe for the host recovery device and route the host USB port back to the external connector.  The service shall complete the action when these steps finish, and the response shall contain the result.  If the host was not detected in recovery, `Outcome` in the response shall contain `EnterFailed` and the service shall return an HTTP error status.  The service shall reject the action while the host is powered off or another host recovery operation is in progress."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="AcknowledgeUsbDisruption" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Description" String="An acknowledgement that the host USB port is disconnected from its external connector during the action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate that the client acknowledges that the host USB port is disconnected from its external connector while the action runs.  The service shall reject the action unless this parameter contains `true`."/>
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="VerifyAfterEnter" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication of whether to wait for the host recovery device before the action completes."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the service probes for the host recovery device before the action completes.  If the client does not provide this parameter, the service shall probe."/>
+        </Parameter>
+        <ReturnType Type="NvidiaHostRecovery.v1_0_0.HostRecoveryActionResponse" Nullable="false"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_11_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="CheckHostRecoveryStatus" IsBound="true">
+        <Annotation Term="OData.Description" String="This action probes for the host recovery device."/>
+        <Annotation Term="OData.LongDescription" String="This action shall route the host USB port to the manager, probe for the host recovery device, and route the host USB port back to the external connector.  The response shall contain the result, and `LastCheckStatus` shall contain the result of the probe.  The service may reject this action if probing is disabled on the platform."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="AcknowledgeUsbDisruption" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Description" String="An acknowledgement that the host USB port is disconnected from its external connector during the action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate that the client acknowledges that the host USB port is disconnected from its external connector while the action runs.  The service shall reject the action unless this parameter contains `true`."/>
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <ReturnType Type="NvidiaHostRecovery.v1_0_0.HostRecoveryActionResponse" Nullable="false"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_11_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ExitHostRecovery" IsBound="true">
+        <Annotation Term="OData.Description" String="This action takes the host processor out of its recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall route the host USB port back to the external connector and reset the host processor so that it boots normally.  The response shall contain the result.  The service shall reject the action if `RecoveryActive` in the `HostRecovery` resource contains `false`."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="AcknowledgeUsbDisruption" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Description" String="An acknowledgement that the host is reset during the action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate that the client acknowledges that the host USB port is rerouted and the host is reset while the action runs.  The service shall reject the action unless this parameter contains `true`."/>
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="Reason" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The reason for leaving recovery, recorded in the manager log."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the reason for leaving recovery.  The service shall record it in the manager log and may truncate it to 256 characters."/>
+        </Parameter>
+        <ReturnType Type="NvidiaHostRecovery.v1_0_0.HostRecoveryActionResponse" Nullable="false"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_11_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="AbandonUnverifiedRecoverySession" IsBound="true">
+        <Annotation Term="OData.Description" String="This action stops tracking a recovery session without changing the host."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set `RecoveryActive` in the `HostRecovery` resource to `false` and `RecoveryState` to `Unknown` without resetting the host or changing the host USB routing.  A client uses it when a recovery session can no longer be confirmed or exited, such as after the host was recovered by other means."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="Reason" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The reason for abandoning the session, recorded in the manager log."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the reason for abandoning the recovery session.  The service shall record it in the manager log and may truncate it to 256 characters."/>
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_11_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -564,6 +651,16 @@
           <Annotation Term="OData.Description" String="Per-subtest result bitmap for the Test ID."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the per-subtest result bitmap reported by the CPU for the Test ID (TID) identified by Tid, expressed as an array of octets. The length of the array is determined by the number of subtests the CPU reports for that TID."/>
         </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_11_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_10_0.NvidiaComputerSystem">
+        <NavigationProperty Name="HostRecovery" Type="NvidiaHostRecovery.NvidiaHostRecovery" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the recovery mode state of the host processor of this system."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `NvidiaHostRecovery` that represents the recovery mode state of the host processor of this system."/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>

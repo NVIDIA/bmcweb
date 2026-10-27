@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                       -->
-<!--# Redfish OEM Schema:  NvidiaManager  v1.9.0                                                           -->
+<!--# Redfish OEM Schema:  NvidiaManager  v1.12.0                                                          -->
 <!--#                                                                                                      -->
 <!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
 <!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
@@ -36,6 +36,13 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTManagement_v1.xml">
     <edmx:Include Namespace="NvidiaDOTManagement"/>
     <edmx:Include Namespace="NvidiaDOTManagement.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaAttestedWipe_v1.xml">
+    <edmx:Include Namespace="NvidiaAttestedWipe"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSerialConsole_v1.xml">
+    <edmx:Include Namespace="NvidiaSerialConsole"/>
+    <edmx:Include Namespace="NvidiaSerialConsole.v1_0_0"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
@@ -259,7 +266,31 @@
                     <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
                     <PropertyValue Property="Version" String="v1_8_0"/>
                 </Record>
+                <Record>
+                    <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                    <PropertyValue Property="Version" String="v1_11_0"/>
+                    <PropertyValue Property="Description" String="This action has been deprecated."/>
+                </Record>
             </Collection>
+        </Annotation>
+        <ReturnType Type="NvidiaManager.v1_8_0.RASRawCommandResponse" Nullable="false"/>
+      </Action>
+      <Action Name="SwitchSerialConsole" IsBound="true">
+        <Annotation Term="OData.Description" String="This action routes the shared serial console to an endpoint."/>
+        <Annotation Term="OData.LongDescription" String="This action shall route the shared serial console described by the `SerialConsole` resource of this manager to the requested endpoint.  The service shall complete the action only after the new routing is confirmed.  Requesting the endpoint that the console is already routed to shall succeed without changing the routing.  The service may reject the action while another operation is using the console."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="Source" Type="NvidiaSerialConsole.v1_0_0.SerialConsoleSource" Nullable="false">
+          <Annotation Term="OData.Description" String="The endpoint to route the serial console to."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the endpoint to route the serial console to."/>
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_12_0"/>
+            </Record>
+          </Collection>
         </Annotation>
       </Action>
     </Schema>
@@ -656,6 +687,34 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The Device Ownership Transfer (DOT) settings managed by this manager."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the Device Ownership Transfer (DOT) settings managed by this manager."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add the `AttestedWipe` resource."/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_9_0.NvidiaManager">
+        <NavigationProperty Name="AttestedWipe" Type="NvidiaAttestedWipe.NvidiaAttestedWipe" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the NVIDIA attested wipe resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to the NVIDIA attested wipe resource associated with this manager."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_11_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate the `RASRawCommand` action."/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_10_0.NvidiaManager"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_12_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add the `SerialConsole` resource and the `SwitchSerialConsole` action."/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_11_0.NvidiaManager">
+        <NavigationProperty Name="SerialConsole" Type="NvidiaSerialConsole.NvidiaSerialConsole" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the routing of the serial console that this manager shares between endpoints."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `NvidiaSerialConsole` that represents the routing of the serial console that this manager shares between endpoints."/>
         </NavigationProperty>
       </ComplexType>
     </Schema>
