@@ -163,7 +163,6 @@ feature_options = [
     'rest',
     'rmedia',
     'rshim-support',
-    'rsyslog-client',
     'scp-update',
     'session-auth',
     'shmem-platform-metrics',

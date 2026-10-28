@@ -298,10 +298,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getPortStatusAndPath(std::span(networkProtocolToDbus),
                          std::bind_front(afterNetworkPortRequest, asyncResp));
     // Populate Rsyslog client settings from D-Bus //Nvidia code
-    if constexpr (BMCWEB_RSYSLOG_CLIENT)
-    {
-        redfish::rsyslog::populateRsyslogClientSettings(asyncResp);
-    }
+    redfish::rsyslog::populateRsyslogClientSettings(asyncResp);
     // Populate SSH preferred authentication methods // Nvidia code
     populateSSHPreferredAuthentications(asyncResp);
     if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD_PORT_FORWARD)
@@ -646,12 +643,9 @@ inline void handleManagersNetworkProtocolPatch(
         }
     }
     // Nvidia code starts here
-    if constexpr (BMCWEB_RSYSLOG_CLIENT)
-    {
-        redfish::rsyslog::processRsyslogClientSettings(
-            asyncResp, address, port, state, tls, facility, severity, protocol,
-            rfcformat);
-    }
+    redfish::rsyslog::processRsyslogClientSettings(
+        asyncResp, address, port, state, tls, facility, severity, protocol,
+        rfcformat);
     if (sshPreferredAuths)
     {
         applySSHPreferredAuthsPatch(asyncResp, *sshPreferredAuths);

@@ -315,13 +315,6 @@ option(
     description: 'The bmcweb response timeout in seconds.',
 )
 
-option(
-    'rsyslog-client',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable rsyslog client',
-)
-
 # BMCWEB_BASIC_AUTH
 option(
     'basic-auth',
