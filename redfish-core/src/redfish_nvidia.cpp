@@ -414,10 +414,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSystemsCPUDiag(app);
     }
 
-    if constexpr (BMCWEB_NVIDIA_PCORE_DUMP)
-    {
-        requestRoutesCollectPCoreDump(app);
-    }
+    requestRoutesCollectPCoreDump(app);
 
     requestRoutesSystemsOemNvidiaL1Reset(app);
 

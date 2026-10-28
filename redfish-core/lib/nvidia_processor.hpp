@@ -4200,14 +4200,11 @@ inline void populateNvidiaProcessorPostData(
                                                           objectPath);
         }
     }
-    if constexpr (BMCWEB_NVIDIA_PCORE_DUMP)
-    {
-        // Advertises Actions/Oem only on a CPU that resolves to a PCore dump
-        // trigger, so the action never appears on an Accelerator or on a
-        // platform whose firmware does not expose one.
-        nvidia_pcore_dump::advertisePCoreDump(asyncResp, processorId,
-                                              objectPath, deviceType);
-    }
+    // Advertises Actions/Oem only on a CPU that resolves to a PCore dump
+    // trigger, so the action never appears on an Accelerator or on a platform
+    // whose firmware does not expose one.
+    nvidia_pcore_dump::advertisePCoreDump(asyncResp, processorId, objectPath,
+                                          deviceType);
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {
         redfish::conditions_utils::populateServiceConditions(asyncResp,
