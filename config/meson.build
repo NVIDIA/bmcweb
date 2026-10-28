@@ -30,14 +30,6 @@ conf_data.set_quoted(
     get_option('platform-device-prefix'),
 )
 conf_data.set_quoted(
-    'NETWORK_ADAPTER_PREFIX',
-    get_option('nvidia-network-adapter-prefix'),
-)
-conf_data.set_quoted(
-    'NETWORK_ADAPTER_LINK_PREFIX',
-    get_option('nvidia-network-adapter-link-prefix'),
-)
-conf_data.set_quoted(
     'PLATFORM_SYSTEM_DESCRIPTION',
     get_option('platform-system-description'),
 )
@@ -189,8 +181,6 @@ string_options = [
     'dns-resolver',
     'host-iface-channel',
     'mutual-tls-common-name-parsing-default',
-    'nvidia-network-adapter-link-prefix',
-    'nvidia-network-adapter-prefix',
     'otp-provisioning-status-file-path',
     'platform-chassis-name',
     'platform-device-prefix',

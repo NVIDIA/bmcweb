@@ -166,8 +166,9 @@ constexpr const std::string_view cpuProcessor = "CPU_";
 constexpr const std::string_view processor = "ProcessorModule_";
 constexpr const std::string_view pcieLink = "PCIeLink_";
 constexpr const std::string_view cpuCore = "CoreUtil_";
-constexpr const std::string_view networkAdapter(NETWORKADAPTERPREFIX);
-constexpr const std::string_view networkAdapterLink(NETWORKADAPTERLINKPREFIX);
+constexpr const std::string_view networkAdapter = "NIC_";
+constexpr const std::string_view networkAdapterLink =
+    "(?:Port|NVLinkManagement)_";
 constexpr const std::string_view gpmInstances = "UtilizationPercent/";
 constexpr const std::string_view nvLinkManagementNIC = "NIC_";
 constexpr const std::string_view nvLinkManagementNICPort = "Port_";

@@ -28,10 +28,6 @@ constexpr std::string_view HOSTIFACECHANNEL = @HOST_IFACE_CHANNEL@;
 constexpr std::string_view FWUUIDMAPPINGJSON = @FW_UUID_MAPPING_JSON@;
 
 
-constexpr std::string_view NETWORKADAPTERPREFIX = @NETWORK_ADAPTER_PREFIX@;
-constexpr std::string_view NETWORKADAPTERLINKPREFIX = @NETWORK_ADAPTER_LINK_PREFIX@;
-
-
 constexpr const char* platformGpuNamePrefix = @PLATFORM_GPU_NAME_PREFIX@;
 constexpr const int mfgTestTimeout = @MFG_TEST_TIMEOUT@;
 constexpr const char* redfishAggregationPrefix = @REDFISH_AGGREGATION_PREFIX@;

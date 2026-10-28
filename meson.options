@@ -827,18 +827,6 @@ option(
     description: 'Enable Nvidia retimer debug mode.',
 )
 option(
-    'nvidia-network-adapter-prefix',
-    type: 'string',
-    value: 'NIC_',
-    description: 'Prefix used for network adapter name',
-)
-option(
-    'nvidia-network-adapter-link-prefix',
-    type: 'string',
-    value: 'Port_',
-    description: 'Prefix used for links name on network adapter',
-)
-option(
     'nvidia-oem-device-status-from-file',
     type: 'feature',
     value: 'disabled',
