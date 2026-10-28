@@ -910,12 +910,6 @@ option(
     description: 'Enable Generic NetworkAdapters',
 )
 option(
-    'platform-total-power-sensor-name',
-    type: 'string',
-    value: 'TotalHSC_Power',
-    description: 'Platform specific total power sensor name, which has system power watts readings',
-)
-option(
     'platform-power-control-sensor-name',
     type: 'string',
     value: 'total_power',

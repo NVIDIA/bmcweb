@@ -515,8 +515,7 @@ inline void getPowerWattsEnergyJoules(
                 // find power sensor
                 if (endpoint.find("/power/") != std::string::npos &&
                     ((endpoint.find(powerSensorName) != std::string::npos) ||
-                     (endpoint.find(BMCWEB_PLATFORM_TOTAL_POWER_SENSOR_NAME) !=
-                      std::string::npos)))
+                     (endpoint.find("TotalHSC_Power") != std::string::npos)))
                 {
                     sdbusplus::object_path endpointPath(endpoint);
                     getPowerWattsBySensorName(asyncResp, chassisID,

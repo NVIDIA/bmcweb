@@ -190,7 +190,6 @@ string_options = [
     'platform-power-control-sensor-name',
     'platform-system-description',
     'platform-system-id',
-    'platform-total-power-sensor-name',
     'redfish-aggregation-prefix',
     'redfish-eventlog-location',
     'redfish-fabric-uri-name',
