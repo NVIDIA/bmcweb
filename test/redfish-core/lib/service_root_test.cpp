@@ -102,7 +102,7 @@ void assertServiceRootGet(crow::Response& res)
     {
         EXPECT_EQ(json["ProtocolFeaturesSupported"]["ExpandQuery"].size(), 5);
         EXPECT_EQ(json["ProtocolFeaturesSupported"]["ExpandQuery"]["MaxLevels"],
-                  6);
+                  BMCWEB_REDFISH_EXPAND_MAX_LEVELS);
     }
     else
     {
