@@ -26,11 +26,16 @@
 #include "utils/nvidia_stl_utils.hpp"
 #include "utils/stl_utils.hpp"
 
+#include <asm-generic/errno.h>
+
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 
 #include <array>
+#include <cerrno>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <regex>
 #include <string>
@@ -162,6 +167,98 @@ inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
     return std::nullopt;
 }
 
+inline void afterGetRsyslogClientSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    nlohmann::json& oemNvidia = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    if (ec)
+    {
+        // The rsyslog config service is optional
+        if (ec.value() == EBADR || ec.value() == EHOSTUNREACH)
+        {
+            BMCWEB_LOG_DEBUG("Rsyslog config not present: {}", ec.message());
+            oemNvidia.erase("Rsyslog");
+            return;
+        }
+        BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    nlohmann::json& rsyslog = oemNvidia["Rsyslog"];
+
+    // Declare variables to unpack properties into
+    std::optional<bool> enabled;
+    std::optional<std::string> address;
+    std::optional<uint16_t> port;
+    std::optional<bool> tls;
+    std::optional<std::vector<std::string>> facility;
+    std::optional<std::string> severity;
+    std::optional<std::string> transportProtocol;
+    std::optional<std::string> rfcformat;
+    // Unpack properties from the map
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "Enabled", enabled,
+        "Address", address, "Port", port, "Tls", tls, "Facility", facility,
+        "Severity", severity, "TransportProtocol", transportProtocol,
+        "Rfcformat", rfcformat);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    // Populate JSON response with the retrieved properties
+    if (enabled)
+    {
+        auto clientState = dbusToClientStatus(*enabled);
+        rsyslog["State"] = clientState;
+    }
+    if (address)
+    {
+        rsyslog["Address"] = *address;
+    }
+    if (port)
+    {
+        rsyslog["Port"] = *port;
+    }
+    if (tls)
+    {
+        auto tlsStatus = dbusToTLSStatus(*tls);
+        rsyslog["TLS"] = tlsStatus;
+    }
+    if (facility)
+    {
+        nlohmann::json& jsonArray = rsyslog["Filter"]["Facilities"];
+        jsonArray = nlohmann::json::array();
+        for (const auto& f : *facility)
+        {
+            nvidia_network_protocol::FilterFacility fac =
+                dbusToFilterFacility(f);
+            jsonArray.push_back(fac);
+        }
+    }
+    if (severity)
+    {
+        nvidia_network_protocol::FilterSeverity sev =
+            dbusToFilterSeverity(*severity);
+        rsyslog["Filter"]["LowestSeverity"] = sev;
+    }
+    if (transportProtocol)
+    {
+        nvidia_network_protocol::Protocol proto =
+            dbusToProtocol(*transportProtocol);
+        rsyslog["TransportProtocol"] = proto;
+    }
+    if (rfcformat)
+    {
+        nvidia_network_protocol::RFCFormat rfc = dbusToRfcFormat(*rfcformat);
+        rsyslog["RFCFormat"] = rfc;
+    }
+}
+
 inline void populateRsyslogClientSettings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -180,87 +277,7 @@ inline void populateRsyslogClientSettings(
 
     dbus::utility::getAllProperties(
         service, path, "",
-        [asyncResp,
-         &rsyslog](const boost::system::error_code& ec,
-                   const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            // Declare variables to unpack properties into
-            std::optional<bool> enabled;
-            std::optional<std::string> address;
-            std::optional<uint16_t> port;
-            std::optional<bool> tls;
-            std::optional<std::vector<std::string>> facility;
-            std::optional<std::string> severity;
-            std::optional<std::string> transportProtocol;
-            std::optional<std::string> rfcformat;
-            // Unpack properties from the map
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties, "Enabled",
-                enabled, "Address", address, "Port", port, "Tls", tls,
-                "Facility", facility, "Severity", severity, "TransportProtocol",
-                transportProtocol, "Rfcformat", rfcformat);
-
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            // Populate JSON response with the retrieved properties
-            if (enabled)
-            {
-                auto clientState = dbusToClientStatus(*enabled);
-                rsyslog["State"] = clientState;
-            }
-            if (address)
-            {
-                rsyslog["Address"] = *address;
-            }
-            if (port)
-            {
-                rsyslog["Port"] = *port;
-            }
-            if (tls)
-            {
-                auto tlsStatus = dbusToTLSStatus(*tls);
-                rsyslog["TLS"] = tlsStatus;
-            }
-            if (facility)
-            {
-                nlohmann::json& jsonArray = rsyslog["Filter"]["Facilities"];
-                jsonArray = nlohmann::json::array();
-                for (const auto& f : *facility)
-                {
-                    nvidia_network_protocol::FilterFacility fac =
-                        dbusToFilterFacility(f);
-                    jsonArray.push_back(fac);
-                }
-            }
-            if (severity)
-            {
-                nvidia_network_protocol::FilterSeverity sev =
-                    dbusToFilterSeverity(*severity);
-                rsyslog["Filter"]["LowestSeverity"] = sev;
-            }
-            if (transportProtocol)
-            {
-                nvidia_network_protocol::Protocol proto =
-                    dbusToProtocol(*transportProtocol);
-                rsyslog["TransportProtocol"] = proto;
-            }
-            if (rfcformat)
-            {
-                nvidia_network_protocol::RFCFormat rfc =
-                    dbusToRfcFormat(*rfcformat);
-                rsyslog["RFCFormat"] = rfc;
-            }
-        });
+        std::bind_front(afterGetRsyslogClientSettings, asyncResp));
 }
 
 inline void processRsyslogClientSettings(
