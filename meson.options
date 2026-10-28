@@ -315,10 +315,11 @@ option(
     description: 'Enable bmcweb chunking.',
 )
 
+# BMCWEB_HTTP_RESPONSE_TIMEOUT
 option(
     'http-response-timeout',
     type: 'integer',
-    value: 60,
+    value: 300,
     description: 'The bmcweb response timeout in seconds.',
 )
 
