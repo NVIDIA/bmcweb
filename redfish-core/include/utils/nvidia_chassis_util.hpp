@@ -2908,12 +2908,9 @@ inline void handleChassisGetAllProperties(
                                                     object);
             });
 
-        if constexpr (BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS)
-        {
-            dbus::utility::getAssociationEndPoints(
-                path + "/host_management_network_access",
-                std::bind_front(afterGetHostNetworkAccessEndpoints, asyncResp));
-        } // BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS
+        dbus::utility::getAssociationEndPoints(
+            path + "/host_management_network_access",
+            std::bind_front(afterGetHostNetworkAccessEndpoints, asyncResp));
 
         if (pCIeReferenceClockCount != nullptr)
         {
