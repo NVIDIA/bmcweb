@@ -58,9 +58,6 @@
 namespace redfish
 {
 
-constexpr auto diagServiceList = "cpu-diag-status.timer "
-                                 "cpu-diag-status.service";
-
 // True when the JSON value is an unsigned number that survives narrowing to T.
 // nlohmann's get<T>() narrows with an unchecked static_cast, so an is_number_
 // unsigned() check alone lets an oversized persisted value through wrapped.
@@ -646,35 +643,16 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
     else
     {
-        // Grace path: systemctl timers + Settings DiagMode property
+        // Grace path: the IPMI OEM provider's heartbeat watchdog follows the
+        // Settings DiagMode property.
         if (enable)
         {
-            std::string startupDiagTimerString = "systemctl start ";
-            startupDiagTimerString += diagServiceList;
-            // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
-            auto r = system(startupDiagTimerString.c_str());
-            if (r != 0)
-            {
-                BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to start {}", r);
-                messages::internalError(aResp->res);
-                return false;
-            }
             setDiagModeProperty(aResp, true);
         }
         else
         {
             clearDiagResult(aResp);
             initDiagStatus(aResp);
-            std::string stopDiagTimerString = "systemctl stop ";
-            stopDiagTimerString += diagServiceList;
-            // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
-            auto r = system(stopDiagTimerString.c_str());
-            if (r != 0)
-            {
-                BMCWEB_LOG_ERROR("DiagFlowCtrl: service failed to stop {}", r);
-                messages::internalError(aResp->res);
-                return false;
-            }
             setDiagModeProperty(aResp, false);
         }
     }
