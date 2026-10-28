@@ -77,6 +77,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/nvidia_eventlog_service_patch_test.cpp',
     'redfish-core/lib/nvidia_fabric_config_update_test.cpp',
     'redfish-core/lib/nvidia_igx_test.cpp',
+    'redfish-core/lib/nvidia_manager_dot_test.cpp',
     'redfish-core/lib/nvidia_multipart_update_test.cpp',
     'redfish-core/lib/nvidia_oem_chassis_astra_test.cpp',
     'redfish-core/lib/nvidia_oem_l1reset_test.cpp',
@@ -96,10 +97,6 @@ srcfiles_unittest = files(
     'redfish-core/lib/update_service_test.cpp',
     'redfish-core/lib/virtual_media_test.cpp',
 ) + test_sources
-
-if get_option('nvidia-dot-keyd-support').allowed()
-    srcfiles_unittest += files('redfish-core/lib/nvidia_manager_dot_test.cpp')
-endif
 
 if (get_option('tests').allowed())
     gtest = dependency(

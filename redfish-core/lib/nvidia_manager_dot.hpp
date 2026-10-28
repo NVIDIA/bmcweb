@@ -20,10 +20,6 @@
 #include "bmcweb_config.h"
 
 #include "app.hpp"
-
-namespace redfish
-{
-
 #include "dbus_utility.hpp"
 #include "http/utility.hpp"
 #include "nvidia_messages.hpp"
@@ -31,24 +27,60 @@ namespace redfish
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message.hpp>
 
+#include <array>
 #include <cstdint>
 #include <format>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+namespace redfish
+{
+
 constexpr const char* dotKeydService = "xyz.openbmc_project.Security.DOT";
 constexpr const char* dotKeydPath = "/xyz/openbmc_project/security/dot";
 constexpr const char* dotKeydInterface = "xyz.openbmc_project.Security.DOT";
+
+inline void afterGetDotKeydObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::function<void()>& onPresent, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("DOT: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Oem", "DOT");
+        return;
+    }
+    onPresent();
+}
+
+// Runs onPresent when dot-keyd publishes its object; otherwise the DOT
+// resource does not exist on this platform.
+inline void requireDotKeyd(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           std::function<void()>&& onPresent)
+{
+    dbus::utility::getDbusObject(
+        dotKeydPath, std::array<std::string_view, 1>{dotKeydInterface},
+        std::bind_front(afterGetDotKeydObject, asyncResp,
+                        std::move(onPresent)));
+}
 
 /**
  * @brief Get CAKInstalled property and set response
@@ -310,13 +342,15 @@ inline void handleCAKInstall(
         "VendorMinimumSecurityVersion",
         dbus::utility::DbusVariantType(vendorMinimumSecurityVersion));
 
-    dbus::utility::async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
-                    sdbusplus::message_t& msg) {
-            processCAKInstallResponse(asyncResp, ec, msg);
-        },
-        dotKeydService, dotKeydPath, dotKeydInterface, "installCak2BmcFs",
-        args);
+    requireDotKeyd(asyncResp, [asyncResp, args = std::move(args)] {
+        dbus::utility::async_method_call(
+            [asyncResp](const boost::system::error_code& ec,
+                        sdbusplus::message_t& msg) {
+                processCAKInstallResponse(asyncResp, ec, msg);
+            },
+            dotKeydService, dotKeydPath, dotKeydInterface, "installCak2BmcFs",
+            args);
+    });
 }
 
 inline void processCAKDeleteResponse(
@@ -415,7 +449,14 @@ inline void handleManagerDOTGetRequest(
     {
         return;
     }
-    getManagerDOT(asyncResp, managerId);
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    requireDotKeyd(asyncResp, [asyncResp, managerId] {
+        getManagerDOT(asyncResp, managerId);
+    });
 }
 
 inline void handleManagerDOTCAKInstallRequest(
@@ -439,7 +480,14 @@ inline void handleManagerDOTCAKDeleteRequest(
     {
         return;
     }
-    handleCAKDelete(asyncResp, managerId);
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    requireDotKeyd(asyncResp, [asyncResp, managerId] {
+        handleCAKDelete(asyncResp, managerId);
+    });
 }
 
 inline void handleManagerDOTCAKDownloadRequest(
@@ -451,7 +499,14 @@ inline void handleManagerDOTCAKDownloadRequest(
     {
         return;
     }
-    handleCAKDownload(asyncResp, managerId);
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    requireDotKeyd(asyncResp, [asyncResp, managerId] {
+        handleCAKDownload(asyncResp, managerId);
+    });
 }
 
 /**
@@ -459,37 +514,29 @@ inline void handleManagerDOTCAKDownloadRequest(
  */
 inline void requestRoutesManagerDOT(App& app)
 {
-    if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
-    {
-        BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/")
-            .privileges(redfish::privileges::getManager)
-            .methods(boost::beast::http::verb::get)(
-                std::bind_front(handleManagerDOTGetRequest, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleManagerDOTGetRequest, std::ref(app)));
 
-        BMCWEB_ROUTE(
-            app,
-            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKInstall/")
-            .privileges(redfish::privileges::postManager)
-            .methods(boost::beast::http::verb::post)(std::bind_front(
-                handleManagerDOTCAKInstallRequest, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKInstall/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleManagerDOTCAKInstallRequest, std::ref(app)));
 
-        BMCWEB_ROUTE(
-            app,
-            "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKDelete/")
-            .privileges(redfish::privileges::postManager)
-            .methods(boost::beast::http::verb::post)(std::bind_front(
-                handleManagerDOTCAKDeleteRequest, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/Actions/NvidiaDOTManagement.CAKDelete/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleManagerDOTCAKDeleteRequest, std::ref(app)));
 
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/CAKDownload/")
-            .privileges(redfish::privileges::getManager)
-            .methods(boost::beast::http::verb::get)(std::bind_front(
-                handleManagerDOTCAKDownloadRequest, std::ref(app)));
-    }
-    else
-    {
-        (void)app; // Suppress unused parameter warning when feature is disabled
-    }
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/DOT/CAKDownload/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleManagerDOTCAKDownloadRequest, std::ref(app)));
 }
 
 } // namespace redfish

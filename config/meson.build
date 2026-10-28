@@ -125,7 +125,6 @@ feature_options = [
     'nvidia-oem-policies',
     'nvidia-oem-properties',
     'nvidia-pcore-dump',
-    'nvidia-dot-keyd-support',
     'nvidia-retimer-debugmode',
     'nvidia-uuid-from-platform-chassis-name',
     'nvidia-host-management-network-access',

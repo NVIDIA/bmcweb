@@ -353,7 +353,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesNvidiaOemDOT(app);
     requestRoutesDOTBackupDataCollection(app);
 
-    if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         requestRoutesManagerDOT(app);
     }

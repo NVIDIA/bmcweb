@@ -47,6 +47,7 @@
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
@@ -1580,6 +1581,26 @@ inline void extendManagerGet(
         });
 }
 
+namespace nvidia
+{
+inline void afterGetDotKeydObjectForManager(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        if (ec && ec != boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_ERROR("DOT: object mapper error {}", ec);
+        }
+        return;
+    }
+    asyncResp->res.jsonValue["DOT"]["@odata.id"] =
+        std::format("/redfish/v1/Managers/{}/Oem/Nvidia/DOT", managerId);
+}
+} // namespace nvidia
+
 inline void extendManagerOEM(
     const SubRequest& /*req*/,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1599,11 +1620,11 @@ inline void extendManagerOEM(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     checkAndAddDOTBackupDataLink(asyncResp, managerId);
 
-    if constexpr (BMCWEB_NVIDIA_DOT_KEYD_SUPPORT)
-    {
-        oemNvidia["DOT"]["@odata.id"] =
-            std::format("/redfish/v1/Managers/{}/Oem/Nvidia/DOT", managerId);
-    }
+    dbus::utility::getDbusObject(
+        "/xyz/openbmc_project/security/dot",
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Security.DOT"},
+        std::bind_front(nvidia::afterGetDotKeydObjectForManager, asyncResp,
+                        managerId));
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
