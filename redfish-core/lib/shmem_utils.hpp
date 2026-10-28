@@ -28,6 +28,7 @@
 
 #include <regex>
 #include <set>
+#include <string_view>
 #include <unordered_set>
 
 namespace redfish
@@ -59,6 +60,13 @@ inline void updateReplacementFlag(const MetricsReplacement& replacement,
         (allowedWildcards.contains(replacement.wildcardName));
 }
 
+// MGX_PlatformEnvironmentMetrics_0 (switch) gets no Nvidia OEM block.
+inline bool isOemPlatformMetricsReport(std::string_view metricId)
+{
+    return metricId == "PlatformEnvironmentMetrics_0" ||
+           metricId == "HGX_PlatformEnvironmentMetrics_0";
+}
+
 inline void getShmemPlatformMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& metricId, const uint64_t& requestTimestamp = 0)
@@ -88,7 +96,7 @@ inline void getShmemPlatformMetrics(
         nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
         nlohmann::json thisMetric = nlohmann::json::object();
 
-        if (metricId == PLATFORMMETRICSID)
+        if (isOemPlatformMetricsReport(metricId))
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
@@ -111,7 +119,7 @@ inline void getShmemPlatformMetrics(
             thisMetric["Timestamp"] = e.timestampStr;
             thisMetric["MetricProperty"] = e.metricProperty;
 
-            if (metricId == PLATFORMMETRICSID)
+            if (isOemPlatformMetricsReport(metricId))
             {
                 thisMetric["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";

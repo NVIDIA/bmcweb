@@ -33,7 +33,6 @@ conf_data.set_quoted(
     'PLATFORM_SYSTEM_DESCRIPTION',
     get_option('platform-system-description'),
 )
-conf_data.set_quoted('PLATFORM_METRICS_ID', get_option('platform-metrics-id'))
 conf_data.set_quoted(
     'PLATFORM_NETWORK_ADAPTER',
     get_option('platform-network-adapter'),
@@ -185,7 +184,6 @@ string_options = [
     'platform-chassis-name',
     'platform-device-prefix',
     'platform-gpu-name-prefix',
-    'platform-metrics-id',
     'platform-network-adapter',
     'platform-power-control-sensor-name',
     'platform-system-description',

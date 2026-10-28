@@ -910,12 +910,6 @@ option(
     description: 'Platform specific total power control sensor name, which has system current power watts readings',
 )
 option(
-    'platform-metrics-id',
-    type: 'string',
-    value: 'PlatformMetrics',
-    description: 'Platform specific telemetry service metric reports id',
-)
-option(
     'platform-device-prefix',
     type: 'string',
     value: 'device-prefix',
