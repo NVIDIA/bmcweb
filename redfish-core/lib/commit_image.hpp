@@ -36,7 +36,10 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -397,79 +400,138 @@ inline nlohmann::json imageCopyError(
                           {"Resolution", resolution}};
 }
 
-/**
- * @brief Optional allow-list of firmware inventory paths for CommitImage.
- *
- * The list is read from the FW UUID mapping file. The file is optional: when
- * it is absent (or has no entries) the list is empty and no allow-list is
- * applied; the targets are then decided by the com.nvidia.ImageCopy interface
- * discovery alone (see collectImageCopySoftwarePaths).
- */
-inline std::vector<CommitImageValueEntry> getAllowableValues()
+enum class CommitImageAllowListState
 {
-    static std::vector<CommitImageValueEntry> allowableValues;
+    notConfigured,
+    loaded,
+    loadFailed,
+};
 
-    if (!allowableValues.empty())
+struct CommitImageAllowList
+{
+    CommitImageAllowListState state = CommitImageAllowListState::notConfigured;
+    std::vector<CommitImageValueEntry> values;
+};
+
+/**
+ * @brief Load the optional CommitImage allow-list from the FW UUID mapping
+ * file.
+ *
+ * A missing or empty file, or one with no FwUuidMap entries, is
+ * notConfigured: the targets are then decided by the com.nvidia.ImageCopy
+ * discovery alone (see collectImageCopySoftwarePaths). A file that cannot be
+ * read or parsed, or whose entries are all malformed, is loadFailed and must
+ * not be treated as permissive.
+ */
+inline CommitImageAllowList loadCommitImageAllowList(
+    const std::string& configPath)
+{
+    CommitImageAllowList allowList;
+
+    std::error_code ec;
+    if (!fs::exists(configPath, ec))
     {
-        return allowableValues;
-    }
-
-    std::string configPath(BMCWEB_FW_UUID_MAPPING_JSON);
-
-    if (!fs::exists(configPath))
-    {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Unable to access {}: {}", configPath,
+                             ec.message());
+            allowList.state = CommitImageAllowListState::loadFailed;
+            return allowList;
+        }
         BMCWEB_LOG_DEBUG(
             "No CommitImage allow-list file ({}), using ImageCopy discovery",
             configPath);
-        return allowableValues;
+        return allowList;
     }
 
     std::ifstream jsonFile(configPath);
+    if (!fs::is_regular_file(configPath, ec) || !jsonFile.is_open())
+    {
+        BMCWEB_LOG_ERROR("Unable to open {}", configPath);
+        allowList.state = CommitImageAllowListState::loadFailed;
+        return allowList;
+    }
     std::string jsonContents((std::istreambuf_iterator<char>(jsonFile)),
                              std::istreambuf_iterator<char>());
+    if (jsonContents.find_first_not_of(" \t\r\n") == std::string::npos)
+    {
+        BMCWEB_LOG_DEBUG("Empty CommitImage allow-list file ({})", configPath);
+        return allowList;
+    }
+
     auto data = Json::parse(jsonContents, nullptr, false);
-    if (data.is_discarded())
+    if (data.is_discarded() || !data.is_object())
     {
         BMCWEB_LOG_ERROR("Unable to parse json data {}", configPath);
-        return allowableValues;
+        allowList.state = CommitImageAllowListState::loadFailed;
+        return allowList;
     }
 
-    const Json emptyJson{};
-
-    auto entries = data.value("FwUuidMap", emptyJson);
-    const Json::object_t* entriesObj = entries.get_ptr<const Json::object_t*>();
+    auto entries = data.find("FwUuidMap");
+    if (entries == data.end() || entries->is_null())
+    {
+        return allowList;
+    }
+    const Json::object_t* entriesObj =
+        entries->get_ptr<const Json::object_t*>();
     if (entriesObj == nullptr)
     {
-        return allowableValues;
+        BMCWEB_LOG_ERROR("FW UUID map format error in {}", configPath);
+        allowList.state = CommitImageAllowListState::loadFailed;
+        return allowList;
     }
-    for (const auto& element : *entriesObj)
+    if (entriesObj->empty())
     {
-        try
-        {
-            CommitImageValueEntry allowableVal;
+        return allowList;
+    }
 
-            allowableVal.inventoryUri = element.first;
-            allowableVal.uuid = static_cast<std::string>(element.second);
-
-            allowableValues.push_back(allowableVal);
-        }
-        catch ([[maybe_unused]] const std::exception& e)
+    for (const auto& [inventoryUri, value] : *entriesObj)
+    {
+        const std::string* uuid = value.get_ptr<const std::string*>();
+        if (uuid == nullptr)
         {
             BMCWEB_LOG_ERROR("FW UUID map format error.");
+            continue;
         }
+        CommitImageValueEntry allowableVal;
+        allowableVal.inventoryUri = inventoryUri;
+        allowableVal.uuid = *uuid;
+        allowList.values.push_back(std::move(allowableVal));
     }
-    return allowableValues;
+
+    allowList.state = allowList.values.empty()
+                          ? CommitImageAllowListState::loadFailed
+                          : CommitImageAllowListState::loaded;
+    return allowList;
+}
+
+inline const CommitImageAllowList& getCommitImageAllowList()
+{
+    static const CommitImageAllowList allowList =
+        loadCommitImageAllowList(std::string(BMCWEB_FW_UUID_MAPPING_JSON));
+    return allowList;
 }
 
 /**
- * @brief Whether a CommitImage allow-list is configured on this image
+ * @brief Entries of the CommitImage allow-list; empty when it is not
+ * configured or failed to load.
+ */
+inline std::vector<CommitImageValueEntry> getAllowableValues()
+{
+    return getCommitImageAllowList().values;
+}
+
+/**
+ * @brief Whether a CommitImage allow-list applies on this image
  *
- * @return true when the mapping file exists and has entries; false when the
- *         targets are decided by ImageCopy discovery alone
+ * @return false only when no allow-list is installed (targets are decided by
+ *         ImageCopy discovery alone); true when it is loaded or failed to
+ *         load, so a broken file never makes the checks permissive
  */
 inline bool isCommitImageAllowListConfigured()
 {
-    return !getAllowableValues().empty();
+    return getCommitImageAllowList().state !=
+           CommitImageAllowListState::notConfigured;
 }
 
 /**

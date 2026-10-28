@@ -1679,6 +1679,8 @@ inline void updateParametersForCommitImageInfo(
     parameters.push_back(parameterTargets);
 }
 
+namespace nvidia
+{
 /**
  * @brief Update parameters for GET Method CommitImageInfo from the ImageCopy
  * discovery. Used when no allow-list file is installed: the allowable targets
@@ -1698,7 +1700,7 @@ inline void updateParametersForCommitImageInfoFromImageCopy(
     asyncResp->res.jsonValue["Parameters"] = nlohmann::json::array();
     nlohmann::json& parameters = asyncResp->res.jsonValue["Parameters"];
 
-    nlohmann::json parameterTargets;
+    nlohmann::json parameterTargets{};
     parameterTargets["Name"] = "Targets";
     parameterTargets["Required"] = false;
     parameterTargets["DataType"] = "StringArray";
@@ -1706,7 +1708,7 @@ inline void updateParametersForCommitImageInfoFromImageCopy(
 
     nlohmann::json& allowableValues = parameterTargets["AllowableValues"];
 
-    std::set<std::string> firmwareIds;
+    std::set<std::string> firmwareIds{};
     for (const auto& [chassisName, chassisInfo] : chassisMap)
     {
         for (const auto& softwarePath : chassisInfo.softwarePaths)
@@ -1724,12 +1726,13 @@ inline void updateParametersForCommitImageInfoFromImageCopy(
 
     for (const auto& fwId : firmwareIds)
     {
-        allowableValues.push_back(
-            "/redfish/v1/UpdateService/FirmwareInventory/" + fwId);
+        allowableValues.push_back(boost::urls::format(
+            "/redfish/v1/UpdateService/FirmwareInventory/{}", fwId));
     }
 
     parameters.push_back(parameterTargets);
 }
+} // namespace nvidia
 
 /**
  * @brief Handles request POST
@@ -2539,7 +2542,7 @@ inline void handleCommitImageActionInfoGet(
                 asyncResp,
                 [asyncResp, forwardToSatellites](
                     const std::map<std::string, ChassisInfo>& chassisMap) {
-                    updateParametersForCommitImageInfoFromImageCopy(
+                    nvidia::updateParametersForCommitImageInfoFromImageCopy(
                         asyncResp, chassisMap);
                     forwardToSatellites();
                 });

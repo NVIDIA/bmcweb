@@ -81,6 +81,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/nvidia_oem_l1reset_test.cpp',
     'redfish-core/lib/nvidia_pcore_dump_test.cpp',
     'redfish-core/lib/nvidia_storage_test.cpp',
+    'redfish-core/lib/nvidia_update_service_test.cpp',
     'redfish-core/lib/openbmc_managers_test.cpp',
     'redfish-core/lib/pcie_test.cpp',
     'redfish-core/lib/power_subsystem_test.cpp',
