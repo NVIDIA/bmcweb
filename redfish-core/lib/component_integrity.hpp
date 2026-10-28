@@ -458,6 +458,8 @@ inline void handleSPDMGETSignedMeasurement(
         return;
     }
     spdmMeasurementData[objPath] = SPDMMeasurementData{};
+    // /data returns only the result of this request once it completes
+    lastVerifiedSpdmMeasurements().erase(objPath);
 
     // create a task to wait for the status property changed signal
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
