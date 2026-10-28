@@ -224,6 +224,7 @@ int_options = [
     'http-body-limit',
     'expand-response-body-limit-kib',
     'expand-global-body-limit-kib',
+    'redfish-expand-max-levels',
     'manufacturing-test-timeout',
     'min-digits',
     'min-lcase-characters',

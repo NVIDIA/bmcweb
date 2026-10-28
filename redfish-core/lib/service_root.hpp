@@ -130,10 +130,11 @@ inline void handleServiceRootGetImpl(
 
     protocolFeatures["ExpandQuery"]["ExpandAll"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
-    // This is the maximum level defined in ServiceRoot.v1_13_0.json
+    // Platform configurable via the redfish-expand-max-levels meson option
     if constexpr (BMCWEB_INSECURE_ENABLE_REDFISH_QUERY)
     {
-        protocolFeatures["ExpandQuery"]["MaxLevels"] = 6;
+        protocolFeatures["ExpandQuery"]["MaxLevels"] =
+            BMCWEB_REDFISH_EXPAND_MAX_LEVELS;
     }
     protocolFeatures["ExpandQuery"]["Levels"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;

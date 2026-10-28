@@ -393,6 +393,19 @@ option(
                     top-level delegation limitation noted above.''',
 )
 
+# BMCWEB_REDFISH_EXPAND_MAX_LEVELS
+option(
+    'redfish-expand-max-levels',
+    type: 'integer',
+    min: 1,
+    max: 255,
+    value: 6,
+    description: '''Value advertised as ProtocolFeaturesSupported.ExpandQuery.MaxLevels
+                    in the ServiceRoot. Only the advertisement changes; $levels is
+                    not rejected above this value. Only used when
+                    insecure-enable-redfish-query is enabled.''',
+)
+
 # BMCWEB_FIRMWARE_IMAGE_LIMIT
 option(
     'firmware-image-limit',
