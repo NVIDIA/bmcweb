@@ -307,14 +307,6 @@ option(
                     - For the other logging level option, see DEVELOPING.md.''',
 )
 
-# BMCWEB_BASIC_AUTH
-option(
-    'http-chunking',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable bmcweb chunking.',
-)
-
 # BMCWEB_HTTP_RESPONSE_TIMEOUT
 option(
     'http-response-timeout',
@@ -330,6 +322,7 @@ option(
     description: 'Enable rsyslog client',
 )
 
+# BMCWEB_BASIC_AUTH
 option(
     'basic-auth',
     type: 'feature',

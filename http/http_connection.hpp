@@ -1068,17 +1068,14 @@ class Connection :
         BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
         ForceChunking chunked = ForceChunking::Disabled;
 
-        if constexpr (BMCWEB_HTTP_CHUNKING)
+        if (req && req->version() == 11)
         {
-            if (req && req->version() == 11)
+            std::string_view acceptEncodings = req->getHeaderValue(
+                boost::beast::http::field::
+                    accept_encoding); // NOLINTNEXTLINE(readability-identifier-naming)
+            if (http_helpers::headerContains(acceptEncodings, "chunked"))
             {
-                std::string_view acceptEncodings = req->getHeaderValue(
-                    boost::beast::http::field::
-                        accept_encoding); // NOLINTNEXTLINE(readability-identifier-naming)
-                if (http_helpers::headerContains(acceptEncodings, "chunked"))
-                {
-                    chunked = ForceChunking::Enabled;
-                }
+                chunked = ForceChunking::Enabled;
             }
         }
 

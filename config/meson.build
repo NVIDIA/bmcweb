@@ -83,7 +83,6 @@ feature_options = [
     'host-iface',
     'host-os-features',
     'host-serial-socket',
-    'http-chunking',
     'http-zstd',
     'http2',
     'hypervisor-computer-system',
