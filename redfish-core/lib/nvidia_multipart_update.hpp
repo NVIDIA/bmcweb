@@ -469,6 +469,20 @@ inline std::string_view satelliteTargetType(std::string_view uri)
     return "FirmwareInventory";
 }
 
+// Without aggregation there is no satellite: every target is local.
+inline bool hasSatellitePrefix(std::string_view id)
+{
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        return id.starts_with(
+            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    }
+    else
+    {
+        return false;
+    }
+}
+
 inline TargetType parseRfaUri(std::string_view uri)
 {
     if (uri.empty())
@@ -499,9 +513,7 @@ inline TargetType parseRfaUri(std::string_view uri)
             return TargetType::SatelliteOmitTargets;
         }
 
-        std::string prefix =
-            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (!chassisId.starts_with(prefix))
+        if (!hasSatellitePrefix(chassisId))
         {
             return TargetType::Local;
         }
@@ -525,9 +537,7 @@ inline TargetType parseRfaUri(std::string_view uri)
                                        "UpdateService", "SoftwareInventory",
                                        std::ref(softwareId)))
     {
-        std::string prefix =
-            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (!softwareId.starts_with(prefix))
+        if (!hasSatellitePrefix(softwareId))
         {
             return TargetType::Local;
         }
@@ -542,9 +552,7 @@ inline TargetType parseRfaUri(std::string_view uri)
                                        "UpdateService", "FirmwareInventory",
                                        std::ref(firmwareId)))
     {
-        std::string prefix =
-            std::format("{}_", BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (!firmwareId.starts_with(prefix))
+        if (!hasSatellitePrefix(firmwareId))
         {
             return TargetType::Local;
         }

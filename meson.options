@@ -719,12 +719,6 @@ option(
     description: 'set power control SetPointUnits to percentage.',
 )
 option(
-    'redfish-aggregation-prefix',
-    type: 'string',
-    value: '5B247A',
-    description: 'redfish aggregation prefix',
-)
-option(
     'rfa-hmc-update-target',
     type: 'string',
     value: 'HGX_Chassis_0',

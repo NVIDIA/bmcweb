@@ -298,6 +298,24 @@ TEST(ParseRfaUri, UnparseableUriReturnsError)
     EXPECT_EQ(parseRfaUri("/redfish/v1/Chassis/%zz"), TargetType::Error);
 }
 
+// A prefixed target routes to the satellite only when aggregation is built.
+constexpr TargetType prefixedTargetType =
+    BMCWEB_REDFISH_AGGREGATION ? TargetType::Satellite : TargetType::Local;
+
+TEST(ParseRfaUri, AggregationPrefixIsHgx)
+{
+    EXPECT_EQ(BMCWEB_REDFISH_AGGREGATION_PREFIX, "HGX");
+}
+
+TEST(ParseRfaUri, FormerDefaultPrefixIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Chassis/5B247A_Baseboard_0"),
+              TargetType::Local);
+    EXPECT_EQ(
+        parseRfaUri("/redfish/v1/UpdateService/FirmwareInventory/5B247A_FW_0"),
+        TargetType::Local);
+}
+
 TEST(ParseRfaUri, HmcChassisTargetOmitsTargets)
 {
     std::string uri =
@@ -311,7 +329,7 @@ TEST(ParseRfaUri, AggregationPrefixedChassisIsSatellite)
     // update target) routes to a satellite BMC.
     std::string uri = std::format("/redfish/v1/Chassis/{}_Baseboard_0",
                                   BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
+    EXPECT_EQ(parseRfaUri(uri), prefixedTargetType);
 }
 
 TEST(ParseRfaUri, UnprefixedChassisIsLocal)
@@ -337,7 +355,7 @@ TEST(ParseRfaUri, AggregationPrefixedSoftwareInventoryIsSatellite)
     std::string uri =
         std::format("/redfish/v1/UpdateService/SoftwareInventory/{}_FW_0",
                     BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
+    EXPECT_EQ(parseRfaUri(uri), prefixedTargetType);
 }
 
 TEST(ParseRfaUri, UnprefixedSoftwareInventoryIsLocal)
@@ -362,7 +380,7 @@ TEST(ParseRfaUri, AggregationPrefixedFirmwareInventoryIsSatellite)
     std::string uri =
         std::format("/redfish/v1/UpdateService/FirmwareInventory/{}_FW_BMC_0",
                     BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    EXPECT_EQ(parseRfaUri(uri), TargetType::Satellite);
+    EXPECT_EQ(parseRfaUri(uri), prefixedTargetType);
 }
 
 TEST(ParseRfaUri, AggregationPrefixedManagerIsLocal)
@@ -941,6 +959,24 @@ TEST(UpdateInProgressGate, LocalUpdateRejectedOnceTargetsKnown)
               "NvidiaUpdate.1.3.FirmwareUpdateInProgress");
     EXPECT_EQ(errorMessage(ctx->asyncResp->res)["MessageArgs"][0],
               "/redfish/v1/TaskService/Tasks");
+}
+
+TEST(UpdateInProgressGate, HgxAndLocalTargetsConflictOnlyWithAggregation)
+{
+    redfish::fwUpdateInProgress = true;
+    auto ctx = makeCtx();
+    ctx->asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    completeUpdateParameters(
+        ctx,
+        R"({"Targets":["/redfish/v1/UpdateService/FirmwareInventory/FW_0",)"
+        R"("/redfish/v1/UpdateService/FirmwareInventory/HGX_FW_0"]})");
+
+    ctx->onHeadersComplete(ctx, makePartFields("UpdateFile"), 3U);
+    redfish::fwUpdateInProgress = false;
+
+    // Without aggregation both targets are local and reach the local gate.
+    EXPECT_EQ(ctx->asyncResp->res.resultInt(),
+              BMCWEB_REDFISH_AGGREGATION ? 400U : 409U);
 }
 
 TEST(UpdateInProgressGate, SoftwareUpdateRejectedAtDispatch)

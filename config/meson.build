@@ -42,10 +42,6 @@ conf_data.set_quoted(
     'FW_UUID_MAPPING_JSON',
     join_paths(package_datadir, 'fw_uuid_mapping.json'),
 )
-conf_data.set_quoted(
-    'REDFISH_AGGREGATION_PREFIX',
-    get_option('redfish-aggregation-prefix'),
-)
 conf_data.set('MFG_TEST_TIMEOUT', get_option('manufacturing-test-timeout'))
 feature_options = [
     'basic-auth',
@@ -188,7 +184,6 @@ string_options = [
     'platform-power-control-sensor-name',
     'platform-system-description',
     'platform-system-id',
-    'redfish-aggregation-prefix',
     'redfish-eventlog-location',
     'redfish-fabric-uri-name',
     'redfish-manager-uri-name',

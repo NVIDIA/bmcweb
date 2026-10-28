@@ -29,6 +29,8 @@ constexpr std::string_view FWUUIDMAPPINGJSON = @FW_UUID_MAPPING_JSON@;
 
 constexpr const char* platformGpuNamePrefix = @PLATFORM_GPU_NAME_PREFIX@;
 constexpr const int mfgTestTimeout = @MFG_TEST_TIMEOUT@;
-constexpr const char* redfishAggregationPrefix = @REDFISH_AGGREGATION_PREFIX@;
+constexpr std::string_view BMCWEB_REDFISH_AGGREGATION_PREFIX = "HGX";
+constexpr const char* redfishAggregationPrefix =
+    BMCWEB_REDFISH_AGGREGATION_PREFIX.data();
 // NOLINTEND(readability-identifier-naming)
 // clang-format on
