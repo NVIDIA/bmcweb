@@ -45,6 +45,7 @@
 
 #include <sys/mman.h>
 
+#include <boost/beast/http/fields.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -2444,7 +2445,8 @@ inline void commitImageActionInfoResp(
  * the function will send the request to satBMC to get the CommitImageActionInfo
  * if the satellie BMC is available.
  *
- * @param[in] req  HTTP request
+ * @param[in] reqPath  Path of the HTTP request
+ * @param[in] reqHeaders  Headers of the HTTP request
  * @param[in] asyncResp Shared pointer to the response message
  * @param[in] ec Error code
  * @param[in] satelliteInfo satellite BMC information
@@ -2452,7 +2454,7 @@ inline void commitImageActionInfoResp(
  * @return None
  */
 inline void forwardCommitImageActionInfo(
-    const crow::Request& req,
+    const std::string& reqPath, const boost::beast::http::fields& reqHeaders,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
@@ -2477,9 +2479,9 @@ inline void forwardCommitImageActionInfo(
 
     std::string data;
     boost::urls::url url(sat->second);
-    url.set_path(req.url().path());
+    url.set_path(reqPath);
 
-    boost::beast::http::fields headers = req.fields();
+    boost::beast::http::fields headers = reqHeaders;
     headers.set(boost::beast::http::field::accept, "application/json");
 
     client.sendDataWithCallback(std::move(data), url,
@@ -2510,7 +2512,8 @@ inline void handleCommitImageActionInfoGet(
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/software", static_cast<int32_t>(0),
         std::array<std::string_view, 1>{"xyz.openbmc_project.Software.Version"},
-        [asyncResp{asyncResp}, &req](
+        [asyncResp{asyncResp}, reqPath = std::string(req.url().path()),
+         reqHeaders = req.fields()](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
@@ -2521,13 +2524,18 @@ inline void handleCommitImageActionInfoGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_DEBUG("Request URL: {}", req.url());
-            auto forwardToSatellites = [asyncResp, &req]() {
+            BMCWEB_LOG_DEBUG("Request URL: {}", reqPath);
+            auto forwardToSatellites = [asyncResp, reqPath, reqHeaders]() {
                 if constexpr (BMCWEB_REDFISH_AGGREGATION)
                 {
                     RedfishAggregator::getInstance().getSatelliteConfigs(
-                        std::bind_front(forwardCommitImageActionInfo,
-                                        std::ref(req), asyncResp));
+                        std::bind_front(forwardCommitImageActionInfo, reqPath,
+                                        reqHeaders, asyncResp));
+                }
+                else
+                {
+                    (void)reqPath;
+                    (void)reqHeaders;
                 }
             };
             if (isCommitImageAllowListConfigured())
