@@ -23,6 +23,7 @@
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_igx.hpp"
+#include "nvidia_oem_l1reset.hpp"
 #include "nvidia_refresh_inventory.hpp"
 #include "nvidia_system_processor_power_limits.hpp"
 #include "query.hpp"
@@ -4098,14 +4099,7 @@ inline void processComputerSystemGet(
         getDotCakInitialization(asyncResp);
     }
 
-    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
-    {
-        asyncResp->res.jsonValue["Actions"]["Oem"]
-                                ["#NvidiaComputerSystem.L1Reset"]["target"] =
-            boost::urls::format("/redfish/v1/Systems/{}"
-                                "/Actions/Oem/NvidiaComputerSystem.L1Reset",
-                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    }
+    nvidia_oem_l1reset::advertiseL1Reset(asyncResp);
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {

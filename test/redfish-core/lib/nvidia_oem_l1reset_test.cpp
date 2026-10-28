@@ -3,10 +3,13 @@
 // AFFILIATES. All rights reserved.
 
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
 #include "http_response.hpp"
 #include "nvidia_oem_l1reset.hpp"
 
 #include <boost/beast/http/status.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/error_code.hpp>
 #include <sdbusplus/message.hpp>
 
 #include <memory>
@@ -82,6 +85,57 @@ TEST(NvidiaOemL1ResetTest, HandleL1ResetResponseSuccess)
     nvidia_oem_l1reset::handleL1ResetResponse(asyncResp, ec, msg);
 
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(NvidiaOemL1ResetTest, SystemAdvertisesL1ResetWhenPresent)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    const dbus::utility::MapperGetObject object{
+        {"xyz.openbmc_project.State.Boot.Raw", {"com.nvidia.L1Reset"}}};
+
+    nvidia_oem_l1reset::afterGetL1ResetObjectForSystem(asyncResp, {}, object);
+
+    EXPECT_TRUE(
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaComputerSystem.L1Reset"]
+            .contains("target"));
+}
+
+TEST(NvidiaOemL1ResetTest, SystemOmitsL1ResetWhenAbsent)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_oem_l1reset::afterGetL1ResetObjectForSystem(
+        asyncResp,
+        boost::system::errc::make_error_code(boost::system::errc::io_error),
+        {});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
+}
+
+TEST(NvidiaOemL1ResetTest, ResetNotFoundWhenAbsent)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_oem_l1reset::afterGetL1ResetObjectForReset(
+        asyncResp,
+        boost::system::errc::make_error_code(boost::system::errc::io_error),
+        {});
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::not_found);
+}
+
+TEST(NvidiaOemL1ResetTest, ResetMapperFailureIsInternalError)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    nvidia_oem_l1reset::afterGetL1ResetObjectForReset(
+        asyncResp,
+        boost::system::errc::make_error_code(boost::system::errc::timed_out),
+        {});
+
+    EXPECT_EQ(asyncResp->res.result(),
+              boost::beast::http::status::internal_server_error);
 }
 
 } // namespace

@@ -422,10 +422,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesCollectPCoreDump(app);
     }
 
-    if constexpr (BMCWEB_NVIDIA_OEM_L1RESET)
-    {
-        requestRoutesSystemsOemNvidiaL1Reset(app);
-    }
+    requestRoutesSystemsOemNvidiaL1Reset(app);
 
     if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
     {

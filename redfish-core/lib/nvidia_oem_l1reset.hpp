@@ -25,14 +25,24 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/system/errc.hpp>
+#include <boost/url/format.hpp>
 #include <sdbusplus/message.hpp>
 
+#include <array>
+#include <functional>
+#include <memory>
+#include <string>
 #include <string_view>
 
 namespace redfish
 {
 namespace nvidia_oem_l1reset
 {
+
+constexpr std::string_view l1ResetObjectPath =
+    "/xyz/openbmc_project/state/host0";
+constexpr std::string_view l1ResetInterface = "com.nvidia.L1Reset";
 
 inline void handleL1ResetError(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -78,6 +88,33 @@ inline void handleL1ResetResponse(
     messages::success(asyncResp->res);
 }
 
+inline void afterGetL1ResetObjectForReset(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("L1Reset: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Oem",
+                                   "NvidiaComputerSystem.L1Reset");
+        return;
+    }
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp](const boost::system::error_code& ec2,
+                    const sdbusplus::message_t& msg) {
+            handleL1ResetResponse(asyncResp, ec2, msg);
+        },
+        "xyz.openbmc_project.State.Boot.Raw", std::string(l1ResetObjectPath),
+        std::string(l1ResetInterface), "Reset");
+}
+
 inline void handleSystemsOemNvidiaL1Reset(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -99,14 +136,39 @@ inline void handleSystemsOemNvidiaL1Reset(
         return;
     }
 
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp](const boost::system::error_code& ec,
-                    const sdbusplus::message_t& msg) {
-            handleL1ResetResponse(asyncResp, ec, msg);
-        },
-        "xyz.openbmc_project.State.Boot.Raw",
-        "/xyz/openbmc_project/state/host0", "com.nvidia.L1Reset", "Reset");
+    dbus::utility::getDbusObject(
+        std::string(l1ResetObjectPath),
+        std::array<std::string_view, 1>{l1ResetInterface},
+        std::bind_front(afterGetL1ResetObjectForReset, asyncResp));
+}
+
+inline void afterGetL1ResetObjectForSystem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        if (ec && ec != boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_ERROR("L1Reset: object mapper error {}", ec);
+        }
+        return;
+    }
+    asyncResp->res.jsonValue["Actions"]["Oem"]["#NvidiaComputerSystem.L1Reset"]
+                            ["target"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.L1Reset",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+}
+
+// Advertises L1Reset only when postd publishes the L1 reset handler.
+inline void advertiseL1Reset(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getDbusObject(
+        std::string(l1ResetObjectPath),
+        std::array<std::string_view, 1>{l1ResetInterface},
+        std::bind_front(afterGetL1ResetObjectForSystem, asyncResp));
 }
 
 } // namespace nvidia_oem_l1reset

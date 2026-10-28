@@ -118,7 +118,6 @@ feature_options = [
     'nvidia-oem-common-properties',
     'nvidia-oem-device-status-from-file',
     'nvidia-oem-gb200nvl-properties',
-    'nvidia-oem-l1reset',
     'nvidia-oem-logservices',
     'nvidia-manager-ready-csm',
     'nvidia-oem-openocd',
