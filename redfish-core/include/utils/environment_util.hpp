@@ -711,6 +711,8 @@ inline void getPowerReadings(
                         {
                             return;
                         }
+                        asyncResp->res.jsonValue["PowerLimitWatts"]["Reading"] =
+                            *attributeValue;
                     },
                     connectionName, sensorPath,
                     "org.freedesktop.DBus.Properties", "Get",
