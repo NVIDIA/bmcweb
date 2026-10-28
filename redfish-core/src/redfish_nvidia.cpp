@@ -358,11 +358,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesManagerDOT(app);
     }
 
-    if constexpr (BMCWEB_CPU_IST)
-    {
-        requestRoutesIst(app);
-        requestRoutesIstActionInfo(app);
-    }
+    requestRoutesIst(app);
+    requestRoutesIstActionInfo(app);
 
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {

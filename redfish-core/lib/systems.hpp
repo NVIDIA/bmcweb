@@ -22,6 +22,7 @@
 #include "logging.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_cpu_ist.hpp"
 #include "nvidia_igx.hpp"
 #include "nvidia_oem_l1reset.hpp"
 #include "nvidia_refresh_inventory.hpp"
@@ -4038,18 +4039,7 @@ inline void processComputerSystemGet(
     }
     handleOemResetBiosGet(asyncResp);
 
-    if constexpr (BMCWEB_CPU_IST)
-    {
-        nlohmann::json& startIst =
-            asyncResp->res
-                .jsonValue["Actions"]["Oem"]["#NvidiaComputerSystem.StartIST"];
-        startIst["target"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.StartIST",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-        startIst["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Oem/Nvidia/StartISTActionInfo",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    }
+    nvidia_cpu_ist::advertiseStartIst(asyncResp);
 
     asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +

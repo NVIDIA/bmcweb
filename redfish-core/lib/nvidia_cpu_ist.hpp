@@ -21,6 +21,7 @@
 #include "utils/dbus_fd_download_utils.hpp"
 #include "utils/dbus_utils.hpp"
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <query.hpp>
@@ -30,11 +31,33 @@
 #include <sdbusplus/unpack_properties.hpp>
 #include <task.hpp>
 
+#include <array>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+
 namespace redfish
 {
 
 namespace nvidia_cpu_ist
 {
+
+constexpr std::string_view istObjectPath = "/com/nvidia/vera/ist";
+constexpr std::string_view istControlInterface =
+    "xyz.openbmc_project.ist.Control";
+
+struct StartIstArgs
+{
+    int32_t timeoutSec = 0;
+    std::string continueOnFail;
+    bool autoRebootOnComplete = false;
+    std::string testList;
+    std::string packageList;
+    std::string saveResultsOnPass;
+    std::string saveResultsOnFail;
+};
 
 class IstTaskContext
 {
@@ -175,6 +198,35 @@ inline void onStartIstComplete(
     taskData->startTimer(std::chrono::minutes(5));
 }
 
+inline void afterGetIstObjectForStart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
+    const StartIstArgs& args, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("IST: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Oem",
+                                   "NvidiaComputerSystem.StartIST");
+        return;
+    }
+    dbus::utility::async_method_call(
+        [asyncResp, payload = std::move(payload)](
+            const boost::system::error_code& ec2,
+            const sdbusplus::object_path& runPath) mutable {
+            onStartIstComplete(asyncResp, std::move(payload), ec2, runPath);
+        },
+        "com.nvidia.vera.ist", std::string(istObjectPath),
+        std::string(istControlInterface), "StartIST", args.timeoutSec,
+        args.continueOnFail, args.autoRebootOnComplete, args.testList,
+        args.packageList, args.saveResultsOnPass, args.saveResultsOnFail);
+}
+
 inline void handlePostStartIst(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -252,36 +304,21 @@ inline void handlePostStartIst(
     }
 
     task::Payload payload(req);
+    StartIstArgs args{*istTimeoutSec,    *continueOnFail, *autoRebootOnComplete,
+                      *testList,         *packageList,    *saveResultsOnPass,
+                      *saveResultsOnFail};
 
-    dbus::utility::async_method_call(
-        [asyncResp, payload = std::move(payload)](
-            const boost::system::error_code& ec,
-            const sdbusplus::object_path& runPath) mutable {
-            onStartIstComplete(asyncResp, std::move(payload), ec, runPath);
-        },
-        "com.nvidia.vera.ist", "/com/nvidia/vera/ist",
-        "xyz.openbmc_project.ist.Control", "StartIST", *istTimeoutSec,
-        *continueOnFail, *autoRebootOnComplete, *testList, *packageList,
-        *saveResultsOnPass, *saveResultsOnFail);
+    dbus::utility::getDbusObject(
+        std::string(istObjectPath),
+        std::array<std::string_view, 1>{istControlInterface},
+        std::bind_front(afterGetIstObjectForStart, asyncResp,
+                        std::move(payload), std::move(args)));
 }
 
-inline void handleGetIstActionInfo(
-    App& app, const crow::Request& req,
+inline void fillIstActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
-    }
-
     nlohmann::json& jsonValue = asyncResp->res.jsonValue;
     jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
     jsonValue["@odata.id"] = boost::urls::format(
@@ -340,6 +377,83 @@ inline void handleGetIstActionInfo(
     parameters.emplace_back(std::move(saveOnFail));
 
     jsonValue["Parameters"] = std::move(parameters);
+}
+
+inline void afterGetIstObjectForActionInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("IST: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || object.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "ActionInfo",
+                                   "StartISTActionInfo");
+        return;
+    }
+    fillIstActionInfo(asyncResp, systemName);
+}
+
+inline void handleGetIstActionInfo(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+
+    dbus::utility::getDbusObject(
+        std::string(istObjectPath),
+        std::array<std::string_view, 1>{istControlInterface},
+        std::bind_front(afterGetIstObjectForActionInfo, asyncResp, systemName));
+}
+
+inline void afterGetIstObjectForSystem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        if (ec && ec != boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_ERROR("IST: object mapper error {}", ec);
+        }
+        return;
+    }
+    nlohmann::json& startIst =
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaComputerSystem.StartIST"];
+    startIst["target"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Actions/Oem/NvidiaComputerSystem.StartIST",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    startIst["@Redfish.ActionInfo"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/StartISTActionInfo",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+}
+
+// Advertises StartIST only when the IST daemon publishes its object.
+inline void advertiseStartIst(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getDbusObject(
+        std::string(istObjectPath),
+        std::array<std::string_view, 1>{istControlInterface},
+        std::bind_front(afterGetIstObjectForSystem, asyncResp));
 }
 
 } // namespace nvidia_cpu_ist

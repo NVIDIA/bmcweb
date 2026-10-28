@@ -72,7 +72,6 @@ feature_options = [
     'dpu-bios',
     'enable-fabric-adapter',
     'enable-ist-mode',
-    'cpu-ist',
     'enforce_sensor_name_format',
     'experimental-redfish-dbus-log-subscription',
     'experimental-redfish-multi-computer-system',
