@@ -1016,11 +1016,6 @@ inline void processDotCakInitializationState(
 inline void getDotCakInitialization(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    if constexpr (!BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)
-    {
-        return;
-    }
-
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.State.Boot.Raw",
         "/xyz/openbmc_project/state/boot/cak0",
@@ -4084,10 +4079,7 @@ inline void processComputerSystemGet(
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 
-    if constexpr (BMCWEB_NVIDIA_DOT_CAK_INITIALIZATION)
-    {
-        getDotCakInitialization(asyncResp);
-    }
+    getDotCakInitialization(asyncResp);
 
     nvidia_oem_l1reset::advertiseL1Reset(asyncResp);
 
