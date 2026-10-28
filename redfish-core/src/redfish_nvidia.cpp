@@ -456,10 +456,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesNvidiaChassisDriveName(app);
     requestRoutesNvidiaDrive(app);
 
-    if constexpr (BMCWEB_MANAGER_USB_PORTS)
-    {
-        manager_usb_ports::requestRoutesManagerUSBPorts(app);
-    }
+    manager_usb_ports::requestRoutesManagerUSBPorts(app);
 
     if constexpr (BMCWEB_NVIDIA_IGX_EROTLESS)
     {

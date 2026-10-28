@@ -28,10 +28,12 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/system/errc.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -54,6 +56,68 @@ inline void afterGetUSBPortEnabled(
     asyncResp->res.jsonValue["InterfaceEnabled"] = enabled;
 }
 
+constexpr std::string_view portControlService =
+    "xyz.openbmc_project.Control.Port";
+
+// True when the port-control daemon publishes at least one port. Other
+// daemons also put Object.Enable objects under control/port (e.g. the debug
+// serial control), so presence is decided by the service name.
+inline bool hasPortControlService(
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    for (const auto& [path, services] : subtree)
+    {
+        for (const auto& [service, interfaces] : services)
+        {
+            if (service == portControlService)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+inline void getPortControlObjects(
+    std::function<void(const boost::system::error_code&,
+                       const dbus::utility::MapperGetSubTreeResponse&)>&&
+        callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
+    dbus::utility::getSubTree("/xyz/openbmc_project/control/port", 1,
+                              interfaces, std::move(callback));
+}
+
+inline void afterGetPortControlForCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("USBPorts: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || !hasPortControlService(subtree))
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.type"] = "#PortCollection.PortCollection";
+    asyncResp->res.jsonValue["Name"] = "USB Port Collection";
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
+
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
+    collection_util::getCollectionMembers(
+        asyncResp,
+        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId),
+        interfaces, "/xyz/openbmc_project/control/port");
+}
+
 inline void handleUSBPortCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -69,17 +133,8 @@ inline void handleUSBPortCollectionGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = "#PortCollection.PortCollection";
-    asyncResp->res.jsonValue["Name"] = "USB Port Collection";
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
-
-    constexpr std::array<std::string_view, 1> interfaces{
-        "xyz.openbmc_project.Object.Enable"};
-    collection_util::getCollectionMembers(
-        asyncResp,
-        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId),
-        interfaces, "/xyz/openbmc_project/control/port");
+    getPortControlObjects(std::bind_front(afterGetPortControlForCollection,
+                                          asyncResp, managerId));
 }
 
 inline void afterGetUSBPortService(
@@ -113,6 +168,33 @@ inline void afterGetUSBPortService(
         std::bind_front(afterGetUSBPortEnabled, asyncResp));
 }
 
+inline void afterGetPortControlForPort(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const std::string& portId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("USBPorts: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || !hasPortControlService(subtree))
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
+    objPath /= portId;
+
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
+    dbus::utility::getDbusObject(
+        objPath.str, interfaces,
+        std::bind_front(afterGetUSBPortService, asyncResp, managerId, portId));
+}
+
 inline void handleUSBPortGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -128,14 +210,8 @@ inline void handleUSBPortGet(
         return;
     }
 
-    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
-    objPath /= portId;
-
-    constexpr std::array<std::string_view, 1> interfaces{
-        "xyz.openbmc_project.Object.Enable"};
-    dbus::utility::getDbusObject(
-        objPath.str, interfaces,
-        std::bind_front(afterGetUSBPortService, asyncResp, managerId, portId));
+    getPortControlObjects(std::bind_front(afterGetPortControlForPort, asyncResp,
+                                          managerId, portId));
 }
 
 inline void afterSetUSBPortService(
@@ -156,6 +232,33 @@ inline void afterSetUSBPortService(
 
     setDbusProperty(asyncResp, "InterfaceEnabled", service, objPath,
                     "xyz.openbmc_project.Object.Enable", "Enabled", newEnabled);
+}
+
+inline void afterGetPortControlForPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const std::string& portId, bool newEnabled,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec && ec != boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("USBPorts: object mapper error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (ec || !hasPortControlService(subtree))
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
+    objPath /= portId;
+
+    constexpr std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Object.Enable"};
+    dbus::utility::getDbusObject(
+        objPath.str, interfaces,
+        std::bind_front(afterSetUSBPortService, asyncResp, portId, newEnabled));
 }
 
 inline void handleUSBPortPatch(
@@ -184,15 +287,34 @@ inline void handleUSBPortPatch(
         return;
     }
 
-    sdbusplus::object_path objPath("/xyz/openbmc_project/control/port");
-    objPath /= portId;
+    getPortControlObjects(
+        std::bind_front(afterGetPortControlForPatch, asyncResp, managerId,
+                        portId, *interfaceEnabled));
+}
 
-    constexpr std::array<std::string_view, 1> interfaces{
-        "xyz.openbmc_project.Object.Enable"};
-    dbus::utility::getDbusObject(
-        objPath.str, interfaces,
-        std::bind_front(afterSetUSBPortService, asyncResp, portId,
-                        *interfaceEnabled));
+inline void afterGetPortControlForManager(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec || !hasPortControlService(subtree))
+    {
+        if (ec && ec != boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_ERROR("USBPorts: object mapper error {}", ec);
+        }
+        return;
+    }
+    asyncResp->res.jsonValue["USBPorts"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
+}
+
+// Links USBPorts from the Manager only when port control is running.
+inline void addUSBPortsLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& managerId)
+{
+    getPortControlObjects(
+        std::bind_front(afterGetPortControlForManager, asyncResp, managerId));
 }
 
 inline void requestRoutesManagerUSBPorts(App& app)

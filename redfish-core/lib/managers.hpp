@@ -16,6 +16,7 @@
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
+#include "manager_usb_ports.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
 #include "openbmc/openbmc_managers.hpp"
@@ -831,11 +832,7 @@ inline void handleManagerGet(
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             managerId);
 
-    if constexpr (BMCWEB_MANAGER_USB_PORTS)
-    {
-        asyncResp->res.jsonValue["USBPorts"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}/USBPorts", managerId);
-    }
+    manager_usb_ports::addUSBPortsLink(asyncResp, managerId);
 
     manager_utils::getServiceIdentification(asyncResp, false);
 

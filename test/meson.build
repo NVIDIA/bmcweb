@@ -71,6 +71,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/fabric_test.cpp',
     'redfish-core/lib/log_services_dump_test.cpp',
     'redfish-core/lib/manager_diagnostic_data_test.cpp',
+    'redfish-core/lib/manager_usb_ports_test.cpp',
     'redfish-core/lib/metadata_test.cpp',
     'redfish-core/lib/network_adapter_test.cpp',
     'redfish-core/lib/nvidia_cpu_ist_test.cpp',
