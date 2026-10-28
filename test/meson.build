@@ -53,6 +53,7 @@ srcfiles_unittest = files(
     'redfish-core/include/utils/location_utils_test.cpp',
     'redfish-core/include/utils/nvidia_async_operation_task_test.cpp',
     'redfish-core/include/utils/nvidia_chassis_util_test.cpp',
+    'redfish-core/include/utils/nvidia_device_prefix_test.cpp',
     'redfish-core/include/utils/nvidia_fabric_utils_test.cpp',
     'redfish-core/include/utils/nvidia_platform_power_cycle_utils_test.cpp',
     'redfish-core/include/utils/nvidia_processor_utils_test.cpp',

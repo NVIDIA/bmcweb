@@ -18,6 +18,7 @@
 
 #include "shmem_utils.hpp"
 #include "utils/file_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 namespace redfish
 {
@@ -75,17 +76,9 @@ inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     return rc;
 }
 
-inline std::string metricId(const std::string& input,
-                            const std::string& platformDevicePrefix)
+inline std::string metricId(const std::string& input)
 {
-    std::string result = input;
-
-    // Check if the input string starts with the platformDevicePrefix
-    if (result.starts_with(platformDevicePrefix))
-    {
-        // Remove the platformDevicePrefix from the input string
-        result = result.substr(platformDevicePrefix.length());
-    }
+    std::string result(device_prefix::strip(input));
 
     // Find the position of the underscore
     size_t underscorePos = result.find('_');
@@ -102,8 +95,7 @@ inline void validateAndGetMetricReportDefinition(
 {
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
-        static std::string platformDevicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
-        std::string deviceType = metricId(id, platformDevicePrefix);
+        std::string deviceType = metricId(id);
         int rc = mrdConfigRead(asyncResp, deviceType, id);
         if (rc != 0)
         {

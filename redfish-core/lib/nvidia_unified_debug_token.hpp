@@ -31,6 +31,7 @@
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <cstdint>
 #include <format>
@@ -256,10 +257,8 @@ inline void handleUnifiedTokenCollection(
     validateChassisAndTrustedComponent(
         asyncResp, chassisId, componentId,
         [asyncResp, chassisId, componentId]() {
-            std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
             unified::action::Handler::startOperation(
-                targetChassisId, unified::action::Operation::GetTokenStatus,
+                componentId, unified::action::Operation::GetTokenStatus,
                 std::monostate(),
                 std::bind_front(&tokenCollectionCallback, asyncResp, chassisId,
                                 componentId));
@@ -292,10 +291,8 @@ inline void handleUnifiedTokenStatus(
                 return;
             }
             uint32_t tokenId = static_cast<uint32_t>(*parsedTokenId);
-            std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
             unified::action::Handler::startOperation(
-                targetChassisId, unified::action::Operation::GetTokenStatus,
+                componentId, unified::action::Operation::GetTokenStatus,
                 std::monostate(),
                 std::bind_front(&tokenStatusCallback, asyncResp, chassisId,
                                 componentId, tokenId));
@@ -370,10 +367,8 @@ inline void handleUnifiedEraseToken(
     validateChassisAndTrustedComponent(
         asyncResp, chassisId, componentId,
         [asyncResp, chassisId, componentId, eraseTypeEnum, tokenTypeEnum]() {
-            std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
             unified::action::Handler::startOperation(
-                targetChassisId, unified::action::Operation::EraseToken,
+                componentId, unified::action::Operation::EraseToken,
                 std::make_pair(eraseTypeEnum, tokenTypeEnum),
                 std::bind_front(&eraseInstallCallback, asyncResp, chassisId,
                                 componentId));
@@ -392,10 +387,8 @@ inline void handleUnifiedGenerateTokenRequest(
     validateChassisAndTrustedComponent(
         asyncResp, chassisId, componentId,
         [asyncResp, chassisId, componentId]() {
-            std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
             unified::spdm_request::Handler::startOperation(
-                targetChassisId, TokenType::DebugTokenRequest,
+                componentId, TokenType::DebugTokenRequest,
                 std::bind_front(&generateTokenRequestCallback, asyncResp,
                                 chassisId, componentId));
         });
@@ -544,7 +537,7 @@ inline void handleUnifiedInstallToken(
         [asyncResp, chassisId, componentId,
          tokenFile = std::move(tokenFile)]() mutable {
             std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
+                device_prefix::chassisFor(componentId);
             std::string inventoryPath = std::format(
                 "/xyz/openbmc_project/inventory/system/chassis/{}/inventory",
                 targetChassisId);
@@ -580,14 +573,13 @@ static void eraseTokenActionInfoComponentCallback(
                                    componentId);
         return;
     }
-    std::string targetChassisId =
-        std::format("{}{}", PLATFORMDEVICEPREFIX, componentId);
     bool componentFound = false;
     for (const auto& [path, serviceMap] : resp)
     {
         std::string pathComponentId =
             std::filesystem::path(path).filename().string();
-        if (targetChassisId == pathComponentId && !serviceMap.empty())
+        if (device_prefix::matches(pathComponentId, componentId) &&
+            !serviceMap.empty())
         {
             componentFound = true;
             break;

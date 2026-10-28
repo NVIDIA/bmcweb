@@ -28,6 +28,7 @@
 #include "logging.hpp"
 #include "registries.hpp"
 #include "str_utility.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -328,8 +329,7 @@ inline std::string resolveDbusPathToRedfishUri(const std::string& path,
                         "Empty device name for sensor OOC path: {}", path);
                     return {};
                 }
-                std::string chassisName = std::format(
-                    "{}{}", BMCWEB_PLATFORM_DEVICE_PREFIX, deviceName);
+                std::string chassisName = device_prefix::chassisFor(deviceName);
                 sdbusplus::object_path sensorObjPath(path);
                 std::string sensorName = sensorObjPath.filename();
                 newPath = chassisName;
@@ -368,27 +368,6 @@ inline void convertDbusObjectToOriginOfCondition(
     std::string redfishUri = resolveDbusPathToRedfishUri(path, deviceName);
     oocUtil(asyncResp, logEntry, id, redfishUri, severity, messageArgs,
             timestamp, messageId);
-}
-
-inline std::string getDeviceRedfishURI(const std::string& device)
-{
-    if (device.empty())
-    {
-        BMCWEB_LOG_ERROR("Empty device path");
-        return "";
-    }
-    // if 'device' is already a redfish URI, return it directly.
-    if (std::string_view(device).starts_with(redfishPrefix))
-    {
-        return device;
-    }
-    if (BMCWEB_REDFISH_SYSTEM_URI_NAME.ends_with(device))
-    {
-        return systemsPrefixRedfish +
-               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    }
-    return std::format("{}{}{}", chassisPrefix, BMCWEB_PLATFORM_DEVICE_PREFIX,
-                       device);
 }
 
 } // namespace origin_utils

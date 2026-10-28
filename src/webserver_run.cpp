@@ -93,6 +93,9 @@ int runWebserver()
     {
         redfish::RedfishService::getInstance(app);
 
+        // Reads the platform's device name prefix from Entity Manager.
+        redfish::RedfishService::startDevicePrefixLoad();
+
         // Create EventServiceManager instance and initialize Config
         redfish::EventServiceManager::getInstance();
 

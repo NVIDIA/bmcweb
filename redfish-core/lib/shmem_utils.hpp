@@ -156,16 +156,16 @@ constexpr const std::string_view metricReportUri =
 
 const static std::string gpuPrefix(platformGpuNamePrefix);
 constexpr const std::string_view platformChassisName(PLATFORMCHASSISNAME);
-const static std::string platformDevicePrefix(PLATFORMDEVICEPREFIX);
-const static std::string chassisName = platformDevicePrefix + "Chassis_";
-const static std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
-const static std::string gpuName = platformDevicePrefix + gpuPrefix;
-const static std::string nvSwitch = platformDevicePrefix + "NVSwitch_";
-const static std::string pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
-const static std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
-const static std::string processorModule =
-    platformDevicePrefix + "ProcessorModule_";
-const static std::string cpu = platformDevicePrefix + "CPU_";
+// Matched with std::regex_search, so they also match platform-prefixed
+// names such as HGX_GPU_SXM_1.
+const static std::string chassisName = "Chassis_";
+const static std::string fpgaChassiName = "FPGA_";
+const static std::string gpuName = gpuPrefix;
+const static std::string nvSwitch = "NVSwitch_";
+const static std::string pcieRetimer = "PCIeRetimer_";
+const static std::string pcieSwtich = "PCIeSwitch_";
+const static std::string processorModule = "ProcessorModule_";
+const static std::string cpu = "CPU_";
 constexpr const std::string_view nvLink = "NVLink_";
 constexpr const std::string_view cLink = "CLink_";
 constexpr const std::string_view nvLinkType =

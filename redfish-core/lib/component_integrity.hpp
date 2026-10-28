@@ -29,6 +29,7 @@
 #include <utils/collection.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_device_prefix.hpp>
 #include <utils/nvidia_stl_utils.hpp>
 #include <utils/nvidia_time_utils.hpp>
 #include <utils/stl_utils.hpp>
@@ -284,11 +285,7 @@ inline void getCertificateURI(
             sdbusplus::object_path endpointPath(ep);
             std::string endpointName = endpointPath.filename();
             std::string chassisName = chassisURI.segments().back();
-            std::string componentID = chassisName;
-            if (componentID.starts_with(PLATFORMDEVICEPREFIX))
-            {
-                componentID = componentID.substr(PLATFORMDEVICEPREFIX.size());
-            }
+            std::string componentID(device_prefix::strip(chassisName));
 
             std::string certificateURI = std::string(
                 boost::urls::format(

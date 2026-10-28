@@ -24,6 +24,7 @@
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
 #include "utils/dbus_log_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -310,16 +311,7 @@ inline void populateServiceConditions(
         return;
     }
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
-    BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
-                     BMCWEB_PLATFORM_DEVICE_PREFIX);
-    std::string chasId = chassisId;
-    if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
-    {
-        if (chassisId.starts_with(BMCWEB_PLATFORM_DEVICE_PREFIX))
-        {
-            chasId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());
-        }
-    }
+    std::string chasId(device_prefix::strip(chassisId));
     bool isDevice = !chasId.empty();
 
     if (isDevice)

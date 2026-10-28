@@ -20,6 +20,7 @@
 
 #include "dbus_utility.hpp"
 #include "dot/base.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <sdbusplus/message.hpp>
 
@@ -47,33 +48,12 @@ inline std::optional<std::pair<
         const std::string& componentId,
         const dbus::utility::MapperGetSubTreeResponse& resp)
 {
-    constexpr std::string_view platformPrefix(PLATFORMDEVICEPREFIX);
-
     for (const auto& [path, serviceMap] : resp)
     {
         sdbusplus::object_path objPath(path);
-        std::string dbusComponentName = objPath.filename();
-
-        if (dbusComponentName == componentId)
+        if (redfish::device_prefix::matches(objPath.filename(), componentId))
         {
             return std::make_pair(path, serviceMap);
-        }
-
-        std::string componentWithPrefix =
-            std::string(platformPrefix) + componentId;
-        if (dbusComponentName == componentWithPrefix)
-        {
-            return std::make_pair(path, serviceMap);
-        }
-
-        if (dbusComponentName.starts_with(platformPrefix))
-        {
-            std::string dbusWithoutPrefix =
-                dbusComponentName.substr(platformPrefix.size());
-            if (dbusWithoutPrefix == componentId)
-            {
-                return std::make_pair(path, serviceMap);
-            }
         }
     }
 

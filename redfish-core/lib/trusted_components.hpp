@@ -22,6 +22,7 @@
 #include "nvidia_dbus_utility.hpp"
 #include "nvidia_trusted_component_oem.hpp"
 #include "utils/certificate_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <app.hpp>
 #include <boost/url/format.hpp>
@@ -189,17 +190,10 @@ static bool validateComponentID(
         return false;
     }
 
-    std::string transformedComponent = endpointComponent;
-    if (endpointComponent.starts_with(PLATFORMDEVICEPREFIX))
-    {
-        transformedComponent =
-            endpointComponent.substr(PLATFORMDEVICEPREFIX.size());
-    }
-
-    if (transformedComponent != componentID)
+    if (!device_prefix::matches(endpointComponent, componentID))
     {
         BMCWEB_LOG_ERROR("Component ID mismatch. Expected: {}, Got: {}",
-                         transformedComponent, componentID);
+                         endpointComponent, componentID);
         messages::resourceNotFound(asyncResp->res, "TrustedComponent",
                                    componentID);
         return false;
@@ -461,13 +455,8 @@ inline void updateSPDMTrustedComponents(
             isComponentEnabled(
                 asyncResp, subtree, endpoint, isCollection,
                 [asyncResp, chassisID, endpoint, &memberArray] {
-                    std::string componentID =
-                        std::filesystem::path(endpoint).filename().string();
-                    if (componentID.starts_with(PLATFORMDEVICEPREFIX))
-                    {
-                        componentID =
-                            componentID.substr(PLATFORMDEVICEPREFIX.size());
-                    }
+                    std::string componentID(device_prefix::strip(
+                        std::filesystem::path(endpoint).filename().string()));
 
                     std::string odataId = "/redfish/v1/Chassis/";
                     odataId += chassisID;

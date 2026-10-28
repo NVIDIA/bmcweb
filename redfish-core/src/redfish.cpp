@@ -68,10 +68,16 @@
 #include "thermal_subsystem.hpp"
 #include "trigger.hpp"
 #include "update_service.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
 #include "virtual_media.hpp"
 namespace redfish
 {
+
+void RedfishService::startDevicePrefixLoad()
+{
+    device_prefix::startLoad();
+}
 
 RedfishService::RedfishService(App& app)
 {

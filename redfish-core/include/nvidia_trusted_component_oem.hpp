@@ -24,6 +24,7 @@
 #include "dot/base.hpp"
 #include "dot/dot_utils.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
@@ -118,16 +119,13 @@ inline void addTrustedComponentOemProperties(
                 return;
             }
 
-            std::string targetChassisId =
-                std::format("{}{}", PLATFORMDEVICEPREFIX, componentID);
-
             std::string debugTokenObjectPath;
             std::string debugTokenService;
             for (const auto& [path, serviceMap] : resp)
             {
                 std::string pathComponentId =
                     std::filesystem::path(path).filename().string();
-                if (targetChassisId == pathComponentId)
+                if (device_prefix::matches(pathComponentId, componentID))
                 {
                     debugTokenObjectPath = path;
                     if (!serviceMap.empty())

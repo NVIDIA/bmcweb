@@ -38,6 +38,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -154,13 +155,7 @@ inline void handleSpdmAssociationsResponse(
             std::string inventoryPath = target;
             const std::string inventoryName =
                 std::filesystem::path(inventoryPath).filename().string();
-            std::string componentID = inventoryName;
-
-            if (componentID.starts_with(PLATFORMDEVICEPREFIX))
-            {
-                componentID = componentID.substr(
-                    std::string(PLATFORMDEVICEPREFIX).size());
-            }
+            std::string componentID(device_prefix::strip(inventoryName));
 
             if (componentID.empty())
             {

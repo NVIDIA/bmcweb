@@ -28,6 +28,10 @@ class RedfishService
      */
     explicit RedfishService(App& app);
 
+    // Loads the device name prefix from Entity Manager; needs the system
+    // bus, so it is not done in the constructor.
+    static void startDevicePrefixLoad();
+
     // Temporary change to make redfish instance available in other places
     // like query delegation.
     static RedfishService& getInstance(App& app)

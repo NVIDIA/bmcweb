@@ -23,6 +23,7 @@
 #include "logging.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/memfd_utils.hpp"
+#include "utils/nvidia_device_prefix.hpp"
 
 #include <boost/asio/post.hpp>
 #include <sdbusplus/bus/match.hpp>
@@ -217,7 +218,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         {
             auto pathChassisId =
                 std::filesystem::path(path).filename().string();
-            if (chassisId == pathChassisId)
+            if (redfish::device_prefix::matches(pathChassisId, chassisId))
             {
                 service = serviceMap[0].first;
                 objectPath = path;

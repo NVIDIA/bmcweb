@@ -904,12 +904,6 @@ option(
     description: 'Platform specific total power control sensor name, which has system current power watts readings',
 )
 option(
-    'platform-device-prefix',
-    type: 'string',
-    value: 'device-prefix',
-    description: 'Platform specific device name prefix',
-)
-option(
     'platform-gpu-name-prefix',
     type: 'string',
     value: 'GPU_SXM_',
