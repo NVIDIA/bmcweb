@@ -158,7 +158,7 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
                     std::bind_front(handleSubscribeResponse);
 
                 std::string path("/redfish/v1/EventService/Subscriptions");
-                std::string dest(BMCWEB_RFA_BMC_HOST_URL);
+                std::string dest("http://172.31.13.241:8080/");
 
                 nlohmann::json postJson = {{"Destination", dest},
                                            {"Protocol", "Redfish"}};

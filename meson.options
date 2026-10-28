@@ -731,12 +731,6 @@ option(
     description: 'the update target to update all HMC components',
 )
 option(
-    'rfa-bmc-host-url',
-    type: 'string',
-    value: 'http://bmc_ip:8080/',
-    description: 'BMC url to receive redfish events from satellite BMC',
-)
-option(
     'rfa-delay-subscribe-time',
     type: 'integer',
     min: 5,

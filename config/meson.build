@@ -195,7 +195,6 @@ string_options = [
     'redfish-fabric-uri-name',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
-    'rfa-bmc-host-url',
     'rfa-hmc-update-target',
     'tls-cacert-path',
     'update-service-image-location',
