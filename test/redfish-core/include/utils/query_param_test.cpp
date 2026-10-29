@@ -8,6 +8,7 @@
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "sessions.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/query_param.hpp"
 
