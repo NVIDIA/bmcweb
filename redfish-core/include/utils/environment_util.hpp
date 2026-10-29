@@ -668,6 +668,57 @@ inline void getTemperatureCelsius(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+inline void getPowerReadingByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& sensorPath)
+{
+    dbus::utility::async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::variant<double>& value) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Can't get Power Watts!");
+                return;
+            }
+            const double* attributeValue = std::get_if<double>(&value);
+            if (attributeValue == nullptr)
+            {
+                return;
+            }
+            asyncResp->res.jsonValue["PowerLimitWatts"]["Reading"] =
+                *attributeValue;
+        },
+        service, sensorPath, "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Sensor.Value", "Value");
+}
+
+inline void getPowerReadingBySensorPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath)
+{
+    const std::array<const char*, 1> sensorInterfaces = {
+        "xyz.openbmc_project.Sensor.Value"};
+
+    dbus::utility::async_method_call(
+        [asyncResp, sensorPath](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("Failed to find service for sensor {}",
+                                 sensorPath);
+                return;
+            }
+            getPowerReadingByService(asyncResp, object.front().first,
+                                     sensorPath);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
+        sensorInterfaces);
+}
+
 inline void getPowerReadings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, const std::string& chassisID)
@@ -691,51 +742,7 @@ inline void getPowerReadings(
             // power control sensor
             for (const std::string& sensorPath : *data)
             {
-                sdbusplus::object_path objPath1(sensorPath);
-                const std::string& sensorName = objPath1.filename();
-                const std::array<const char*, 1> sensorInterfaces = {
-                    "xyz.openbmc_project.Sensor.Value"};
-
-                // Process sensor reading
-                dbus::utility::async_method_call(
-                    [asyncResp, sensorName, chassisID, sensorPath](
-                        const boost::system::error_code& mapperEc,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
-                        if (mapperEc || object.empty())
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "Failed to find service for sensor {}",
-                                sensorPath);
-                            return;
-                        }
-                        dbus::utility::async_method_call(
-                            [asyncResp, sensorName,
-                             chassisID](const boost::system::error_code& ec1,
-                                        const std::variant<double>& value) {
-                                if (ec1)
-                                {
-                                    BMCWEB_LOG_DEBUG("Can't get Power Watts!");
-                                    return;
-                                }
-                                const double* attributeValue =
-                                    std::get_if<double>(&value);
-                                if (attributeValue == nullptr)
-                                {
-                                    return;
-                                }
-                                asyncResp->res
-                                    .jsonValue["PowerLimitWatts"]["Reading"] =
-                                    *attributeValue;
-                            },
-                            object.front().first, sensorPath,
-                            "org.freedesktop.DBus.Properties", "Get",
-                            "xyz.openbmc_project.Sensor.Value", "Value");
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                    sensorInterfaces);
+                getPowerReadingBySensorPath(asyncResp, sensorPath);
             }
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/sensor",
