@@ -1182,39 +1182,37 @@ inline void getPowerAndControlData(
                      path](
                         const boost::system::error_code& primaryEc,
                         std::variant<std::vector<std::string>>& primaryResp) {
-                        auto populateControl =
-                            [asyncResp, connectionName, interfaceList,
-                             resourceId](const std::string& ctrlPath,
-                                         bool setDataSourceUri) {
-                                if (setDataSourceUri)
-                                {
-                                    getPowerLimitDataSourceUri(
-                                        asyncResp, resourceId, ctrlPath);
-                                }
-                                getPowerCap(asyncResp, connectionName,
-                                            ctrlPath);
-                                getPowerCap(asyncResp, resourceId, ctrlPath);
-                                // Skip getControlMode if it does not support
-                                // the Control Mode
-                                if (std::ranges::find(
-                                        interfaceList,
+                        auto populateControl = [asyncResp, connectionName,
+                                                interfaceList, resourceId](
+                                                   const std::string& ctrlPath,
+                                                   bool setDataSourceUri) {
+                            if (setDataSourceUri)
+                            {
+                                getPowerLimitDataSourceUri(
+                                    asyncResp, resourceId, ctrlPath);
+                            }
+                            getPowerCap(asyncResp, connectionName, ctrlPath);
+                            getPowerCap(asyncResp, resourceId, ctrlPath);
+                            // Skip getControlMode if it does not support
+                            // the Control Mode
+                            if (std::ranges::find(
+                                    interfaceList,
 
-                                        "xyz.openbmc_project.Control.Mode") !=
-                                    interfaceList.end())
-                                {
-                                    getControlMode(asyncResp, connectionName,
-                                                   ctrlPath);
-                                }
-                                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                                {
-                                    getPowerMode(asyncResp, connectionName,
+                                    "xyz.openbmc_project.Control.Mode") !=
+                                interfaceList.end())
+                            {
+                                getControlMode(asyncResp, connectionName,
+                                               ctrlPath);
+                            }
+                            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                            {
+                                getPowerMode(asyncResp, connectionName,
+                                             ctrlPath);
+                                getClearPowerCap(asyncResp, resourceId,
                                                  ctrlPath);
-                                    getClearPowerCap(asyncResp, resourceId,
-                                                     ctrlPath);
-                                }
-                                getPowerReadings(asyncResp, ctrlPath,
-                                                 resourceId);
-                            };
+                            }
+                            getPowerReadings(asyncResp, ctrlPath, resourceId);
+                        };
 
                         if (!primaryEc)
                         {
