@@ -225,6 +225,8 @@ TEST_F(ProcessProgressPropertiesTest, ProgressAfterFinishedTaskIsIgnored)
     ASSERT_TRUE(processProgressProperties(done, taskData));
     // The match handler finishes the task once the callback returns completed.
     taskData->finishTask();
+    const boost::asio::steady_timer::time_point expiryBefore =
+        taskData->timer.expiry();
 
     // Progress=100 is delivered right behind Status=Completed.
     dbus::utility::DBusPropertiesMap props = makeProgressProps(100);
@@ -232,9 +234,8 @@ TEST_F(ProcessProgressPropertiesTest, ProgressAfterFinishedTaskIsIgnored)
 
     EXPECT_FALSE(result);
     EXPECT_EQ(taskData->state, "Completed");
-    // The timer must not have been re-armed (default expiry is the epoch).
-    EXPECT_EQ(taskData->timer.expiry(),
-              boost::asio::steady_timer::time_point{});
+    // The timer must not have been re-armed.
+    EXPECT_EQ(taskData->timer.expiry(), expiryBefore);
 }
 
 TEST_F(ProcessProgressPropertiesTest, StatusAfterFinishedTaskIsIgnored)
