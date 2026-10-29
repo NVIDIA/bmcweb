@@ -43,6 +43,11 @@ struct Request
     std::string userRole;
     // True when the matched route is a .streamInput() rule.
     bool streamInputRoute = false;
+    // Set on requests bmcweb dispatches internally on behalf of a request
+    // that was already routed with this same session ($expand and only
+    // subrequests), so the session's role is already current and need not
+    // be fetched from D-Bus again.
+    bool sessionPrivilegesResolved = false;
     Request(Body&& reqIn, std::error_code& ec) : req(std::move(reqIn))
     {
         if (!setUrlInfo())

@@ -418,6 +418,17 @@ class Router
             rule.handle(*req, asyncResp, params);
             return;
         }
+        // One $expand can fan out into thousands of subrequests; a
+        // GetUserInfo call for each saturates phosphor-user-manager until
+        // the calls time out. The route's privilege check still applies.
+        if (req->sessionPrivilegesResolved)
+        {
+            if (isUserPrivileged(*req, asyncResp, rule))
+            {
+                rule.handle(*req, asyncResp, params);
+            }
+            return;
+        }
         validatePrivilege(
             req, asyncResp, rule,
             [req, asyncResp, &rule, params = std::move(params)]() {

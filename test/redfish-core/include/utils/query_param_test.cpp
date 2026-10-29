@@ -1471,5 +1471,60 @@ TEST(MultiAsyncResp, NavigationSubqueryChargesSharedBudgetOnce)
     EXPECT_EQ(expandBytesInFlight(), initial);
 }
 
+// Subrequests run under a session whose role was resolved when the parent
+// request was routed. They must not fetch it from D-Bus again (this test has
+// no bus), yet each route's own privileges must still be enforced.
+TEST(MultiAsyncResp, SubrequestsReuseResolvedSessionPrivileges)
+{
+    crow::App app;
+    BMCWEB_ROUTE(app, "/admin/")
+        .privileges({{"ConfigureManager"}})
+        .methods(boost::beast::http::verb::get)(
+            [](const crow::Request& /*req*/,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                asyncResp->res.jsonValue = {{"@odata.id", "/admin/"},
+                                            {"Name", "admin"}};
+            });
+    BMCWEB_ROUTE(app, "/public/")
+        .privileges({{"Login"}})
+        .methods(boost::beast::http::verb::get)(
+            [](const crow::Request& /*req*/,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                asyncResp->res.jsonValue = {{"@odata.id", "/public/"},
+                                            {"Name", "public"}};
+            });
+    app.validate();
+
+    auto expandAs = [&app](const std::string& userRole) {
+        auto session = std::make_shared<persistent_data::UserSession>();
+        session->username = "user";
+        session->userRole = userRole;
+        auto finalRes = std::make_shared<bmcweb::AsyncResp>();
+        finalRes->res.jsonValue = {{"@odata.id", "/root/"},
+                                   {"Admin", {{"@odata.id", "/admin/"}}},
+                                   {"Public", {{"@odata.id", "/public/"}}}};
+        auto multi = std::make_shared<MultiAsyncResp>(app, finalRes);
+        crow::Request req;
+        req.session = session;
+        Query query{
+            .expandLevel = 1,
+            .expandType = ExpandType::Both,
+        };
+        Query delegated;
+        multi->startQuery(query, delegated, req);
+        return finalRes;
+    };
+
+    std::shared_ptr<bmcweb::AsyncResp> admin = expandAs("priv-admin");
+    EXPECT_EQ(admin->res.result(), boost::beast::http::status::ok);
+    EXPECT_EQ(admin->res.jsonValue["Admin"]["Name"], "admin");
+    EXPECT_EQ(admin->res.jsonValue["Public"]["Name"], "public");
+
+    std::shared_ptr<bmcweb::AsyncResp> user = expandAs("priv-user");
+    EXPECT_EQ(user->res.result(), boost::beast::http::status::forbidden);
+    EXPECT_FALSE(user->res.jsonValue["Admin"].contains("Name"));
+    EXPECT_EQ(user->res.jsonValue["Public"]["Name"], "public");
+}
+
 } // namespace
 } // namespace redfish::query_param
