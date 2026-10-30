@@ -24,6 +24,7 @@
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
+#include <utils/redfish_response_utils.hpp>
 
 #include <iostream>
 #include <regex>
@@ -102,10 +103,7 @@ inline void updateAssemblies(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    if (!value->empty())
-                    {
-                        assemblyRes[propertyName] = *value;
-                    }
+                    mapValidOrNull(assemblyRes, propertyName, value);
                 }
                 else if (propertyName == "Manufacturer")
                 {
@@ -118,7 +116,7 @@ inline void updateAssemblies(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    assemblyRes["Vendor"] = *value;
+                    mapValidOrNull(assemblyRes, "Vendor", value);
                 }
                 else if (propertyName == "BuildDate")
                 {

@@ -30,6 +30,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <sys/mman.h>
@@ -1732,8 +1733,8 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res.jsonValue["Manufacturer"] =
-                            *manufacturer;
+                        mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                                       manufacturer);
                     }
 
                     it = std::ranges::find_if(

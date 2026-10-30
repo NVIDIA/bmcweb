@@ -217,10 +217,8 @@ static inline void getPCIeDeviceAssetData(
                 {
                     const std::string* value =
                         std::get_if<std::string>(&property.second);
-                    if (value != nullptr)
-                    {
-                        asyncResp->res.jsonValue[propertyName] = *value;
-                    }
+                    mapValidOrNull(asyncResp->res.jsonValue, propertyName,
+                                   value);
                 }
             }
         };

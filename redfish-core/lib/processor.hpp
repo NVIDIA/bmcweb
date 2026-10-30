@@ -403,15 +403,9 @@ inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
 
-            if (serialNumber != nullptr && !serialNumber->empty())
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-            }
-
-            if ((model != nullptr) && !model->empty())
-            {
-                asyncResp->res.jsonValue["Model"] = *model;
-            }
+            mapValidOrNull(asyncResp->res.jsonValue, "SerialNumber",
+                           serialNumber);
+            mapValidOrNull(asyncResp->res.jsonValue, "Model", model);
 
             // Preserve a sole provider's empty value, but do not let an
             // empty value from another service erase populated inventory.
@@ -419,7 +413,8 @@ inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 (!manufacturer->empty() ||
                  !asyncResp->res.jsonValue.contains("Manufacturer")))
             {
-                asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+                mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                               manufacturer);
 
                 // Otherwise would be unexpected.
                 if (manufacturer->find("Intel") != std::string::npos)
@@ -439,10 +434,7 @@ inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 }
             }
 
-            if (partNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-            }
+            mapValidOrNull(asyncResp->res.jsonValue, "PartNumber", partNumber);
 
             if (sparePartNumber != nullptr && !sparePartNumber->empty())
             {

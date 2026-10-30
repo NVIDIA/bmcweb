@@ -41,6 +41,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <sys/mman.h>
@@ -2653,13 +2654,9 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                         {
                             if (property.first == "Manufacturer")
                             {
-                                const std::string* manufacturer =
-                                    std::get_if<std::string>(&property.second);
-                                if (manufacturer != nullptr)
-                                {
-                                    asyncResp->res.jsonValue["Manufacturer"] =
-                                        *manufacturer;
-                                }
+                                mapValidOrNull(
+                                    asyncResp->res.jsonValue, "Manufacturer",
+                                    std::get_if<std::string>(&property.second));
                             }
                             else if (property.first == "Version")
                             {
