@@ -34,6 +34,7 @@
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_time_utils.hpp>
+#include <utils/redfish_response_utils.hpp>
 #include <utils/time_utils.hpp>
 
 #include <functional>
@@ -651,15 +652,11 @@ inline void fetchInventoryProperties(
                         if (const std::string* sVal =
                                 std::get_if<std::string>(&propVal))
                         {
-                            if (propName == "Manufacturer")
+                            if (propName == "Manufacturer" ||
+                                propName == "SerialNumber")
                             {
-                                asyncResp->res.jsonValue["Manufacturer"] =
-                                    *sVal;
-                            }
-                            else if (propName == "SerialNumber")
-                            {
-                                asyncResp->res.jsonValue["SerialNumber"] =
-                                    *sVal;
+                                mapValidOrNull(asyncResp->res.jsonValue,
+                                               propName, sVal);
                             }
                             else if (propName == "UUID")
                             {

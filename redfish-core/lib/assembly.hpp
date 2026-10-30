@@ -21,6 +21,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 #include "utils/nvidia_dbus_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 #include "utils/resource_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
@@ -166,7 +167,7 @@ inline void getAssemblyExtras(
 
             for (const auto& [propertyName, value] : propertiesList)
             {
-                if (propertyName == "Name" || propertyName == "Version")
+                if (propertyName == "Name")
                 {
                     const std::string* str = std::get_if<std::string>(&value);
                     if (str != nullptr && !str->empty())
@@ -174,13 +175,15 @@ inline void getAssemblyExtras(
                         entry[propertyName] = *str;
                     }
                 }
+                else if (propertyName == "Version")
+                {
+                    mapValidOrNull(entry, propertyName,
+                                   std::get_if<std::string>(&value));
+                }
                 else if (propertyName == "Manufacturer")
                 {
-                    const std::string* str = std::get_if<std::string>(&value);
-                    if (str != nullptr && !str->empty())
-                    {
-                        entry["Vendor"] = *str;
-                    }
+                    mapValidOrNull(entry, "Vendor",
+                                   std::get_if<std::string>(&value));
                 }
                 else if (propertyName == "BuildDate")
                 {

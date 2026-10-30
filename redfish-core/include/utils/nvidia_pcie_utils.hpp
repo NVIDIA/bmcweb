@@ -14,6 +14,7 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -219,10 +220,8 @@ static inline void getPCIeDeviceAssetData(
                 {
                     const std::string* value =
                         std::get_if<std::string>(&property.second);
-                    if (value != nullptr)
-                    {
-                        asyncResp->res.jsonValue[propertyName] = *value;
-                    }
+                    mapValidOrNull(asyncResp->res.jsonValue, propertyName,
+                                   value);
                 }
             }
         };

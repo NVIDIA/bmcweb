@@ -398,19 +398,12 @@ inline void afterGetCpuAssetData(
         return;
     }
 
-    if (serialNumber != nullptr && !serialNumber->empty())
-    {
-        asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-    }
-
-    if ((model != nullptr) && !model->empty())
-    {
-        asyncResp->res.jsonValue["Model"] = *model;
-    }
+    mapValidOrNull(asyncResp->res.jsonValue, "SerialNumber", serialNumber);
+    mapValidOrNull(asyncResp->res.jsonValue, "Model", model);
 
     if (manufacturer != nullptr)
     {
-        asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+        mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer", manufacturer);
 
         // Otherwise would be unexpected.
         if (manufacturer->contains("Intel"))
@@ -436,10 +429,7 @@ inline void afterGetCpuAssetData(
         }
     }
 
-    if (partNumber != nullptr)
-    {
-        asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-    }
+    mapValidOrNull(asyncResp->res.jsonValue, "PartNumber", partNumber);
 
     if (sparePartNumber != nullptr && !sparePartNumber->empty())
     {

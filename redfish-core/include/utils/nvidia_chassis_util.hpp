@@ -4086,7 +4086,8 @@ inline void getChassisManufacturer(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["Manufacturer"] = manufacturer;
+            mapValidOrNull(asyncResp->res.jsonValue, "Manufacturer",
+                           &manufacturer);
         });
 }
 
@@ -4381,10 +4382,8 @@ inline void getChassisSerialNumber(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (!serialNumber.empty())
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
-            }
+            mapValidOrNull(asyncResp->res.jsonValue, "SerialNumber",
+                           &serialNumber);
         });
 }
 
