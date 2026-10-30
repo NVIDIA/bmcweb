@@ -308,12 +308,6 @@ inline std::string toReasonType(const std::string& reason)
     {
         return "Current GPU temperature above the GPU Max Operating Temperature or Current memory temperature above the Memory Max Operating Temperature";
     }
-    if (reason ==
-        "xyz.openbmc_project.State.ProcessorPerformance.ThrottleReasons.None")
-    {
-        return "NA";
-    }
-
     return "";
 }
 
