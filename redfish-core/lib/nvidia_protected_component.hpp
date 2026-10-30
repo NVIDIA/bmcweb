@@ -22,6 +22,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/nvidia_chassis_util.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <charconv>
 #include <string>
@@ -155,7 +156,8 @@ inline void updateSlotProperties(
                     if (const std::string* value =
                             std::get_if<std::string>(&val))
                     {
-                        asyncResp->res.jsonValue["Version"] = *value;
+                        mapValidOrNull(asyncResp->res.jsonValue, "Version",
+                                       value);
                     }
                     else
                     {
