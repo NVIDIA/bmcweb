@@ -259,10 +259,29 @@ TEST_F(ProcessProgressPropertiesTest, ExtendTimerOnFinishedTaskDoesNotArm)
     taskData->state = "Completed";
     taskData->finishTask();
 
+    const boost::asio::steady_timer::time_point expiryBefore =
+        taskData->timer.expiry();
+
     taskData->extendTimer(std::chrono::seconds(0));
     ioc.run_for(std::chrono::milliseconds(100));
 
+    EXPECT_EQ(taskData->timer.expiry(), expiryBefore);
     // Before the fix the timer expired and flipped the task to Cancelled.
+    EXPECT_EQ(taskData->state, "Completed");
+}
+
+TEST_F(ProcessProgressPropertiesTest, TimerExpiryAfterFinishedTaskIsIgnored)
+{
+    std::shared_ptr<task::TaskData> taskData = createTestTask();
+    // Arm the timer while the task is still running, then finish it without
+    // canceling the timer so the expiry handler runs on a finished task.
+    taskData->extendTimer(std::chrono::seconds(0));
+    taskData->state = "Completed";
+    taskData->finishTask();
+
+    ioc.run_for(std::chrono::milliseconds(100));
+
+    // Without the expiry-handler guard this flips to Cancelled.
     EXPECT_EQ(taskData->state, "Completed");
 }
 
