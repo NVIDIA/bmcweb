@@ -337,10 +337,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
     void extendTimer(const std::chrono::seconds& timeout)
     {
-        // A task that already reached a terminal state must not be re-armed.
-        // A progress update that is dispatched after the final status (e.g.
-        // Progress=100 right behind Status=Completed) would otherwise let the
-        // timer expire and report TaskCancelled for a task that completed.
+        // Don't re-arm a finished task: it would later report TaskCancelled.
         if (endTime.has_value())
         {
             return;
