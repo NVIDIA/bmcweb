@@ -9,6 +9,7 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/processor_utils.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -1948,28 +1949,27 @@ inline void getMNNVLinkTopologyInfo(
 
             if (chassisSerialNumber != nullptr)
             {
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]
-                    ["ChassisSerialNumber"] = *chassisSerialNumber;
+                mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                               "ChassisSerialNumber", chassisSerialNumber);
             }
 
             if (ibGuid != nullptr)
             {
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["LsbIBGUID"] =
-                    convertMsbToLsb(ibGuid);
+                const std::string lsbIbGuid = convertMsbToLsb(ibGuid);
+                mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                               "IBGUID", ibGuid);
+                mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                               "LsbIBGUID", &lsbIbGuid);
             }
 
             if (traySerialNumber != nullptr)
             {
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySerialNumber"] =
-                    *traySerialNumber;
+                mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                               "TraySerialNumber", traySerialNumber);
             }
 
-            if (systemGUID != nullptr && !systemGUID->empty())
-            {
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
-                    *systemGUID;
-            }
+            mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                           "SystemGUID", systemGUID);
 
             if (moduleID != nullptr)
             {
@@ -1984,8 +1984,8 @@ inline void getMNNVLinkTopologyInfo(
 
             if (peerType != nullptr)
             {
-                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["PeerType"] =
-                    *peerType;
+                mapValidOrNull(json["Oem"]["Nvidia"]["MNNVLinkTopology"],
+                               "PeerType", peerType);
             }
 
             if (traySlotIndex != nullptr)
