@@ -93,10 +93,7 @@ inline bool processProgressProperties(
 {
     std::string index = std::to_string(taskData->index);
 
-    // The task already finished. Signals that trail the final status (the
-    // match is removed asynchronously) must not touch the task: returning
-    // completed again would repeat the completion event, and a progress update
-    // would re-arm the task timer.
+    // Ignore signals that trail the final status of a finished task.
     if (taskData->endTime.has_value())
     {
         return !task::completed;
