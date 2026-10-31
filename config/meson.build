@@ -129,6 +129,7 @@ feature_options = [
     'nvidia-dot-keyd-support',
     'nvidia-retimer-debugmode',
     'nvidia-uuid-from-platform-chassis-name',
+    'nvidia-sma-chassis-powerstate',
     'nvidia-host-management-network-access',
     'manager-usb-ports',
     'patch-ssh',

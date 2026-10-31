@@ -771,6 +771,12 @@ option(
     description: 'Enable UUID properties from platform chassis name.',
 )
 option(
+    'nvidia-sma-chassis-powerstate',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Report PowerState on NvidiaSMAChassis chassis. SMA chassis have no power state of their own, so the value is the host chassis0 power state.',
+)
+option(
     'nvidia-host-management-network-access',
     type: 'feature',
     value: 'disabled',

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION &
 // AFFILIATES. All rights reserved.
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "http_response.hpp"
@@ -289,6 +291,109 @@ TEST(FinishChassisOemResponse, RemovesTypeOnlyObject)
     res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
     finishChassisOemResponse(nullptr, res);
     EXPECT_FALSE(res.jsonValue.contains("Oem"));
+}
+
+nlohmann::json chassisWithOemType(const nlohmann::json& oemType)
+{
+    nlohmann::json chassis;
+    chassis["PowerState"] = "On";
+    chassis["Oem"]["Nvidia"]["@odata.type"] = oemType;
+    return chassis;
+}
+
+TEST(RemoveSmaChassisPowerState, RemovesFromSmaChassis)
+{
+    nlohmann::json chassis =
+        chassisWithOemType("#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
+    chassis["Oem"]["Nvidia"]["ErrorInjection"] = nlohmann::json::object();
+    removeSmaChassisPowerState(chassis);
+    EXPECT_FALSE(chassis.contains("PowerState"));
+    EXPECT_TRUE(chassis["Oem"]["Nvidia"].contains("ErrorInjection"));
+}
+
+TEST(RemoveSmaChassisPowerState, KeepsOtherChassisTypes)
+{
+    for (const char* oemType : {"#NvidiaChassis.v1_16_0.NvidiaChassis",
+                                "#NvidiaChassis.v1_12_0.NvidiaRoTChassis",
+                                "#NvidiaChassis.v1_4_0.NvidiaCBCChassis"})
+    {
+        nlohmann::json chassis = chassisWithOemType(oemType);
+        removeSmaChassisPowerState(chassis);
+        EXPECT_EQ(chassis["PowerState"], "On") << oemType;
+    }
+}
+
+TEST(RemoveSmaChassisPowerState, KeepsWithoutStringOemType)
+{
+    nlohmann::json noOem;
+    noOem["PowerState"] = "On";
+    removeSmaChassisPowerState(noOem);
+    EXPECT_EQ(noOem["PowerState"], "On");
+
+    nlohmann::json oemNotObject = noOem;
+    oemNotObject["Oem"] = "x";
+    removeSmaChassisPowerState(oemNotObject);
+    EXPECT_EQ(oemNotObject["PowerState"], "On");
+
+    nlohmann::json noNvidia = noOem;
+    noNvidia["Oem"] = nlohmann::json::object();
+    removeSmaChassisPowerState(noNvidia);
+    EXPECT_EQ(noNvidia["PowerState"], "On");
+
+    nlohmann::json nvidiaNotObject = noOem;
+    nvidiaNotObject["Oem"]["Nvidia"] = 1;
+    removeSmaChassisPowerState(nvidiaNotObject);
+    EXPECT_EQ(nvidiaNotObject["PowerState"], "On");
+
+    nlohmann::json noType = noOem;
+    noType["Oem"]["Nvidia"]["ErrorInjection"] = nlohmann::json::object();
+    removeSmaChassisPowerState(noType);
+    EXPECT_EQ(noType["PowerState"], "On");
+
+    nlohmann::json typeNotString = chassisWithOemType(1);
+    removeSmaChassisPowerState(typeNotString);
+    EXPECT_EQ(typeNotString["PowerState"], "On");
+
+    nlohmann::json notObject = nlohmann::json::array();
+    removeSmaChassisPowerState(notObject);
+    EXPECT_EQ(notObject, nlohmann::json::array());
+}
+
+TEST(RemoveSmaChassisPowerState, SmaWithoutPowerStateIsUnchanged)
+{
+    nlohmann::json chassis =
+        chassisWithOemType("#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
+    chassis.erase("PowerState");
+    const nlohmann::json before = chassis;
+    removeSmaChassisPowerState(chassis);
+    EXPECT_EQ(chassis, before);
+}
+
+TEST(FinishChassisOemResponse, SmaPowerStateFollowsBuildOption)
+{
+    crow::Response res;
+    res.jsonValue["PowerState"] = "On";
+    res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] = "x";
+    finishChassisOemResponse(nullptr, res);
+    EXPECT_EQ(res.jsonValue["Oem"]["Nvidia"]["@odata.type"],
+              "#NvidiaChassis.v1_12_0.NvidiaSMAChassis");
+    EXPECT_EQ(res.jsonValue.contains("PowerState"),
+              BMCWEB_NVIDIA_SMA_CHASSIS_POWERSTATE);
+}
+
+TEST(FinishChassisOemResponse, KeepsPowerStateOnOtherChassis)
+{
+    crow::Response generic;
+    generic.jsonValue["PowerState"] = "On";
+    generic.jsonValue["Oem"]["Nvidia"]["StaticPowerHint"] =
+        nlohmann::json::object();
+    finishChassisOemResponse(nullptr, generic);
+    EXPECT_EQ(generic.jsonValue["PowerState"], "On");
+
+    crow::Response noOem;
+    noOem.jsonValue["PowerState"] = "On";
+    finishChassisOemResponse(nullptr, noOem);
+    EXPECT_EQ(noOem.jsonValue["PowerState"], "On");
 }
 
 // Members of each NvidiaChassis derived type and its newest version, read
