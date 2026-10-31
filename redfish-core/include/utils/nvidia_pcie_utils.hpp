@@ -13,6 +13,7 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -743,32 +744,24 @@ static inline void getPCIeDeviceFunction(
                     asyncResp->res.jsonValue["FunctionType"] = *value;
                 }
             }
+            // DeviceClass, ClassCode and RevisionId are not read from every
+            // device; the backend leaves them empty (or NOT_SUPPORTED) when
+            // unknown. Leave them out then: "" is not a valid value for any
+            // of the three in the PCIeFunction schema.
             else if (propertyName == "Function" + function + "DeviceClass")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["DeviceClass"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "DeviceClass",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "ClassCode")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["ClassCode"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "ClassCode",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "RevisionId")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["RevisionId"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "RevisionId",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "SubsystemId")
             {
