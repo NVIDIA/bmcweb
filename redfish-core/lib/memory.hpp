@@ -697,6 +697,8 @@ inline void assembleDimmProperties(
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
+    nvidia_memory::applyHbmDimmPlaceholderOption(
+        asyncResp->res.jsonValue[jsonPtr]);
     /* Nvidia Added code End*/
 
     if (buildDate != nullptr)

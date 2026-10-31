@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
@@ -25,6 +27,7 @@
 #include "utils/redfish_response_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/message/types.hpp>
@@ -76,6 +79,57 @@ inline std::optional<bool> translateRowRemappingPending(
         return false;
     }
     return std::nullopt;
+}
+
+// GPU HBM is published on D-Bus with the
+// xyz.openbmc_project.Inventory.Item.Dimm interface, but nothing sets its
+// FormFactor, MemoryDataWidth, MemoryTotalWidth, RevisionCode or
+// MemoryAttributes. D-Bus keeps the defaults (the first FormFactor value,
+// RDIMM, and 0), so the Memory resource shows BaseModuleType "RDIMM",
+// BusWidthBits 0, DataWidthBits 0, FirmwareRevision "0" and RankCount 0.
+// These values do not describe HBM. Remove them from a Memory resource whose
+// MemoryDeviceType is HBM. Any other value is kept.
+inline void removeHbmDimmPlaceholders(nlohmann::json& memory)
+{
+    if (!memory.is_object())
+    {
+        return;
+    }
+    const auto deviceType = memory.find("MemoryDeviceType");
+    if (deviceType == memory.end())
+    {
+        return;
+    }
+    const std::string* type = deviceType->get_ptr<const std::string*>();
+    if (type == nullptr || !type->starts_with("HBM"))
+    {
+        return;
+    }
+
+    const std::array<std::pair<const char*, nlohmann::json>, 5> placeholders{
+        {{"BaseModuleType", "RDIMM"},
+         {"BusWidthBits", 0},
+         {"DataWidthBits", 0},
+         {"FirmwareRevision", "0"},
+         {"RankCount", 0}}};
+    for (const auto& [key, placeholder] : placeholders)
+    {
+        const auto it = memory.find(key);
+        if (it != memory.end() && *it == placeholder)
+        {
+            memory.erase(it);
+        }
+    }
+}
+
+// The memory-hbm-dimm-placeholders option is enabled by default and keeps
+// the placeholder values. A platform that disables it drops them.
+inline void applyHbmDimmPlaceholderOption(nlohmann::json& memory)
+{
+    if constexpr (!BMCWEB_MEMORY_HBM_DIMM_PLACEHOLDERS)
+    {
+        removeHbmDimmPlaceholders(memory);
+    }
 }
 
 /**

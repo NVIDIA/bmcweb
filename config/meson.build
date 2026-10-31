@@ -82,6 +82,7 @@ feature_options = [
     'lldp-dedicated-ports',
     'manual-boot-mode-support',
     'manufacturing-test',
+    'memory-hbm-dimm-placeholders',
     'mutual-tls-auth',
     'network-adapters',
     'network-adapters-generic',

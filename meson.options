@@ -1365,6 +1365,16 @@ option(
 )
 
 option(
+    'memory-hbm-dimm-placeholders',
+    type: 'feature',
+    value: 'enabled',
+    description: '''Show BaseModuleType "RDIMM", BusWidthBits 0,
+                    DataWidthBits 0, FirmwareRevision "0" and RankCount 0 on
+                    HBM Memory resources. These are D-Bus default values that
+                    nothing sets for HBM. Disable to leave them out.''',
+)
+
+option(
     'profile-configuration',
     type: 'feature',
     value: 'disabled',
