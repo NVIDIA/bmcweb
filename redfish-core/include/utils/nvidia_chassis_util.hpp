@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
@@ -256,6 +258,42 @@ inline std::vector<std::string> resolveNvidiaOemChassisType(
     return undeclared;
 }
 
+/**
+ * @brief Remove PowerState from a Chassis response typed NvidiaSMAChassis.
+ *
+ * An SMA chassis has no power state of its own. getChassisStateWrapper()
+ * gives every chassis without a State.Chassis interface the host chassis0
+ * power state, so an SMA would report the host state as its own. Run after
+ * resolveNvidiaOemChassisType(), which sets the type this reads.
+ *
+ * @param[in,out]   chassis     The finished Chassis response body.
+ */
+inline void removeSmaChassisPowerState(nlohmann::json& chassis)
+{
+    auto oem = chassis.find("Oem");
+    if (oem == chassis.end() || !oem->is_object())
+    {
+        return;
+    }
+    auto nvidia = oem->find("Nvidia");
+    if (nvidia == oem->end() || !nvidia->is_object())
+    {
+        return;
+    }
+    auto type = nvidia->find("@odata.type");
+    if (type == nvidia->end())
+    {
+        return;
+    }
+    const std::string* typeName = type->get_ptr<const std::string*>();
+    if (typeName == nullptr ||
+        *typeName != nvidiaOemChassisType(NvidiaOemChassisFamily::Sma))
+    {
+        return;
+    }
+    chassis.erase("PowerState");
+}
+
 inline void finishChassisOemResponse(
     const std::function<void(crow::Response&)>& completionHandler,
     crow::Response& res)
@@ -286,6 +324,10 @@ inline void finishChassisOemResponse(
                 }
             }
         }
+    }
+    if constexpr (!BMCWEB_NVIDIA_SMA_CHASSIS_POWERSTATE)
+    {
+        removeSmaChassisPowerState(res.jsonValue);
     }
     if (completionHandler)
     {

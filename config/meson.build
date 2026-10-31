@@ -107,6 +107,7 @@ feature_options = [
     'nvidia-oem-properties',
     'nvidia-retimer-debugmode',
     'nvidia-uuid-from-platform-chassis-name',
+    'nvidia-sma-chassis-powerstate',
     'patch-ssh',
     'platform-metrics',
     'power-control-type-percentage',
