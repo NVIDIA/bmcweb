@@ -306,6 +306,57 @@ inline void getCertificateURI(
 }
 
 /**
+ * @brief Appends one protected component to Links.ComponentsProtected
+ * @param asyncResp The async response object
+ * @param endpoint Inventory path of the protected component (for logging)
+ * @param status Whether the Redfish URL lookup succeeded
+ * @param url Redfish URL of the protected component
+ */
+inline void addProtectedComponent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint, const bool& status, const std::string& url)
+{
+    if (!status)
+    {
+        BMCWEB_LOG_DEBUG("Unable to get the Redfish URL for {}", endpoint);
+        return;
+    }
+    nlohmann::json::object_t entry{};
+    entry["@odata.id"] = url;
+    asyncResp->res.jsonValue["Links"]["ComponentsProtected"].push_back(
+        std::move(entry));
+}
+
+/**
+ * @brief Populates Links.ComponentsProtected from the IRoT "inventory"
+ *        association; an IRoT may protect several components
+ *        (e.g. a chassis and its CPLD).
+ * @param asyncResp The async response object
+ * @param objPath Association object path that was queried
+ * @param status Whether the association lookup succeeded
+ * @param endpoints Inventory paths of the protected components
+ */
+inline void handleProtectedEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const bool& status,
+    const std::vector<std::string>& endpoints)
+{
+    if (!status)
+    {
+        BMCWEB_LOG_DEBUG("Unable to get the association endpoints for {}",
+                         objPath);
+        return;
+    }
+    asyncResp->res.jsonValue["Links"]["ComponentsProtected"] =
+        nlohmann::json::array();
+    for (const std::string& ep : endpoints)
+    {
+        chassis_utils::getRedfishURL(
+            ep, std::bind_front(addProtectedComponent, asyncResp, ep));
+    }
+}
+
+/**
  * @brief Populates taskResponse for a completed SPDMGetSignedMeasurements
  *        task per DSP0266 sect. 12.2
  * @param taskData The measurement task
@@ -773,56 +824,9 @@ inline void requestRoutesComponentIntegrity(App& app)
                                {{"@odata.id", certificateURI}}}}}};
                         getCertificateURI(asyncResp, chassisURI, endpoint);
                         std::string objPath = endpoint + "/inventory";
-                        chassis_utils::getAssociationEndpoint(
-                            objPath,
-                            [objPath, asyncResp](const bool& status2,
-                                                 const std::string& ep) {
-                                if (!status2)
-                                {
-                                    BMCWEB_LOG_DEBUG(
-                                        "Unable to get the association endpoint for ",
-                                        objPath);
-                                    nlohmann::json& componentsProtectedArray =
-                                        asyncResp->res
-                                            .jsonValue["Links"]
-                                                      ["ComponentsProtected"];
-                                    componentsProtectedArray =
-                                        nlohmann::json::array();
-
-                                    return;
-                                }
-
-                                chassis_utils::getRedfishURL(ep, [ep,
-                                                                  asyncResp](
-                                                                     const bool&
-                                                                         status3,
-                                                                     const std::
-                                                                         string&
-                                                                             url) {
-                                    nlohmann::json& componentsProtectedArray =
-                                        asyncResp->res
-                                            .jsonValue["Links"]
-                                                      ["ComponentsProtected"];
-                                    componentsProtectedArray =
-                                        nlohmann::json::array();
-
-                                    // if (!status3 || url.empty()) In curent
-                                    // implementation of getRedfishURL
-                                    // function never returns empty URL with
-                                    // status3 = true
-                                    if (!status3)
-                                    {
-                                        BMCWEB_LOG_DEBUG(
-                                            "Unable to get the Redfish URL for {}",
-                                            ep);
-                                        return;
-                                    }
-
-                                    componentsProtectedArray.push_back(
-                                        {nlohmann::json::array(
-                                            {"@odata.id", url})});
-                                });
-                            });
+                        chassis_utils::getAssociationEndpoints(
+                            objPath, std::bind_front(handleProtectedEndpoints,
+                                                     asyncResp, objPath));
                     });
             });
         });
