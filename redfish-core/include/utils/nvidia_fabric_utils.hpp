@@ -26,11 +26,14 @@
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
+#include "utils/port_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -1972,6 +1975,92 @@ inline void patchSwitchTAVMode(
         "IsModeConfigurable",
         std::bind_front(afterPatchSwitchTAVModeGetConfigurable, resp, dbusValue,
                         objectPath, *inventoryService));
+}
+
+/**
+ * Fill Endpoint EndpointProtocol from the reply of a PortInfo GetAll.
+ *
+ * EndpointProtocol is optional. A port that publishes Item.Port but not the
+ * PortInfo decorator, such as an NVSwitch NVLink port (nsmd publishes PortInfo
+ * for GPU ports only), makes the GetAll fail. That leaves the property out; it
+ * does not fail the whole Endpoint.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       portPath    D-Bus port object that was queried.
+ * @param[in]       ec          Error code of the GetAll.
+ * @param[in]       properties  PortInfo properties.
+ */
+inline void afterGetEndpointPortInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& portPath, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("No PortInfo decorator on {}", portPath);
+        return;
+    }
+    for (const auto& property : properties)
+    {
+        if (property.first != "Protocol")
+        {
+            continue;
+        }
+        const std::string* value = std::get_if<std::string>(&property.second);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned for protocol type");
+            messages::internalError(aResp->res);
+            return;
+        }
+        aResp->res.jsonValue["EndpointProtocol"] =
+            redfish::port_utils::getPortProtocol(*value);
+    }
+}
+
+/**
+ * Add the ports of one switch to Endpoint Links.ConnectedPorts.
+ *
+ * A switch whose ports cannot be listed adds no links; it does not fail the
+ * whole Endpoint, in line with the other lookups of the Endpoint links.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       portPaths   D-Bus ports connected to the endpoint.
+ * @param[in]       fabricId    Fabric Id.
+ * @param[in]       switchPath  D-Bus switch object that was queried.
+ * @param[in]       ec          Error code of the GetSubTreePaths.
+ * @param[in]       objects     Item.Port objects below the switch.
+ */
+inline void afterGetEndpointConnectedPorts(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::vector<std::string>& portPaths, const std::string& fabricId,
+    const std::string& switchPath, const boost::system::error_code& ec,
+    const std::vector<std::string>& objects)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("No ports found below switch {}", switchPath);
+        return;
+    }
+    nlohmann::json& linksConnectedPortsArray =
+        aResp->res.jsonValue["Links"]["ConnectedPorts"];
+
+    sdbusplus::object_path objPath(switchPath);
+    const std::string& switchId = objPath.filename();
+    // Add port link if exists in switch ports
+    for (const std::string& portPath : portPaths)
+    {
+        if (std::ranges::find(objects, portPath) == objects.end())
+        {
+            continue;
+        }
+        sdbusplus::object_path portObjPath(portPath);
+        const std::string& portId = portObjPath.filename();
+        boost::urls::url portURI =
+            boost::urls::format("/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}",
+                                fabricId, switchId, portId);
+        linksConnectedPortsArray.push_back({{"@odata.id", portURI}});
+    }
 }
 
 } // namespace nvidia_fabric_utils
