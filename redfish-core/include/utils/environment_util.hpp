@@ -681,7 +681,7 @@ inline void getPowerReadingByService(
                 return;
             }
             const double* attributeValue = std::get_if<double>(&value);
-            if (attributeValue == nullptr)
+            if (attributeValue == nullptr || std::isnan(*attributeValue))
             {
                 return;
             }
