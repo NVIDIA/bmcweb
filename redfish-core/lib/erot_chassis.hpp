@@ -342,8 +342,8 @@ static void handleChassisCertificateInstanceIsEROT(
         return;
     }
 
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Chassis",
+    // GetSubTree matches ANY listed interface; filter on SPDMResponder alone.
+    constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     // Get the subtree of the inventory object and find the chassis
@@ -529,8 +529,8 @@ static void handleChassisCertificateCollectionIsEROT(
         return;
     }
 
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Chassis",
+    // GetSubTree matches ANY listed interface; filter on SPDMResponder alone.
+    constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     // Get the subtree of the inventory object and find the chassis object
