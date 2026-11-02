@@ -3328,43 +3328,12 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                          objectPathToGetPortData);
                         return;
                     }
-                    dbus::utility::async_method_call(
-                        [aResp](const boost::system::error_code& ec2,
-                                const boost::container::flat_map<
-                                    std::string,
-                                    std::variant<std::string, bool, size_t,
-                                                 std::vector<std::string>>>&
-                                    properties) {
-                            if (ec2)
-                            {
-                                BMCWEB_LOG_ERROR("DBUS response error");
-                                messages::internalError(aResp->res);
-                                return;
-                            }
-                            // Get port protocol
-                            for (const auto& property : properties)
-                            {
-                                if (property.first == "Protocol")
-                                {
-                                    const std::string* value =
-                                        std::get_if<std::string>(
-                                            &property.second);
-                                    if (value == nullptr)
-                                    {
-                                        BMCWEB_LOG_ERROR("Null value returned "
-                                                         "for protocol type");
-                                        messages::internalError(aResp->res);
-                                        return;
-                                    }
-                                    aResp->res.jsonValue["EndpointProtocol"] =
-                                        redfish::port_utils::getPortProtocol(
-                                            *value);
-                                }
-                            }
-                        },
+                    dbus::utility::getAllProperties(
                         object3.front().first, objectPathToGetPortData,
-                        "org.freedesktop.DBus.Properties", "GetAll",
-                        "xyz.openbmc_project.Inventory.Decorator.PortInfo");
+                        "xyz.openbmc_project.Inventory.Decorator.PortInfo",
+                        std::bind_front(
+                            nvidia_fabric_utils::afterGetEndpointPortInfo,
+                            aResp, objectPathToGetPortData));
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",
@@ -3396,33 +3365,8 @@ inline void getConnectedPortsLinks(
         [aResp, portPaths, fabricId,
          switchPath](const boost::system::error_code& ec,
                      const std::vector<std::string>& objects) {
-            if (ec)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-            nlohmann::json& linksConnectedPortsArray =
-                aResp->res.jsonValue["Links"]["ConnectedPorts"];
-
-            sdbusplus::message::object_path objPath(switchPath);
-            const std::string& switchId = objPath.filename();
-            // Add port link if exists in switch ports
-            for (const std::string& portPath : portPaths)
-            {
-                if (std::find(objects.begin(), objects.end(), portPath) !=
-                    objects.end())
-                {
-                    sdbusplus::message::object_path portObjPath(portPath);
-                    const std::string& portId = portObjPath.filename();
-                    {
-                        boost::urls::url portURI = boost::urls::format(
-                            "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}",
-                            fabricId, switchId, portId);
-                        linksConnectedPortsArray.push_back(
-                            {{"@odata.id", portURI}});
-                    }
-                }
-            }
+            nvidia_fabric_utils::afterGetEndpointConnectedPorts(
+                aResp, portPaths, fabricId, switchPath, ec, objects);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

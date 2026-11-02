@@ -4,7 +4,9 @@
 #include "utils/nvidia_fabric_utils.hpp"
 
 #include <boost/beast/http/status.hpp>
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
 
 #include <memory>
 #include <string>
@@ -329,6 +331,127 @@ TEST(TAVModeCallbacks, MissingAsyncObjectReturnsInternalError)
 
     EXPECT_EQ(asyncResp->res.jsonValue["error"]["code"],
               "Base.1.19.InternalError");
+}
+
+const std::string portProtocolPrefix =
+    "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.";
+
+TEST(EndpointPortInfo, ProtocolIsTranslated)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    dbus::utility::DBusPropertiesMap properties = {
+        {"Protocol", portProtocolPrefix + "NVLink"}};
+
+    afterGetEndpointPortInfo(asyncResp, "/port", {}, properties);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    EXPECT_EQ(asyncResp->res.jsonValue["EndpointProtocol"], "NVLink");
+}
+
+TEST(EndpointPortInfo, PropertiesOtherThanProtocolAreIgnored)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    dbus::utility::DBusPropertiesMap properties = {
+        {"CurrentSpeed", 100.0},
+        {"Protocol", portProtocolPrefix + "InfiniBand"}};
+
+    afterGetEndpointPortInfo(asyncResp, "/port", {}, properties);
+
+    EXPECT_EQ(asyncResp->res.jsonValue["EndpointProtocol"], "InfiniBand");
+    EXPECT_EQ(asyncResp->res.jsonValue.size(), 1U);
+}
+
+TEST(EndpointPortInfo, PortWithoutDecoratorLeavesProtocolOut)
+{
+    // An NVSwitch NVLink port has Item.Port but no Decorator.PortInfo, so the
+    // GetAll fails. The Endpoint must still be returned.
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec =
+        boost::system::errc::make_error_code(boost::system::errc::io_error);
+
+    afterGetEndpointPortInfo(asyncResp, "/port", ec, {});
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("error"));
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("EndpointProtocol"));
+}
+
+TEST(EndpointPortInfo, NonStringProtocolIsInternalError)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    dbus::utility::DBusPropertiesMap properties = {{"Protocol", true}};
+
+    afterGetEndpointPortInfo(asyncResp, "/port", {}, properties);
+
+    EXPECT_EQ(asyncResp->res.jsonValue["error"]["code"],
+              "Base.1.19.InternalError");
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("EndpointProtocol"));
+}
+
+const std::string switchPath =
+    "/xyz/openbmc_project/inventory/system/fabrics/HGX_NVLinkFabric_0/"
+    "Switches/NVSwitch_0";
+
+TEST(EndpointConnectedPorts, LinksOnlyThePortsOfTheSwitch)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    const std::vector<std::string> portPaths = {
+        switchPath + "/Ports/NVLink_0", switchPath + "/Ports/NVLink_1",
+        "/xyz/openbmc_project/inventory/system/fabrics/HGX_NVLinkFabric_0/"
+        "Switches/NVSwitch_1/Ports/NVLink_0"};
+    const std::vector<std::string> objects = {
+        switchPath + "/Ports/NVLink_0", switchPath + "/Ports/NVLink_1",
+        switchPath + "/Ports/NVLink_2"};
+
+    afterGetEndpointConnectedPorts(asyncResp, portPaths, "HGX_NVLinkFabric_0",
+                                   switchPath, {}, objects);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    const nlohmann::json& links =
+        asyncResp->res.jsonValue["Links"]["ConnectedPorts"];
+    ASSERT_EQ(links.size(), 2U);
+    EXPECT_EQ(links[0]["@odata.id"],
+              "/redfish/v1/Fabrics/HGX_NVLinkFabric_0/Switches/NVSwitch_0/"
+              "Ports/NVLink_0");
+    EXPECT_EQ(links[1]["@odata.id"],
+              "/redfish/v1/Fabrics/HGX_NVLinkFabric_0/Switches/NVSwitch_0/"
+              "Ports/NVLink_1");
+}
+
+TEST(EndpointConnectedPorts, NoPortOfTheSwitchAddsNoLink)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    // The caller creates the array before the lookup, so do the same here.
+    asyncResp->res.jsonValue["Links"]["ConnectedPorts"] =
+        nlohmann::json::array();
+    const std::vector<std::string> portPaths = {switchPath + "/Ports/NVLink_0"};
+    const std::vector<std::string> objects = {switchPath + "/Ports/NVLink_5"};
+
+    afterGetEndpointConnectedPorts(asyncResp, portPaths, "HGX_NVLinkFabric_0",
+                                   switchPath, {}, objects);
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    const nlohmann::json& links =
+        asyncResp->res.jsonValue["Links"]["ConnectedPorts"];
+    EXPECT_TRUE(links.is_array());
+    EXPECT_TRUE(links.empty());
+}
+
+TEST(EndpointConnectedPorts, PortListErrorAddsNoLinksAndNoError)
+{
+    // A switch whose ports cannot be listed drops out of ConnectedPorts. The
+    // Endpoint must still be returned.
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec = boost::system::errc::make_error_code(
+        boost::system::errc::no_such_file_or_directory);
+    const std::vector<std::string> portPaths = {switchPath + "/Ports/NVLink_0"};
+
+    afterGetEndpointConnectedPorts(asyncResp, portPaths, "HGX_NVLinkFabric_0",
+                                   switchPath, ec, {});
+
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("error"));
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Links"));
 }
 
 } // namespace
