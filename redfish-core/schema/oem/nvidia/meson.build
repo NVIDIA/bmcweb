@@ -2,6 +2,7 @@ if get_option('nvidia-oem-properties').allowed()
     # Mapping from option key name to schemas that should be installed if that option is enabled
     schemas = [
         'NvidiaAstra_v1.xml',
+        'NvidiaAttestedWipe_v1.xml',
         'NvidiaCable_v1.xml',
         'NvidiaControl_v1.xml',
         'NvidiaCPER_v1.xml',
