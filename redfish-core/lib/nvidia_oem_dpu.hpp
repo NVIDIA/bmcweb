@@ -905,15 +905,21 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             crow::connections::systemBus->get_io_context(),
             "/usr/sbin/mlnx_bf_reset_control", {"do_tor_eswitch_reset"});
         execProg.wait();
-        if (execProg.exit_code() == 0)
+        if (execProg.exit_code() != 0)
         {
-            BMCWEB_LOG_DEBUG("Reset switch to default");
+            BMCWEB_LOG_ERROR("mlnx_bf_reset_control exited with code: {}",
+                             execProg.exit_code());
+            messages::internalError(asyncResp->res);
+            return;
         }
+        BMCWEB_LOG_DEBUG("Reset switch to default");
     }
     catch (const std::runtime_error& e)
     {
         BMCWEB_LOG_ERROR("mlnx_bf_reset_control script failed with error: {}",
                          e.what());
+        messages::internalError(asyncResp->res);
+        return;
     }
 
     // Restore the Dbus property after the switch reset successful
@@ -928,11 +934,10 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 messages::internalError(asyncResp->res);
                 return;
             }
+            messages::success(asyncResp->res);
         },
         ctlBMCSwitchModeService, ctlBMCSwitchModeBMCObj, dbusPropertyInterface,
         "Set", ctlBMCSwitchModeIntf, ctlBMCSwitchMode, variantValue);
-
-    messages::success(asyncResp->res);
 }
 
 inline void handleTruststoreCertificatesCollectionGet(
