@@ -35,12 +35,14 @@
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish_aggregator.hpp"
+#include "registries.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utility.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <fcntl.h>
@@ -503,6 +505,40 @@ inline void checkInitialActivationState(
         });
 }
 
+namespace nvidia
+{
+// Render a MessageId with no dedicated mapping in getUpdateMessage() (e.g. a
+// device-status error forwarded by pldm) from its registry, as the EventLog
+// does. Returns an empty object if no registry has it.
+inline nlohmann::json getUpdateMessageFromRegistry(
+    const std::string& msgId, const std::vector<std::string>& args)
+{
+    const registries::Message* msg = registries::getMessage(msgId);
+    if (msg == nullptr)
+    {
+        return {};
+    }
+
+    std::vector<std::string> trimmedArgs;
+    trimmedArgs.reserve(args.size());
+    for (const std::string& arg : args)
+    {
+        trimmedArgs.emplace_back(trim(arg));
+    }
+    std::vector<std::string_view> argViews(trimmedArgs.begin(),
+                                           trimmedArgs.end());
+
+    nlohmann::json::object_t response;
+    response["@odata.type"] = "#Message.v1_1_1.Message";
+    response["MessageId"] = msgId;
+    response["Message"] = registries::fillMessageArgs(argViews, msg->message);
+    response["MessageArgs"] = std::move(trimmedArgs);
+    response["MessageSeverity"] = msg->messageSeverity;
+    response["Resolution"] = msg->resolution;
+    return response;
+}
+} // namespace nvidia
+
 inline nlohmann::json getUpdateMessage(const std::string& msgId,
                                        std::vector<std::string>& args)
 {
@@ -663,7 +699,7 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
         return messages::getLogNvidia(msgId, args);
     }
 
-    return {};
+    return nvidia::getUpdateMessageFromRegistry(msgId, args);
 }
 
 inline void handleLogMatchCallback(sdbusplus::message_t& m,
