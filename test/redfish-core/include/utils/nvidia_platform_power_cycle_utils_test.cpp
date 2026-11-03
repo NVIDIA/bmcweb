@@ -1,11 +1,13 @@
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
 #include "utils/nvidia_platform_power_cycle_utils.hpp"
+
+#include <asm-generic/errno.h>
 
 #include <boost/beast/http/status.hpp>
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 
-#include <cerrno>
 #include <memory>
 #include <optional>
 #include <string>
