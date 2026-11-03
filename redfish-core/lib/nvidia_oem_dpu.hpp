@@ -182,6 +182,15 @@ class DpuGetProperties : virtual public DpuCommonProperties
                    const std::variant<std::string, bool>& variant) {
                 if (ec)
                 {
+                    if (ec == boost::system::errc::host_unreachable ||
+                        ec == boost::system::errc::no_such_device_or_address)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "DBUS service not yet started for {}, returning null",
+                            name);
+                        (*json)[name] = nullptr;
+                        return;
+                    }
                     BMCWEB_LOG_DEBUG("DBUS response error for {}", name);
                     return;
                 }
