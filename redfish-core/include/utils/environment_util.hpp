@@ -1678,8 +1678,7 @@ inline void queryAllSensorsForProcessorMetrics(
                               std::variant<std::vector<std::string>>& resp) {
             if (e)
             {
-                BMCWEB_LOG_ERROR("Failed to get all sensors: {}", e.message());
-                messages::internalError(aResp->res);
+                BMCWEB_LOG_DEBUG("Failed to get all sensors: {}", e.message());
                 return;
             }
             std::vector<std::string>* data =
