@@ -370,9 +370,66 @@ TEST(ParseRfaUri, UnprefixedSoftwareInventoryIsLocal)
               TargetType::Local);
 }
 
-TEST(ParseRfaUri, UnrelatedUriIsLocal)
+TEST(ParseRfaUri, UnsupportedResourceUriIsInvalid)
 {
-    EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Local);
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Systems/system"), TargetType::Invalid);
+}
+
+TEST(ParseRfaUri, PathTraversalUriIsInvalid)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/Chassis/HGX_Chassis_0/../FW_BMC_0"),
+              TargetType::Invalid);
+    EXPECT_EQ(parseRfaUri("/redfish/v1/./UpdateService/FirmwareInventory/fw0"),
+              TargetType::Invalid);
+}
+
+TEST(ParseRfaUri, ExtraSegmentIsInvalid)
+{
+    EXPECT_EQ(
+        parseRfaUri("/redfish/v1/UpdateService/FirmwareInventory/fw0/extra"),
+        TargetType::Invalid);
+}
+
+TEST(ParseRfaUri, RelativeUriIsInvalid)
+{
+    EXPECT_EQ(parseRfaUri("redfish/v1/UpdateService/FirmwareInventory/fw0"),
+              TargetType::Invalid);
+}
+
+TEST(ParseRfaUri, TrailingSlashFirmwareInventoryIsLocal)
+{
+    EXPECT_EQ(parseRfaUri("/redfish/v1/UpdateService/FirmwareInventory/fw0/"),
+              TargetType::Local);
+}
+
+TEST(StartRequest, UnrecognizedTargetReportsFirmwareUpdateTargetInvalid)
+{
+    auto ctx = makeCtx();
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp = ctx->asyncResp;
+    ctx->multiRet.params.targets =
+        std::vector<std::string>{"/redfish/v1/Chassis/HGX_Chassis_0/../FW_0"};
+
+    ctx->startRequest(0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "NvidiaUpdate.1.3.FirmwareUpdateTargetInvalid");
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageArgs"][0],
+              "/redfish/v1/Chassis/HGX_Chassis_0/../FW_0");
+}
+
+TEST(StartRequest, UnparseableTargetReportsActionParameterValueConflict)
+{
+    auto ctx = makeCtx();
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp = ctx->asyncResp;
+    ctx->multiRet.params.targets =
+        std::vector<std::string>{"/redfish/v1/Chassis/%zz"};
+
+    ctx->startRequest(0);
+
+    EXPECT_EQ(ctx->state, UpdateCtx::State::UPDATE_COMPLETE_ERROR);
+    EXPECT_EQ(errorMessage(asyncResp->res)["MessageId"],
+              "Base.1.19.ActionParameterValueConflict");
 }
 
 TEST(ParseRfaUri, UnprefixedFirmwareInventoryIsLocal)

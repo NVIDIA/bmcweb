@@ -64,6 +64,7 @@ inline std::string formatMiB(size_t bytes)
 enum class TargetType
 {
     Error,
+    Invalid,
     Local,
     Satellite,
     SatelliteOmitTargets
@@ -517,6 +518,7 @@ inline TargetType parseRfaUri(std::string_view uri)
         {
             return TargetType::SatelliteOmitTargets;
         }
+        return TargetType::Local;
     }
 
     std::string softwareId;
@@ -553,7 +555,8 @@ inline TargetType parseRfaUri(std::string_view uri)
         return TargetType::Satellite;
     }
 
-    return TargetType::Local;
+    BMCWEB_LOG_ERROR("Unsupported update target URI {}", uri);
+    return TargetType::Invalid;
 }
 
 struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
@@ -931,6 +934,12 @@ struct UpdateCtx : public std::enable_shared_from_this<UpdateCtx>
             {
                 redfish::messages::actionParameterValueConflict(asyncResp->res,
                                                                 "Targets", uri);
+                failClientResponse();
+                return;
+            }
+            if (targetType == TargetType::Invalid)
+            {
+                messages::firmwareUpdateTargetInvalid(asyncResp->res, uri);
                 failClientResponse();
                 return;
             }
