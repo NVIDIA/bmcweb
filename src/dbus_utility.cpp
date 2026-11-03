@@ -11,6 +11,7 @@
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
@@ -28,6 +29,12 @@ namespace dbus
 
 namespace utility
 {
+
+static std::string_view errorName(const sdbusplus::message_t& msg)
+{
+    const sd_bus_error* err = msg.get_error();
+    return (err != nullptr && err->name != nullptr) ? err->name : "";
+}
 
 void escapePathForDbus(std::string& path)
 {
@@ -228,19 +235,41 @@ void getAssociatedSubTreePathsById(
         path, subtreeInterfaces, association, endpointInterfaces);
 }
 
+// With reportNotFound, ObjectMapper's ResourceNotFound reply is reported as
+// EBADR (see mapperNotFoundToEbadr); otherwise the error code is unchanged.
+static void getDbusObjectImpl(
+    const std::string& path, std::span<const std::string_view> interfaces,
+    bool reportNotFound,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetObject&)>&& callback)
+{
+    dbus::utility::async_method_call(
+        [callback = std::move(callback), reportNotFound](
+            const boost::system::error_code& ec,
+            const sdbusplus::message_t& msg, const MapperGetObject& object) {
+            callback(reportNotFound ? mapperNotFoundToEbadr(ec, errorName(msg))
+                                    : ec,
+                     object);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", path, interfaces);
+}
+
 void getDbusObject(const std::string& path,
                    std::span<const std::string_view> interfaces,
                    std::function<void(const boost::system::error_code&,
                                       const MapperGetObject&)>&& callback)
 {
-    dbus::utility::async_method_call(
-        [callback = std::move(callback)](const boost::system::error_code& ec,
-                                         const MapperGetObject& object) {
-            callback(ec, object);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path, interfaces);
+    getDbusObjectImpl(path, interfaces, false, std::move(callback));
+}
+
+void getDbusObjectReportNotFound(
+    const std::string& path, std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetObject&)>&& callback)
+{
+    getDbusObjectImpl(path, interfaces, true, std::move(callback));
 }
 
 void getAssociationEndPoints(

@@ -34,6 +34,7 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
@@ -71,14 +72,32 @@ constexpr std::string_view debugTokenAggregationInterface =
  * @param[in] inventoryPath Object path of the component in the inventory.
  * @param[in] componentID The ID of the component whose parent chassis is to be
  * found.
+ * @param[in] ec Error code from the debug-token interface lookup.
+ * @param[in] object Services implementing debug-token actions for the
+ * component.
  *
  * @return void Returns nothing. The result (if found) is added to asyncResp's
  * JSON response.
  */
 inline void findParentChassisForComponent(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& inventoryPath, const std::string& componentID)
+    const std::string& inventoryPath, const std::string& componentID,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
 {
+    if (ec)
+    {
+        if (!isObjectMapperNotFound(ec))
+        {
+            BMCWEB_LOG_ERROR("Debug token lookup failed: {}", ec);
+        }
+        return;
+    }
+    if (object.empty())
+    {
+        return;
+    }
+
     std::string inventoryChassisPath = inventoryPath + "/inventory_chassis";
 
     chassis_utils::getAssociationEndpoint(
@@ -133,8 +152,9 @@ inline void handleSpdmAssociationsResponse(
         if (forward == "inventory_object")
         {
             std::string inventoryPath = target;
-            std::string componentID =
+            const std::string inventoryName =
                 std::filesystem::path(inventoryPath).filename().string();
+            std::string componentID = inventoryName;
 
             if (componentID.starts_with(PLATFORMDEVICEPREFIX))
             {
@@ -149,8 +169,13 @@ inline void handleSpdmAssociationsResponse(
                 return;
             }
 
-            findParentChassisForComponent(asyncResp, inventoryPath,
-                                          componentID);
+            dbus::utility::getDbusObjectReportNotFound(
+                sdbusplus::message::object_path(
+                    std::string(debug_token::debugTokenBasePath)) /
+                    inventoryName,
+                std::array{debug_token::debugTokenActionIntf},
+                std::bind_front(&findParentChassisForComponent, asyncResp,
+                                inventoryPath, componentID));
             return;
         }
     }
