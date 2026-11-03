@@ -174,6 +174,47 @@ inline void afterGetProperties(
     }
 }
 
+inline void afterGetPurpose(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swId, bool runningImage, const std::string& service,
+    const std::string& objPath, const std::string& swVersionPurpose,
+    const std::string& activeVersionPropName, bool populateLinkToImages,
+    const boost::system::error_code& ec, const std::string& purpose)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("Failed to get Purpose for {}: {}", swId,
+                             ec.message());
+            if (runningImage)
+            {
+                messages::internalError(asyncResp->res);
+            }
+        }
+        return;
+    }
+    if (purpose != swVersionPurpose)
+    {
+        BMCWEB_LOG_DEBUG("Skipping {} (Purpose {} != {})", swId, purpose,
+                         swVersionPurpose);
+        return;
+    }
+
+    // Now grab its version
+    // info
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Software.Version",
+        [asyncResp, swId, runningImage, swVersionPurpose, activeVersionPropName,
+         populateLinkToImages](
+            const boost::system::error_code& ec3,
+            const dbus::utility::DBusPropertiesMap& propertiesList) {
+            afterGetProperties(asyncResp, swId, runningImage, swVersionPurpose,
+                               activeVersionPropName, populateLinkToImages, ec3,
+                               propertiesList);
+        });
+}
+
 inline void afterGetSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& swVersionPurpose,
@@ -219,19 +260,13 @@ inline void afterGetSubtree(
             runningImage = true;
         }
 
-        // Now grab its version
-        // info
-        dbus::utility::getAllProperties(
+        // Purpose is static; GetAll runs the Version getter (live HW query)
+        dbus::utility::getProperty<std::string>(
             obj.second[0].first, obj.first,
-            "xyz.openbmc_project.Software.Version",
-            [asyncResp, swId, runningImage, swVersionPurpose,
-             activeVersionPropName, populateLinkToImages](
-                const boost::system::error_code& ec3,
-                const dbus::utility::DBusPropertiesMap& propertiesList) {
-                afterGetProperties(asyncResp, swId, runningImage,
-                                   swVersionPurpose, activeVersionPropName,
-                                   populateLinkToImages, ec3, propertiesList);
-            });
+            "xyz.openbmc_project.Software.Version", "Purpose",
+            std::bind_front(afterGetPurpose, asyncResp, swId, runningImage,
+                            obj.second[0].first, obj.first, swVersionPurpose,
+                            activeVersionPropName, populateLinkToImages));
     }
 }
 
