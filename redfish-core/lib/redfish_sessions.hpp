@@ -371,7 +371,7 @@ inline void handleSessionServicePatch(
             persistent_data::SessionStore::getInstance().updateSessionTimeout(
                 sessionTimeoutInseconds);
             messages::propertyValueModified(asyncResp->res, "SessionTimeout",
-                                            *sessionTimeout);
+                                            std::to_string(*sessionTimeout));
             // update the message severity  // Nvidia code starts here
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeout", "OK");
@@ -382,7 +382,8 @@ inline void handleSessionServicePatch(
         }
         else
         {
-            messages::propertyValueNotInList(asyncResp->res, *sessionTimeout,
+            messages::propertyValueNotInList(asyncResp->res,
+                                             std::to_string(*sessionTimeout),
                                              "SessionTimeout");
         }
     }

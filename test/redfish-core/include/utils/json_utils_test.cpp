@@ -411,6 +411,36 @@ TEST(ReadJsonPatch, VerifyReadJsonPatchBadVectorObject)
     EXPECT_THAT(argsExtInfo["MessageArgs"][1], "NotVector");
 }
 
+TEST(ReadJsonPatch, TypeErrorReportsStringValueWithoutQuotes)
+{
+    crow::Response res;
+    nlohmann::json jsonRequest = {{"integer", "abc"}};
+
+    int64_t integer = 0;
+    ASSERT_FALSE(readJson(jsonRequest, res, "integer", integer));
+    EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
+
+    const nlohmann::json& argsExtInfo =
+        res.jsonValue["integer@Message.ExtendedInfo"][0];
+    EXPECT_EQ(argsExtInfo["MessageArgs"][0], "abc");
+    EXPECT_EQ(argsExtInfo["MessageArgs"][1], "integer");
+}
+
+TEST(MessageArgToString, StringIsReturnedWithoutQuotes)
+{
+    EXPECT_EQ(messageArgToString(nlohmann::json("Always_On")), "Always_On");
+    EXPECT_EQ(messageArgToString(nlohmann::json("")), "");
+}
+
+TEST(MessageArgToString, NonStringIsSerialized)
+{
+    EXPECT_EQ(messageArgToString(nlohmann::json(5)), "5");
+    EXPECT_EQ(messageArgToString(nlohmann::json(true)), "true");
+    EXPECT_EQ(messageArgToString(nlohmann::json(nullptr)), "null");
+    EXPECT_EQ(messageArgToString(nlohmann::json::array({1, 2})), "[1,2]");
+    EXPECT_EQ(messageArgToString(nlohmann::json{{"a", 1}}), R"({"a":1})");
+}
+
 TEST(ReadJsonAction, ValidElementsReturnsTrueResponseOkValuesUnpackedCorrectly)
 {
     crow::Response res;

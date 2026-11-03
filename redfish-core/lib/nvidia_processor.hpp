@@ -3928,8 +3928,9 @@ inline void patchPCIeLinkEnableMaskIfPresent(
     }
     if (!pcieLinkEnableMask->is_object())
     {
-        messages::propertyValueTypeError(asyncResp->res, *pcieLinkEnableMask,
-                                         "PCIeLinkEnableMask");
+        messages::propertyValueTypeError(
+            asyncResp->res, json_util::messageArgToString(*pcieLinkEnableMask),
+            "PCIeLinkEnableMask");
         return;
     }
     // SupportedMask and Writable are device-reported and read-only. Naming

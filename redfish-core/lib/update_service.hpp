@@ -915,7 +915,9 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
             if (multiRet.targets->size() > 1)
             {
                 messages::propertyValueFormatError(
-                    asyncResp->res, *multiRet.targets, "Targets");
+                    asyncResp->res,
+                    json_util::messageArgToString(*multiRet.targets),
+                    "Targets");
                 return std::nullopt;
             }
 

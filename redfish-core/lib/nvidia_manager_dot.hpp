@@ -221,8 +221,8 @@ inline void processCAKInstallResponse(
         std::string reason =
             dbusError->message != nullptr ? dbusError->message : "";
         BMCWEB_LOG_WARNING("CAKInstall rejected by dot-keyd: {}", reason);
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(reason), "CAKInstall");
+        messages::actionParameterValueError(asyncResp->res, reason,
+                                            "CAKInstall");
         return;
     }
     BMCWEB_LOG_ERROR("CAKInstall D-Bus call failed: {}", ec.message());
@@ -333,8 +333,8 @@ inline void processCAKDeleteResponse(
     if (result != "Success")
     {
         BMCWEB_LOG_ERROR("CAKDelete failed: {}", result);
-        messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(result), "CAKDelete");
+        messages::actionParameterValueError(asyncResp->res, result,
+                                            "CAKDelete");
         return;
     }
 
