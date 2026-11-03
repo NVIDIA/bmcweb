@@ -276,6 +276,41 @@ TEST(GetUpdateMessage, RejectsUnknownNvidiaUpdateMessage)
         getUpdateMessage("NvidiaUpdate.1.0.NotInRegistry", args).empty());
 }
 
+// Standby-power device error propagated by phosphor-logging and forwarded by
+// pldm into the FWUpdate namespace. It used to render as a bare
+// {Resolution, MessageSeverity, Oem} object with no MessageId.
+TEST(GetUpdateMessage, FallsBackToRegistryForUnmappedMessageId)
+{
+    // pldm splits REDFISH_MESSAGE_ARGS on ',' so arg 2 keeps its leading space.
+    std::vector<std::string> args{
+        "HGX_CPU_0",
+        " Device not powered on as the system is in standby power"};
+
+    nlohmann::json message =
+        getUpdateMessage("ResourceEvent.1.1.ResourceStateChanged", args);
+
+    ASSERT_FALSE(message.empty());
+    EXPECT_EQ(message["@odata.type"], "#Message.v1_1_1.Message");
+    EXPECT_EQ(message["MessageId"], "ResourceEvent.1.1.ResourceStateChanged");
+    EXPECT_EQ(message["MessageArgs"],
+              nlohmann::json::array(
+                  {"HGX_CPU_0",
+                   "Device not powered on as the system is in standby power"}));
+    EXPECT_EQ(message["Message"],
+              "The state of resource `HGX_CPU_0` has changed to Device not "
+              "powered on as the system is in standby power.");
+    EXPECT_TRUE(message.contains("MessageSeverity"));
+    EXPECT_TRUE(message.contains("Resolution"));
+}
+
+TEST(GetUpdateMessage, RejectsMessageIdUnknownToAllRegistries)
+{
+    std::vector<std::string> args{"x"};
+    EXPECT_TRUE(getUpdateMessage("NoSuchRegistry.1.0.NoSuchKey", args).empty());
+    EXPECT_TRUE(getUpdateMessage("ResourceEvent.1.0.NoSuchKey", args).empty());
+    EXPECT_TRUE(getUpdateMessage("", args).empty());
+}
+
 TEST(ParseRfaUri, EmptyUriReturnsError)
 {
     EXPECT_EQ(parseRfaUri(""), TargetType::Error);
