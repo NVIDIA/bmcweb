@@ -26,8 +26,17 @@
 
 namespace crow
 {
+enum class UserInfoResult
+{
+    Ok,
+    // User info could not be read or was malformed.
+    Error,
+    // The account is disabled, or locked for a new mTLS login.
+    AccountDisabled,
+};
+
 // Populate session with user information.
-inline bool populateUserInfo(
+inline UserInfoResult populateUserInfo(
     persistent_data::UserSession& session,
     const dbus::utility::DBusPropertiesMap& userInfoMap)
 {
@@ -35,23 +44,47 @@ inline bool populateUserInfo(
     bool remoteUser = false;
     std::optional<bool> passwordExpired;
     std::optional<std::vector<std::string>> userGroups;
+    std::optional<bool> userEnabled;
+    std::optional<bool> userLocked;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         redfish::dbus_utils::UnpackErrorPrinter(), userInfoMap, "UserPrivilege",
         userRole, "RemoteUser", remoteUser, "UserPasswordExpired",
-        passwordExpired, "UserGroups", userGroups);
+        passwordExpired, "UserGroups", userGroups, "UserEnabled", userEnabled,
+        "UserLockedForFailedAttempt", userLocked);
 
     if (!success)
     {
         BMCWEB_LOG_ERROR("Failed to unpack user properties.");
-        return false;
+        return UserInfoResult::Error;
     }
 
     if (!remoteUser && (!passwordExpired || !userGroups))
     {
         BMCWEB_LOG_ERROR(
             "Missing UserPasswordExpired or UserGroups property for local user");
-        return false;
+        return UserInfoResult::Error;
+    }
+
+    // Password, token and cookie auth reject disabled accounts elsewhere
+    // (PAM and session purging).  mTLS authenticates from the certificate
+    // alone, so enforce the account state here, which every request passes
+    // through.  Remote users do not expose these properties.
+    if (!remoteUser && userEnabled && !*userEnabled)
+    {
+        BMCWEB_LOG_WARNING("Rejecting request from disabled user {}",
+                           session.username);
+        return UserInfoResult::AccountDisabled;
+    }
+    // Sessions opened before a lockout are allowed to survive, so only mTLS
+    // logins, which have no other credential check, are refused when locked.
+    if (!remoteUser &&
+        session.sessionType == persistent_data::SessionType::MutualTLS &&
+        userLocked && *userLocked)
+    {
+        BMCWEB_LOG_WARNING("Rejecting mTLS request from locked user {}",
+                           session.username);
+        return UserInfoResult::AccountDisabled;
     }
 
     session.userRole = userRole;
@@ -68,7 +101,7 @@ inline bool populateUserInfo(
         session.userGroups.swap(*userGroups);
     }
 
-    return true;
+    return UserInfoResult::Ok;
 }
 
 inline bool isUserPrivileged(
@@ -113,7 +146,20 @@ inline bool afterGetUserInfoValidate(
     Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     BaseRule& rule, const dbus::utility::DBusPropertiesMap& userInfoMap)
 {
-    if (req.session == nullptr || !populateUserInfo(*req.session, userInfoMap))
+    if (req.session == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Failed to populate user information");
+        asyncResp->res.result(
+            boost::beast::http::status::internal_server_error);
+        return false;
+    }
+    UserInfoResult result = populateUserInfo(*req.session, userInfoMap);
+    if (result == UserInfoResult::AccountDisabled)
+    {
+        asyncResp->res.result(boost::beast::http::status::unauthorized);
+        return false;
+    }
+    if (result != UserInfoResult::Ok)
     {
         BMCWEB_LOG_ERROR("Failed to populate user information");
         asyncResp->res.result(
@@ -229,7 +275,13 @@ inline void afterGetUserInfo(
     std::move_only_function<void()>& callback,
     const dbus::utility::DBusPropertiesMap& userInfoMap)
 {
-    if (!populateUserInfo(*session, userInfoMap))
+    UserInfoResult result = populateUserInfo(*session, userInfoMap);
+    if (result == UserInfoResult::AccountDisabled)
+    {
+        asyncResp->res.result(boost::beast::http::status::unauthorized);
+        return;
+    }
+    if (result != UserInfoResult::Ok)
     {
         BMCWEB_LOG_ERROR("Failed to populate user information");
         asyncResp->res.result(
