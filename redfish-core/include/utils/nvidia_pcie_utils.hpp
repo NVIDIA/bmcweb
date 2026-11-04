@@ -583,6 +583,10 @@ static inline void getPCIeDeviceFunctionsList(
                     pcieDevProperties, [devIDProperty](const auto& property) {
                         return property.first == devIDProperty;
                     });
+                if (propIt == pcieDevProperties.end())
+                {
+                    continue;
+                }
 
                 const std::string* property =
                     std::get_if<std::string>(&propIt->second);
@@ -660,6 +664,12 @@ static inline void getPCIeDeviceFunction(
             pcieDevProperties, [devIDProperty](const auto& property) {
                 return property.first == devIDProperty;
             });
+        if (propIt == pcieDevProperties.end())
+        {
+            messages::resourceNotFound(
+                asyncResp->res, "#PCIeFunction.v1_2_0.PCIeFunction", function);
+            return;
+        }
 
         const std::string* propertyStr =
             std::get_if<std::string>(&propIt->second);
