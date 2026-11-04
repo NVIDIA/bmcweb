@@ -173,18 +173,16 @@ TEST(ComponentPowerCycle, SingleAssociatedObjectIsSelected)
          {{"com.nvidia.Control.Platform.PowerCycle",
            {std::string(interface)}}}}};
 
-    std::optional<ComponentPowerCycle> component =
+    std::optional<ComponentPowerCycleObject> object =
         findComponentPowerCycle(subtree);
 
-    ASSERT_TRUE(component);
-    if (!component)
+    ASSERT_TRUE(object);
+    if (!object)
     {
         return;
     }
-    EXPECT_EQ(component->path, cpuObject);
-    EXPECT_EQ(component->capabilities.service,
-              "com.nvidia.Control.Platform.PowerCycle");
-    EXPECT_TRUE(component->capabilities.types.empty());
+    EXPECT_EQ(object->path, cpuObject);
+    EXPECT_EQ(object->service, "com.nvidia.Control.Platform.PowerCycle");
 }
 
 TEST(ComponentPowerCycle, NoOrSeveralObjectsSelectNothing)
@@ -258,8 +256,8 @@ TEST(ComponentPowerCycle, EmptySubTreeReportsNoObject)
     EXPECT_TRUE(callbackCalled);
 }
 
-const ComponentPowerCycle cpuObjectWithoutProperties{
-    cpuObject, {"com.nvidia.Control.Platform.PowerCycle", {}}, {}};
+const ComponentPowerCycleObject cpuPowerCycleObject{
+    cpuObject, "com.nvidia.Control.Platform.PowerCycle"};
 
 TEST(ComponentPowerCycle, ReadPropertiesAreReported)
 {
@@ -279,11 +277,13 @@ TEST(ComponentPowerCycle, ReadPropertiesAreReported)
                 return;
             }
             EXPECT_EQ(component->path, cpuObject);
+            EXPECT_EQ(component->capabilities.service,
+                      "com.nvidia.Control.Platform.PowerCycle");
             EXPECT_TRUE(supports(component->capabilities, componentPowerCycle));
             EXPECT_EQ(component->description, "Power cycle the CPU and SSD.");
             callbackCalled = true;
         },
-        cpuObjectWithoutProperties, {}, properties);
+        cpuPowerCycleObject, {}, properties);
 
     EXPECT_TRUE(callbackCalled);
 }
@@ -308,7 +308,7 @@ TEST(ComponentPowerCycle, MissingDescriptionIsEmpty)
             EXPECT_TRUE(component->description.empty());
             callbackCalled = true;
         },
-        cpuObjectWithoutProperties, {}, properties);
+        cpuPowerCycleObject, {}, properties);
 
     EXPECT_TRUE(callbackCalled);
 }
@@ -326,7 +326,7 @@ TEST(ComponentPowerCycle, WrongPropertyTypeIsReported)
             EXPECT_FALSE(component);
             callbackCalled = true;
         },
-        cpuObjectWithoutProperties, {}, properties);
+        cpuPowerCycleObject, {}, properties);
 
     EXPECT_TRUE(callbackCalled);
 }
@@ -345,7 +345,7 @@ TEST(ComponentPowerCycle, PropertyReadFailureIsReported)
             EXPECT_FALSE(component);
             callbackCalled = true;
         },
-        cpuObjectWithoutProperties, readError, {});
+        cpuPowerCycleObject, readError, {});
 
     EXPECT_TRUE(callbackCalled);
 }

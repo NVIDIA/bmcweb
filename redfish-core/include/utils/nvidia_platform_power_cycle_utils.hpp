@@ -328,22 +328,33 @@ using ComponentPowerCycleCallback = std::function<void(
     const boost::system::error_code&, std::optional<ComponentPowerCycle>)>;
 
 /**
+ * @brief Power-cycle object of a chassis as found by the mapper, before its
+ * properties are read.
+ */
+struct ComponentPowerCycleObject
+{
+    std::string path;
+    std::string service;
+};
+
+/**
  * @brief Select the power-cycle object of a chassis from the mapper reply.
  *
- * @return The object without its types, or std::nullopt unless exactly one
+ * @return The object's path and service, or std::nullopt unless exactly one
  * object with exactly one service is associated.
  */
-inline std::optional<ComponentPowerCycle> findComponentPowerCycle(
+inline std::optional<ComponentPowerCycleObject> findComponentPowerCycle(
     const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    if (subtree.size() != 1)
+    if (subtree.empty())
     {
-        if (!subtree.empty())
-        {
-            BMCWEB_LOG_ERROR(
-                "{} power-cycle objects are associated with one chassis",
-                subtree.size());
-        }
+        return std::nullopt;
+    }
+    if (subtree.size() > 1)
+    {
+        BMCWEB_LOG_ERROR(
+            "{} power-cycle objects are associated with one chassis",
+            subtree.size());
         return std::nullopt;
     }
     const auto& [path, services] = subtree.front();
@@ -353,19 +364,19 @@ inline std::optional<ComponentPowerCycle> findComponentPowerCycle(
                          services.size());
         return std::nullopt;
     }
-    return ComponentPowerCycle{
-        path, Capabilities{services.front().first, {}}, {}};
+    return ComponentPowerCycleObject{path, services.front().first};
 }
 
 inline void afterGetComponentPowerCycleProperties(
     const ComponentPowerCycleCallback& callback,
-    const ComponentPowerCycle& component, const boost::system::error_code& ec,
+    const ComponentPowerCycleObject& object,
+    const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to read power-cycle object {}: {}",
-                         component.path, ec);
+                         object.path, ec);
         callback(ec, std::nullopt);
         return;
     }
@@ -385,7 +396,7 @@ inline void afterGetComponentPowerCycleProperties(
     }
 
     ComponentPowerCycle result{
-        component.path, Capabilities{component.capabilities.service, {}}, {}};
+        object.path, Capabilities{object.service, {}}, {}};
     if (supportedTypes != nullptr)
     {
         result.capabilities.types = *supportedTypes;
@@ -415,19 +426,19 @@ inline void afterGetComponentPowerCycleSubTree(
         return;
     }
 
-    std::optional<ComponentPowerCycle> component =
+    std::optional<ComponentPowerCycleObject> object =
         findComponentPowerCycle(subtree);
-    if (!component)
+    if (!object)
     {
         callback({}, std::nullopt);
         return;
     }
-    const std::string service = component->capabilities.service;
-    const std::string path = component->path;
+    const std::string service = object->service;
+    const std::string path = object->path;
     dbus::utility::getAllProperties(
         service, path, std::string(interface),
         std::bind_front(afterGetComponentPowerCycleProperties,
-                        std::move(callback), std::move(*component)));
+                        std::move(callback), std::move(*object)));
 }
 
 /**
