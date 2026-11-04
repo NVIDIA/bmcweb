@@ -714,40 +714,28 @@ static inline void getPCIeDeviceFunction(
             {"FunctionId", *functionId},
             {"Links", {{"PCIeDevice", {{"@odata.id", pcieDeviceURI}}}}}};
 
+        // Every FunctionN string starts empty, and the backend leaves it
+        // empty (or NOT_SUPPORTED) when it cannot read the value. Leave the
+        // property out then: "" is not a valid value for any of these
+        // strings in the PCIeFunction schema (hex patterns and enums).
         for (const auto& property : pcieDevProperties)
         {
             const std::string& propertyName = property.first;
             if (propertyName == "Function" + function + "DeviceId")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["DeviceId"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "DeviceId",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "VendorId")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["VendorId"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "VendorId",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "FunctionType")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["FunctionType"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "FunctionType",
+                               std::get_if<std::string>(&property.second));
             }
-            // DeviceClass, ClassCode and RevisionId are not read from every
-            // device; the backend leaves them empty (or NOT_SUPPORTED) when
-            // unknown. Leave them out then: "" is not a valid value for any
-            // of the three in the PCIeFunction schema.
             else if (propertyName == "Function" + function + "DeviceClass")
             {
                 mapValidOrOmit(asyncResp->res.jsonValue, "DeviceClass",
@@ -765,22 +753,14 @@ static inline void getPCIeDeviceFunction(
             }
             else if (propertyName == "Function" + function + "SubsystemId")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["SubsystemId"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "SubsystemId",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName ==
                      "Function" + function + "SubsystemVendorId")
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["SubsystemVendorId"] = *value;
-                }
+                mapValidOrOmit(asyncResp->res.jsonValue, "SubsystemVendorId",
+                               std::get_if<std::string>(&property.second));
             }
             else if (propertyName == "Function" + function + "BusNumber")
             {
