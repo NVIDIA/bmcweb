@@ -1731,6 +1731,7 @@ inline void handleAccountServicePatch(
     std::optional<uint16_t> maxPasswordLength;
     LdapPatchParams ldapObject;
     std::optional<std::string> certificateMappingAttribute;
+    std::optional<bool> clientCertificateEnabled;
     std::optional<bool> respondToUnauthenticatedClients;
     LdapPatchParams activeDirectoryObject;
     AuthMethods auth;
@@ -1775,6 +1776,8 @@ inline void handleAccountServicePatch(
             "MinPasswordLength", minPasswordLength,                        //
             "MultiFactorAuth/ClientCertificate/CertificateMappingAttribute",
             certificateMappingAttribute,                                   //
+            "MultiFactorAuth/ClientCertificate/Enabled",
+            clientCertificateEnabled,                                      //
             "MultiFactorAuth/ClientCertificate/RespondToUnauthenticatedClients",
             respondToUnauthenticatedClients,                               //
             "Oem/OpenBMC/AuthMethods/BasicAuth", auth.basicAuth,           //
@@ -1805,18 +1808,36 @@ inline void handleAccountServicePatch(
         }
     }
 
+    if (clientCertificateEnabled)
+    {
+        if (auth.tls && *auth.tls != *clientCertificateEnabled)
+        {
+            messages::propertyValueConflict(
+                asyncResp->res, "MultiFactorAuth/ClientCertificate/Enabled",
+                "Oem/OpenBMC/AuthMethods/TLS");
+            return;
+        }
+        auth.tls = clientCertificateEnabled;
+    }
+
     if (respondToUnauthenticatedClients)
     {
         handleRespondToUnauthenticatedClientsPatch(
             app, req, asyncResp->res, *respondToUnauthenticatedClients);
-        return;
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
     }
 
     if (certificateMappingAttribute)
     {
         handleCertificateMappingAttributePatch(asyncResp->res,
                                                *certificateMappingAttribute);
-        return;
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
     }
 
     if (minPasswordLength)
