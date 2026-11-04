@@ -372,12 +372,9 @@ inline void afterGetComponentPowerCycleProperties(
 
     const std::vector<std::string>* supportedTypes = nullptr;
     const std::string* description = nullptr;
-    // clang-format off
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties,
-        "SupportedPowerCycleTypes", supportedTypes,
-        "Description", description);
-    // clang-format on
+        "SupportedPowerCycleTypes", supportedTypes, "Description", description);
     if (!success)
     {
         callback(boost::system::errc::make_error_code(
