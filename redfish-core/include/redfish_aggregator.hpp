@@ -1057,8 +1057,9 @@ class RedfishAggregator
     {
         boost::beast::http::fields fields = originalFields;
 
-        // POST AggregationService can only parse JSON
-        fields.set(boost::beast::http::field::accept, "application/json");
+        // POST AggregationService can parse JSON and Octet
+        fields.set(boost::beast::http::field::accept,
+                   "application/json, application/octet-stream");
 
         // Add authentication if credentials exist for this prefix
         auto it = aggregationSources.find(prefix);

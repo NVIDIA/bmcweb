@@ -905,7 +905,7 @@ TEST(createNewRequest, FiltersAuthTokenKeepsHostAndContentType)
 
     bool hasHost = false;
     bool hasContentType = false;
-    bool hasAccept = false;
+    std::string acceptValue;
     bool hasAuthToken = false;
     for (const auto& field : forwarded.fields())
     {
@@ -919,7 +919,7 @@ TEST(createNewRequest, FiltersAuthTokenKeepsHostAndContentType)
         }
         else if (field.name() == boost::beast::http::field::accept)
         {
-            hasAccept = true;
+            acceptValue = field.value();
         }
         else if (field.name_string() == "X-Auth-Token")
         {
@@ -928,7 +928,7 @@ TEST(createNewRequest, FiltersAuthTokenKeepsHostAndContentType)
     }
     EXPECT_TRUE(hasHost);
     EXPECT_TRUE(hasContentType);
-    EXPECT_TRUE(hasAccept);
+    EXPECT_EQ(acceptValue, "application/json, application/octet-stream");
     // The client's auth token must not be leaked to the satellite BMC
     EXPECT_FALSE(hasAuthToken);
 }
