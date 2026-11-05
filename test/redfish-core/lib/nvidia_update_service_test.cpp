@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 
+#include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
@@ -137,6 +138,43 @@ TEST(CommitImageInfoFromImageCopy, ListsEachFirmwareOnce)
               nlohmann::json::array(
                   {"/redfish/v1/UpdateService/FirmwareInventory/fw_a",
                    "/redfish/v1/UpdateService/FirmwareInventory/fw_b"}));
+}
+
+TEST(CommitImageAdvertise, ImageCopyObjectAdvertisesAction)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleImageCopyPaths(asyncResp, boost::system::error_code{},
+                         {"/xyz/openbmc_project/inventory/system/chassis/a"});
+
+    const nlohmann::json& action =
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"];
+    EXPECT_EQ(action["target"], "/redfish/v1/UpdateService/Actions/Oem/"
+                                "NvidiaUpdateService.CommitImage");
+    EXPECT_EQ(action["@Redfish.ActionInfo"],
+              "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo");
+}
+
+TEST(CommitImageAdvertise, NoImageCopyObjectHidesAction)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleImageCopyPaths(asyncResp, boost::system::error_code{}, {});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
+}
+
+TEST(CommitImageAdvertise, MapperErrorHidesAction)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    handleImageCopyPaths(
+        asyncResp,
+        boost::system::errc::make_error_code(boost::system::errc::io_error),
+        {"/xyz/openbmc_project/inventory/system/chassis/a"});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
 }
 
 } // namespace

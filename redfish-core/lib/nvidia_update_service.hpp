@@ -1403,24 +1403,65 @@ inline bool preCheckMultipartUpdateServiceReq(
     return true;
 }
 
+inline void addCommitImageAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    asyncResp->res
+        .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
+        {"target",
+         "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
+        {"@Redfish.ActionInfo",
+         "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
+}
+
+inline void handleImageCopyPaths(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
+{
+    if (ec || paths.empty())
+    {
+        return;
+    }
+    addCommitImageAction(asyncResp);
+}
+
+/**
+ * @brief Advertise the CommitImage action on UpdateService
+ *
+ * With an allow-list the action is advertised when it loaded. A broken
+ * allow-list hides it. Without an allow-list the targets come from ImageCopy
+ * discovery, so the action is advertised when an object implements
+ * com.nvidia.ImageCopy.
+ */
+inline void advertiseCommitImage(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    switch (getCommitImageAllowList().state)
+    {
+        case CommitImageAllowListState::loaded:
+            addCommitImageAction(asyncResp);
+            break;
+        case CommitImageAllowListState::notConfigured:
+        {
+            static constexpr std::array<std::string_view, 1> interfaces{
+                imageCopyInterface};
+            dbus::utility::getSubTreePaths(
+                "/xyz/openbmc_project", 0, interfaces,
+                std::bind_front(handleImageCopyPaths, asyncResp));
+            break;
+        }
+        case CommitImageAllowListState::loadFailed:
+            break;
+    }
+}
+
 inline void extendUpdateServiceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    // Check the file first: getAllowableValues() logs an error when it is
-    // missing, which is expected on platforms that don't ship it.
-    std::error_code mappingEc;
-    if (std::filesystem::exists(BMCWEB_FW_UUID_MAPPING_JSON, mappingEc) &&
-        !getAllowableValues().empty())
-    {
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
-            {"target",
-             "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
-            {"@Redfish.ActionInfo",
-             "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
-    }
+    advertiseCommitImage(asyncResp);
     if constexpr (BMCWEB_SCP_UPDATE)
     {
         asyncResp->res.jsonValue["Actions"]["Oem"]
