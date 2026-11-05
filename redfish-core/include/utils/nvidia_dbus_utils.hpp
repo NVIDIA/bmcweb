@@ -198,6 +198,16 @@ inline const char* toPhysicalContext(const std::string& physicalContext)
         return "Fan";
     }
     if (physicalContext ==
+        "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.FPGA")
+    {
+        return "FPGA";
+    }
+    if (physicalContext ==
+        "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.Transceiver")
+    {
+        return "Transceiver";
+    }
+    if (physicalContext ==
         "xyz.openbmc_project.Inventory.Decorator.Area.PhysicalContextType.Front")
     {
         return "Front";

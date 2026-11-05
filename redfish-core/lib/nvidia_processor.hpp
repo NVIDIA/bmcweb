@@ -4234,6 +4234,74 @@ inline void populatePowerState(
             redfish::chassis_utils::getPowerStateType(*operationalState);
     }
 }
+
+/**
+ * @brief Status of a processor from OperationalStatus and Health decorators
+ * published by a service other than the inventory owner.
+ *
+ * Fault is an enabled device reporting a failure: Enabled with Health
+ * Critical. Deferring, Degraded, Updating and None leave the state set by the
+ * inventory owner.
+ */
+inline void getProcessorStatusDecorators(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
+{
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Processor status decorators unavailable: {}",
+                                 ec);
+                return;
+            }
+            const std::string* state = nullptr;
+            const std::string* health = nullptr;
+            const bool* functional = nullptr;
+            if (!sdbusplus::unpackPropertiesNoThrow(
+                    dbus_utils::UnpackErrorPrinter(), properties, "State",
+                    state, "Health", health, "Functional", functional))
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& status = asyncResp->res.jsonValue["Status"];
+            bool fault = false;
+            if (state != nullptr)
+            {
+                const std::string value =
+                    state->substr(state->find_last_of('.') + 1);
+                if (value == "Fault")
+                {
+                    status["State"] = "Enabled";
+                    fault = true;
+                }
+                else if (value == "Enabled" || value == "Absent" ||
+                         value == "Disabled" || value == "Starting" ||
+                         value == "StandbyOffline" ||
+                         value == "UnavailableOffline")
+                {
+                    status["State"] = value;
+                }
+            }
+            if (health != nullptr)
+            {
+                const std::string value =
+                    health->substr(health->find_last_of('.') + 1);
+                if (value == "OK" || value == "Warning" || value == "Critical")
+                {
+                    status["Health"] = value;
+                }
+            }
+            if (fault || (functional != nullptr && !*functional &&
+                          status["State"] == "Enabled"))
+            {
+                status["Health"] = "Critical";
+            }
+        });
+}
 } // namespace nvidia_processor
 
 inline void requestRoutesProcessorPortHistogramBuckets(App& app)

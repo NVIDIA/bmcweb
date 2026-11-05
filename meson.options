@@ -671,6 +671,15 @@ option(
     description: 'Enable OEM properties.',
 )
 option(
+    'nvidia-fpga-telemetry',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable FPGA status decorators from telemetry services
+                    and OEM transceiver resources for optical-module
+                    chassis. Disabled builds register no transceiver
+                    routes and publish no links to them.''',
+)
+option(
     'nvidia-oem-logservices',
     type: 'feature',
     value: 'disabled',

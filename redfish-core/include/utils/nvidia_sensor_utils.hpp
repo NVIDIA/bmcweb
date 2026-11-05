@@ -134,6 +134,86 @@ inline void getRelatedNetworkAdapterData(
         });
 }
 
+inline void getRelatedTransceiverData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
+{
+    if constexpr (!(BMCWEB_NVIDIA_FPGA_TELEMETRY &&
+                    BMCWEB_NVIDIA_OEM_PROPERTIES))
+    {
+        getRelatedNetworkAdapterData(asyncResp, objPath);
+        return;
+    }
+    // A transceiver is addressed under the chassis it is associated with:
+    // Chassis/<chassis>/Oem/Nvidia/Transceivers/<transceiver>.
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/transceiver",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, objPath](const boost::system::error_code& ec,
+                             const std::vector<std::string>& resp) {
+            if (ec || resp.empty())
+            {
+                getRelatedNetworkAdapterData(asyncResp, objPath);
+                return;
+            }
+            for (const std::string& transceiverPath : resp)
+            {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    transceiverPath + "/chassis",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, transceiverPath](
+                        const boost::system::error_code& ec1,
+                        const std::vector<std::string>& chassisPaths) {
+                        if (ec1 || chassisPaths.empty())
+                        {
+                            return;
+                        }
+                        const std::string chassisId =
+                            sdbusplus::message::object_path(
+                                chassisPaths.front())
+                                .filename();
+                        const std::string transceiverId =
+                            sdbusplus::message::object_path(transceiverPath)
+                                .filename();
+                        asyncResp->res.jsonValue["RelatedItem"].push_back(
+                            {{"@odata.id",
+                              std::format(
+                                  "/redfish/v1/Chassis/{}/Oem/Nvidia/Transceivers/{}",
+                                  chassisId, transceiverId)}});
+                    });
+            }
+        });
+}
+
+inline void getRelatedMemoryData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
+{
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/memory",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, objPath](const boost::system::error_code& ec,
+                             const std::vector<std::string>& resp) {
+            if (ec || resp.empty())
+            {
+                getRelatedTransceiverData(asyncResp, objPath);
+                return;
+            }
+            nlohmann::json& itemsArray =
+                asyncResp->res.jsonValue["RelatedItem"];
+            for (const std::string& memoryPath : resp)
+            {
+                itemsArray.push_back(
+                    {{"@odata.id",
+                      std::format("/redfish/v1/Systems/{}/Memory/{}",
+                                  BMCWEB_REDFISH_SYSTEM_URI_NAME,
+                                  sdbusplus::message::object_path(memoryPath)
+                                      .filename())}});
+            }
+        });
+}
+
 inline void getRelatedItemData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
@@ -159,10 +239,10 @@ inline void getRelatedItemData(
                             asyncResp->res.jsonValue["RelatedItem"];
                         if (ec1)
                         {
-                            // Call to network adapter-related items when
-                            // processor check fails
-                            nvidia_sensor_utils::getRelatedNetworkAdapterData(
-                                asyncResp, objPath);
+                            // Memory, transceiver and network adapter
+                            // related items when the processor check fails
+                            nvidia_sensor_utils::getRelatedMemoryData(asyncResp,
+                                                                      objPath);
                             return;
                         }
                         for (const std::string& processorPath : resp1)

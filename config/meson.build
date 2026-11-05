@@ -110,6 +110,7 @@ feature_options = [
     'nvidia-api-metrics',
     'nvidia-bootentryid',
     'nvidia-device-status-from-association',
+    'nvidia-fpga-telemetry',
     'nvidia-redfish-event-support',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',

@@ -477,6 +477,56 @@ inline void getEfficiencyPercent(
         });
 }
 
+inline void afterPowerSupplyAvailability(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const bool available)
+{
+    if (ec || available)
+    {
+        return;
+    }
+    // An unavailable sample is not a healthy reading.
+    nlohmann::json& status = asyncResp->res.jsonValue["Status"];
+    // Presence takes precedence regardless of which callback finishes first.
+    if (status.value("State", "") != "Absent")
+    {
+        status["State"] = resource::State::UnavailableOffline;
+    }
+    if (status.value("Health", "") == "OK")
+    {
+        status.erase("Health");
+    }
+}
+
+inline void afterPowerSupplyAvailabilityObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        // The decorator is optional.
+        return;
+    }
+    dbus::utility::getProperty<bool>(
+        object.front().first, path,
+        "xyz.openbmc_project.State.Decorator.Availability", "Available",
+        std::bind_front(afterPowerSupplyAvailability, asyncResp));
+}
+
+// The Availability decorator of a power supply may come from a telemetry
+// daemon rather than from the service that owns the inventory object.
+inline void getPowerSupplyAvailability(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.State.Decorator.Availability"};
+    dbus::utility::getDbusObject(
+        path, interfaces,
+        std::bind_front(afterPowerSupplyAvailabilityObject, asyncResp, path));
+}
+
 inline void doPowerSupplyGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& powerSupplyId,
@@ -505,6 +555,7 @@ inline void doPowerSupplyGet(
 
     getPowerSupplyState(asyncResp, service, powerSupplyPath);
     getPowerSupplyHealth(asyncResp, service, powerSupplyPath);
+    getPowerSupplyAvailability(asyncResp, powerSupplyPath);
     getPowerSupplyAsset(asyncResp, service, powerSupplyPath);
     getPowerSupplyFirmwareVersion(asyncResp, service, powerSupplyPath);
     getPowerSupplyLocation(asyncResp, service, powerSupplyPath);

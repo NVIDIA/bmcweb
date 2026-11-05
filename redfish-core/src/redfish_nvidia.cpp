@@ -79,6 +79,7 @@
 #include "nvidia_system_processor_power_limits.hpp"
 #include "nvidia_systems_logservices_hostlogger.hpp"
 #include "nvidia_task.hpp"
+#include "nvidia_transceiver.hpp"
 #include "nvidia_unified_debug_token.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
@@ -129,6 +130,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesNvidiaManagerSetSelCapacityAction(app);
         requestRoutesNvidiaManagerGetSelCapacity(app);
     }
+
+    nvidia_transceiver::requestRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {

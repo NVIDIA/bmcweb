@@ -863,6 +863,38 @@ inline void getProcessorPortMetricsData(
                 }
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
+                    // Ethernet MAC link faults (com.nvidia.Ethernet.LinkFault):
+                    // Asserted and Clear are known values, Unknown is null.
+                    if (property.first == "LocalFault" ||
+                        property.first == "RemoteFault" ||
+                        property.first == "HighBER")
+                    {
+                        const std::string* value =
+                            std::get_if<std::string>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("Null value returned "
+                                             "for link fault");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        nlohmann::json& oemNvidia =
+                            asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                        if (value->ends_with(".Asserted"))
+                        {
+                            oemNvidia[property.first] = true;
+                        }
+                        else if (value->ends_with(".Clear"))
+                        {
+                            oemNvidia[property.first] = false;
+                        }
+                        else
+                        {
+                            oemNvidia[property.first] = nullptr;
+                        }
+                        oemNvidia["@odata.type"] =
+                            "#NvidiaPortMetrics.v1_12_0.NvidiaPortMetrics";
+                    }
                     if (property.first == "MalformedPkts")
                     {
                         const uint64_t* value =

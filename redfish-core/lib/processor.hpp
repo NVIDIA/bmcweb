@@ -413,7 +413,11 @@ inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Model"] = *model;
             }
 
-            if (manufacturer != nullptr)
+            // Preserve a sole provider's empty value, but do not let an
+            // empty value from another service erase populated inventory.
+            if (manufacturer != nullptr &&
+                (!manufacturer->empty() ||
+                 !asyncResp->res.jsonValue.contains("Manufacturer")))
             {
                 asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
 
@@ -485,13 +489,15 @@ inline void getCpuRevisionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 
 inline void getAcceleratorDataByService(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& acclrtrId,
-    const std::string& service, const std::string& objPath)
+    const std::string& service, const std::string& objPath,
+    const std::vector<std::string>& statusServices = {})
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
 
     dbus::utility::getAllProperties(
         service, objPath, "",
-        [acclrtrId, asyncResp{std::move(asyncResp)}](
+        [acclrtrId, service, objPath, statusServices,
+         asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -542,6 +548,38 @@ inline void getAcceleratorDataByService(
             asyncResp->res.jsonValue["Status"]["Health"] = health;
             nvidia_processor::populatePowerState(asyncResp, acclrtrId, accType,
                                                  operationalState);
+            if constexpr (BMCWEB_NVIDIA_FPGA_TELEMETRY)
+            {
+                // FPGA status is split across inventory and telemetry
+                // services. Preserve the existing LPU/GPU status path and
+                // never override an explicitly absent inventory object.
+                if (!statusServices.empty() && (present == nullptr || *present))
+                {
+                    // Other interfaces, such as Configuration.Probe, also
+                    // publish Type. Read the accelerator interface explicitly.
+                    dbus::utility::getProperty<std::string>(
+                        service, objPath,
+                        "xyz.openbmc_project.Inventory.Item.Accelerator",
+                        "Type",
+                        [asyncResp, objPath, statusServices](
+                            const boost::system::error_code& typeEc,
+                            const std::string& acceleratorType) {
+                            if (typeEc ||
+                                acceleratorType !=
+                                    "xyz.openbmc_project.Inventory.Item."
+                                    "Accelerator.AcceleratorType.FPGA")
+                            {
+                                return;
+                            }
+                            for (const std::string& statusService :
+                                 statusServices)
+                            {
+                                nvidia_processor::getProcessorStatusDecorators(
+                                    asyncResp, statusService, objPath);
+                            }
+                        });
+                }
+            }
         });
 }
 
@@ -850,6 +888,44 @@ inline void getOperatingConfigData(
     const std::string& service, const std::string& objPath,
     const std::string& deviceType);
 
+// Services that publish the OperationalStatus or Health decorator of a
+// processor object without owning its Cpu or Accelerator inventory: an
+// inventory manager owns the object and the telemetry daemon decorates it.
+inline std::vector<std::string> processorStatusDecoratorServices(
+    const dbus::utility::MapperServiceMap& serviceMap,
+    const std::string& inventoryService)
+{
+    std::vector<std::string> services;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (serviceName == inventoryService)
+        {
+            continue;
+        }
+        bool decorates = false;
+        bool owns = false;
+        for (const auto& interface : interfaceList)
+        {
+            if (interface ==
+                    "xyz.openbmc_project.State.Decorator.OperationalStatus" ||
+                interface == "xyz.openbmc_project.State.Decorator.Health")
+            {
+                decorates = true;
+            }
+            if (interface == "xyz.openbmc_project.Inventory.Item.Cpu" ||
+                interface == "xyz.openbmc_project.Inventory.Item.Accelerator")
+            {
+                owns = true;
+            }
+        }
+        if (decorates && !owns)
+        {
+            services.push_back(serviceName);
+        }
+    }
+    return services;
+}
+
 // Nvidia Added args: deviceType
 inline void getProcessorData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -893,8 +969,9 @@ inline void getProcessorData(
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
-                getAcceleratorDataByService(asyncResp, processorId, serviceName,
-                                            objectPath);
+                getAcceleratorDataByService(
+                    asyncResp, processorId, serviceName, objectPath,
+                    processorStatusDecoratorServices(serviceMap, serviceName));
             }
             else if (
                 interface ==

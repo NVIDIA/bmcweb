@@ -16,11 +16,14 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/nvidia_memory.hpp"
 #include "utils/redfish_response_utils.hpp"
 
@@ -28,8 +31,12 @@
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/message/types.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
 #include <array>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -500,6 +507,130 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
             messages::resourceNotFound(aResp->res, "#Memory.v1_20_0.Memory",
                                        dimmId);
         });
+}
+
+/**
+ * @brief Calibration status of one memory channel state object.
+ *
+ * OperationalStatus Enabled is Completed, Fault is Failed, Starting or
+ * StandbyOffline is InProgress; any other state or an unavailable sample is
+ * null.
+ */
+inline nlohmann::json toChannelCalibrationStatus(
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    const bool* available = nullptr;
+    const std::string* state = nullptr;
+    if (!sdbusplus::unpackPropertiesNoThrow(dbus_utils::UnpackErrorPrinter(),
+                                            properties, "Available", available,
+                                            "State", state) ||
+        state == nullptr || (available != nullptr && !*available))
+    {
+        return nullptr;
+    }
+    if (state->ends_with(".Enabled"))
+    {
+        return "Completed";
+    }
+    if (state->ends_with(".Fault"))
+    {
+        return "Failed";
+    }
+    if (state->ends_with(".Starting") || state->ends_with(".StandbyOffline"))
+    {
+        return "InProgress";
+    }
+    return nullptr;
+}
+
+struct MemoryChannelRead
+{
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    nlohmann::json status = nlohmann::json::array();
+    size_t pending = 0;
+};
+
+inline void afterMemoryChannelState(
+    const std::shared_ptr<MemoryChannelRead>& read, size_t channel,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
+{
+    if (!ec)
+    {
+        read->status[channel] = toChannelCalibrationStatus(properties);
+    }
+    if (--read->pending != 0)
+    {
+        return;
+    }
+    nlohmann::json& oemNvidia = read->asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    oemNvidia["@odata.type"] = "#NvidiaMemory.v1_1_0.NvidiaMemory";
+    oemNvidia["ChannelCalibrationStatus"] = std::move(read->status);
+}
+
+inline void afterMemoryChannelStates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec || subtree.empty())
+    {
+        // No channel state objects: the property is not published.
+        return;
+    }
+    std::vector<std::pair<std::string, std::string>> channels;
+    for (const auto& [path, services] : subtree)
+    {
+        if (!services.empty())
+        {
+            channels.emplace_back(path, services.front().first);
+        }
+    }
+    if (channels.empty())
+    {
+        return;
+    }
+    std::ranges::sort(channels);
+    auto read = std::make_shared<MemoryChannelRead>();
+    read->asyncResp = asyncResp;
+    read->pending = channels.size();
+    for (size_t channel = 0; channel < channels.size(); ++channel)
+    {
+        read->status.push_back(nullptr);
+    }
+    for (size_t channel = 0; channel < channels.size(); ++channel)
+    {
+        // Every decorator of the channel object comes from one service.
+        dbus::utility::getAllProperties(
+            channels[channel].second, channels[channel].first, "",
+            std::bind_front(afterMemoryChannelState, read, channel));
+    }
+}
+
+/**
+ * @brief Oem.Nvidia.ChannelCalibrationStatus of a memory device.
+ *
+ * The backend publishes one state object per memory channel and associates
+ * it with the memory object as one of its all_states. Array position is the
+ * object path order of those objects.
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       objPath     Memory object path.
+ */
+inline void getMemoryChannelCalibration(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const sdbusplus::message::object_path& objPath)
+{
+    if constexpr (!BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        return;
+    }
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.State.Decorator.OperationalStatus"};
+    dbus::utility::getAssociatedSubTree(
+        objPath / "all_states",
+        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        interfaces, std::bind_front(afterMemoryChannelStates, asyncResp));
 }
 
 inline void assignMemoryMetricsLinks(
