@@ -217,6 +217,16 @@ inline void afterGetAssemblyExtras(
                     redfish::dbus_utils::toPhysicalContext(*str);
             }
         }
+        else if (propertyName == "AssetTag")
+        {
+            const std::string* str = std::get_if<std::string>(&value);
+            if (str != nullptr && !str->empty())
+            {
+                entry["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaAssembly.v1_0_0.NvidiaAssembly";
+                entry["Oem"]["Nvidia"]["AssetTag"] = *str;
+            }
+        }
     }
 
     // PhysicalContext is a hard input to getOemAssemblyAssert's
