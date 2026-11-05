@@ -21,6 +21,8 @@
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
+#include <asm-generic/errno.h>
+
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 
@@ -1678,7 +1680,13 @@ inline void queryAllSensorsForProcessorMetrics(
                               std::variant<std::vector<std::string>>& resp) {
             if (e)
             {
-                BMCWEB_LOG_DEBUG("Failed to get all sensors: {}", e.message());
+                // The mapper hosts no association until it has an endpoint.
+                if (e.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
+                                     e.message());
+                    messages::internalError(aResp->res);
+                }
                 return;
             }
             std::vector<std::string>* data =
