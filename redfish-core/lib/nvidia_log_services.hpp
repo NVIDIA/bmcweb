@@ -1295,7 +1295,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
                 "/LogServices/"
                 "EventLog/Entries/",
             "v1_15_0", std::to_string(entry.Id), "System Event Log Entry",
-            redfish::time_utils::getDateTimeUint(entry.Timestamp), messageId,
+            redfish::time_utils::getDateTimeUintMs(entry.Timestamp), messageId,
             messageArgs, *entry.Resolution, entry.Resolved,
             std::to_string(entry.Id), deviceName, entry.Severity);
 
