@@ -14,6 +14,7 @@
 
 #include <asm-generic/errno.h>
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
@@ -183,6 +184,12 @@ inline void afterGetPurpose(
 {
     if (ec)
     {
+        if (ec == boost::system::errc::invalid_argument)
+        {
+            BMCWEB_LOG_ERROR("Purpose of {} has the wrong type", swId);
+            messages::internalError(asyncResp->res);
+            return;
+        }
         if (ec.value() != EBADR)
         {
             BMCWEB_LOG_ERROR("Failed to get Purpose for {}: {}", swId,
