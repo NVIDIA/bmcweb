@@ -140,25 +140,44 @@ TEST(CommitImageInfoFromImageCopy, ListsEachFirmwareOnce)
                    "/redfish/v1/UpdateService/FirmwareInventory/fw_b"}));
 }
 
-TEST(CommitImageAdvertise, LoadedAllowListAdvertisesAction)
+TEST(CommitImageAdvertise, LoadedAllowListAdvertisesWithoutDiscovery)
 {
-    EXPECT_EQ(
-        nvidia::commitImageAdvertisement(CommitImageAllowListState::loaded),
-        nvidia::CommitImageAdvertisement::advertise);
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    int lookups = 0;
+
+    nvidia::advertiseCommitImage(
+        asyncResp, CommitImageAllowListState::loaded,
+        [&lookups](const std::shared_ptr<bmcweb::AsyncResp>&) { ++lookups; });
+
+    EXPECT_EQ(lookups, 0);
+    EXPECT_TRUE(asyncResp->res.jsonValue["Actions"]["Oem"].contains(
+        "#NvidiaUpdateService.CommitImage"));
 }
 
 TEST(CommitImageAdvertise, NoAllowListDiscoversImageCopy)
 {
-    EXPECT_EQ(nvidia::commitImageAdvertisement(
-                  CommitImageAllowListState::notConfigured),
-              nvidia::CommitImageAdvertisement::discover);
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    int lookups = 0;
+
+    nvidia::advertiseCommitImage(
+        asyncResp, CommitImageAllowListState::notConfigured,
+        [&lookups](const std::shared_ptr<bmcweb::AsyncResp>&) { ++lookups; });
+
+    EXPECT_EQ(lookups, 1);
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
 }
 
 TEST(CommitImageAdvertise, BrokenAllowListHidesAction)
 {
-    EXPECT_EQ(
-        nvidia::commitImageAdvertisement(CommitImageAllowListState::loadFailed),
-        nvidia::CommitImageAdvertisement::hide);
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    int lookups = 0;
+
+    nvidia::advertiseCommitImage(
+        asyncResp, CommitImageAllowListState::loadFailed,
+        [&lookups](const std::shared_ptr<bmcweb::AsyncResp>&) { ++lookups; });
+
+    EXPECT_EQ(lookups, 0);
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
 }
 
 TEST(CommitImageAdvertise, ImageCopyObjectAdvertisesAction)

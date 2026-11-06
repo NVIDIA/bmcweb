@@ -1405,36 +1405,6 @@ inline bool preCheckMultipartUpdateServiceReq(
 
 namespace nvidia
 {
-enum class CommitImageAdvertisement
-{
-    advertise,
-    discover,
-    hide,
-};
-
-/**
- * @brief Decide how the CommitImage action is advertised on UpdateService
- *
- * With an allow-list the action is advertised when it loaded. A broken
- * allow-list hides it. Without an allow-list the targets come from ImageCopy
- * discovery, so the action is advertised when an object implements
- * com.nvidia.ImageCopy.
- */
-inline CommitImageAdvertisement commitImageAdvertisement(
-    CommitImageAllowListState state)
-{
-    switch (state)
-    {
-        case CommitImageAllowListState::loaded:
-            return CommitImageAdvertisement::advertise;
-        case CommitImageAllowListState::notConfigured:
-            return CommitImageAdvertisement::discover;
-        case CommitImageAllowListState::loadFailed:
-            break;
-    }
-    return CommitImageAdvertisement::hide;
-}
-
 inline void addCommitImageAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1458,24 +1428,39 @@ inline void handleImageCopyPaths(
     addCommitImageAction(asyncResp);
 }
 
-inline void advertiseCommitImage(
+inline void discoverImageCopy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    switch (commitImageAdvertisement(getCommitImageAllowList().state))
+    static constexpr std::array<std::string_view, 1> interfaces{
+        imageCopyInterface};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project", 0, interfaces,
+        std::bind_front(handleImageCopyPaths, asyncResp));
+}
+
+/**
+ * @brief Advertise the CommitImage action on UpdateService
+ *
+ * With an allow-list the action is advertised when it loaded. A broken
+ * allow-list hides it. Without an allow-list the targets come from ImageCopy
+ * discovery, so the action is advertised when an object implements
+ * com.nvidia.ImageCopy.
+ */
+inline void advertiseCommitImage(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    CommitImageAllowListState state,
+    const std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>&
+        discover)
+{
+    switch (state)
     {
-        case CommitImageAdvertisement::advertise:
+        case CommitImageAllowListState::loaded:
             addCommitImageAction(asyncResp);
             break;
-        case CommitImageAdvertisement::discover:
-        {
-            static constexpr std::array<std::string_view, 1> interfaces{
-                imageCopyInterface};
-            dbus::utility::getSubTreePaths(
-                "/xyz/openbmc_project", 0, interfaces,
-                std::bind_front(handleImageCopyPaths, asyncResp));
+        case CommitImageAllowListState::notConfigured:
+            discover(asyncResp);
             break;
-        }
-        case CommitImageAdvertisement::hide:
+        case CommitImageAllowListState::loadFailed:
             break;
     }
 }
@@ -1486,7 +1471,8 @@ inline void extendUpdateServiceGet(
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    nvidia::advertiseCommitImage(asyncResp);
+    nvidia::advertiseCommitImage(asyncResp, getCommitImageAllowList().state,
+                                 nvidia::discoverImageCopy);
     if constexpr (BMCWEB_SCP_UPDATE)
     {
         asyncResp->res.jsonValue["Actions"]["Oem"]
