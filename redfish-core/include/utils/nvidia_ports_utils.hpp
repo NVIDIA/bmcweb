@@ -319,6 +319,74 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 /**
+ * @brief Remove the LLDP defaults from an NVLink or PCIe port.
+ *
+ * getLldpStatus() writes the mandatory LLDP fields with empty defaults on
+ * every NetworkAdapter port, before the port protocol is known. NVLink and
+ * PCIe links carry no LLDP frames, so nothing replaces these defaults on
+ * such a port. Only fields that still hold the defaults are removed, so
+ * LLDP data read from D-Bus is kept.
+ *
+ * @param portProtocol Redfish PortProtocol value of the port.
+ */
+inline void removeLldpDefaultsOnNonLldpPort(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view portProtocol)
+{
+    if (portProtocol != "NVLink" && portProtocol != "PCIe")
+    {
+        return;
+    }
+
+    nlohmann::json& json = asyncResp->res.jsonValue;
+    nlohmann::json tlvDefaults = nlohmann::json::object();
+    initializeMandatoryLldpTlvFields(tlvDefaults);
+
+    auto ethernet = json.find("Ethernet");
+    if (ethernet != json.end() && ethernet->is_object())
+    {
+        for (const std::string& lldpType : {lldpReceive, lldpTransmit})
+        {
+            auto tlvs = ethernet->find(lldpType);
+            if (tlvs != ethernet->end() && *tlvs == tlvDefaults)
+            {
+                ethernet->erase(tlvs);
+            }
+        }
+        if (ethernet->empty())
+        {
+            json.erase(ethernet);
+        }
+    }
+
+    auto oem = json.find("Oem");
+    if (oem == json.end() || !oem->is_object())
+    {
+        return;
+    }
+    auto nvidia = oem->find("Nvidia");
+    if (nvidia != oem->end() && nvidia->is_object())
+    {
+        const nlohmann::json streamDefaults = {{"RXDataStream", ""},
+                                               {"TXDataStream", ""}};
+        auto lldp = nvidia->find("LLDP");
+        if (lldp != nvidia->end() && *lldp == streamDefaults)
+        {
+            nvidia->erase(lldp);
+        }
+        // Only the @odata.type from ensureNvidiaPortOemBlock() is left.
+        if (nvidia->size() == 1 && nvidia->contains("@odata.type"))
+        {
+            oem->erase(nvidia);
+        }
+    }
+    if (oem->empty())
+    {
+        json.erase(oem);
+    }
+}
+
+/**
  * @brief Compute Ethernet.LLDPEnabled from parent NetworkAdapter LLDP modes.
  */
 inline void getLldpEnabledFromParent(
