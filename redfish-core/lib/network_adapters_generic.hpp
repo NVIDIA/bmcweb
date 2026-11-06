@@ -1232,6 +1232,13 @@ inline void getPortData(
                         port_utils::getPortProtocol(*value);
                     asyncResp->res.jsonValue["LinkNetworkTechnology"] =
                         port_utils::getLinkNetworkTechnology(*value);
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        // populatePortLldpData() wrote the LLDP defaults
+                        // before the protocol was known.
+                        nvidia_ports_utils::removeLldpDefaultsOnNonLldpPort(
+                            asyncResp, port_utils::getPortProtocol(*value));
+                    }
                 }
                 else if (propertyName == "LinkStatus")
                 {
