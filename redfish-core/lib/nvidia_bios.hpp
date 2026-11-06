@@ -1710,23 +1710,22 @@ inline void setBiosCurrentOrPendingAttr(
                                 return;
                             }
                             int64_t attrReqVal = reqVal.get<int64_t>();
-                            for (const AttrBoundType& bound :
-                                 std::get<BaseBiosTableIndex::
-                                              baseBiosBoundValues>(
+                            for (const AttrBoundType& bound : std::get<
+                                     BaseBiosTableIndex::baseBiosBoundValues>(
                                      attrIt->second))
                             {
                                 const int64_t* limit = std::get_if<int64_t>(
-                                    &std::get<BaseBiosBoundIndex::
-                                                  baseBiosBoundValue>(bound));
+                                    &std::get<
+                                        BaseBiosBoundIndex::baseBiosBoundValue>(
+                                        bound));
                                 if (limit == nullptr)
                                 {
                                     continue;
                                 }
-                                std::string type =
-                                    getBiosBoundValType(std::string(
-                                        std::get<BaseBiosBoundIndex::
-                                                     baseBiosBoundType>(
-                                            bound)));
+                                std::string type = getBiosBoundValType(
+                                    std::string(std::get<BaseBiosBoundIndex::
+                                                             baseBiosBoundType>(
+                                        bound)));
                                 bool tooLow = (type == "LowerBound") &&
                                               (attrReqVal < *limit);
                                 bool tooHigh = (type == "UpperBound") &&
