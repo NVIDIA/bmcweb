@@ -140,12 +140,34 @@ TEST(CommitImageInfoFromImageCopy, ListsEachFirmwareOnce)
                    "/redfish/v1/UpdateService/FirmwareInventory/fw_b"}));
 }
 
+TEST(CommitImageAdvertise, LoadedAllowListAdvertisesAction)
+{
+    EXPECT_EQ(
+        nvidia::commitImageAdvertisement(CommitImageAllowListState::loaded),
+        nvidia::CommitImageAdvertisement::advertise);
+}
+
+TEST(CommitImageAdvertise, NoAllowListDiscoversImageCopy)
+{
+    EXPECT_EQ(nvidia::commitImageAdvertisement(
+                  CommitImageAllowListState::notConfigured),
+              nvidia::CommitImageAdvertisement::discover);
+}
+
+TEST(CommitImageAdvertise, BrokenAllowListHidesAction)
+{
+    EXPECT_EQ(
+        nvidia::commitImageAdvertisement(CommitImageAllowListState::loadFailed),
+        nvidia::CommitImageAdvertisement::hide);
+}
+
 TEST(CommitImageAdvertise, ImageCopyObjectAdvertisesAction)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
 
-    handleImageCopyPaths(asyncResp, boost::system::error_code{},
-                         {"/xyz/openbmc_project/inventory/system/chassis/a"});
+    nvidia::handleImageCopyPaths(
+        asyncResp, boost::system::error_code{},
+        {"/xyz/openbmc_project/inventory/system/chassis/a"});
 
     const nlohmann::json& action =
         asyncResp->res
@@ -160,7 +182,7 @@ TEST(CommitImageAdvertise, NoImageCopyObjectHidesAction)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
 
-    handleImageCopyPaths(asyncResp, boost::system::error_code{}, {});
+    nvidia::handleImageCopyPaths(asyncResp, boost::system::error_code{}, {});
 
     EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
 }
@@ -169,7 +191,7 @@ TEST(CommitImageAdvertise, MapperErrorHidesAction)
 {
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
 
-    handleImageCopyPaths(
+    nvidia::handleImageCopyPaths(
         asyncResp,
         boost::system::errc::make_error_code(boost::system::errc::io_error),
         {"/xyz/openbmc_project/inventory/system/chassis/a"});

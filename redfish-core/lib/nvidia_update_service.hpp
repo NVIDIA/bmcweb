@@ -1403,6 +1403,38 @@ inline bool preCheckMultipartUpdateServiceReq(
     return true;
 }
 
+namespace nvidia
+{
+enum class CommitImageAdvertisement
+{
+    advertise,
+    discover,
+    hide,
+};
+
+/**
+ * @brief Decide how the CommitImage action is advertised on UpdateService
+ *
+ * With an allow-list the action is advertised when it loaded. A broken
+ * allow-list hides it. Without an allow-list the targets come from ImageCopy
+ * discovery, so the action is advertised when an object implements
+ * com.nvidia.ImageCopy.
+ */
+inline CommitImageAdvertisement commitImageAdvertisement(
+    CommitImageAllowListState state)
+{
+    switch (state)
+    {
+        case CommitImageAllowListState::loaded:
+            return CommitImageAdvertisement::advertise;
+        case CommitImageAllowListState::notConfigured:
+            return CommitImageAdvertisement::discover;
+        case CommitImageAllowListState::loadFailed:
+            break;
+    }
+    return CommitImageAdvertisement::hide;
+}
+
 inline void addCommitImageAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1426,23 +1458,15 @@ inline void handleImageCopyPaths(
     addCommitImageAction(asyncResp);
 }
 
-/**
- * @brief Advertise the CommitImage action on UpdateService
- *
- * With an allow-list the action is advertised when it loaded. A broken
- * allow-list hides it. Without an allow-list the targets come from ImageCopy
- * discovery, so the action is advertised when an object implements
- * com.nvidia.ImageCopy.
- */
 inline void advertiseCommitImage(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    switch (getCommitImageAllowList().state)
+    switch (commitImageAdvertisement(getCommitImageAllowList().state))
     {
-        case CommitImageAllowListState::loaded:
+        case CommitImageAdvertisement::advertise:
             addCommitImageAction(asyncResp);
             break;
-        case CommitImageAllowListState::notConfigured:
+        case CommitImageAdvertisement::discover:
         {
             static constexpr std::array<std::string_view, 1> interfaces{
                 imageCopyInterface};
@@ -1451,17 +1475,18 @@ inline void advertiseCommitImage(
                 std::bind_front(handleImageCopyPaths, asyncResp));
             break;
         }
-        case CommitImageAllowListState::loadFailed:
+        case CommitImageAdvertisement::hide:
             break;
     }
 }
+} // namespace nvidia
 
 inline void extendUpdateServiceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    advertiseCommitImage(asyncResp);
+    nvidia::advertiseCommitImage(asyncResp);
     if constexpr (BMCWEB_SCP_UPDATE)
     {
         asyncResp->res.jsonValue["Actions"]["Oem"]
