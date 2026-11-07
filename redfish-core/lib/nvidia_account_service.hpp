@@ -56,20 +56,18 @@ inline bool isUserPrivilege(const dbus::utility::DBusInterfacesMap& interfaces,
     return false;
 }
 
-inline bool addServiceAccountTypes(std::string_view userGroup,
-                                   std::vector<std::string>& accountTypes)
+inline bool addServiceAccountTypes(
+    std::string_view userGroup,
+    [[maybe_unused]] std::vector<std::string>& accountTypes)
 {
-    if (userGroup != "service")
-    {
-        return false;
-    }
-
-    // The 'service' group marks the built-in service account.
-    // It is provisioned for Redfish and WebUI but holds NoAccess role,
-    // so it cannot authenticate despite appearing in those interfaces.
-    accountTypes.emplace_back("Redfish");
-    accountTypes.emplace_back("WebUI");
-    return true;
+    // The 'service' group marks the built-in service account. The group is
+    // valid but contributes no AccountTypes: the account holds the NoAccess
+    // role and every Redfish resource is denied to it (HTTP 403), so it must
+    // not advertise 'Redfish' ("allowed to access Redfish services") or
+    // 'WebUI', which bmcweb only ever grants together with 'Redfish' (see
+    // translateUserGroup / getUserGroupFromAccountType). Its console access
+    // is reported through the 'ssh' and 'hostconsole' groups.
+    return userGroup == "service";
 }
 
 inline void handleNvidiaResolution(
