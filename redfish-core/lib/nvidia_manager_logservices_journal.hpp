@@ -259,7 +259,7 @@ inline void setJournalLowestSeverity(
 
     setDbusProperty(asyncResp, "SyslogFilters/LowestSeverity",
                     journalConfigService,
-                    sdbusplus::message::object_path(journalConfigPath),
+                    sdbusplus::object_path(journalConfigPath),
                     journalConfigIface, "LowestSeverity", *entryLevel);
 }
 
