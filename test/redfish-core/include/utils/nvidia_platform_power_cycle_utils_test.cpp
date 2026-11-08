@@ -259,15 +259,10 @@ TEST(ComponentPowerCycle, EmptySubTreeReportsNoObject)
 const ComponentPowerCycleObject cpuPowerCycleObject{
     cpuObject, "com.nvidia.Control.Platform.PowerCycle"};
 
-TEST(ComponentPowerCycle, ReadPropertiesAreReported)
+TEST(ComponentPowerCycle, ReadTypesAreReported)
 {
-    const dbus::utility::DBusPropertiesMap properties = {
-        {"SupportedPowerCycleTypes",
-         std::vector<std::string>{std::string(componentPowerCycle)}},
-        {"Description", std::string("Power cycle the CPU and SSD.")}};
-
     bool callbackCalled = false;
-    afterGetComponentPowerCycleProperties(
+    afterGetComponentPowerCycleTypes(
         [&callbackCalled](const boost::system::error_code& ec,
                           const std::optional<ComponentPowerCycle>& component) {
             EXPECT_FALSE(ec);
@@ -280,53 +275,10 @@ TEST(ComponentPowerCycle, ReadPropertiesAreReported)
             EXPECT_EQ(component->capabilities.service,
                       "com.nvidia.Control.Platform.PowerCycle");
             EXPECT_TRUE(supports(component->capabilities, componentPowerCycle));
-            EXPECT_EQ(component->description, "Power cycle the CPU and SSD.");
             callbackCalled = true;
         },
-        cpuPowerCycleObject, {}, properties);
-
-    EXPECT_TRUE(callbackCalled);
-}
-
-TEST(ComponentPowerCycle, MissingDescriptionIsEmpty)
-{
-    const dbus::utility::DBusPropertiesMap properties = {
-        {"SupportedPowerCycleTypes",
-         std::vector<std::string>{std::string(componentPowerCycle)}}};
-
-    bool callbackCalled = false;
-    afterGetComponentPowerCycleProperties(
-        [&callbackCalled](const boost::system::error_code& ec,
-                          const std::optional<ComponentPowerCycle>& component) {
-            EXPECT_FALSE(ec);
-            ASSERT_TRUE(component);
-            if (!component)
-            {
-                return;
-            }
-            EXPECT_TRUE(supports(component->capabilities, componentPowerCycle));
-            EXPECT_TRUE(component->description.empty());
-            callbackCalled = true;
-        },
-        cpuPowerCycleObject, {}, properties);
-
-    EXPECT_TRUE(callbackCalled);
-}
-
-TEST(ComponentPowerCycle, WrongPropertyTypeIsReported)
-{
-    const dbus::utility::DBusPropertiesMap properties = {
-        {"Description", std::vector<std::string>{"not a string"}}};
-
-    bool callbackCalled = false;
-    afterGetComponentPowerCycleProperties(
-        [&callbackCalled](const boost::system::error_code& ec,
-                          const std::optional<ComponentPowerCycle>& component) {
-            EXPECT_TRUE(ec);
-            EXPECT_FALSE(component);
-            callbackCalled = true;
-        },
-        cpuPowerCycleObject, {}, properties);
+        cpuPowerCycleObject, {},
+        std::vector<std::string>{std::string(componentPowerCycle)});
 
     EXPECT_TRUE(callbackCalled);
 }
@@ -337,7 +289,7 @@ TEST(ComponentPowerCycle, PropertyReadFailureIsReported)
         boost::system::errc::make_error_code(boost::system::errc::io_error);
 
     bool callbackCalled = false;
-    afterGetComponentPowerCycleProperties(
+    afterGetComponentPowerCycleTypes(
         [&callbackCalled,
          &readError](const boost::system::error_code& ec,
                      const std::optional<ComponentPowerCycle>& component) {

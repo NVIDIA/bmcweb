@@ -4,13 +4,11 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
-#include "utils/dbus_utils.hpp"
 
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/types.hpp>
-#include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
 #include <array>
@@ -320,8 +318,6 @@ struct ComponentPowerCycle
 {
     std::string path;
     Capabilities capabilities;
-    // What the power cycle covers, for clients; may be empty.
-    std::string description;
 };
 
 using ComponentPowerCycleCallback = std::function<void(
@@ -367,11 +363,11 @@ inline std::optional<ComponentPowerCycleObject> findComponentPowerCycle(
     return ComponentPowerCycleObject{path, services.front().first};
 }
 
-inline void afterGetComponentPowerCycleProperties(
+inline void afterGetComponentPowerCycleTypes(
     const ComponentPowerCycleCallback& callback,
     const ComponentPowerCycleObject& object,
     const boost::system::error_code& ec,
-    const dbus::utility::DBusPropertiesMap& properties)
+    const std::vector<std::string>& supportedTypes)
 {
     if (ec)
     {
@@ -380,32 +376,9 @@ inline void afterGetComponentPowerCycleProperties(
         callback(ec, std::nullopt);
         return;
     }
-
-    const std::vector<std::string>* supportedTypes = nullptr;
-    const std::string* description = nullptr;
-    const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties, //
-        "SupportedPowerCycleTypes", supportedTypes,   //
-        "Description", description);
-    if (!success)
-    {
-        callback(boost::system::errc::make_error_code(
-                     boost::system::errc::invalid_argument),
-                 std::nullopt);
-        return;
-    }
-
-    ComponentPowerCycle result{
-        object.path, Capabilities{object.service, {}}, {}};
-    if (supportedTypes != nullptr)
-    {
-        result.capabilities.types = *supportedTypes;
-    }
-    if (description != nullptr)
-    {
-        result.description = *description;
-    }
-    callback({}, std::move(result));
+    callback({},
+             ComponentPowerCycle{object.path,
+                                 Capabilities{object.service, supportedTypes}});
 }
 
 inline void afterGetComponentPowerCycleSubTree(
@@ -435,10 +408,10 @@ inline void afterGetComponentPowerCycleSubTree(
     }
     const std::string service = object->service;
     const std::string path = object->path;
-    dbus::utility::getAllProperties(
-        service, path, std::string(interface),
-        std::bind_front(afterGetComponentPowerCycleProperties,
-                        std::move(callback), std::move(*object)));
+    dbus::utility::getProperty<std::vector<std::string>>(
+        service, path, std::string(interface), std::string(property),
+        std::bind_front(afterGetComponentPowerCycleTypes, std::move(callback),
+                        std::move(*object)));
 }
 
 /**

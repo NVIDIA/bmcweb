@@ -30,25 +30,17 @@ namespace
 
 using nvidia_platform_power_cycle::ComponentPowerCycle;
 
-constexpr const char* cpuDescription =
-    "Force Reset the CPU and SSD in case of failure. Switch ASICs are not "
-    "reset.";
-
 ComponentPowerCycle cpuPowerCycle(std::string_view type)
 {
     return {"/xyz/openbmc_project/control/power_cycle/cpu0",
-            {"com.nvidia.Control.Platform.PowerCycle", {std::string(type)}},
-            cpuDescription};
+            {"com.nvidia.Control.Platform.PowerCycle", {std::string(type)}}};
 }
 
 void assertChassisResetActionInfoGet(
     const std::string& chassisId, bool supportsFullPowerCycle,
-    bool supportsComponentPowerCycle,
-    const std::string& componentPowerCycleDescription, crow::Response& res)
+    bool supportsComponentPowerCycle, crow::Response& res)
 {
-    EXPECT_EQ(res.jsonValue["@odata.type"],
-              supportsComponentPowerCycle ? "#ActionInfo.v1_4_2.ActionInfo"
-                                          : "#ActionInfo.v1_1_2.ActionInfo");
+    EXPECT_EQ(res.jsonValue["@odata.type"], "#ActionInfo.v1_1_2.ActionInfo");
     EXPECT_EQ(res.jsonValue["@odata.id"],
               "/redfish/v1/Chassis/" + chassisId + "/ResetActionInfo");
     EXPECT_EQ(res.jsonValue["Name"], "Reset Action Info");
@@ -69,21 +61,6 @@ void assertChassisResetActionInfoGet(
     if (supportsComponentPowerCycle)
     {
         allowed.emplace_back("ForceRestart");
-        nlohmann::json::array_t descriptions;
-        descriptions.emplace_back("Power cycle the system.");
-        if (supportsFullPowerCycle)
-        {
-            descriptions.emplace_back(nullptr);
-        }
-        if (componentPowerCycleDescription.empty())
-        {
-            descriptions.emplace_back(nullptr);
-        }
-        else
-        {
-            descriptions.emplace_back(componentPowerCycleDescription);
-        }
-        parameter["AllowableValueDescriptions"] = std::move(descriptions);
     }
     parameter["AllowableValues"] = std::move(allowed);
     parameters.emplace_back(std::move(parameter));
@@ -97,10 +74,10 @@ TEST(PopulateChassisResetActionInfo, StaticAttributesAreExpected)
 
     std::string fakeChassis = "fakeChassis";
     response->res.setCompleteRequestHandler(std::bind_front(
-        assertChassisResetActionInfoGet, fakeChassis, false, false, ""));
+        assertChassisResetActionInfoGet, fakeChassis, false, false));
 
     nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, false,
-                                                   false, "");
+                                                   false);
 }
 
 TEST(PopulateChassisResetActionInfo, FullPowerCycleIsCapabilityGated)
@@ -109,48 +86,34 @@ TEST(PopulateChassisResetActionInfo, FullPowerCycleIsCapabilityGated)
 
     std::string fakeChassis = "fakeChassis";
     response->res.setCompleteRequestHandler(std::bind_front(
-        assertChassisResetActionInfoGet, fakeChassis, true, false, ""));
+        assertChassisResetActionInfoGet, fakeChassis, true, false));
 
     nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, true,
-                                                   false, "");
+                                                   false);
 }
 
-TEST(PopulateChassisResetActionInfo, ComponentPowerCycleIsListedWithDescription)
-{
-    auto response = std::make_shared<bmcweb::AsyncResp>();
-
-    std::string fakeChassis = "fakeChassis";
-    response->res.setCompleteRequestHandler(
-        std::bind_front(assertChassisResetActionInfoGet, fakeChassis, false,
-                        true, cpuDescription));
-
-    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, false,
-                                                   true, cpuDescription);
-}
-
-TEST(PopulateChassisResetActionInfo, FullPowerCycleHasNoDescription)
-{
-    auto response = std::make_shared<bmcweb::AsyncResp>();
-
-    std::string fakeChassis = "fakeChassis";
-    response->res.setCompleteRequestHandler(
-        std::bind_front(assertChassisResetActionInfoGet, fakeChassis, true,
-                        true, cpuDescription));
-
-    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, true,
-                                                   true, cpuDescription);
-}
-
-TEST(PopulateChassisResetActionInfo, EmptyComponentDescriptionIsNull)
+TEST(PopulateChassisResetActionInfo, ComponentPowerCycleIsListed)
 {
     auto response = std::make_shared<bmcweb::AsyncResp>();
 
     std::string fakeChassis = "fakeChassis";
     response->res.setCompleteRequestHandler(std::bind_front(
-        assertChassisResetActionInfoGet, fakeChassis, false, true, ""));
+        assertChassisResetActionInfoGet, fakeChassis, false, true));
 
     nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, false,
-                                                   true, "");
+                                                   true);
+}
+
+TEST(PopulateChassisResetActionInfo, FullAndComponentPowerCycleAreListed)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+
+    std::string fakeChassis = "fakeChassis";
+    response->res.setCompleteRequestHandler(std::bind_front(
+        assertChassisResetActionInfoGet, fakeChassis, true, true));
+
+    nvidia_chassis::populateChassisResetActionInfo(response, fakeChassis, true,
+                                                   true);
 }
 
 TEST(AfterGetChassisComponentPowerCycle, AdvertisedTypeOffersForceRestart)
@@ -163,9 +126,8 @@ TEST(AfterGetChassisComponentPowerCycle, AdvertisedTypeOffersForceRestart)
 
     EXPECT_EQ(response->res.jsonValue["Parameters"][0]["AllowableValues"],
               nlohmann::json::array({"PowerCycle", "ForceRestart"}));
-    EXPECT_EQ(
-        response->res.jsonValue["Parameters"][0]["AllowableValueDescriptions"],
-        nlohmann::json::array({"Power cycle the system.", cpuDescription}));
+    EXPECT_FALSE(response->res.jsonValue["Parameters"][0].contains(
+        "AllowableValueDescriptions"));
 }
 
 TEST(AfterGetChassisComponentPowerCycle, UnadvertisedTypeIsNotOffered)

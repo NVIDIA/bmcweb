@@ -384,14 +384,11 @@ inline void nvidiaChassisResetActionInfoPost(
  * @param supportsFullPowerCycle Whether FullPowerCycle is offered.
  * @param supportsComponentPowerCycle Whether ForceRestart, the power cycle of
  * this chassis component only, is offered.
- * @param componentPowerCycleDescription What ForceRestart power-cycles, as
- * reported by the power-cycle object; may be empty.
  */
 inline void populateChassisResetActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, bool supportsFullPowerCycle,
-    bool supportsComponentPowerCycle,
-    const std::string& componentPowerCycleDescription)
+    bool supportsComponentPowerCycle)
 {
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -412,25 +409,7 @@ inline void populateChassisResetActionInfo(
     }
     if (supportsComponentPowerCycle)
     {
-        // AllowableValueDescriptions was added in ActionInfo v1_4_0.
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#ActionInfo.v1_4_2.ActionInfo";
         allowed.emplace_back("ForceRestart");
-        nlohmann::json::array_t descriptions;
-        descriptions.emplace_back("Power cycle the system.");
-        if (supportsFullPowerCycle)
-        {
-            descriptions.emplace_back(nullptr);
-        }
-        if (componentPowerCycleDescription.empty())
-        {
-            descriptions.emplace_back(nullptr);
-        }
-        else
-        {
-            descriptions.emplace_back(componentPowerCycleDescription);
-        }
-        parameter["AllowableValueDescriptions"] = std::move(descriptions);
     }
     parameter["AllowableValues"] = std::move(allowed);
     parameters.emplace_back(std::move(parameter));
@@ -441,7 +420,6 @@ inline void populateChassisResetActionInfo(
 inline void afterGetChassisFullPowerCycleSupport(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, bool supportsComponentPowerCycle,
-    const std::string& componentPowerCycleDescription,
     const boost::system::error_code& ec, bool supportsFullPowerCycle)
 {
     if (ec)
@@ -451,8 +429,7 @@ inline void afterGetChassisFullPowerCycleSupport(
         supportsFullPowerCycle = false;
     }
     populateChassisResetActionInfo(asyncResp, chassisId, supportsFullPowerCycle,
-                                   supportsComponentPowerCycle,
-                                   componentPowerCycleDescription);
+                                   supportsComponentPowerCycle);
 }
 
 /**
@@ -476,27 +453,20 @@ inline void afterGetChassisComponentPowerCycle(
         return;
     }
 
-    bool supportsComponentPowerCycle = false;
-    std::string componentPowerCycleDescription;
-    if (component)
-    {
-        supportsComponentPowerCycle = nvidia_platform_power_cycle::supports(
-            component->capabilities,
-            nvidia_platform_power_cycle::componentPowerCycle);
-        componentPowerCycleDescription = component->description;
-    }
+    const bool supportsComponentPowerCycle =
+        component && nvidia_platform_power_cycle::supports(
+                         component->capabilities,
+                         nvidia_platform_power_cycle::componentPowerCycle);
 
     if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
     {
         populateChassisResetActionInfo(asyncResp, chassisId, false,
-                                       supportsComponentPowerCycle,
-                                       componentPowerCycleDescription);
+                                       supportsComponentPowerCycle);
         return;
     }
     nvidia_platform_power_cycle::getFullPowerCycleSupport(
         0, std::bind_front(afterGetChassisFullPowerCycleSupport, asyncResp,
-                           chassisId, supportsComponentPowerCycle,
-                           std::move(componentPowerCycleDescription)));
+                           chassisId, supportsComponentPowerCycle));
 }
 
 inline void getChassisPowerCycleActionInfo(
