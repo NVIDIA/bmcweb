@@ -193,7 +193,7 @@ TEST(AfterGetChassisComponentPowerCycle, MissingObjectOffersOnlyPowerCycle)
               nlohmann::json::array({"PowerCycle"}));
 }
 
-TEST(AfterGetChassisComponentPowerCycle, MapperErrorOffersOnlyPowerCycle)
+TEST(AfterGetChassisComponentPowerCycle, LookupErrorIsInternalError)
 {
     auto response = std::make_shared<bmcweb::AsyncResp>();
 
@@ -202,8 +202,9 @@ TEST(AfterGetChassisComponentPowerCycle, MapperErrorOffersOnlyPowerCycle)
         boost::system::errc::make_error_code(boost::system::errc::io_error),
         std::nullopt);
 
-    EXPECT_EQ(response->res.jsonValue["Parameters"][0]["AllowableValues"],
-              nlohmann::json::array({"PowerCycle"}));
+    EXPECT_EQ(response->res.result(),
+              boost::beast::http::status::internal_server_error);
+    EXPECT_FALSE(response->res.jsonValue.contains("Parameters"));
 }
 
 TEST(RunChassisResetAction, UnsupportedResetTypeIsRejected)

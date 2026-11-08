@@ -470,13 +470,15 @@ inline void afterGetChassisComponentPowerCycle(
     const std::optional<nvidia_platform_power_cycle::ComponentPowerCycle>&
         component)
 {
-    bool supportsComponentPowerCycle = false;
-    std::string componentPowerCycleDescription;
     if (ec)
     {
-        BMCWEB_LOG_DEBUG("Chassis power-cycle object not available: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
     }
-    else if (component)
+
+    bool supportsComponentPowerCycle = false;
+    std::string componentPowerCycleDescription;
+    if (component)
     {
         supportsComponentPowerCycle = nvidia_platform_power_cycle::supports(
             component->capabilities,
