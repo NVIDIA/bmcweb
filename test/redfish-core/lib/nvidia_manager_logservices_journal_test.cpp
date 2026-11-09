@@ -4,6 +4,7 @@
 
 #include "async_resp.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/log_service.hpp"
 #include "http_response.hpp"
 #include "nvidia_manager_logservices_journal.hpp"
 

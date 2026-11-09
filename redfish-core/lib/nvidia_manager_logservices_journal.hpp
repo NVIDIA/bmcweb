@@ -305,7 +305,8 @@ inline void handleManagersLogServiceJournalPatch(
         }
         if (setProperty)
         {
-            return setJournalLowestSeverity(asyncResp, severity);
+            setJournalLowestSeverity(asyncResp, severity);
+            return;
         }
     }
     messages::success(asyncResp->res);
