@@ -93,6 +93,12 @@ inline bool processProgressProperties(
 {
     std::string index = std::to_string(taskData->index);
 
+    // Ignore signals that trail the final status of a finished task.
+    if (taskData->endTime.has_value())
+    {
+        return !task::completed;
+    }
+
     const std::string* status = nullptr;
     const uint8_t* progress = nullptr;
     if (!sdbusplus::unpackPropertiesNoThrow(

@@ -536,6 +536,7 @@ inline bool processOnly(crow::App& app, crow::Response& res,
     }
 
     newReq->session = req.session;
+    newReq->sessionPrivilegesResolved = true;
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     bool needToCallHandlers = false;
@@ -989,6 +990,7 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
             return;
         }
         newReq->session = session;
+        newReq->sessionPrivilegesResolved = true;
         auto expandContext = std::make_shared<ExpandContext>(ExpandContext{
             .payloadUsed = inFlightBytesOwned,
             .budgetExceeded = budgetExceeded,

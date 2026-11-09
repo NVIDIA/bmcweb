@@ -9,6 +9,7 @@
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
@@ -256,13 +257,15 @@ inline bool patchSSHPreferredAuths(crow::Response& res,
         {
             if (!obj->empty())
             {
-                messages::propertyValueNotInList(res, *obj, propertyPath);
+                messages::propertyValueNotInList(
+                    res, json_util::messageArgToString(*obj), propertyPath);
                 return false;
             }
             // empty object: leave element unchanged
             if (currentMethod == currentAuthMethods.end())
             {
-                messages::propertyValueOutOfRange(res, *obj, propertyPath);
+                messages::propertyValueOutOfRange(
+                    res, json_util::messageArgToString(*obj), propertyPath);
                 return false;
             }
             currentMethod++;

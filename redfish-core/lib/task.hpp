@@ -341,12 +341,21 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
     void extendTimer(const std::chrono::seconds& timeout)
     {
+        // Don't re-arm a finished task: it would later report TaskCancelled.
+        if (endTime.has_value())
+        {
+            return;
+        }
         timer.expires_after(timeout);
         timer.async_wait(
             [self = shared_from_this()](boost::system::error_code ec) {
                 if (ec == boost::asio::error::operation_aborted)
                 {
                     return; // completed successfully
+                }
+                if (self->endTime.has_value())
+                {
+                    return; // already finished, nothing left to cancel
                 }
                 if (!ec)
                 {

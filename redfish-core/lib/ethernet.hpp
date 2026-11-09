@@ -1174,8 +1174,9 @@ inline void handleIPv6DefaultGateway(
             // Do nothing, but make sure the entry exists.
             if (staticGatewayEntry == staticGatewayData.end())
             {
-                messages::propertyValueFormatError(asyncResp->res, *obj,
-                                                   pathString);
+                messages::propertyValueFormatError(
+                    asyncResp->res, json_util::messageArgToString(*obj),
+                    pathString);
                 return;
             }
         }
@@ -1980,8 +1981,9 @@ inline void handleIPv6StaticAddressesPatch(
                     messages::resourceCannotBeDeleted(asyncResp->res);
                     return;
                 }
-                messages::propertyValueFormatError(asyncResp->res, *obj,
-                                                   pathString);
+                messages::propertyValueFormatError(
+                    asyncResp->res, json_util::messageArgToString(*obj),
+                    pathString);
                 return;
             }
 

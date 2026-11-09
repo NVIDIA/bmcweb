@@ -1975,8 +1975,10 @@ inline void patchChassisPowerSmoothingData(
     {
         BMCWEB_LOG_ERROR(
             "EnergyStorageFeatures is not an object in chassis PowerSmoothing PATCH");
-        messages::propertyValueTypeError(asyncResp->res, *energyStorageFeatures,
-                                         "EnergyStorageFeatures");
+        messages::propertyValueTypeError(
+            asyncResp->res,
+            json_util::messageArgToString(*energyStorageFeatures),
+            "EnergyStorageFeatures");
         return;
     }
     std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;
@@ -2100,9 +2102,10 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
                 {
                     BMCWEB_LOG_ERROR(
                         "EnergyStorageFeatures is not an object in processor PowerSmoothing PATCH");
-                    messages::propertyValueTypeError(asyncResp->res,
-                                                     *energyStorageFeatures,
-                                                     "EnergyStorageFeatures");
+                    messages::propertyValueTypeError(
+                        asyncResp->res,
+                        json_util::messageArgToString(*energyStorageFeatures),
+                        "EnergyStorageFeatures");
                     return;
                 }
                 std::optional<uint32_t> maxAcPowerRampRateWattsPerSecond;

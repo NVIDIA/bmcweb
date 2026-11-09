@@ -799,8 +799,8 @@ inline void handleGenerateCSRAction(
     // RSA algorithm due to time consumed in generating private key
     if (*optKeyPairAlgorithm == "RSA" && *optKeyBitLength > rsaKeyBitLength)
     {
-        messages::propertyValueNotInList(asyncResp->res, *optKeyBitLength,
-                                         "KeyBitLength");
+        messages::propertyValueNotInList(
+            asyncResp->res, std::to_string(*optKeyBitLength), "KeyBitLength");
         return;
     }
 

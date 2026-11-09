@@ -22,6 +22,7 @@
 #include "nvidia_oem_device_reset.hpp"
 #include "nvidia_platform_power_cycle.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_transceiver.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
@@ -727,6 +728,8 @@ inline void handleChassisGetSubTree(
         boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
+    nvidia_transceiver::addChassisLink(asyncResp, chassisId,
+                                       matchingChassis.front().get().first);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 

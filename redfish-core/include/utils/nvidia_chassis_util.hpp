@@ -219,8 +219,13 @@ inline std::vector<std::string> resolveNvidiaOemChassisType(
     }
     if (!derived)
     {
+        // Transceivers was added in v1_17_0. Select its version here,
+        // after all callbacks, so the common finalizer remains the sole
+        // writer of the OEM type. Other chassis retain their current type.
         oemNvidia["@odata.type"] =
-            nvidiaOemChassisType(NvidiaOemChassisFamily::Generic);
+            oemNvidia.contains("Transceivers")
+                ? "#NvidiaChassis.v1_17_0.NvidiaChassis"
+                : nvidiaOemChassisType(NvidiaOemChassisFamily::Generic);
         return undeclared;
     }
 

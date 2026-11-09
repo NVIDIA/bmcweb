@@ -76,8 +76,7 @@ inline void handleDOTBackupDataErrorResult(
     {
         BMCWEB_LOG_ERROR("DOT Backup Data {} invalid argument", actionName);
         messages::actionParameterValueError(
-            asyncResp->res, nlohmann::json(""),
-            "NvidiaDOTBackupData." + actionName);
+            asyncResp->res, "", "NvidiaDOTBackupData." + actionName);
         return;
     }
     if (status == nvidia_async_operation_utils::asyncStatusValueUnavailable)

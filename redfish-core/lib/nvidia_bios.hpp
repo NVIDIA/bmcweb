@@ -889,8 +889,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_string())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -906,8 +907,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_boolean())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -934,8 +936,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         if (!propertyValueTypeValid)
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -953,8 +956,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res,
-                                                 attrJson[key].dump(), key);
+                messages::propertyValueTypeError(
+                    asyncResp->res,
+                    json_util::messageArgToString(attrJson[key]), key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -973,8 +977,9 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!attrJson[key].is_number())
             {
-                messages::propertyValueTypeError(asyncResp->res,
-                                                 attrJson[key].dump(), key);
+                messages::propertyValueTypeError(
+                    asyncResp->res,
+                    json_util::messageArgToString(attrJson[key]), key);
                 BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
                 return false;
             }
@@ -992,22 +997,25 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         if (!attrJson[key].is_array())
         {
-            messages::propertyValueTypeError(asyncResp->res,
-                                             attrJson[key].dump(), key);
+            messages::propertyValueTypeError(
+                asyncResp->res, json_util::messageArgToString(attrJson[key]),
+                key);
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (attrJson[key].empty())
         {
-            messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key].dump());
+            messages::propertyValueIncorrect(
+                asyncResp->res, key,
+                json_util::messageArgToString(attrJson[key]));
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
         if (!attrJson[key][0].is_string())
         {
-            messages::propertyValueIncorrect(asyncResp->res, key,
-                                             attrJson[key].dump());
+            messages::propertyValueIncorrect(
+                asyncResp->res, key,
+                json_util::messageArgToString(attrJson[key]));
             BMCWEB_LOG_ERROR("Attribute type is not valid in req!");
             return false;
         }
@@ -1496,7 +1504,8 @@ inline void setBiosCurrentOrPendingAttr(
                                         "Requested Attribute Value out of range");
                                     messages::propertyValueOutOfRange(
                                         asyncResp->res,
-                                        pendingAttrIt.value().dump(),
+                                        json_util::messageArgToString(
+                                            pendingAttrIt.value()),
                                         pendingAttrIt.key());
                                     return;
                                 }
@@ -1508,7 +1517,9 @@ inline void setBiosCurrentOrPendingAttr(
                                     BMCWEB_LOG_ERROR(
                                         "Requested Attribute Value invalid");
                                     messages::propertyValueOutOfRange(
-                                        asyncResp->res, pendingAttrIt.value(),
+                                        asyncResp->res,
+                                        json_util::messageArgToString(
+                                            pendingAttrIt.value()),
                                         pendingAttrIt.key());
                                     return;
                                 }
@@ -1521,7 +1532,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    pendingAttrIt.value().dump(),
+                                    json_util::messageArgToString(
+                                        pendingAttrIt.value()),
                                     pendingAttrIt.key());
                                 return;
                             }
@@ -1546,7 +1558,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    pendingAttrIt.value().dump(),
+                                    json_util::messageArgToString(
+                                        pendingAttrIt.value()),
                                     pendingAttrIt.key());
                                 return;
                             }
@@ -1648,7 +1661,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    pendingAttrIt.value().dump(),
+                                    json_util::messageArgToString(
+                                        pendingAttrIt.value()),
                                     pendingAttrIt.key());
                                 return;
                             }
@@ -1674,7 +1688,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value invalid");
                                 messages::propertyValueTypeError(
                                     asyncResp->res,
-                                    pendingAttrIt.value().dump(),
+                                    json_util::messageArgToString(
+                                        pendingAttrIt.value()),
                                     pendingAttrIt.key());
                                 return;
                             }
@@ -1684,7 +1699,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     "Requested Attribute Value out of range");
                                 messages::propertyValueOutOfRange(
                                     asyncResp->res,
-                                    pendingAttrIt.value().dump(),
+                                    json_util::messageArgToString(
+                                        pendingAttrIt.value()),
                                     pendingAttrIt.key());
                                 return;
                             }

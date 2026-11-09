@@ -17,6 +17,7 @@
 #pragma once
 #include "dbus_singleton.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/redfish_response_utils.hpp"
 
 #include <async_resp.hpp>
 #include <boost/container/flat_map.hpp>
@@ -704,8 +705,10 @@ inline void populateSlotInfo(
                                                                                             string>(
                                                                                         &val))
                                                                             {
-                                                                                oemSlot["Version"] =
-                                                                                    *value;
+                                                                                mapValidOrNull(
+                                                                                    oemSlot,
+                                                                                    "Version",
+                                                                                    value);
                                                                             }
                                                                             else
                                                                             {

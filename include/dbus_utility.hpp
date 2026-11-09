@@ -8,6 +8,7 @@
 #include "dbus_singleton.hpp"
 
 #include <boost/system/error_code.hpp>
+#include <boost/system/linux_error.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
@@ -106,6 +107,21 @@ using AssociationsType =
     std::vector<std::tuple<std::string, std::string, std::string>>;
 
 void escapePathForDbus(std::string& path);
+
+// sd-bus reports an unknown error name as EIO, which hides ObjectMapper's
+// ResourceNotFound among all other failures. Map that one name to EBADR so
+// callers can tell "not found" apart from a real error.
+inline boost::system::error_code mapperNotFoundToEbadr(
+    const boost::system::error_code& ec, std::string_view dbusErrorName)
+{
+    if (ec &&
+        dbusErrorName == "xyz.openbmc_project.Common.Error.ResourceNotFound")
+    {
+        return {boost::system::linux_error::bad_request_descriptor,
+                boost::system::system_category()};
+    }
+    return ec;
+}
 
 void logError(const boost::system::error_code& ec);
 
@@ -253,6 +269,14 @@ void getDbusObject(const std::string& path,
                    std::span<const std::string_view> interfaces,
                    std::function<void(const boost::system::error_code&,
                                       const MapperGetObject&)>&& callback);
+
+// Like getDbusObject, but ObjectMapper's ResourceNotFound error is reported
+// as EBADR (see mapperNotFoundToEbadr) so callers can use
+// isObjectMapperNotFound.
+void getDbusObjectReportNotFound(
+    const std::string& path, std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetObject&)>&& callback);
 
 void getAssociationEndPoints(
     const std::string& path,

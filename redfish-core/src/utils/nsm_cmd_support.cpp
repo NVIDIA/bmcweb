@@ -173,6 +173,14 @@ bool parseRequestJson(const crow::Request& req,
     {
         maxAllowedDataSize = 65535; // 2^(8 * sizeof(dataSizeBytes)) - 1
     }
+    else
+    {
+        BMCWEB_LOG_ERROR("Unsupported MsgFormatVersion {}", msgFormatVersion);
+        messages::propertyValueOutOfRange(asyncResp->res,
+                                          std::to_string(msgFormatVersion),
+                                          "MsgFormatVersion");
+        return false;
+    }
     if (dataSizeInBytes > maxAllowedDataSize)
     {
         BMCWEB_LOG_ERROR(

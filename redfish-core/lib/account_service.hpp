@@ -1030,7 +1030,9 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
         if (input.serviceAddressList->empty())
         {
             messages::propertyValueNotInList(
-                asyncResp->res, *input.serviceAddressList, "ServiceAddress");
+                asyncResp->res,
+                json_util::messageArgToString(*input.serviceAddressList),
+                "ServiceAddress");
             return;
         }
     }
@@ -1038,8 +1040,10 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
     {
         if (input.baseDNList->empty())
         {
-            messages::propertyValueNotInList(asyncResp->res, *input.baseDNList,
-                                             "BaseDistinguishedNames");
+            messages::propertyValueNotInList(
+                asyncResp->res,
+                json_util::messageArgToString(*input.baseDNList),
+                "BaseDistinguishedNames");
             return;
         }
     }
@@ -1169,7 +1173,7 @@ inline void afterVerifyUserExists(
                  retval == PAM_CONV_ERR)
         {
             // If password is invalid (including PAM conversation overflow)
-            messages::propertyValueFormatError(asyncResp->res, nullptr,
+            messages::propertyValueFormatError(asyncResp->res, "null",
                                                "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
         }
@@ -1208,7 +1212,8 @@ inline void afterVerifyUserExists(
         std::string priv = getPrivilegeFromRoleId(*params.roleId);
         if (priv.empty())
         {
-            messages::propertyValueNotInList(asyncResp->res, true, "Locked");
+            messages::propertyValueNotInList(asyncResp->res, *params.roleId,
+                                             "RoleId");
             return;
         }
         setDbusProperty(asyncResp, "RoleId", "xyz.openbmc_project.User.Manager",
@@ -1565,7 +1570,7 @@ inline void handleRespondToUnauthenticatedClientsPatch(
             messages::propertyValueExternalConflict(
                 res,
                 "MultiFactorAuth/ClientCertificate/RespondToUnauthenticatedClients",
-                respondToUnauthenticatedClients);
+                json_util::messageArgToString(respondToUnauthenticatedClients));
             return;
         }
     }
@@ -1666,7 +1671,8 @@ inline void handleAccountServicePatch(
         else
         {
             messages::propertyValueNotInList(asyncResp->res, *httpBasicAuth,
-                                             "HttpBasicAuth");
+                                             "HTTPBasicAuth");
+            return;
         }
     }
 
@@ -1859,7 +1865,7 @@ inline void processAfterCreateUser(
                 }
 
                 // If password is invalid
-                messages::propertyValueFormatError(asyncResp->res, nullptr,
+                messages::propertyValueFormatError(asyncResp->res, "null",
                                                    "Password");
             },
             "xyz.openbmc_project.User.Manager", userPath,

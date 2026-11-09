@@ -682,8 +682,13 @@ inline void assembleDimmProperties(
             asyncResp->res.jsonValue[jsonPtr]["Oem"]["Nvidia"],
             "RowRemappingPending", rowMappingPendingState,
             nvidia_memory::translateRowRemappingPending);
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaMemory.v1_0_0.NvidiaMemory";
+        // A property reader that needs a newer schema version sets the
+        // type itself; keep it when it ran first.
+        nlohmann::json& oemNvidia = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+        if (!oemNvidia.contains("@odata.type"))
+        {
+            oemNvidia["@odata.type"] = "#NvidiaMemory.v1_0_0.NvidiaMemory";
+        }
     }
     /* Nvidia Added code End*/
 
@@ -834,6 +839,8 @@ inline void afterGetDimmData(
                     // Link association to parent chassis
                     redfish::nvidia_memory::getMemoryChassisLink(asyncResp,
                                                                  path);
+                    redfish::nvidia_memory::getMemoryChannelCalibration(
+                        asyncResp, path);
                     // Nvidia Added Code End
                 }
                 else if (interface ==
