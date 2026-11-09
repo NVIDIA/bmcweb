@@ -16,9 +16,10 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "async_resp.hpp"
-#include "bmcweb_config.h"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
@@ -59,15 +60,8 @@ constexpr const char* entryLevelPrefix =
 inline nlohmann::json::array_t journalLowestSeverityAllowableValues()
 {
     return nlohmann::json::array_t{
-        "Emergency",
-        "Alert",
-        "Critical",
-        "Error",
-        "Warning",
-        "Notice",
-        "Informational",
-        "Debug",
-        "All",
+        "Emergency", "Alert",         "Critical", "Error", "Warning",
+        "Notice",    "Informational", "Debug",    "All",
     };
 }
 
@@ -153,30 +147,30 @@ inline void getJournalSyslogFilters(
         "LowestSeverity",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& entryLevel) {
-        if (ec)
-        {
-            // Journal.Config is meson-optional. Any Get failure must not
-            // fail LogService GET.
-            BMCWEB_LOG_DEBUG(
-                "D-BUS error getting LowestSeverity; omitting SyslogFilters {}",
-                ec);
-            return;
-        }
-        auto severity = toRedfishSyslogSeverity(entryLevel);
-        if (!severity)
-        {
-            BMCWEB_LOG_ERROR(
-                "Unknown LowestSeverity {}; omitting SyslogFilters",
-                entryLevel);
-            return;
-        }
-        nlohmann::json::object_t filter;
-        filter["LowestSeverity"] = *severity;
-        filter["LowestSeverity@Redfish.AllowableValues"] =
-            journalLowestSeverityAllowableValues();
-        asyncResp->res.jsonValue["SyslogFilters"] =
-            nlohmann::json::array_t{std::move(filter)};
-    });
+            if (ec)
+            {
+                // Journal.Config is meson-optional. Any Get failure must not
+                // fail LogService GET.
+                BMCWEB_LOG_DEBUG(
+                    "D-BUS error getting LowestSeverity; omitting SyslogFilters {}",
+                    ec);
+                return;
+            }
+            auto severity = toRedfishSyslogSeverity(entryLevel);
+            if (!severity)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Unknown LowestSeverity {}; omitting SyslogFilters",
+                    entryLevel);
+                return;
+            }
+            nlohmann::json::object_t filter;
+            filter["LowestSeverity"] = *severity;
+            filter["LowestSeverity@Redfish.AllowableValues"] =
+                journalLowestSeverityAllowableValues();
+            asyncResp->res.jsonValue["SyslogFilters"] =
+                nlohmann::json::array_t{std::move(filter)};
+        });
 }
 
 /**
