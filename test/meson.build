@@ -84,7 +84,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/nvidia_manager_dot_test.cpp',
     'redfish-core/lib/nvidia_manager_eventlog_test.cpp',
     'redfish-core/lib/nvidia_manager_logservices_journal_test.cpp',
-    'redfish-core/lib/nvidia_memory_test.cpp',
+    'redfish-core/lib/nvidia_memory_hbm_test.cpp',
     'redfish-core/lib/nvidia_multipart_update_test.cpp',
     'redfish-core/lib/nvidia_oem_chassis_astra_test.cpp',
     'redfish-core/lib/nvidia_oem_l1reset_test.cpp',
