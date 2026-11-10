@@ -23,6 +23,7 @@
 #include "nvidia_trusted_component_oem.hpp"
 #include "utils/certificate_utils.hpp"
 #include "utils/nvidia_device_prefix.hpp"
+#include "utils/trusted_component_utils.hpp"
 
 #include <app.hpp>
 #include <boost/url/format.hpp>
@@ -73,67 +74,86 @@ struct CertificateData
     std::optional<uint64_t> notBefore;
 };
 
-/**
- * @brief Query associated_chassis Association endpoints for a known inventory
- * path
- * @param chassisPath D-Bus inventory object path for the chassis
- * @param chassisID Chassis ID (for logging)
- * @param callback Function to call with the endpoint if found and a boolean
- * indicating existence
- */
+/** Discover the chassis responders and responders for all associated drives. */
 inline void queryChassisAssociatedEndpoint(
     const std::string& chassisPath, const std::string& chassisID,
-    ChassisAssociatedEndpointCallback callback)
+    std::function<void(const std::vector<std::string>&)> callback)
 {
-    std::string associatedChassisPath = chassisPath;
-    associatedChassisPath.append("/associated_chassis");
-    chassis_utils::getAssociationEndpoint(
-        associatedChassisPath,
-        [chassisID, chassisPath, callback = std::move(callback)](
-            const bool& status, const std::string& ep) {
-            if (!status)
+    dbus::utility::getAssociationEndPoints(
+        chassisPath + "/associated_chassis",
+        [chassisID, callback = std::move(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperEndPoints& endpoints) mutable {
+            std::vector<std::string> chassisEndpoints;
+            if (!ec)
             {
-                BMCWEB_LOG_DEBUG(
-                    "No associated_chassis endpoint found for chassis: {}",
-                    chassisID);
-                callback("", false, chassisPath);
-                return;
+                chassisEndpoints = endpoints;
             }
-            callback(ep, true, chassisPath);
+            constexpr std::array<std::string_view, 1> driveInterfaces = {
+                chassis_utils::driveInvIntf};
+            dbus::utility::getAssociatedSubTreePathsById(
+                chassisID, "/xyz/openbmc_project/inventory", chassisInterfaces,
+                "drive", driveInterfaces,
+                [chassisEndpoints = std::move(chassisEndpoints),
+                 callback = std::move(callback)](
+                    const boost::system::error_code& driveEc,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        drivePaths) mutable {
+                    if (driveEc)
+                    {
+                        callback(chassisEndpoints);
+                        return;
+                    }
+                    trusted_component_utils::collectEndpoints(
+                        chassisEndpoints, drivePaths,
+                        [](const std::string& drivePath, auto completion) {
+                            dbus::utility::getAssociationEndPoints(
+                                drivePath + "/spdm_responder_object",
+                                [completion = std::move(completion)](
+                                    const boost::system::error_code&
+                                        responderEc,
+                                    const dbus::utility::MapperEndPoints&
+                                        responders) {
+                                    completion(responderEc
+                                                   ? std::vector<std::string>{}
+                                                   : responders);
+                                });
+                        },
+                        callback);
+                });
         });
 }
 
-/**
- * @brief Gets the associated endpoint for a chassis
- * @param chassisID ID of the chassis
- * @param callback Function to call with the endpoint if found and a boolean
- * indicating existence
- * @param knownChassisPath When set, skips GetSubTreePaths inventory lookup
- */
+/** Select the requested responder; omit componentID when checking existence. */
 inline void getChassisAssociatedEndpoint(
     const std::string& chassisID, ChassisAssociatedEndpointCallback callback,
-    const std::optional<std::string>& knownChassisPath = std::nullopt)
+    const std::optional<std::string>& knownChassisPath = std::nullopt,
+    const std::string& componentID = {})
 {
-    if (knownChassisPath)
-    {
-        queryChassisAssociatedEndpoint(*knownChassisPath, chassisID,
-                                       std::move(callback));
-        return;
-    }
-
-    redfish::chassis_utils::tryGetValidChassisPath(
-        chassisID, [chassisID, callback = std::move(callback)](
-                       const std::optional<std::string>& validChassisPath) {
-            if (!validChassisPath)
+    auto onChassisPath =
+        [chassisID, callback = std::move(callback),
+         componentID](const std::optional<std::string>& chassisPath) mutable {
+            if (!chassisPath)
             {
-                BMCWEB_LOG_DEBUG("No valid chassis path found for chassis: {}",
-                                 chassisID);
                 callback("", false, std::nullopt);
                 return;
             }
-            queryChassisAssociatedEndpoint(*validChassisPath, chassisID,
-                                           callback);
-        });
+            queryChassisAssociatedEndpoint(
+                *chassisPath, chassisID,
+                [callback = std::move(callback), componentID,
+                 chassisPath](const std::vector<std::string>& endpoints) {
+                    const std::string endpoint =
+                        trusted_component_utils::selectEndpoint(
+                            endpoints, componentID, device_prefix::prefix());
+                    callback(endpoint, !endpoint.empty(), chassisPath);
+                });
+        };
+    if (knownChassisPath)
+    {
+        onChassisPath(knownChassisPath);
+        return;
+    }
+    chassis_utils::tryGetValidChassisPath(chassisID, std::move(onChassisPath));
 }
 
 /**
@@ -233,34 +253,34 @@ inline void validateChassisAndTrustedComponent(
         return;
     }
 
-    getChassisAssociatedEndpoint(chassisId, [asyncResp, chassisId, componentId,
-                                             onSuccess = std::move(onSuccess)](
-                                                const std::string& endpoint,
-                                                bool exists,
-                                                const std::optional<
-                                                    std::string>&
-                                                    chassisPath) mutable {
-        if (!chassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        if (!exists)
-        {
-            BMCWEB_LOG_DEBUG(
-                "TrustedComponent validation: chassis '{}' has no associated TrustedComponent",
-                chassisId);
-            messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                       componentId);
-            return;
-        }
-        if (!validateComponentID(componentId, endpoint, asyncResp))
-        {
-            // validateComponentID has already written a 404
-            return;
-        }
-        onSuccess();
-    });
+    getChassisAssociatedEndpoint(
+        chassisId,
+        [asyncResp, chassisId, componentId, onSuccess = std::move(onSuccess)](
+            const std::string& endpoint, bool exists,
+            const std::optional<std::string>& chassisPath) mutable {
+            if (!chassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            if (!exists)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "TrustedComponent validation: chassis '{}' has no associated TrustedComponent",
+                    chassisId);
+                messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                           componentId);
+                return;
+            }
+            if (!validateComponentID(componentId, endpoint, asyncResp))
+            {
+                // validateComponentID has already written a 404
+                return;
+            }
+            onSuccess();
+        },
+        std::nullopt, componentId);
 }
 
 /**
@@ -428,22 +448,21 @@ inline void updateTPMCollection(
  * @brief Updates the collection with SPDM trusted components
  * @param asyncResp Response object
  * @param chassisID ID of the chassis containing trusted components
- * @param endpoint Endpoint to validate component ID against
+ * @param endpoints Associated responders to include when available
  * @param memberArray JSON array to add members to
  */
 inline void updateSPDMTrustedComponents(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisID, const std::string& endpoint,
+    const std::string& chassisID, const std::vector<std::string>& endpoints,
     nlohmann::json& memberArray)
 {
-    const bool& isCollection = true;
-    const std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.SPDM.Responder"};
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/SPDM", 0, interfaces,
-        [asyncResp, chassisID, endpoint, &memberArray,
-         isCollection](const boost::system::error_code& ec,
+        [asyncResp, chassisID, endpoints,
+         &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -451,21 +470,29 @@ inline void updateSPDMTrustedComponents(
                 messages::internalError(asyncResp->res);
                 return;
             }
-
-            isComponentEnabled(
-                asyncResp, subtree, endpoint, isCollection,
-                [asyncResp, chassisID, endpoint, &memberArray] {
-                    std::string componentID(device_prefix::strip(
-                        std::filesystem::path(endpoint).filename().string()));
-
-                    std::string odataId = "/redfish/v1/Chassis/";
-                    odataId += chassisID;
-                    odataId += "/TrustedComponents/";
-                    odataId += componentID;
-                    memberArray.push_back({{"@odata.id", odataId}});
-                    asyncResp->res.jsonValue["Members@odata.count"] =
-                        memberArray.size();
-                });
+            std::vector<std::string> available;
+            for (const auto& [path, services] : subtree)
+            {
+                if (!services.empty())
+                {
+                    available.push_back(path);
+                }
+            }
+            for (const std::string& endpoint :
+                 trusted_component_utils::matchingEndpoints(endpoints,
+                                                            available))
+            {
+                const std::string componentID =
+                    trusted_component_utils::componentId(
+                        endpoint, device_prefix::prefix());
+                memberArray.push_back(
+                    {{"@odata.id",
+                      boost::urls::format(
+                          "/redfish/v1/Chassis/{}/TrustedComponents/{}",
+                          chassisID, componentID)}});
+            }
+            asyncResp->res.jsonValue["Members@odata.count"] =
+                memberArray.size();
         });
 }
 
@@ -504,30 +531,31 @@ inline void handleTrustedComponentsCollectionGet(
     {
         return;
     }
-
-    getChassisAssociatedEndpoint(
+    chassis_utils::tryGetValidChassisPath(
         chassisID,
-        [asyncResp, chassisID](const std::string& endpoint, bool exists,
-                               const std::optional<std::string>& chassisPath) {
+        [asyncResp, chassisID](const std::optional<std::string>& chassisPath) {
             if (!chassisPath)
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
                                            chassisID);
                 return;
             }
-            if (exists)
-            {
-                setupTrustedComponentsResponse(asyncResp, chassisID);
-                nlohmann::json& memberArray =
-                    asyncResp->res.jsonValue["Members"];
-
-                updateSPDMTrustedComponents(asyncResp, chassisID, endpoint,
+            queryChassisAssociatedEndpoint(
+                *chassisPath, chassisID,
+                [asyncResp, chassisID,
+                 chassisPath](const std::vector<std::string>& endpoints) {
+                    setupTrustedComponentsResponse(asyncResp, chassisID);
+                    nlohmann::json& memberArray =
+                        asyncResp->res.jsonValue["Members"];
+                    if (endpoints.empty())
+                    {
+                        updateTPMCollection(asyncResp, chassisID, chassisPath,
                                             memberArray);
-                return;
-            }
-            setupTrustedComponentsResponse(asyncResp, chassisID);
-            nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
-            updateTPMCollection(asyncResp, chassisID, chassisPath, memberArray);
+                        return;
+                    }
+                    updateSPDMTrustedComponents(asyncResp, chassisID, endpoints,
+                                                memberArray);
+                });
         });
 }
 
@@ -646,16 +674,16 @@ inline void fetchInventoryProperties(
 /**
  * @brief Sets up Links section for a trusted component
  * @param asyncResp Response object
- * @param chassisID ID of the chassis
- * @param inventoryPath D-Bus path to the inventory object
+ * @param spdmObjectPath D-Bus path to the SPDM responder object
+ * @param componentInventoryPath D-Bus path to the inventory object
  */
 inline void fetchTrustedComponentLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& chassisID,
+    const std::string& spdmObjectPath,
     const std::string& componentInventoryPath)
 {
     const std::string& endpointComponent =
-        std::filesystem::path(componentInventoryPath).filename().string();
+        std::filesystem::path(spdmObjectPath).filename().string();
     asyncResp->res.jsonValue["Links"]["ComponentIntegrity"] = {
         {{"@odata.id", "/redfish/v1/ComponentIntegrity/" + endpointComponent}}};
 
@@ -736,7 +764,7 @@ inline void fetchAssociations(
 
             fetchTrustedComponentLocation(asyncResp, endpoint);
             fetchInventoryProperties(asyncResp, chassisID, endpoint);
-            fetchTrustedComponentLinks(asyncResp, chassisID, endpoint);
+            fetchTrustedComponentLinks(asyncResp, spdmPath, endpoint);
             // Nvidia Added Code Start
             addTrustedComponentOemProperties(asyncResp, chassisID, componentID);
             addDOTURISupport(asyncResp, chassisID, componentID);
@@ -940,17 +968,17 @@ inline void handleTpmComponentGet(
  * @param componentID The ID of the trusted component
  * @param certificateID The ID of the certificate being processed
  * @param certPath The D-Bus path to the certificate object
+ * @param spdmService The D-Bus service that owns the SPDM responder
  * @param certData Structure containing all certificate-related data
  */
 static void constructCertificateResponse(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& componentID,
     const std::string& certificateID, const std::string& certPath,
-    const CertificateData& certData)
+    const std::string& spdmService, const CertificateData& certData)
 {
     dbus::utility::getAllProperties(
-        "xyz.openbmc_project.SPDM", certPath,
-        "xyz.openbmc_project.SPDM.Responder",
+        spdmService, certPath, "xyz.openbmc_project.SPDM.Responder",
         [asyncResp, chassisID, componentID, certificateID, certPath,
          certData](const boost::system::error_code& ec,
                    const dbus::utility::DBusPropertiesMap& responderProps) {
@@ -1050,6 +1078,7 @@ static void constructCertificateResponse(
  * @param componentID The ID of the trusted component
  * @param certificateID The ID of the certificate being processed
  * @param certPath The D-Bus path to the certificate object
+ * @param spdmService The D-Bus service that owns the SPDM responder
  * @param ec Error code from the D-Bus call
  * @param certProps Map of certificate properties retrieved from D-Bus
  * @param certData Structure to store the processed certificate data
@@ -1058,7 +1087,7 @@ static void handleCertificateProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& componentID,
     const std::string& certificateID, const std::string& certPath,
-    const boost::system::error_code& ec,
+    const std::string& spdmService, const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& certProps,
     CertificateData& certData)
 {
@@ -1155,7 +1184,8 @@ static void handleCertificateProperties(
     }
 
     constructCertificateResponse(asyncResp, chassisID, componentID,
-                                 certificateID, certPath, certData);
+                                 certificateID, certPath, spdmService,
+                                 certData);
 }
 
 /**
@@ -1180,17 +1210,33 @@ inline void getTrustedComponentCertificate(
 {
     std::string certPath = "/xyz/openbmc_project/SPDM/";
     certPath.append(endpointComponent);
-    // Construct the D-Bus path for the SPDM certificate object
-    CertificateData certData;
-    dbus::utility::getAllProperties(
-        "xyz.openbmc_project.SPDM", certPath,
-        "xyz.openbmc_project.Certs.Certificate",
-        [asyncResp, chassisID, componentID, certificateID, certPath,
-         certData](const boost::system::error_code& ec,
-                   const dbus::utility::DBusPropertiesMap& certProps) mutable {
-            handleCertificateProperties(asyncResp, chassisID, componentID,
-                                        certificateID, certPath, ec, certProps,
-                                        certData);
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.SPDM.Responder"};
+    dbus::utility::getDbusObject(
+        certPath, interfaces,
+        [asyncResp, chassisID, componentID, certificateID,
+         certPath](const boost::system::error_code& mapperEc,
+                   const dbus::utility::MapperGetObject& services) {
+            if (mapperEc || services.empty())
+            {
+                BMCWEB_LOG_ERROR("Unable to resolve SPDM service for {}: {}",
+                                 certPath, mapperEc);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            const std::string& spdmService = services.front().first;
+            CertificateData certData;
+            dbus::utility::getAllProperties(
+                spdmService, certPath, "xyz.openbmc_project.Certs.Certificate",
+                [asyncResp, chassisID, componentID, certificateID, certPath,
+                 spdmService, certData](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& certProps) mutable {
+                    handleCertificateProperties(
+                        asyncResp, chassisID, componentID, certificateID,
+                        certPath, spdmService, ec, certProps, certData);
+                });
         });
 }
 
@@ -1212,7 +1258,9 @@ inline void isComponentEnabled(
     if (subtree.empty())
     {
         BMCWEB_LOG_ERROR("Empty subtree provided");
-        messages::internalError(asyncResp->res);
+        messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                   trusted_component_utils::componentId(
+                                       endpoint, device_prefix::prefix()));
         return;
     }
 
@@ -1272,6 +1320,9 @@ inline void isComponentEnabled(
             });
         return;
     }
+    messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                               trusted_component_utils::componentId(
+                                   endpoint, device_prefix::prefix()));
 }
 
 /**
@@ -1361,7 +1412,8 @@ inline void handleTrustedComponentCertificateGet(
                                 chassisID, certificateID);
                         });
                 });
-        });
+        },
+        std::nullopt, componentID);
 }
 
 /**
@@ -1382,68 +1434,71 @@ inline void handleTrustedComponentCertificatesCollectionGet(
         return;
     }
 
-    getChassisAssociatedEndpoint(chassisID, [asyncResp, chassisID, componentID](
-                                                const std::string& endpoint,
-                                                bool exists,
-                                                const std::optional<
-                                                    std::string>& chassisPath) {
-        if (!chassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
-            return;
-        }
-        if (!exists)
-        {
-            messages::resourceNotFound(asyncResp->res, "TrustedComponent",
-                                       componentID);
-            return;
-        }
-        if (!validateComponentID(componentID, endpoint, asyncResp))
-        {
-            return;
-        }
+    getChassisAssociatedEndpoint(
+        chassisID,
+        [asyncResp, chassisID,
+         componentID](const std::string& endpoint, bool exists,
+                      const std::optional<std::string>& chassisPath) {
+            if (!chassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisID);
+                return;
+            }
+            if (!exists)
+            {
+                messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                           componentID);
+                return;
+            }
+            if (!validateComponentID(componentID, endpoint, asyncResp))
+            {
+                return;
+            }
 
-        const std::array<std::string_view, 1> interfaces = {
-            "xyz.openbmc_project.SPDM.Responder"};
+            const std::array<std::string_view, 1> interfaces = {
+                "xyz.openbmc_project.SPDM.Responder"};
 
-        dbus::utility::getSubTree(
-            "/xyz/openbmc_project/SPDM", 0, interfaces,
-            [asyncResp, chassisID, componentID,
-             endpoint](const boost::system::error_code& ec,
-                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("GetSubTree error: {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/SPDM", 0, interfaces,
+                [asyncResp, chassisID, componentID, endpoint](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("GetSubTree error: {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                isComponentEnabled(
-                    asyncResp, subtree, endpoint, true,
-                    [asyncResp, chassisID, componentID] {
-                        std::string url = "/redfish/v1/Chassis/";
-                        url += chassisID;
-                        url += "/TrustedComponents/";
-                        url += componentID;
-                        url += "/Certificates";
-                        asyncResp->res.jsonValue = {
-                            {"@odata.id", url},
-                            {"@odata.type",
-                             "#CertificateCollection.CertificateCollection"},
-                            {"Name", "Chassis Certificate Collection"},
-                            {"Description",
-                             "A Collection of Certificate instances"}};
+                    isComponentEnabled(
+                        asyncResp, subtree, endpoint, true,
+                        [asyncResp, chassisID, componentID] {
+                            std::string url = "/redfish/v1/Chassis/";
+                            url += chassisID;
+                            url += "/TrustedComponents/";
+                            url += componentID;
+                            url += "/Certificates";
+                            asyncResp->res.jsonValue = {
+                                {"@odata.id", url},
+                                {"@odata.type",
+                                 "#CertificateCollection.CertificateCollection"},
+                                {"Name", "Chassis Certificate Collection"},
+                                {"Description",
+                                 "A Collection of Certificate instances"}};
 
-                        nlohmann::json& members =
-                            asyncResp->res.jsonValue["Members"];
-                        members = nlohmann::json::array();
-                        members.push_back({{"@odata.id", url + "/CertChain"}});
+                            nlohmann::json& members =
+                                asyncResp->res.jsonValue["Members"];
+                            members = nlohmann::json::array();
+                            members.push_back(
+                                {{"@odata.id", url + "/CertChain"}});
 
-                        asyncResp->res.jsonValue["Members@odata.count"] =
-                            members.size();
-                    });
-            });
-    });
+                            asyncResp->res.jsonValue["Members@odata.count"] =
+                                members.size();
+                        });
+                });
+        },
+        std::nullopt, componentID);
 }
 
 /**
@@ -1517,14 +1572,25 @@ inline void handleTrustedComponentGet(
                                         .filename()
                                         .string();
 
+                                if (std::filesystem::path(path)
+                                        .filename()
+                                        .string() != endpointComponent)
+                                {
+                                    continue;
+                                }
+
                                 finalizeTrustedComponent(
                                     asyncResp, chassisID, componentID,
                                     endpointComponent, services);
                                 return;
                             }
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "TrustedComponent",
+                                                       componentID);
                         });
                 });
-        });
+        },
+        std::nullopt, componentID);
 }
 
 /**

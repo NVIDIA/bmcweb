@@ -287,7 +287,15 @@ class Handler : public std::enable_shared_from_this<Handler>
         objects.reserve(resp.size());
         for (const auto& [path, serviceMap] : resp)
         {
-            objects.emplace_back(serviceMap[0].first, path);
+            // Keep aggregate debug-token requests scoped to spdmd.
+            for (const auto& [service, interfaces] : serviceMap)
+            {
+                if (service == spdmBusName)
+                {
+                    objects.emplace_back(service, path);
+                    break;
+                }
+            }
         }
         run(objects);
     }

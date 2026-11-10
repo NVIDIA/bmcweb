@@ -25,6 +25,7 @@
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <task.hpp>
+#include <utils/certificate_utils.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/dbus_utils.hpp>
@@ -33,6 +34,7 @@
 #include <utils/nvidia_stl_utils.hpp>
 #include <utils/nvidia_time_utils.hpp>
 #include <utils/stl_utils.hpp>
+#include <utils/time_utils.hpp>
 
 namespace redfish
 {
@@ -236,20 +238,52 @@ template <typename CallbackFunc>
 inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
                                         CallbackFunc&& callback)
 {
-    dbus::utility::getAllProperties(
-        "xyz.openbmc_project.SPDM", objectPath, "",
-        [objectPath, callback](const boost::system::error_code& ec,
-                               const dbus::utility::DBusPropertiesMap& resp) {
-            SPDMMeasurementData config{};
-            if (ec)
+    constexpr std::array<std::string_view, 1> interfaces = {spdmResponderIntf};
+    dbus::utility::getSubTree(
+        rootSPDMDbusPath, 0, interfaces,
+        [objectPath, callback = std::forward<CallbackFunc>(callback)](
+            const boost::system::error_code& mapperEc,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
+            if (mapperEc)
             {
-                BMCWEB_LOG_ERROR("Get all function failed for object = {}",
-                                 objectPath);
-                callback(std::move(config), ec);
+                BMCWEB_LOG_ERROR("Unable to query SPDM responders: {}",
+                                 mapperEc);
+                SPDMMeasurementData config{};
+                callback(std::move(config), mapperEc);
                 return;
             }
-            config = parseSPDMInterfaceProperties(resp);
-            callback(std::move(config), ec);
+
+            auto responder =
+                std::ranges::find_if(subtree, [&objectPath](const auto& entry) {
+                    return entry.first == objectPath;
+                });
+            if (responder == subtree.end() || responder->second.empty())
+            {
+                BMCWEB_LOG_DEBUG("SPDM responder not found: {}", objectPath);
+                SPDMMeasurementData config{};
+                callback(std::move(config),
+                         boost::system::errc::make_error_code(
+                             boost::system::errc::no_such_file_or_directory));
+                return;
+            }
+
+            dbus::utility::getAllProperties(
+                responder->second.front().first, objectPath, spdmResponderIntf,
+                [objectPath, callback = std::move(callback)](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& resp) mutable {
+                    SPDMMeasurementData config{};
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to get SPDM responder properties for {}: {}",
+                            objectPath, ec);
+                        callback(std::move(config), ec);
+                        return;
+                    }
+                    config = parseSPDMInterfaceProperties(resp);
+                    callback(std::move(config), ec);
+                });
         });
 }
 
@@ -635,30 +669,163 @@ inline void handleSPDMGETSignedMeasurement(
     task::Payload payload(req);
     task->payload.emplace(std::move(payload));
 
-    dbus::utility::async_method_call(
-        [objPath,
-         task](const boost::system::error_code ec, sdbusplus::message_t& msg) {
-            // The Status signal can arrive before this reply and end the task.
+    constexpr std::array<std::string_view, 1> interfaces = {spdmResponderIntf};
+    dbus::utility::getDbusObject(
+        objPath, interfaces,
+        [objPath, task, slotID = *slotID, nonceVec = std::move(nonceVec),
+         indices = std::move(*indices)](
+            const boost::system::error_code& mapperEc,
+            const dbus::utility::MapperGetObject& services) mutable {
             if (task->endTime)
             {
                 return;
             }
-            if (ec)
+            if (mapperEc || services.empty())
             {
-                BMCWEB_LOG_ERROR("Failed to refresh the SPDM measurement {}",
-                                 ec);
+                const boost::system::error_code serviceEc =
+                    mapperEc
+                        ? mapperEc
+                        : boost::system::errc::make_error_code(
+                              boost::system::errc::no_such_file_or_directory);
+                BMCWEB_LOG_ERROR("Unable to resolve SPDM service for {}: {}",
+                                 objPath, serviceEc);
                 task->state = "Aborted";
                 task->messages.emplace_back(
                     messages::resourceErrorsDetectedFormatError(
-                        "SPDM refresh",
-                        isSpdmResponderBusy(msg) ? "responder is busy; retry"
-                                                 : ec.message()));
+                        "SPDM refresh", serviceEc.message()));
                 finishSpdmMeasurementTask(task, objPath);
                 return;
             }
-        },
-        spdmBusName, objPath, spdmResponderIntf, "Refresh", *slotID, nonceVec,
-        *indices, static_cast<uint32_t>(0));
+            dbus::utility::async_method_call(
+                [objPath, task](const boost::system::error_code ec,
+                                sdbusplus::message_t& msg) {
+                    // The Status signal can arrive before this reply and end
+                    // the task.
+                    if (task->endTime)
+                    {
+                        return;
+                    }
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to refresh the SPDM measurement {}", ec);
+                        task->state = "Aborted";
+                        task->messages.emplace_back(
+                            messages::resourceErrorsDetectedFormatError(
+                                "SPDM refresh", isSpdmResponderBusy(msg)
+                                                    ? "responder is busy; retry"
+                                                    : ec.message()));
+                        finishSpdmMeasurementTask(task, objPath);
+                        return;
+                    }
+                },
+                services.front().first, objPath, spdmResponderIntf, "Refresh",
+                slotID, nonceVec, indices, static_cast<uint32_t>(0));
+        });
+}
+
+inline void populateDriveComponentIntegrityTarget(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& spdmObjectPath, const std::string& driveEndpoint)
+{
+    sdbusplus::object_path drivePath(driveEndpoint);
+    const std::string driveID = drivePath.filename();
+    dbus::utility::getAssociationEndPoints(
+        driveEndpoint + "/chassis",
+        [asyncResp, driveID,
+         spdmObjectPath](const boost::system::error_code& chassisEc,
+                         const dbus::utility::MapperEndPoints& endpoints) {
+            if (chassisEc || endpoints.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Unable to get chassis association for drive {}", driveID);
+                return;
+            }
+
+            sdbusplus::object_path chassisPath(endpoints.front());
+            const std::string chassisID = chassisPath.filename();
+            sdbusplus::object_path responderPath(spdmObjectPath);
+            std::string componentID(
+                device_prefix::strip(responderPath.filename()));
+            const boost::urls::url driveURI = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Drives/{}", chassisID, driveID);
+            const boost::urls::url certificateURI = boost::urls::format(
+                "/redfish/v1/Chassis/{}/TrustedComponents/{}/Certificates/CertChain",
+                chassisID, componentID);
+
+            asyncResp->res.jsonValue["TargetComponentURI"] = driveURI;
+            asyncResp->res.jsonValue["SPDM"]["IdentityAuthentication"] = {
+                {"ResponderAuthentication",
+                 {{"ComponentCertificate", {{"@odata.id", certificateURI}}}}}};
+            asyncResp->res.jsonValue["Links"]["ComponentsProtected"] =
+                nlohmann::json::array({{{"@odata.id", driveURI}}});
+        });
+}
+
+inline void populateChassisComponentIntegrityTarget(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& endpoint)
+{
+    sdbusplus::object_path erotInvObjectPath(endpoint);
+    const std::string& objName = erotInvObjectPath.filename();
+    boost::urls::url chassisURI =
+        boost::urls::format("/redfish/v1/Chassis/{}", objName);
+    boost::urls::url certificateURI = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Certificates/CertChain", objName);
+    asyncResp->res.jsonValue["TargetComponentURI"] = chassisURI;
+    asyncResp->res.jsonValue["SPDM"]["IdentityAuthentication"] = {
+        {"ResponderAuthentication",
+         {{"ComponentCertificate", {{"@odata.id", certificateURI}}}}}};
+    getCertificateURI(asyncResp, chassisURI, endpoint);
+    std::string objPath = endpoint + "/inventory";
+    chassis_utils::getAssociationEndpoints(
+        objPath, std::bind_front(handleProtectedEndpoints, asyncResp, objPath));
+}
+
+template <typename CallbackFunc>
+inline void isDriveSPDMResponder(const std::string& spdmObjectPath,
+                                 CallbackFunc&& callback)
+{
+    chassis_utils::getAssociationEndpoint(
+        spdmObjectPath + "/inventory_object",
+        [callback = std::forward<CallbackFunc>(
+             callback)](const bool& status, const std::string& endpoint) {
+            if (!status || endpoint.empty())
+            {
+                callback(false, endpoint);
+                return;
+            }
+
+            dbus::utility::getDbusObject(
+                endpoint, std::array<std::string_view, 0>{},
+                [callback = std::move(callback),
+                 endpoint](const boost::system::error_code& ec,
+                           const dbus::utility::MapperGetObject& object) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Unable to query inventory object {}: {}", endpoint,
+                            ec);
+                        callback(false, endpoint);
+                        return;
+                    }
+
+                    bool isDrive = false;
+                    for (const auto& service : object)
+                    {
+                        const std::vector<std::string>& interfaces =
+                            service.second;
+                        if (std::ranges::find(interfaces,
+                                              chassis_utils::driveInvIntf) !=
+                            interfaces.end())
+                        {
+                            isDrive = true;
+                            break;
+                        }
+                    }
+                    callback(isDrive, endpoint);
+                });
+        });
 }
 
 inline void requestRoutesComponentIntegrity(App& app)
@@ -761,7 +928,10 @@ inline void requestRoutesComponentIntegrity(App& app)
                                                             error_code ec) {
                 if (ec)
                 {
-                    if (ec.value() == EBADR)
+                    if (ec.value() == EBADR ||
+                        ec ==
+                            boost::system::errc::make_error_code(
+                                boost::system::errc::no_such_file_or_directory))
                     {
                         messages::resourceNotFound(asyncResp->res,
                                                    "ComponentIntegrity", id);
@@ -798,35 +968,22 @@ inline void requestRoutesComponentIntegrity(App& app)
                      getVersionStr(data.version)},
                 };
 
-                chassis_utils::getAssociationEndpoint(
-                    objectPath + "/inventory_object",
-                    [asyncResp](const bool& status,
-                                const std::string& endpoint) {
-                        if (!status)
+                isDriveSPDMResponder(
+                    objectPath,
+                    [asyncResp, objectPath](const bool isDrive,
+                                            const std::string& endpoint) {
+                        if (endpoint.empty())
                         {
-                            BMCWEB_LOG_DEBUG(
-                                "Unable to get the association endpoint");
+                            return;
                         }
-                        sdbusplus::object_path erotInvObjectPath(endpoint);
-                        const std::string& objName =
-                            erotInvObjectPath.filename();
-                        boost::urls::url chassisURI = boost::urls::format(
-                            "/redfish/v1/Chassis/{}", objName);
-                        boost::urls::url certificateURI = boost::urls::format(
-                            "/redfish/v1/Chassis/{}/Certificates/CertChain",
-                            objName);
-                        asyncResp->res.jsonValue["TargetComponentURI"] =
-                            chassisURI;
-                        asyncResp->res
-                            .jsonValue["SPDM"]["IdentityAuthentication"] = {
-                            {"ResponderAuthentication",
-                             {{"ComponentCertificate",
-                               {{"@odata.id", certificateURI}}}}}};
-                        getCertificateURI(asyncResp, chassisURI, endpoint);
-                        std::string objPath = endpoint + "/inventory";
-                        chassis_utils::getAssociationEndpoints(
-                            objPath, std::bind_front(handleProtectedEndpoints,
-                                                     asyncResp, objPath));
+                        if (isDrive)
+                        {
+                            populateDriveComponentIntegrityTarget(
+                                asyncResp, objectPath, endpoint);
+                            return;
+                        }
+                        populateChassisComponentIntegrityTarget(asyncResp,
+                                                                endpoint);
                     });
             });
         });

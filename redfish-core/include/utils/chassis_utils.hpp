@@ -59,6 +59,8 @@ constexpr const char* panelInvIntf = "xyz.openbmc_project.Inventory.Item.Panel";
 constexpr const char* assemblyInvIntf =
     "xyz.openbmc_project.Inventory.Item.Assembly";
 
+constexpr const char* driveInvIntf = "xyz.openbmc_project.Inventory.Item.Drive";
+
 constexpr const char* gpmMetricsIntf = "com.nvidia.GPMMetrics";
 
 using Associations =
@@ -816,6 +818,34 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                         BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
                                          urlStr);
                         callback(true, urlStr);
+                        return;
+                    }
+                    if (interface == driveInvIntf)
+                    {
+                        const std::string driveID = invObjPath.filename();
+                        getAssociationEndpoint(
+                            invObjPath.string() + "/chassis",
+                            [driveID, callback](const bool& status,
+                                                const std::string& ep) {
+                                std::string urlResult;
+                                if (!status)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Unable to get drive chassis association");
+                                    callback(false, urlResult);
+                                    return;
+                                }
+
+                                sdbusplus::object_path chassisPath(ep);
+                                const std::string& chassisID =
+                                    chassisPath.filename();
+                                urlResult = std::string(
+                                    boost::urls::format(
+                                        "/redfish/v1/Chassis/{}/Drives/{}",
+                                        chassisID, driveID)
+                                        .encoded_path());
+                                callback(true, urlResult);
+                            });
                         return;
                     }
                     if (interface == nvLinkMgmtInvIntf)
