@@ -1405,6 +1405,7 @@ inline bool preCheckMultipartUpdateServiceReq(
 
 namespace nvidia
 {
+/** @brief Add the CommitImage target and ActionInfo links to UpdateService. */
 inline void addCommitImageAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1416,6 +1417,8 @@ inline void addCommitImageAction(
          "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo"}};
 }
 
+/** @brief Advertise CommitImage when mapper discovery finds ImageCopy objects.
+ */
 inline void handleImageCopyPaths(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
@@ -1428,6 +1431,8 @@ inline void handleImageCopyPaths(
     addCommitImageAction(asyncResp);
 }
 
+/** @brief Query the mapper asynchronously for objects implementing ImageCopy.
+ */
 inline void discoverImageCopy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1471,8 +1476,11 @@ inline void extendUpdateServiceGet(
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    nvidia::advertiseCommitImage(asyncResp, getCommitImageAllowList().state,
-                                 nvidia::discoverImageCopy);
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        nvidia::advertiseCommitImage(asyncResp, getCommitImageAllowList().state,
+                                     nvidia::discoverImageCopy);
+    }
     if constexpr (BMCWEB_SCP_UPDATE)
     {
         asyncResp->res.jsonValue["Actions"]["Oem"]
@@ -3255,18 +3263,21 @@ inline void requestRoutesNvidiaUpdateService(App& app)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleUpdateServicePatch, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
-        .privileges(redfish::privileges::getSoftwareInventoryCollection)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleCommitImageActionInfoGet, std::ref(app)));
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
+            .privileges(redfish::privileges::getSoftwareInventoryCollection)
+            .methods(boost::beast::http::verb::get)(
+                std::bind_front(handleCommitImageActionInfoGet, std::ref(app)));
 
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleCommitImageActionInfoPost, std::ref(app)));
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage/")
+            .privileges(redfish::privileges::postUpdateService)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                handleCommitImageActionInfoPost, std::ref(app)));
+    }
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/Actions/Oem/"

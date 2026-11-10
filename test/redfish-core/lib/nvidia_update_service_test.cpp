@@ -161,10 +161,16 @@ TEST(CommitImageAdvertise, NoAllowListDiscoversImageCopy)
 
     nvidia::advertiseCommitImage(
         asyncResp, CommitImageAllowListState::notConfigured,
-        [&lookups](const std::shared_ptr<bmcweb::AsyncResp>&) { ++lookups; });
+        [&lookups](const std::shared_ptr<bmcweb::AsyncResp>& response) {
+            ++lookups;
+            nvidia::handleImageCopyPaths(
+                response, boost::system::error_code{},
+                {"/xyz/openbmc_project/inventory/system/chassis/a"});
+        });
 
     EXPECT_EQ(lookups, 1);
-    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Actions"));
+    EXPECT_TRUE(asyncResp->res.jsonValue["Actions"]["Oem"].contains(
+        "#NvidiaUpdateService.CommitImage"));
 }
 
 TEST(CommitImageAdvertise, BrokenAllowListHidesAction)
