@@ -70,6 +70,44 @@ inline bool addServiceAccountTypes(
     return userGroup == "service";
 }
 
+constexpr std::string_view serviceAccountName = "service";
+
+// The built-in 'service' account only allows its password to be changed.
+// Returns false (and fills the response) if the request contains any known
+// property other than Password. Unknown properties are left to the caller,
+// which reports them as PropertyUnknown, as for any other account. The caller
+// parses the body before it rejects the request, so both kinds of error are
+// reported.
+inline bool validateServiceAccountPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view username, const nlohmann::json::object_t& jsonRequest)
+{
+    if (username != serviceAccountName)
+    {
+        return true;
+    }
+    // Writable on other accounts, read-only on the service account
+    constexpr std::array<std::string_view, 6> readOnlyProperties = {
+        "AccountTypes",       "Enabled", "Locked",
+        "PasswordExpiration", "RoleId",  "UserName"};
+    bool valid = true;
+    for (const auto& [property, value] : jsonRequest)
+    {
+        if (std::ranges::find(readOnlyProperties, property) ==
+            readOnlyProperties.end())
+        {
+            continue;
+        }
+        messages::propertyNotWritable(asyncResp->res, property);
+        valid = false;
+    }
+    if (!valid)
+    {
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+    }
+    return valid;
+}
+
 inline void handleNvidiaResolution(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::optional<std::string>& password)

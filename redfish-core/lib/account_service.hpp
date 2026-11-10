@@ -2547,6 +2547,8 @@ inline void handleAccountPatch(
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
+    const bool serviceAccountPatchAllowed =
+        validateServiceAccountPatch(asyncResp, username, *jsonRequest);
     // Nvidia code End here
 
     if (userHasConfigureUsers)
@@ -2590,6 +2592,13 @@ inline void handleAccountPatch(
             return;
         }
     }
+
+    // Nvidia code starts here.
+    if (!serviceAccountPatchAllowed)
+    {
+        return;
+    }
+    // Nvidia code Ends here
 
     // if user name is not provided in the patch method or if it
     // matches the user name in the URI, then we are treating it as

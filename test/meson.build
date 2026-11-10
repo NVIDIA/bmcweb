@@ -80,6 +80,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/manager_usb_ports_test.cpp',
     'redfish-core/lib/metadata_test.cpp',
     'redfish-core/lib/network_adapter_test.cpp',
+    'redfish-core/lib/nvidia_account_service_test.cpp',
     'redfish-core/lib/nvidia_attested_wipe_test.cpp',
     'redfish-core/lib/nvidia_cpu_ist_test.cpp',
     'redfish-core/lib/nvidia_eventlog_service_patch_test.cpp',
