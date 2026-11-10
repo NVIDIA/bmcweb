@@ -20,11 +20,16 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "nvidia_dbus_utility.hpp"
 
 #include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 inline std::string toMemoryPerformanceStateType(const std::string& state)
@@ -56,14 +61,14 @@ inline void populatePerformanceData(
     {
         return;
     }
-    nlohmann::json& json = aResp->res.jsonValue;
-    bool performanceDegrade = false;
-    auto state = toMemoryPerformanceStateType(value);
-    if (state != "Normal")
+    const std::string state = toMemoryPerformanceStateType(value);
+    if (state.empty() || state == "Unknown")
     {
-        performanceDegrade = true;
+        // Unknown means pldmd has no reading; do not report degraded.
+        return;
     }
-    json["HealthData"]["PerformanceDegraded"] = performanceDegrade;
+    aResp->res.jsonValue["HealthData"]["PerformanceDegraded"] =
+        (state != "Normal");
 }
 
 inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,

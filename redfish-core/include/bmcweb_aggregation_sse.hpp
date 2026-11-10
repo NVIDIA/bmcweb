@@ -10,16 +10,12 @@
 #include "sse_connection.hpp"
 #include "utils/json_utils.hpp"
 
-#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/http/fields.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
-#include <algorithm>
-#include <cassert>
 #include <charconv>
 #include <chrono>
 #include <cstddef>
@@ -37,28 +33,14 @@ void addPrefixes(nlohmann::json& json, std::string_view prefix);
 using SatelliteEventCallback =
     std::function<void(const std::string& eventJson, uint64_t eventId)>;
 
-using SatelliteConfigHandler = std::function<void(
-    const boost::system::error_code&,
-    const std::unordered_map<std::string, boost::urls::url>&)>;
-using SatelliteConfigRefresher =
-    std::function<void(SatelliteConfigHandler, bool forceRefresh)>;
-using SatConfigRefreshHandler = SatelliteConfigRefresher;
-
 class SseEventAggregator
 {
   public:
     // Set the maximum buffer size to 1 MB
     static constexpr size_t maxBufferSize = 1024UL * 1024UL;
 
-    /** Base delay (seconds) for exponential retries in scheduleSatConfigLoad().
-     * Backoff sequence: 5s, 10s, 20s, 40s, 80s, 150s (capped), 150s...
-     */
-    static constexpr int satConfigLoadBackoffBaseSec = 5;
-    static constexpr std::chrono::minutes satConfigLoadTimeoutMins{3};
-
     explicit SseEventAggregator(boost::asio::io_context& iocIn) :
-        ioc(iocIn), reconnectTimer(iocIn), persistTimer(iocIn),
-        satConfigLoadDeadlineTimer(iocIn)
+        ioc(iocIn), reconnectTimer(iocIn), persistTimer(iocIn)
     {
         // Start periodic persist timer
         schedulePersistTimer();
@@ -66,11 +48,6 @@ class SseEventAggregator
 
     virtual ~SseEventAggregator()
     {
-        shuttingDown = true;
-        satConfigLoadDeadlineTimer.cancel();
-        reconnectTimer.cancel();
-        persistTimer.cancel();
-        stopSatConfigLoadTimer();
         // Save any pending changes on shutdown
         persistIfDirty();
     }
@@ -80,31 +57,23 @@ class SseEventAggregator
     SseEventAggregator(SseEventAggregator&&) = delete;
     SseEventAggregator& operator=(SseEventAggregator&&) = delete;
 
-    /** Register SatMC refresher and start initial config load */
-    void start(SatConfigRefreshHandler refresh)
+    void start(const std::unordered_map<std::string, boost::urls::url>& configs)
     {
-        satConfigRefresher = std::move(refresh);
-        satConfigLoadCancelled = false;
-        satConfigLoadDeadlineTimer.expires_after(satConfigLoadTimeoutMins);
-        satConfigLoadDeadlineTimer.async_wait([this](const boost::system::
-                                                         error_code& ec) {
-            if (ec || shuttingDown)
-            {
-                return;
-            }
-            satConfigLoadCancelled = true;
-            BMCWEB_LOG_WARNING(
-                "Satellite config load timed out; giving up after {} minutes",
-                satConfigLoadTimeoutMins.count());
-            stopSatConfigLoadTimer();
-        });
-        initSatConfigLoad(0);
+        if (state != State::Idle)
+        {
+            BMCWEB_LOG_DEBUG("SSE connection already started or active");
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("SSE aggregator starting...");
+        state = State::Configuring;
+
+        initializeFromConfig(configs);
     }
 
     void stop()
     {
         BMCWEB_LOG_INFO("SSE aggregator stopping...");
-        stopSatConfigLoadTimer();
         reconnectTimer.cancel();
 
         if (sseConnection)
@@ -133,11 +102,6 @@ class SseEventAggregator
     boost::asio::io_context& ioc;
     boost::asio::steady_timer reconnectTimer;
     boost::asio::steady_timer persistTimer;
-    boost::asio::steady_timer satConfigLoadDeadlineTimer;
-    std::shared_ptr<boost::asio::steady_timer> satConfigLoadTimer;
-    SatelliteConfigRefresher satConfigRefresher;
-    bool shuttingDown{false};
-    bool satConfigLoadCancelled{false};
     boost::urls::url url;
     std::string buffer;
     std::shared_ptr<crow::SSEConnection> sseConnection;
@@ -200,10 +164,6 @@ class SseEventAggregator
 
     void handlePersistTimer(const boost::system::error_code& ec)
     {
-        if (shuttingDown)
-        {
-            return;
-        }
         if (ec)
         {
             return;
@@ -447,8 +407,9 @@ class SseEventAggregator
                 continue;
             }
 
+            auto eventTypeIt = event.find("EventType");
             auto messageIdIt = event.find("MessageId");
-            if (messageIdIt == event.end())
+            if (eventTypeIt == event.end() || messageIdIt == event.end())
             {
                 BMCWEB_LOG_ERROR("Event missing required fields");
                 continue;
@@ -524,148 +485,6 @@ class SseEventAggregator
     }
 
   private:
-    void cancelSatConfigRetryTimer()
-    {
-        if (satConfigLoadTimer)
-        {
-            satConfigLoadTimer->cancel();
-            satConfigLoadTimer.reset();
-        }
-    }
-
-    void stopSatConfigLoadTimer()
-    {
-        satConfigLoadCancelled = true;
-        satConfigLoadDeadlineTimer.cancel();
-        cancelSatConfigRetryTimer();
-    }
-
-    [[nodiscard]] bool isSatConfigRefresherAvailable() const
-    {
-        return !shuttingDown && !satConfigLoadCancelled && satConfigRefresher;
-    }
-
-    void applySatConfig(
-        const std::unordered_map<std::string, boost::urls::url>& configs)
-    {
-        if (state != State::Idle)
-        {
-            BMCWEB_LOG_DEBUG("SSE connection already started or active");
-            return;
-        }
-
-        // Callers must pass a non-empty map
-        assert(!configs.empty());
-
-        BMCWEB_LOG_DEBUG("SSE aggregator starting...");
-        state = State::Configuring;
-
-        initializeFromConfig(configs);
-    }
-
-    void commitSatConfigApply(
-        const std::unordered_map<std::string, boost::urls::url>& satConfig,
-        bool stopLoadTimer)
-    {
-        applySatConfig(satConfig);
-        if (stopLoadTimer)
-        {
-            satConfigLoadDeadlineTimer.cancel();
-            cancelSatConfigRetryTimer();
-        }
-    }
-
-    void scheduleSatConfigLoad(int attempt)
-    {
-        cancelSatConfigRetryTimer();
-
-        constexpr int maxDelaySec = 150;
-        const int shiftAttempt = std::min(attempt, 10);
-        const int delay = std::min(
-            satConfigLoadBackoffBaseSec * (1 << shiftAttempt), maxDelaySec);
-
-        BMCWEB_LOG_DEBUG(
-            "Satellite config not available (attempt {}), retrying in {}s",
-            attempt + 1, delay);
-
-        satConfigLoadTimer = std::make_shared<boost::asio::steady_timer>(ioc);
-        satConfigLoadTimer->expires_after(std::chrono::seconds(delay));
-        satConfigLoadTimer->async_wait(
-            [this, attempt](const boost::system::error_code& ec) {
-                onSatConfigLoadTimer(attempt + 1, ec);
-            });
-    }
-
-    void initSatConfigLoad(int attempt)
-    {
-        if (!isSatConfigRefresherAvailable())
-        {
-            return;
-        }
-
-        satConfigRefresher(
-            std::bind_front(&SseEventAggregator::onLoadedSatConfig, this,
-                            attempt),
-            false);
-    }
-
-    void onLoadedSatConfig(
-        int attempt, const boost::system::error_code& ec,
-        const std::unordered_map<std::string, boost::urls::url>& satConfig)
-    {
-        if (shuttingDown || satConfigLoadCancelled)
-        {
-            return;
-        }
-
-        if (!ec && !satConfig.empty())
-        {
-            BMCWEB_LOG_INFO("Starting SSE Event Aggregator");
-            commitSatConfigApply(satConfig, true);
-            return;
-        }
-
-        scheduleSatConfigLoad(attempt);
-    }
-
-    void onSatConfigLoadTimer(int nextAttempt,
-                              const boost::system::error_code& timerEc)
-    {
-        if (timerEc == boost::asio::error::operation_aborted)
-        {
-            return;
-        }
-
-        if (timerEc)
-        {
-            BMCWEB_LOG_ERROR("Satellite config retry timer error: {}",
-                             timerEc.message());
-            // Schedule retry despite timer error to avoid getting stuck
-            if (!shuttingDown && !satConfigLoadCancelled)
-            {
-                initSatConfigLoad(nextAttempt);
-            }
-            return;
-        }
-
-        if (shuttingDown || satConfigLoadCancelled)
-        {
-            return;
-        }
-
-        initSatConfigLoad(nextAttempt);
-    }
-
-    void stopSseConnectionOnly()
-    {
-        reconnectTimer.cancel();
-        if (sseConnection)
-        {
-            sseConnection.reset();
-        }
-        state = State::Idle;
-    }
-
     void connectToEventStream()
     {
         if (url.empty())
@@ -745,10 +564,6 @@ class SseEventAggregator
 
     void handleReconnectTimer(const boost::system::error_code& ec)
     {
-        if (shuttingDown)
-        {
-            return;
-        }
         if (ec)
         {
             if (ec != boost::asio::error::operation_aborted)
