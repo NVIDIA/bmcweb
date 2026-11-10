@@ -924,13 +924,13 @@ inline bool extractIPv6DefaultGatewayData(
     const dbus::utility::ManagedObjectType& dbusData,
     std::vector<StaticGatewayData>& staticGatewayConfig)
 {
-    std::string staticGatewayPathStart("/xyz/openbmc_project/network/");
-    staticGatewayPathStart += ethifaceId;
+    const sdbusplus::object_path ifacePath =
+        sdbusplus::object_path("/xyz/openbmc_project/network") / ethifaceId;
 
     for (const auto& objpath : dbusData)
     {
-        if (!std::string_view(objpath.first.str)
-                 .starts_with(staticGatewayPathStart))
+        // Match children of this interface only (eth0 vs eth0_100).
+        if (objpath.first.parent_path() != ifacePath)
         {
             continue;
         }
@@ -1128,6 +1128,21 @@ inline void deleteAndCreateIPv6DefaultGateway(
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
 
+inline std::vector<std::string> leftoverIPv6GatewayIds(
+    std::vector<StaticGatewayData>::const_iterator it,
+    const std::vector<StaticGatewayData>::const_iterator& end)
+{
+    std::vector<std::string> ids;
+    for (; it != end; ++it)
+    {
+        if (it->protocol == "xyz.openbmc_project.Network.IP.Protocol.IPv6")
+        {
+            ids.push_back(it->id);
+        }
+    }
+    return ids;
+}
+
 /**
  * @brief Sets IPv6 default gateway with given data
  *
@@ -1221,6 +1236,12 @@ inline void handleIPv6DefaultGateway(
             createIPv6DefaultGateway(ifaceId, *addr, asyncResp);
         }
         entryIdx++;
+    }
+    // Delete any remaining static IPv6 gateways not covered by the input
+    for (const std::string& id :
+         leftoverIPv6GatewayIds(staticGatewayEntry, staticGatewayData.end()))
+    {
+        deleteIPv6Gateway(ifaceId, id, asyncResp);
     }
 }
 
@@ -1621,6 +1642,20 @@ inline std::vector<IPv6AddressData>::const_iterator getNextStaticIpEntry(
     });
 }
 
+inline std::vector<std::string> leftoverStaticIPv6Ids(
+    std::vector<IPv6AddressData>::const_iterator it,
+    const std::vector<IPv6AddressData>::const_iterator& end)
+{
+    std::vector<std::string> ids;
+    it = getNextStaticIpEntry(it, end);
+    while (it != end)
+    {
+        ids.push_back(it->id);
+        it = getNextStaticIpEntry(++it, end);
+    }
+    return ids;
+}
+
 enum class AddrChange
 {
     Noop,
@@ -2005,6 +2040,12 @@ inline void handleIPv6StaticAddressesPatch(
             }
             entryIdx++;
         }
+    }
+    // Delete any remaining static IPv6 addresses not covered by the input
+    for (const std::string& id :
+         leftoverStaticIPv6Ids(nicIpEntry, ipv6Data.cend()))
+    {
+        deleteIPAddress(ifaceId, id, asyncResp, "IPv6StaticAddresses");
     }
 }
 
