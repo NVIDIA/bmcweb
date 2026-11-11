@@ -261,6 +261,9 @@ inline void getLldpRawFrame(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                          gec.message());
                         return;
                     }
+                    // removeLldpDefaultsOnNonLldpPort() may have removed
+                    // Oem.Nvidia; keep its @odata.type when writing into it.
+                    ensureNvidiaPortOemBlock(asyncResp);
                     asyncResp->res
                         .jsonValue["Oem"]["Nvidia"]["LLDP"][streamKey] =
                         hexEncodeLowercase(data);
