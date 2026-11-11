@@ -3,6 +3,8 @@
 #include "async_resp.hpp"
 #include "dbus_privileges.hpp"
 #include "dbus_utility.hpp"
+#include "http_request.hpp"
+#include "routing/baserule.hpp"
 #include "sessions.hpp"
 
 #include <functional>
@@ -164,6 +166,28 @@ TEST(AfterGetUserInfo, DisabledUserGets401)
     std::move_only_function<void()> callback = [&called]() { called = true; };
     afterGetUserInfo(asyncResp, session, callback, makeUserInfo(false, false));
     EXPECT_FALSE(called);
+    EXPECT_EQ(asyncResp->res.resultInt(), 401);
+}
+
+class StubRule : public BaseRule
+{
+  public:
+    StubRule() : BaseRule("/stub") {}
+    void validate() override {}
+    void handle(Request& /*req*/, const std::shared_ptr<bmcweb::AsyncResp>&,
+                const std::vector<std::string>& /*params*/) override {}
+};
+
+TEST(AfterGetUserInfoValidate, DisabledUserGets401)
+{
+    const std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+        std::make_shared<bmcweb::AsyncResp>();
+    Request req;
+    req.session = std::make_shared<persistent_data::UserSession>(
+        makeSession(persistent_data::SessionType::MutualTLS));
+    StubRule rule;
+    EXPECT_FALSE(afterGetUserInfoValidate(req, asyncResp, rule,
+                                          makeUserInfo(false, false)));
     EXPECT_EQ(asyncResp->res.resultInt(), 401);
 }
 } // namespace
