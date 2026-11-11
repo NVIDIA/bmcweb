@@ -372,12 +372,22 @@ inline void removeLldpDefaultsFromPortJson(nlohmann::json& json,
     auto nvidia = oem->find("Nvidia");
     if (nvidia != oem->end() && nvidia->is_object())
     {
-        const nlohmann::json streamDefaults = {{"RXDataStream", ""},
-                                               {"TXDataStream", ""}};
         auto lldp = nvidia->find("LLDP");
-        if (lldp != nvidia->end() && *lldp == streamDefaults)
+        if (lldp != nvidia->end() && lldp->is_object())
         {
-            nvidia->erase(lldp);
+            // Each stream is checked on its own: D-Bus may fill one of them.
+            for (const char* stream : {"RXDataStream", "TXDataStream"})
+            {
+                auto value = lldp->find(stream);
+                if (value != lldp->end() && *value == "")
+                {
+                    lldp->erase(value);
+                }
+            }
+            if (lldp->empty())
+            {
+                nvidia->erase(lldp);
+            }
         }
         // Only the @odata.type from ensureNvidiaPortOemBlock() is left.
         if (nvidia->size() == 1 && nvidia->contains("@odata.type"))

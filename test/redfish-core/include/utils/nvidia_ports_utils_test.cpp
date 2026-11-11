@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION &
  * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
  */
+#include "ports.hpp"
 #include "utils/nvidia_ports_utils.hpp"
 
 #include <nlohmann/json.hpp>
@@ -67,7 +68,19 @@ TEST(RemoveLldpDefaultsFromPortJson, RealLldpDataKept)
     // Only the transmit side still held the defaults.
     EXPECT_FALSE(json["Ethernet"].contains(lldpTransmit));
     EXPECT_EQ(json["Ethernet"][lldpReceive]["ChassisId"], "c0:ff:ee:00:00:01");
-    EXPECT_EQ(json["Oem"]["Nvidia"]["LLDP"]["RXDataStream"], "AQID");
+    EXPECT_EQ(json["Oem"]["Nvidia"]["LLDP"],
+              nlohmann::json({{"RXDataStream", "AQID"}}));
+}
+
+TEST(RemoveLldpDefaultsFromPortJson, OneStreamFilledOtherRemoved)
+{
+    nlohmann::json json = portWithLldpDefaults();
+    json["Oem"]["Nvidia"]["LLDP"]["TXDataStream"] = "BAUG";
+
+    removeLldpDefaultsFromPortJson(json, "PCIe");
+
+    EXPECT_EQ(json["Oem"]["Nvidia"]["LLDP"],
+              nlohmann::json({{"TXDataStream", "BAUG"}}));
 }
 
 TEST(RemoveLldpDefaultsFromPortJson, OtherKeysKept)
