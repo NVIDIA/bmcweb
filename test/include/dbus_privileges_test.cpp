@@ -174,8 +174,10 @@ class StubRule : public BaseRule
   public:
     StubRule() : BaseRule("/stub") {}
     void validate() override {}
-    void handle(Request& /*req*/, const std::shared_ptr<bmcweb::AsyncResp>&,
-                const std::vector<std::string>& /*params*/) override {}
+    void handle(Request& /*req*/,
+                const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
+                const std::vector<std::string>& /*params*/) override
+    {}
 };
 
 TEST(AfterGetUserInfoValidate, DisabledUserGets401)
