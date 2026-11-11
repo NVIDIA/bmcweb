@@ -9,6 +9,7 @@
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_telemetry_service.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
@@ -28,25 +29,6 @@
 
 namespace redfish
 {
-
-// Nvidia: HMC builds turn host-os-features off. Like the Triggers link, they
-// do not list SupportedCollectionFunctions.
-inline void addSupportedCollectionFunctions(nlohmann::json& json,
-                                            bool hostOsFeatures)
-{
-    if (!hostOsFeatures)
-    {
-        return;
-    }
-    nlohmann::json::array_t supportedCollectionFunctions;
-    supportedCollectionFunctions.emplace_back("Maximum");
-    supportedCollectionFunctions.emplace_back("Minimum");
-    supportedCollectionFunctions.emplace_back("Average");
-    supportedCollectionFunctions.emplace_back("Summation");
-
-    json["SupportedCollectionFunctions"] =
-        std::move(supportedCollectionFunctions);
-}
 
 inline void handleTelemetryServiceGet(
     crow::App& app, const crow::Request& req,
@@ -124,8 +106,15 @@ inline void handleTelemetryServiceGet(
                     time_utils::toDurationString(std::chrono::milliseconds(
                         static_cast<time_t>(*minInterval)));
             }
-            addSupportedCollectionFunctions(asyncResp->res.jsonValue,
-                                            BMCWEB_HOST_OS_FEATURES);
+            nlohmann::json::array_t supportedCollectionFunctions;
+            supportedCollectionFunctions.emplace_back("Maximum");
+            supportedCollectionFunctions.emplace_back("Minimum");
+            supportedCollectionFunctions.emplace_back("Average");
+            supportedCollectionFunctions.emplace_back("Summation");
+
+            asyncResp->res.jsonValue["SupportedCollectionFunctions"] =
+                std::move(supportedCollectionFunctions);
+            nvidia::nvidiaTelemetryServiceGet(asyncResp->res.jsonValue);
         });
 }
 
