@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "logging.hpp"
@@ -319,26 +321,29 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 /**
- * @brief Remove the LLDP defaults from an NVLink or PCIe port.
+ * @brief Remove the LLDP defaults from the JSON of an NVLink or PCIe port.
  *
  * getLldpStatus() writes the mandatory LLDP fields with empty defaults on
  * every NetworkAdapter port, before the port protocol is known. NVLink and
  * PCIe links carry no LLDP frames, so nothing replaces these defaults on
  * such a port. Only fields that still hold the defaults are removed, so
- * LLDP data read from D-Bus is kept.
+ * LLDP data read from D-Bus is kept. Other protocols are not changed.
  *
+ * @param json         Port resource JSON.
  * @param portProtocol Redfish PortProtocol value of the port.
  */
-inline void removeLldpDefaultsOnNonLldpPort(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::string_view portProtocol)
+inline void removeLldpDefaultsFromPortJson(nlohmann::json& json,
+                                           std::string_view portProtocol)
 {
+    if (!json.is_object())
+    {
+        return;
+    }
     if (portProtocol != "NVLink" && portProtocol != "PCIe")
     {
         return;
     }
 
-    nlohmann::json& json = asyncResp->res.jsonValue;
     nlohmann::json tlvDefaults = nlohmann::json::object();
     initializeMandatoryLldpTlvFields(tlvDefaults);
 
@@ -383,6 +388,24 @@ inline void removeLldpDefaultsOnNonLldpPort(
     if (oem->empty())
     {
         json.erase(oem);
+    }
+}
+
+/**
+ * @brief NVIDIA hook for getPortData(): drop the LLDP defaults on NVLink and
+ * PCIe ports.
+ *
+ * getPortData() calls this from its PortProtocol callback. That callback runs
+ * at least two D-Bus round trips after populatePortLldpData() wrote the
+ * defaults synchronously, so the defaults are always in the response here.
+ */
+inline void removeLldpDefaultsOnNonLldpPort(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view portProtocol)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        removeLldpDefaultsFromPortJson(asyncResp->res.jsonValue, portProtocol);
     }
 }
 
