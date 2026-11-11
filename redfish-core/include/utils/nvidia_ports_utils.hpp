@@ -382,7 +382,12 @@ inline void removeLldpDefaultsFromPortJson(nlohmann::json& json,
             for (const char* stream : {"RXDataStream", "TXDataStream"})
             {
                 auto value = lldp->find(stream);
-                if (value != lldp->end() && *value == "")
+                if (value == lldp->end())
+                {
+                    continue;
+                }
+                const std::string* text = value->get_ptr<const std::string*>();
+                if (text != nullptr && text->empty())
                 {
                     lldp->erase(value);
                 }
