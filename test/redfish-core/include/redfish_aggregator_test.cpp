@@ -7,18 +7,30 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "redfish_aggregator.hpp"
+#include "utils/query_param.hpp"
 #include "utils/redfish_aggregator_utils.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url.hpp>
+#include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <format>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -536,6 +548,165 @@ TEST(processCollectionResponse, preserveHeaders)
     EXPECT_EQ(asyncResp->res.resultInt(), 404);
     EXPECT_EQ(asyncResp->res.getHeaderValue("OData-Version"), "4.0");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Location"), "");
+}
+
+TEST(filterSatelliteCollectionParams, RemovesOnlyTopAndSkip)
+{
+    boost::urls::url url(
+        "/redfish/v1/UpdateService/FirmwareInventory?$top=10&$skip=50&only&$select=Id&Custom=1");
+    filterSatelliteCollectionParams(url);
+    EXPECT_EQ(url.path(), "/redfish/v1/UpdateService/FirmwareInventory");
+    EXPECT_FALSE(url.params().contains("$top"));
+    EXPECT_FALSE(url.params().contains("$skip"));
+    EXPECT_FALSE(url.params().contains("only"));
+    EXPECT_TRUE(url.params().contains("$select"));
+    EXPECT_TRUE(url.params().contains("Custom"));
+    EXPECT_EQ(url.params().size(), 2U);
+}
+
+void populateFirmwareInventory(crow::Response& resp, std::string_view name,
+                               size_t count)
+{
+    nlohmann::json::array_t members;
+    for (size_t i = 0; i < count; i++)
+    {
+        nlohmann::json::object_t member;
+        member["@odata.id"] = std::format(
+            "/redfish/v1/UpdateService/FirmwareInventory/{}_{}", name, i);
+        members.emplace_back(std::move(member));
+    }
+
+    resp.clear();
+    resp.jsonValue["@odata.id"] = "/redfish/v1/UpdateService/FirmwareInventory";
+    resp.jsonValue["@odata.type"] =
+        "#SoftwareInventoryCollection.SoftwareInventoryCollection";
+    resp.jsonValue["Members"] = std::move(members);
+    resp.jsonValue["Members@odata.count"] = count;
+    resp.addHeader("OData-Version", "4.0");
+    resp.addHeader("Content-Type", "application/json");
+    resp.result(boost::beast::http::status::ok);
+}
+
+// One GET through the aggregator: the satellite gets the filtered query and
+// applies its own $top and $skip, the responses are merged, then the
+// aggregator applies the client's $top and $skip to the merged collection.
+// Returns the collection the client sees.
+nlohmann::json getMergedFirmwareInventory(std::string_view target,
+                                          size_t localCount, size_t satCount)
+{
+    boost::system::result<boost::urls::url_view> parsed =
+        boost::urls::parse_relative_ref(target);
+    EXPECT_TRUE(parsed);
+    if (!parsed)
+    {
+        return {};
+    }
+
+    crow::Response parseRes;
+    std::optional<query_param::Query> query =
+        query_param::parseParameters(parsed->params(), parseRes);
+    EXPECT_TRUE(query);
+    if (!query)
+    {
+        return {};
+    }
+
+    boost::urls::url satUrl(*parsed);
+    filterSatelliteCollectionParams(satUrl);
+    std::optional<query_param::Query> satQuery =
+        query_param::parseParameters(satUrl.params(), parseRes);
+    EXPECT_TRUE(satQuery);
+    if (!satQuery)
+    {
+        return {};
+    }
+
+    crow::Response resp;
+    populateFirmwareInventory(resp, "Sat", satCount);
+    query_param::processTopAndSkip(*satQuery, resp);
+    convertToSat(resp);
+
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    populateFirmwareInventory(asyncResp->res, "Local", localCount);
+    RedfishAggregator::processCollectionResponse("HGX", asyncResp, resp);
+
+    query_param::processTopAndSkip(*query, asyncResp->res);
+    return asyncResp->res.jsonValue;
+}
+
+std::vector<std::string> memberIds(const nlohmann::json& collection)
+{
+    std::vector<std::string> ids;
+    nlohmann::json::const_iterator members = collection.find("Members");
+    if (members == collection.end() || !members->is_array())
+    {
+        return ids;
+    }
+    for (const nlohmann::json& member : *members)
+    {
+        nlohmann::json::const_iterator id = member.find("@odata.id");
+        ids.emplace_back((id != member.end() && id->is_string())
+                             ? id->get<std::string>()
+                             : std::string{});
+    }
+    return ids;
+}
+
+// $top and $skip must be applied once, to the merged collection, and
+// Members@odata.count must count the whole merged collection.
+TEST(processCollectionResponse, topAndSkipAppliedAfterMerge)
+{
+    constexpr size_t localCount = 33;
+    constexpr size_t satCount = 19;
+    constexpr size_t totalCount = localCount + satCount;
+    constexpr size_t noTop = std::numeric_limits<size_t>::max();
+
+    // The whole merged collection, in the order the client pages through
+    const std::vector<std::string> all = memberIds(getMergedFirmwareInventory(
+        "/redfish/v1/UpdateService/FirmwareInventory", localCount, satCount));
+    ASSERT_EQ(all.size(), totalCount);
+
+    struct TopSkipCase
+    {
+        std::string_view target;
+        size_t skip;
+        size_t top;
+        size_t expectedMembers;
+    };
+    constexpr std::array<TopSkipCase, 6> cases{{
+        {"/redfish/v1/UpdateService/FirmwareInventory?$top=10&$skip=50", 50, 10,
+         2},
+        {"/redfish/v1/UpdateService/FirmwareInventory?$skip=50", 50, noTop, 2},
+        {"/redfish/v1/UpdateService/FirmwareInventory?$top=10", 0, 10, 10},
+        {"/redfish/v1/UpdateService/FirmwareInventory?$top=4&$skip=2", 2, 4, 4},
+        {"/redfish/v1/UpdateService/FirmwareInventory?$skip=1000", 1000, noTop,
+         0},
+        {"/redfish/v1/UpdateService/FirmwareInventory?$top=100", 0, 100,
+         totalCount},
+    }};
+
+    for (const TopSkipCase& testCase : cases)
+    {
+        SCOPED_TRACE(testCase.target);
+        const nlohmann::json collection =
+            getMergedFirmwareInventory(testCase.target, localCount, satCount);
+
+        nlohmann::json::const_iterator count =
+            collection.find("Members@odata.count");
+        ASSERT_NE(count, collection.end());
+        EXPECT_EQ(*count, totalCount);
+
+        // The page must be the right slice of the merged collection, not
+        // only the right size.
+        const size_t first = std::min(testCase.skip, all.size());
+        const size_t last = std::min(
+            first + std::min(testCase.top, all.size() - first), all.size());
+        const std::vector<std::string> expected(
+            all.begin() + static_cast<std::ptrdiff_t>(first),
+            all.begin() + static_cast<std::ptrdiff_t>(last));
+        EXPECT_EQ(expected.size(), testCase.expectedMembers);
+        EXPECT_EQ(memberIds(collection), expected);
+    }
 }
 void assertProcessResponseContentType(std::string_view contentType)
 {
