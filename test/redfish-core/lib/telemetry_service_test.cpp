@@ -39,27 +39,5 @@ TEST(TelemetryServiceTest, TelemetryServiceStaticAttributesAreExpected)
     EXPECT_EQ(triggers["@odata.id"], "/redfish/v1/TelemetryService/Triggers");
 }
 
-TEST(TelemetryServiceTest, SupportedCollectionFunctionsListedWithHostOs)
-{
-    nlohmann::json json;
-
-    addSupportedCollectionFunctions(json, true);
-
-    EXPECT_EQ(json.size(), 1);
-    EXPECT_EQ(
-        json["SupportedCollectionFunctions"],
-        nlohmann::json::array({"Maximum", "Minimum", "Average", "Summation"}));
-}
-
-TEST(TelemetryServiceTest, SupportedCollectionFunctionsOmittedWithoutHostOs)
-{
-    nlohmann::json json = nlohmann::json::object();
-
-    addSupportedCollectionFunctions(json, false);
-
-    EXPECT_FALSE(json.contains("SupportedCollectionFunctions"));
-    EXPECT_TRUE(json.empty());
-}
-
 } // namespace
 } // namespace redfish
