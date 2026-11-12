@@ -9,7 +9,6 @@
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
-#include "nvidia_telemetry_service.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
@@ -120,15 +119,18 @@ inline void handleTelemetryServiceGet(
                 asyncResp->res.jsonValue["MinCollectionInterval"] =
                     time_utils::toDurationString(minIntervalMs);
             }
-            nlohmann::json::array_t supportedCollectionFunctions;
-            supportedCollectionFunctions.emplace_back("Maximum");
-            supportedCollectionFunctions.emplace_back("Minimum");
-            supportedCollectionFunctions.emplace_back("Average");
-            supportedCollectionFunctions.emplace_back("Summation");
+            // Nvidia Added check for BMCWEB_HOST_OS_FEATURES
+            if constexpr (BMCWEB_HOST_OS_FEATURES)
+            {
+                nlohmann::json::array_t supportedCollectionFunctions;
+                supportedCollectionFunctions.emplace_back("Maximum");
+                supportedCollectionFunctions.emplace_back("Minimum");
+                supportedCollectionFunctions.emplace_back("Average");
+                supportedCollectionFunctions.emplace_back("Summation");
 
-            asyncResp->res.jsonValue["SupportedCollectionFunctions"] =
-                std::move(supportedCollectionFunctions);
-            nvidia::nvidiaTelemetryServiceGet(asyncResp->res.jsonValue);
+                asyncResp->res.jsonValue["SupportedCollectionFunctions"] =
+                    std::move(supportedCollectionFunctions);
+            }
         });
 }
 
