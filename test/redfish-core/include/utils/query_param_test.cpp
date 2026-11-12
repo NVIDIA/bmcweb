@@ -39,6 +39,22 @@ namespace
 
 using ::testing::UnorderedElementsAre;
 
+TEST(ProcessQueryLocally, LocalGet)
+{
+    EXPECT_TRUE(processQueryLocally(boost::beast::http::verb::get, false));
+}
+
+TEST(ProcessQueryLocally, ForwardedGet)
+{
+    EXPECT_FALSE(processQueryLocally(boost::beast::http::verb::get, true));
+}
+
+TEST(ProcessQueryLocally, NotGet)
+{
+    EXPECT_FALSE(processQueryLocally(boost::beast::http::verb::post, false));
+    EXPECT_FALSE(processQueryLocally(boost::beast::http::verb::patch, true));
+}
+
 TEST(Delegate, OnlyPositive)
 {
     Query query{

@@ -177,8 +177,9 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         // later.
     }
 
-    // If this isn't a get, no need to do anything with parameters
-    if (req.method() != boost::beast::http::verb::get)
+    // Only a GET answered by this service takes query parameters here. A
+    // request forwarded to a satellite has them applied by the satellite.
+    if (!query_param::processQueryLocally(req.method(), !needToCallHandlers))
     {
         return needToCallHandlers;
     }

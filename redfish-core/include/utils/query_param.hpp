@@ -1404,6 +1404,14 @@ inline void processSelect(crow::Response& intermediateResponse,
     recursiveSelect(intermediateResponse.jsonValue, trieRoot);
 }
 
+// Process query parameters only for locally handled GET requests; forwarded
+// requests are processed by the satellite.
+inline bool processQueryLocally(boost::beast::http::verb method,
+                                bool forwardedToSatellite)
+{
+    return method == boost::beast::http::verb::get && !forwardedToSatellite;
+}
+
 inline void processAllParams(
     crow::App& app, const Query& query, const Query& delegated,
     std::function<void(crow::Response&)>& completionHandler,

@@ -6,14 +6,23 @@
 #include "error_messages.hpp"
 #include "http_response.hpp"
 #include "redfish_aggregator.hpp"
+#include "utils/query_param.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 
 #include <array>
+#include <cstddef>
+#include <format>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -525,6 +534,111 @@ TEST(processCollectionResponse, preserveHeaders)
     EXPECT_EQ(asyncResp->res.getHeaderValue("OData-Version"), "4.0");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Location"), "");
 }
+void populateSensorCollection(crow::Response& resp, size_t count)
+{
+    nlohmann::json::array_t members;
+    for (size_t i = 0; i < count; i++)
+    {
+        nlohmann::json::object_t member;
+        member["@odata.id"] =
+            std::format("/redfish/v1/Chassis/Chassis_0/Sensors/Sensor_{}", i);
+        members.emplace_back(std::move(member));
+    }
+
+    resp.clear();
+    resp.jsonValue["@odata.id"] = "/redfish/v1/Chassis/Chassis_0/Sensors";
+    resp.jsonValue["@odata.type"] = "#SensorCollection.SensorCollection";
+    resp.jsonValue["Members"] = std::move(members);
+    resp.jsonValue["Members@odata.count"] = count;
+    resp.addHeader("OData-Version", "4.0");
+    resp.addHeader("Content-Type", "application/json");
+    resp.result(boost::beast::http::status::ok);
+}
+
+// A GET forwarded whole to a satellite, such as
+// /redfish/v1/Chassis/HGX_Chassis_0/Sensors?$skip=2&$top=5, keeps its query
+// string. The satellite pages its collection once, and the aggregator hands
+// that page back as it is: processResponse() does not page, and
+// setUpRedfishRouteWithDelegation() does not run processAllParams() on a
+// forwarded request.
+TEST(processResponse, forwardedCollectionPagedOnce)
+{
+    constexpr size_t satCount = 20;
+
+    struct ForwardedCase
+    {
+        std::string_view query;
+        size_t expectedMembers;
+        size_t firstMember;
+    };
+    constexpr std::array<ForwardedCase, 5> cases{{
+        {"$skip=2", 18, 2},
+        {"$top=5", 5, 0},
+        {"$skip=2&$top=5", 5, 2},
+        {"$skip=5&$top=5", 5, 5},
+        {"$skip=30", 0, 0},
+    }};
+
+    // The aggregator leaves a forwarded request's query to the satellite
+    EXPECT_FALSE(
+        query_param::processQueryLocally(boost::beast::http::verb::get, true));
+
+    for (const ForwardedCase& testCase : cases)
+    {
+        SCOPED_TRACE(testCase.query);
+        std::string target = std::format(
+            "/redfish/v1/Chassis/HGX_Chassis_0/Sensors?{}", testCase.query);
+        boost::system::result<boost::urls::url_view> parsed =
+            boost::urls::parse_relative_ref(target);
+        ASSERT_TRUE(parsed);
+        if (!parsed)
+        {
+            return;
+        }
+
+        crow::Response parseRes;
+        std::optional<query_param::Query> query =
+            query_param::parseParameters(parsed->params(), parseRes);
+        ASSERT_TRUE(query);
+        if (!query)
+        {
+            return;
+        }
+
+        // The satellite applies the whole query it is sent
+        crow::Response resp;
+        populateSensorCollection(resp, satCount);
+        query_param::processTopAndSkip(*query, resp);
+        convertToSat(resp);
+
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        RedfishAggregator::processResponse("HGX", asyncResp, resp);
+
+        EXPECT_EQ(asyncResp->res.jsonValue["Members@odata.count"], satCount);
+        const nlohmann::json::array_t* arr =
+            asyncResp->res.jsonValue["Members"]
+                .get_ptr<const nlohmann::json::array_t*>();
+        ASSERT_NE(arr, nullptr);
+        if (arr == nullptr)
+        {
+            return;
+        }
+        EXPECT_EQ(arr->size(), testCase.expectedMembers);
+        if (!arr->empty())
+        {
+            const std::string* firstId =
+                (*arr)[0]["@odata.id"].get_ptr<const std::string*>();
+            ASSERT_NE(firstId, nullptr);
+            if (firstId == nullptr)
+            {
+                return;
+            }
+            EXPECT_TRUE(firstId->ends_with(
+                std::format("Sensor_{}", testCase.firstMember)));
+        }
+    }
+}
+
 void assertProcessResponseContentType(std::string_view contentType)
 {
     crow::Response resp;
