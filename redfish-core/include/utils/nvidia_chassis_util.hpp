@@ -4505,6 +4505,36 @@ inline void updateChassisSKUViaAssociation(
 }
 
 /**
+ * @brief Handle the Async.Set check of the direct path for PATCH operation
+ *
+ * The SKU is writable on the direct path only if that object also has
+ * com.nvidia.Async.Set; otherwise the SKU is a read-only copy (for example a
+ * value another service wrote onto an inventory object) and the writable one
+ * is behind the associated_SKU association, as the GET follows it.
+ */
+inline void handleDirectAsyncSetCheckForPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath, const std::string& skuValue,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objMap)
+{
+    if (ec || objMap.empty())
+    {
+        BMCWEB_LOG_DEBUG(
+            "PATCH: SKU on {} is not writable (no Async.Set), checking backward association",
+            chassisPath);
+        updateChassisSKUViaAssociation(asyncResp, chassisPath, skuValue);
+        return;
+    }
+
+    // Direct path has the SKU interface and Async.Set, update it directly
+    const std::string& service = objMap.begin()->first;
+    BMCWEB_LOG_DEBUG("PATCH: Updating SKU directly on {} (service: {})",
+                     chassisPath, service);
+    updateChassisSKU(asyncResp, service, chassisPath, skuValue);
+}
+
+/**
  * @brief Handle direct SKU service check for PATCH operation
  */
 inline void handleDirectSKUCheckForPatch(
@@ -4523,19 +4553,21 @@ inline void handleDirectSKUCheckForPatch(
         return;
     }
 
-    // Direct path has SKU interface, update it directly
-    const std::string& service = objMap.begin()->first;
-    BMCWEB_LOG_DEBUG("PATCH: Updating SKU directly on {} (service: {})",
-                     chassisPath, service);
-    updateChassisSKU(asyncResp, service, chassisPath, skuValue);
+    // Direct path has the SKU interface; it is writable there only with
+    // Async.Set
+    dbus::utility::getDbusObject(
+        chassisPath, std::array<std::string_view, 1>{"com.nvidia.Async.Set"},
+        std::bind_front(handleDirectAsyncSetCheckForPatch, asyncResp,
+                        chassisPath, skuValue));
 }
 
 /**
  * @brief Update chassis SKU - tries direct path first, then backward
  * association
  *
- * This function first checks if the chassis path has the SKU interface.
- * If yes, updates SKU directly. If not, falls back to backward association.
+ * This function first checks if the chassis path has the SKU interface and
+ * Async.Set. If yes, updates SKU directly. If not, falls back to backward
+ * association.
  *
  * @param[in,out]   asyncResp   Async HTTP response.
  * @param[in]       chassisPath Chassis D-Bus path.
