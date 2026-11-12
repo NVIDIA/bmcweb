@@ -244,7 +244,7 @@ static constexpr std::array registry =
         {
             "Indicates that debug token erase operation has failed for the device.",
             "The operation to erase a debug token for device '%1' has failed with error '%2'",
-            "OK",
+            "Critical",
             2,
             {
                 "string",

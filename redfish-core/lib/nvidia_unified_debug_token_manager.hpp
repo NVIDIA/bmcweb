@@ -44,6 +44,7 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <functional>
@@ -594,8 +595,11 @@ struct InstallTokenAggregator
     explicit InstallTokenAggregator(std::shared_ptr<task::TaskData> taskData) :
         task(std::move(taskData))
     {
-        task->state = "Running";
-        task->percentComplete = 0;
+        if (task)
+        {
+            task->state = "Running";
+            task->percentComplete = 0;
+        }
     }
 
     /**
@@ -667,6 +671,10 @@ struct InstallTokenAggregator
         const std::variant<
             std::vector<std::tuple<uint16_t, std::string, std::string>>>& value)
     {
+        if (self->completed)
+        {
+            return;
+        }
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to get async operation value: {}",
@@ -676,6 +684,7 @@ struct InstallTokenAggregator
             self->task->percentComplete = 100;
             debug_token::finishTask(self->task);
             self->completed = true;
+            self->propertiesChangedMatch.reset();
             return;
         }
 
@@ -805,6 +814,10 @@ struct InstallTokenAggregator
         const std::string& service, const std::string& objectPath,
         const boost::system::error_code& ec, const std::string& status)
     {
+        if (self->completed)
+        {
+            return;
+        }
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to get initial async operation status: {}",
@@ -814,6 +827,7 @@ struct InstallTokenAggregator
             self->task->percentComplete = 100;
             debug_token::finishTask(self->task);
             self->completed = true;
+            self->propertiesChangedMatch.reset();
             return;
         }
 
@@ -832,6 +846,12 @@ struct InstallTokenAggregator
      * @param[in] objectPath The async operation object path.
      * @param[in] self Shared pointer to this InstallTokenAggregator.
      */
+    void cleanup()
+    {
+        completed = true;
+        propertiesChangedMatch.reset();
+    }
+
     void monitorAsyncOperation(
         const std::string& service, const std::string& objectPath,
         const std::shared_ptr<InstallTokenAggregator>& self)
@@ -982,14 +1002,58 @@ inline void handleInstallTokenSubtreeResponse(
  */
 inline void startAggregatedInstallToken(
     // Nvidia code starts here
-    const std::shared_ptr<task::TaskData>& task, std::string_view tokenFile)
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view tokenFile)
 {
     std::vector<uint8_t> fileData(tokenFile.begin(), tokenFile.end());
-    auto memFd = std::make_shared<MemoryFD>();
-    memFd->write(fileData);
-    memFd->rewind();
+
+    std::shared_ptr<MemoryFD> memFd;
+    try
+    {
+        memFd = std::make_shared<MemoryFD>();
+        memFd->write(fileData);
+        memFd->rewind();
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("Failed to prepare token file: {}", e.what());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    auto aggregator = std::make_shared<InstallTokenAggregator>(nullptr);
+    std::weak_ptr<InstallTokenAggregator> weakAgg = aggregator;
+
+    constexpr uint32_t debugTokenTaskTimeoutSec = 300;
+    auto task = task::TaskData::createTask(
+        [weakAgg](boost::system::error_code ec, sdbusplus::message_t&,
+                  const std::shared_ptr<task::TaskData>& taskData) {
+            if (ec && ec != boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_ERROR("Debug token install task error: {}",
+                                 ec.message());
+                taskData->messages.emplace_back(
+                    messages::resourceErrorsDetectedFormatError(
+                        "Debug token install task", ec.message()));
+            }
+            if (auto agg = weakAgg.lock())
+            {
+                agg->cleanup();
+            }
+            return task::completed;
+        },
+        "0");
+    task::Payload payload(req);
+    task->payload.emplace(std::move(payload));
+    task->populateResp(asyncResp->res);
+    task->startTimer(std::chrono::seconds(debugTokenTaskTimeoutSec));
+
+    aggregator->task = task;
+    aggregator->task->state = "Running";
+    aggregator->task->percentComplete = 0;
+
     // Nvidia code ends here
-    auto aggregator = std::make_shared<InstallTokenAggregator>(task);
     constexpr std::array<std::string_view, 1> interfaces = {
         debugTokenAggregationInterface};
 
@@ -1032,19 +1096,8 @@ inline void debugTokenManagementInstallTokenHandler(
         return;
     }
 
-    constexpr uint32_t debugTokenTaskTimeoutSec = 300;
-    std::shared_ptr<task::TaskData> task =
-        debug_token::createTask(req, asyncResp, debugTokenTaskTimeoutSec);
-
-    if (!task)
-    {
-        BMCWEB_LOG_ERROR("Failed to create task");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     // Nvidia code starts here
-    startAggregatedInstallToken(task, std::move(*tokenFile));
+    startAggregatedInstallToken(req, asyncResp, std::move(*tokenFile));
     // Nvidia code ends here
 }
 

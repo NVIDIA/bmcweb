@@ -121,7 +121,10 @@ inline void addDataLocation(const std::shared_ptr<task::TaskData>& task,
  */
 inline void finishTask(const std::shared_ptr<task::TaskData>& task)
 {
-    task->timer.cancel();
+    if (task->timer.cancel() == 0)
+    {
+        return;
+    }
     task->finishTask();
     task::TaskData::sendTaskEvent(task->state, task->index);
 }
