@@ -1,6 +1,7 @@
 #include "dbus_log_watcher.hpp"
 #include "dbus_utility.hpp"
 #include "event_logs_object_type.hpp"
+#include "utils/dbus_event_log_entry.hpp"
 #include "utils/time_utils.hpp"
 
 #include <cstdint>
@@ -76,6 +77,19 @@ TEST(DBusLogWatcher, EventLogObjectFromDBusFailMissingProperty)
         DbusEventLogMonitor::eventLogObjectFromDBus(propMapWrong, event);
 
     EXPECT_FALSE(status);
+}
+
+TEST(DBusLogWatcher, EventTimestampFromEntryIsMilliseconds)
+{
+    DbusEventLogEntry entry;
+    // A phosphor-logging Timestamp (milliseconds) seen on hardware. Formatted
+    // as seconds it overflows and is clamped to 9999-12-31T23:59:59+00:00.
+    entry.Timestamp = 1791450469877;
+    EXPECT_EQ(DbusEventLogMonitor::eventTimestampFromEntry(entry),
+              "2026-10-08T09:07:49.877+00:00");
+
+    entry.Timestamp = 0;
+    EXPECT_EQ(DbusEventLogMonitor::eventTimestampFromEntry(entry), "");
 }
 
 } // namespace redfish

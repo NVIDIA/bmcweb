@@ -189,6 +189,16 @@ DbusTelemetryMonitor::DbusTelemetryMonitor() :
                           getReadingsForReport)
 {}
 
+std::string DbusEventLogMonitor::eventTimestampFromEntry(
+    const DbusEventLogEntry& entry)
+{
+    if (entry.Timestamp == 0)
+    {
+        return {};
+    }
+    return redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
+}
+
 bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     const DbusEventLogEntry& entry)
 {
@@ -308,10 +318,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
         severity = entry.Severity;
     }
 
-    if (entry.Timestamp != 0)
-    {
-        timestamp = redfish::time_utils::getDateTimeUint(entry.Timestamp);
-    }
+    timestamp = eventTimestampFromEntry(entry);
 
     NvEvent event(messageId);
     event.messageSeverity = translateSeverityDbusToRedfish(severity);
