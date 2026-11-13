@@ -835,9 +835,8 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 objInfo) {
             if (errorno)
             {
-                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
-                                 errorno);
-                messages::internalError(asyncResp->res);
+                // Power.Cap is optional on a power control.
+                BMCWEB_LOG_DEBUG("No Power.Cap on {}: {}", objPath, errorno);
                 return;
             }
 
@@ -1261,8 +1260,8 @@ inline void getPowerAndControlData(
                      path](
                         const boost::system::error_code& primaryEc,
                         std::variant<std::vector<std::string>>& primaryResp) {
-                        auto populateControl = [&asyncResp, &connectionName,
-                                                &interfaceList, &resourceId](
+                        auto populateControl = [asyncResp, connectionName,
+                                                interfaceList, resourceId](
                                                    const std::string& ctrlPath,
                                                    bool setDataSourceUri) {
                             if (setDataSourceUri)
