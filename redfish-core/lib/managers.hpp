@@ -9,6 +9,7 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
@@ -1096,6 +1097,7 @@ inline void requestRoutesManager(App& app)
 
                 std::optional<std::string> activeSoftwareImageOdataId;
                 std::optional<std::string> datetime;
+                std::optional<nlohmann::json> dateTimeLocalOffset;
                 std::optional<bool> locationIndicatorActive;
                 std::optional<nlohmann::json::object_t> pidControllers;
                 std::optional<nlohmann::json::object_t> fanControllers;
@@ -1112,6 +1114,7 @@ inline void requestRoutesManager(App& app)
                 if (!json_util::readJsonPatch(                            //
                         req, asyncResp->res,                              //
                         "DateTime", datetime,                             //
+                        "DateTimeLocalOffset", dateTimeLocalOffset,       //
                         "Links/ActiveSoftwareImage/@odata.id",
                         activeSoftwareImageOdataId,                       //
                         "LocationIndicatorActive",
@@ -1131,6 +1134,16 @@ inline void requestRoutesManager(App& app)
                         // Nvidia code ends here
                         ))
                 {
+                    return;
+                }
+
+                if (dateTimeLocalOffset)
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    messages::addMessageToErrorJson(
+                        asyncResp->res.jsonValue,
+                        messages::propertyNotWritable("DateTimeLocalOffset"));
                     return;
                 }
 
