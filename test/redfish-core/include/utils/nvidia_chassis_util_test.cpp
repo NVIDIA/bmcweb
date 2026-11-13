@@ -9,6 +9,7 @@
 #include "http_response.hpp"
 #include "utils/nvidia_chassis_util.hpp"
 
+#include <asm-generic/errno.h>
 #include <tinyxml2.h>
 
 #include <boost/beast/http/status.hpp>
@@ -21,6 +22,7 @@
 #include <charconv>
 #include <cstddef>
 #include <filesystem>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <set>
@@ -122,6 +124,268 @@ TEST(HostManagementNetworkAccess, PatchWithMapperErrorIsPropertyUnknown)
         dbus::utility::MapperEndPoints{hostNetworkAccessPath});
 
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::bad_request);
+}
+
+// A chassis can have switches in more than one fabric, and the same switch id
+// can be used in several of them, so each switch is linked by the fabric of its
+// own path.
+
+constexpr const char* fabricsPath =
+    "/xyz/openbmc_project/inventory/system/fabrics";
+
+constexpr const char* testChassisPath =
+    "/xyz/openbmc_project/inventory/system/chassis/HGX_ConnectX_1";
+
+std::string fabricSwitchPath(std::string_view fabricId,
+                             std::string_view switchId)
+{
+    return std::string(fabricsPath)
+        .append("/")
+        .append(fabricId)
+        .append("/Switches/")
+        .append(switchId);
+}
+
+nlohmann::json switchLinks(std::initializer_list<std::string_view> uris)
+{
+    nlohmann::json links = nlohmann::json::array();
+    for (std::string_view uri : uris)
+    {
+        links.push_back({{"@odata.id", std::string(uri)}});
+    }
+    return links;
+}
+
+TEST(FabricSwitchUri, BuildsUriFromFabricAndSwitchOfPath)
+{
+    EXPECT_EQ(getFabricSwitchUri(
+                  fabricSwitchPath("HGX_PCIeTopology_0", "ConnectX_Switch_0")),
+              "/redfish/v1/Fabrics/HGX_PCIeTopology_0/Switches/"
+              "ConnectX_Switch_0");
+}
+
+TEST(FabricSwitchUri, SameSwitchIdInTwoFabricsGivesTwoUris)
+{
+    EXPECT_EQ(getFabricSwitchUri(
+                  fabricSwitchPath("HGX_PCIeTopology_1", "ConnectX_Switch_1")),
+              "/redfish/v1/Fabrics/HGX_PCIeTopology_1/Switches/"
+              "ConnectX_Switch_1");
+    EXPECT_EQ(getFabricSwitchUri(
+                  fabricSwitchPath("HGX_PCIeTopology_8", "ConnectX_Switch_1")),
+              "/redfish/v1/Fabrics/HGX_PCIeTopology_8/Switches/"
+              "ConnectX_Switch_1");
+}
+
+TEST(FabricSwitchUri, PathOfNoFabricSwitchGivesNoUri)
+{
+    const std::vector<std::string> paths = {
+        "",
+        "/",
+        "ConnectX_Switch_1",
+        "/ConnectX_Switch_1",
+        "/Switches/ConnectX_Switch_1",
+        // The switch is not below a Switches level.
+        std::string(fabricsPath)
+            .append("/HGX_PCIeTopology_1/ConnectX_Switch_1"),
+        "/xyz/openbmc_project/inventory/system/chassis/HGX_ConnectX_1/Switch_0",
+        // No switch id.
+        std::string(fabricsPath).append("/HGX_PCIeTopology_1/Switches/"),
+        std::string(fabricsPath).append("/HGX_PCIeTopology_1/Switches"),
+        // Not below a fabric: a Switches level of another kind of object.
+        std::string(
+            "/xyz/openbmc_project/inventory/system/chassis/HGX_ConnectX_1")
+            .append("/Switches/Switch_0"),
+        // A fabrics level below a root other than the fabric inventory.
+        "/other/fabrics/HGX_PCIeTopology_1/Switches/ConnectX_Switch_1",
+        std::string("/xyz/openbmc_project/inventory/fabrics")
+            .append("/HGX_PCIeTopology_1/Switches/ConnectX_Switch_1"),
+        // No fabric id: the Switches level is directly below fabrics.
+        std::string(fabricsPath).append("/Switches/ConnectX_Switch_1"),
+    };
+    for (const std::string& path : paths)
+    {
+        EXPECT_FALSE(getFabricSwitchUri(path).has_value()) << path;
+    }
+}
+
+TEST(ChassisFabricSwitches, SingleFabricLinksItsSwitch)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_0", "ConnectX_Switch_0")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_PCIeTopology_0/Switches/"
+                           "ConnectX_Switch_0"}));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(ChassisFabricSwitches, SwitchesOfOneFabricAreSorted)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_NVLinkFabric_0", "NVSwitch_1"),
+            fabricSwitchPath("HGX_NVLinkFabric_0", "NVSwitch_0")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_NVLinkFabric_0/Switches/"
+                           "NVSwitch_0",
+                           "/redfish/v1/Fabrics/HGX_NVLinkFabric_0/Switches/"
+                           "NVSwitch_1"}));
+}
+
+// A chassis with a switch in its own PCIe topology and one in an extra
+// topology, listed by the mapper in no particular order.
+TEST(ChassisFabricSwitches, SwitchesOfTwoFabricsAreAllLinked)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_8", "ConnectX_Switch_1"),
+            fabricSwitchPath("HGX_PCIeTopology_1", "ConnectX_Switch_1")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_PCIeTopology_1/Switches/"
+                           "ConnectX_Switch_1",
+                           "/redfish/v1/Fabrics/HGX_PCIeTopology_8/Switches/"
+                           "ConnectX_Switch_1"}));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+
+    auto otherAsyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        otherAsyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_9", "ConnectX_Switch_7"),
+            fabricSwitchPath("HGX_PCIeTopology_7", "ConnectX_Switch_7")});
+
+    EXPECT_EQ(otherAsyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_PCIeTopology_7/Switches/"
+                           "ConnectX_Switch_7",
+                           "/redfish/v1/Fabrics/HGX_PCIeTopology_9/Switches/"
+                           "ConnectX_Switch_7"}));
+    EXPECT_EQ(otherAsyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(ChassisFabricSwitches, SameSwitchIdInTwoFabricsKeepsBothLinks)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("FabricB", "Switch_0"),
+            fabricSwitchPath("FabricA", "Switch_0")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/FabricA/Switches/Switch_0",
+                           "/redfish/v1/Fabrics/FabricB/Switches/Switch_0"}));
+}
+
+// The other links of the chassis are filled out by other helpers and must
+// survive.
+TEST(ChassisFabricSwitches, OtherLinksOfTheChassisArePreserved)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+    asyncResp->res.jsonValue["Links"]["Processors"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["Links"]["Processors"].push_back(
+        {{"@odata.id",
+          "/redfish/v1/Systems/HGX_Baseboard_0/Processors/GPU_1"}});
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_1", "ConnectX_Switch_1")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Processors"],
+              switchLinks({"/redfish/v1/Systems/HGX_Baseboard_0/Processors/"
+                           "GPU_1"}));
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_PCIeTopology_1/Switches/"
+                           "ConnectX_Switch_1"}));
+}
+
+TEST(ChassisFabricSwitches, NoSwitchesOmitsProperty)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(asyncResp, testChassisPath,
+                                  boost::system::error_code{},
+                                  dbus::utility::MapperEndPoints{});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Links"));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(ChassisFabricSwitches, MapperErrorOmitsProperty)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath,
+        boost::system::errc::make_error_code(boost::system::errc::io_error),
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_0", "ConnectX_Switch_0")});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Links"));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(ChassisFabricSwitches, NoAssociationOmitsProperty)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath,
+        boost::system::error_code(EBADR, boost::system::generic_category()),
+        dbus::utility::MapperEndPoints{});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Links"));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+// A switch path of an unexpected shape costs that switch its link. It must
+// not turn the response of the whole chassis into an error.
+TEST(ChassisFabricSwitches, UnexpectedPathIsLeftOutAndResponseStaysOk)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{
+            fabricSwitchPath("HGX_PCIeTopology_8", "ConnectX_Switch_1"),
+            "/xyz/openbmc_project/inventory/system/chassis/HGX_ConnectX_1/"
+            "Switch_0",
+            fabricSwitchPath("HGX_PCIeTopology_1", "ConnectX_Switch_1")});
+
+    EXPECT_EQ(asyncResp->res.jsonValue["Links"]["Switches"],
+              switchLinks({"/redfish/v1/Fabrics/HGX_PCIeTopology_1/Switches/"
+                           "ConnectX_Switch_1",
+                           "/redfish/v1/Fabrics/HGX_PCIeTopology_8/Switches/"
+                           "ConnectX_Switch_1"}));
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("error"));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
+}
+
+TEST(ChassisFabricSwitches, OnlyUnexpectedPathsOmitProperty)
+{
+    auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+
+    afterGetChassisFabricSwitches(
+        asyncResp, testChassisPath, boost::system::error_code{},
+        dbus::utility::MapperEndPoints{"/ConnectX_Switch_1", "/"});
+
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("Links"));
+    EXPECT_FALSE(asyncResp->res.jsonValue.contains("error"));
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
 }
 
 nlohmann::json resolvedType(nlohmann::json oemNvidia)

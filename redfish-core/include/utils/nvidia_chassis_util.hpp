@@ -1299,6 +1299,94 @@ inline void getChassisProcessorLinks(
 }
 
 /**
+ * @brief Build the Redfish URI of a fabric switch from the D-Bus path of its
+ * inventory object:
+ * /xyz/openbmc_project/inventory/system/fabrics/<fabricId>/Switches/<switchId>
+ *
+ * A chassis can be associated with switches of more than one fabric, and the
+ * same switch id can be used in several fabrics. The fabric of a switch is
+ * therefore taken from the path of the switch, not from the chassis. The
+ * layout fabrics/<fabricId>/Switches/<switchId> is the convention of the
+ * inventory producers (entity-manager configurations and nsmd).
+ *
+ * @param[in]       switchPath  D-Bus path of the switch inventory object.
+ *
+ * @return /redfish/v1/Fabrics/<fabricId>/Switches/<switchId>, or nullopt if
+ *         switchPath is not the path of a fabric switch.
+ */
+inline std::optional<std::string> getFabricSwitchUri(
+    const std::string& switchPath)
+{
+    const sdbusplus::object_path switchObj(switchPath);
+    const sdbusplus::object_path switchesObj = switchObj.parent_path();
+    const sdbusplus::object_path fabricObj = switchesObj.parent_path();
+    const std::string switchId = switchObj.filename();
+    const std::string fabricId = fabricObj.filename();
+    if (switchId.empty() || fabricId.empty() ||
+        switchesObj.filename() != "Switches" ||
+        fabricObj.parent_path() !=
+            sdbusplus::object_path("/xyz/openbmc_project/inventory/system/"
+                                   "fabrics"))
+    {
+        return std::nullopt;
+    }
+    std::string switchUri =
+        boost::urls::format("/redfish/v1/Fabrics/{}/Switches/{}", fabricId,
+                            switchId)
+            .buffer();
+    return switchUri;
+}
+
+/**
+ * @brief Fill out the fabric switches links of a chassis from the switches
+ * associated with it. A switch with an unexpected path is left out of the
+ * links; it does not fail the response of the chassis. Links.Switches is
+ * created only when at least one link is built: a chassis with no switch, or
+ * with no switch of the expected path, has no Links.Switches.
+ *
+ * @param[in,out]   aResp        Async HTTP response.
+ * @param[in]       chassisPath  D-Bus path of the chassis.
+ * @param[in]       ec           Error from the association lookup.
+ * @param[in]       switchPaths  D-Bus paths of the associated switches.
+ */
+inline void afterGetChassisFabricSwitches(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& chassisPath, const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& switchPaths)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error for {}/all_switches: {}",
+                             chassisPath, ec);
+        }
+        return; // no switches = no failures
+    }
+    // Sort the switches links by path
+    std::vector<std::string> sortedData(switchPaths);
+    std::ranges::sort(sortedData);
+    nlohmann::json linksArray = nlohmann::json::array();
+    for (const std::string& switchPath : sortedData)
+    {
+        std::optional<std::string> switchUri = getFabricSwitchUri(switchPath);
+        if (!switchUri)
+        {
+            BMCWEB_LOG_WARNING(
+                "Chassis {}: not a fabric switch path, no link for {}",
+                chassisPath, switchPath);
+            continue;
+        }
+        linksArray.push_back({{"@odata.id", *switchUri}});
+    }
+    if (linksArray.empty())
+    {
+        return; // nothing to link = no failures
+    }
+    aResp->res.jsonValue["Links"]["Switches"] = std::move(linksArray);
+}
+
+/**
  * @brief Fill out fabric switches links association by
  * requesting data from the given D-Bus association object.
  *
@@ -1309,62 +1397,9 @@ inline void getChassisFabricSwitchesLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get fabric switches links");
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.ObjectMapper", objPath + "/fabrics",
-        "xyz.openbmc_project.Association", "endpoints",
-        [aResp, objPath](const boost::system::error_code& ec2,
-                         const std::vector<std::string>& resp) {
-            if (ec2)
-            {
-                return; // no fabric = no failures
-            }
-
-            if (resp.size() > 1)
-            {
-                // There must be single fabric
-                return;
-            }
-            const std::string& fabricPath = resp.front();
-            sdbusplus::object_path objectPath(fabricPath);
-            std::string fabricId = objectPath.filename();
-            if (fabricId.empty())
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-            // Get the switches
-            dbus::utility::getProperty<std::vector<std::string>>(
-                "xyz.openbmc_project.ObjectMapper", objPath + "/all_switches",
-                "xyz.openbmc_project.Association", "endpoints",
-                [aResp, fabricId](const boost::system::error_code& ec1,
-                                  const std::vector<std::string>& resp1) {
-                    if (ec1)
-                    {
-                        return; // no switches = no failures
-                    }
-                    // Sort the switches links
-                    std::vector<std::string> sortedData(resp1);
-                    std::ranges::sort(sortedData);
-                    nlohmann::json& linksArray =
-                        aResp->res.jsonValue["Links"]["Switches"];
-                    linksArray = nlohmann::json::array();
-                    for (const std::string& switchPath : sortedData)
-                    {
-                        sdbusplus::object_path objectPath1(switchPath);
-                        std::string switchId = objectPath1.filename();
-                        if (switchId.empty())
-                        {
-                            messages::internalError(aResp->res);
-                            return;
-                        }
-                        linksArray.push_back(
-                            {{"@odata.id", std::string("/redfish/v1/Fabrics/")
-                                               .append(fabricId)
-                                               .append("/Switches/")
-                                               .append(switchId)}});
-                    }
-                });
-        });
+    dbus::utility::getAssociationEndPoints(
+        objPath + "/all_switches",
+        std::bind_front(afterGetChassisFabricSwitches, aResp, objPath));
 }
 
 /**
