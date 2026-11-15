@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
 
