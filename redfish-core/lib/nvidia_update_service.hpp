@@ -1457,16 +1457,13 @@ inline void advertiseCommitImage(
     const std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>&
         discover)
 {
-    switch (state)
+    if (state == CommitImageAllowListState::loaded)
     {
-        case CommitImageAllowListState::loaded:
-            addCommitImageAction(asyncResp);
-            break;
-        case CommitImageAllowListState::notConfigured:
-            discover(asyncResp);
-            break;
-        case CommitImageAllowListState::loadFailed:
-            break;
+        addCommitImageAction(asyncResp);
+    }
+    else if (state == CommitImageAllowListState::notConfigured)
+    {
+        discover(asyncResp);
     }
 }
 } // namespace nvidia
