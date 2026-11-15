@@ -426,7 +426,7 @@ inline void getComponentPowerCycle(const std::string& chassisPath,
                                    ComponentPowerCycleCallback callback)
 {
     dbus::utility::getAssociatedSubTree(
-        sdbusplus::object_path(chassisPath + "/powered_by"),
+        sdbusplus::object_path(chassisPath) / "powered_by",
         sdbusplus::object_path("/xyz/openbmc_project/control/power_cycle"), 0,
         std::array<std::string_view, 1>{interface},
         std::bind_front(afterGetComponentPowerCycleSubTree,
