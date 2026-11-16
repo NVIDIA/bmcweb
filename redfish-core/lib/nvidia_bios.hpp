@@ -239,6 +239,67 @@ inline void handleClearNonVolatileVariablesSubtree(
         });
 }
 
+inline void setBootOverrideEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot",
+        "xyz.openbmc_project.Object.Enable", "Enabled", true,
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            BMCWEB_LOG_DEBUG("Boot override enable update done.");
+        });
+}
+
+inline void setBootOverrideOneTime(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot/one_time",
+        "xyz.openbmc_project.Object.Enable", "Enabled", true,
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            BMCWEB_LOG_DEBUG("Boot override one_time update done.");
+            setBootOverrideEnabled(aResp);
+        });
+}
+
+inline void armCmosClear(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         const bool overrideArmed)
+{
+    dbus::utility::setProperty(
+        "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot",
+        "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear", true,
+        [aResp, overrideArmed](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            BMCWEB_LOG_DEBUG("Boot override CMOSClear update done.");
+            if (overrideArmed)
+            {
+                setBootOverrideEnabled(aResp);
+                return;
+            }
+            setBootOverrideOneTime(aResp);
+        });
+}
+
 inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const SecureSelector secure,
                            const bool requestToClear)
@@ -261,32 +322,18 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                    requestToClear, subtree);
         });
 
-    dbus::utility::setProperty(
+    dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/boot",
-        "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear", true,
-        [aResp](const boost::system::error_code& ec) {
+        "xyz.openbmc_project.Object.Enable", "Enabled",
+        [aResp](const boost::system::error_code& ec, bool overrideArmed) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
                 messages::internalError(aResp->res);
                 return;
             }
-            BMCWEB_LOG_DEBUG("Boot override CMOSClear update done.");
-        });
-
-    dbus::utility::setProperty(
-        "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/control/host0/boot",
-        "xyz.openbmc_project.Object.Enable", "Enabled", true,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Boot override enable update done.");
+            armCmosClear(aResp, overrideArmed);
         });
 
     dbus::utility::setProperty(
