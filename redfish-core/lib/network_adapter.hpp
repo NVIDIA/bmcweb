@@ -124,6 +124,13 @@ void getValidNetworkAdapterPath(
                                const std::vector<std::string>& resp) {
                 if (ec)
                 {
+                    if (isObjectMapperNotFound(ec))
+                    {
+                        // The chassis has no network_adapters association:
+                        // it has no such adapter, not an internal error.
+                        callback(std::nullopt);
+                        return;
+                    }
                     BMCWEB_LOG_ERROR(
                         "getValidNetworkAdapterPath respHandler DBUS error: {}",
                         ec);

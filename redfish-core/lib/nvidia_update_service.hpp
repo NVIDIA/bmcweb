@@ -67,6 +67,7 @@
 #include <utils/dbus_log_utils.hpp>
 #include <utils/fw_utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstddef>
@@ -1080,8 +1081,26 @@ inline static void getRelatedItemsSwitch(
 
 inline static void getRelatedItemsNetworkAdapter(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const sdbusplus::object_path& objPath)
+    const sdbusplus::object_path& objPath, bool objectIsChassis)
 {
+    if (objectIsChassis)
+    {
+        // The object is itself the chassis and carries the NetworkInterface,
+        // so the adapter is served under that chassis (see
+        // getValidNetworkAdapterPath), not under its parent_chassis.
+        nlohmann::json& relatedItem = asyncResp->res.jsonValue["RelatedItem"];
+        nlohmann::json& relatedItemCount =
+            asyncResp->res.jsonValue["RelatedItem@odata.count"];
+        const std::string adapterLink =
+            "/redfish/v1/Chassis/" + objPath.filename() + "/NetworkAdapters/" +
+            objPath.filename();
+        if (!relatedItemAlreadyPresent(relatedItem, adapterLink))
+        {
+            relatedItem.push_back({{"@odata.id", adapterLink}});
+        }
+        relatedItemCount = relatedItem.size();
+        return;
+    }
     dbus::utility::getProperty<std::vector<std::string>>(
         "xyz.openbmc_project.ObjectMapper", objPath.str + "/parent_chassis",
         "xyz.openbmc_project.Association", "endpoints",
@@ -1139,6 +1158,13 @@ inline static void getRelatedItemsOther(
 
             for (const auto& object : objects)
             {
+                const bool objectIsChassis = std::ranges::any_of(
+                    object.second, [](const std::string& intf) {
+                        return intf == "xyz.openbmc_project.Inventory."
+                                       "Item.Board" ||
+                               intf == "xyz.openbmc_project.Inventory."
+                                       "Item.Chassis";
+                    });
                 for (const auto& interfaces : object.second)
                 {
                     if (interfaces == "xyz.openbmc_project.Inventory."
@@ -1199,7 +1225,8 @@ inline static void getRelatedItemsOther(
                     if (interfaces == "xyz.openbmc_project.Inventory."
                                       "Item.NetworkInterface")
                     {
-                        getRelatedItemsNetworkAdapter(aResp, association);
+                        getRelatedItemsNetworkAdapter(aResp, association,
+                                                      objectIsChassis);
                     }
                 }
             }
