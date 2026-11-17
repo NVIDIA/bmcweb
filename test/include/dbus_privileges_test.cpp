@@ -7,7 +7,6 @@
 #include "routing/baserule.hpp"
 #include "sessions.hpp"
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
