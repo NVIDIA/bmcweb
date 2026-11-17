@@ -192,6 +192,12 @@ static void afterInstallCertificate(const std::filesystem::path& certPath,
 void regenerateCertificateIfHostnameChanged(const std::string& filepath,
                                             const std::string& hostname)
 {
+    if (hostname.empty())
+    {
+        BMCWEB_LOG_INFO("HostName is empty, not regenerating certificate");
+        return;
+    }
+
     std::optional<OpenSSLX509> cert = ensuressl::loadCert(filepath);
     if (!cert)
     {

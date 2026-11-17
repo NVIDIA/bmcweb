@@ -29,4 +29,15 @@ TEST(SSLKeyHandler, GenerateVerifyRoundTrip)
     EXPECT_EQ(cert, cert2);
 }
 
+TEST(SSLKeyHandler, RegenerateCertificateEmptyHostnameDoesNotThrow)
+{
+    DuplicatableFileHandle myFile("");
+    std::string cert = generateSslCertificate("testhost");
+    ASSERT_FALSE(cert.empty());
+    writeCertificateToFile(myFile.filePath, cert);
+
+    EXPECT_NO_THROW(
+        regenerateCertificateIfHostnameChanged(myFile.filePath, ""));
+}
+
 } // namespace ensuressl

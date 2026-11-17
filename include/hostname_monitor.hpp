@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <iterator>
 #include <memory>
@@ -37,27 +38,34 @@ inline int onPropertyUpdate(sd_bus_message* m, void* /* userdata */,
         return 0;
     }
 
-    sdbusplus::message_t message(m);
-    std::string iface;
-    dbus::utility::DBusPropertiesMap changedProperties;
-
-    message.read(iface, changedProperties);
-    const std::string* hostname = nullptr;
-    for (const auto& propertyPair : changedProperties)
+    try
     {
-        if (propertyPair.first == "HostName")
+        sdbusplus::message_t message(m);
+        std::string iface;
+        dbus::utility::DBusPropertiesMap changedProperties;
+
+        message.read(iface, changedProperties);
+        const std::string* hostname = nullptr;
+        for (const auto& propertyPair : changedProperties)
         {
-            hostname = std::get_if<std::string>(&propertyPair.second);
+            if (propertyPair.first == "HostName")
+            {
+                hostname = std::get_if<std::string>(&propertyPair.second);
+            }
         }
-    }
-    if (hostname == nullptr)
-    {
-        return 0;
-    }
+        if (hostname == nullptr)
+        {
+            return 0;
+        }
 
-    BMCWEB_LOG_DEBUG("Read hostname from signal: {}", *hostname);
-    const std::string certFile = "/etc/ssl/certs/https/server.pem";
-    ensuressl::regenerateCertificateIfHostnameChanged(certFile, *hostname);
+        BMCWEB_LOG_DEBUG("Read hostname from signal: {}", *hostname);
+        const std::string certFile = "/etc/ssl/certs/https/server.pem";
+        ensuressl::regenerateCertificateIfHostnameChanged(certFile, *hostname);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("Failed to handle HostName change: {}", e.what());
+    }
 
     return 0;
 }
