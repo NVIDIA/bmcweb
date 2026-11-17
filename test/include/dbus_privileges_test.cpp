@@ -7,6 +7,7 @@
 #include "routing/baserule.hpp"
 #include "sessions.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -147,13 +148,56 @@ TEST(PopulateUserInfo, LockedPreOpenSessionSurvives)
               UserInfoResult::Ok);
 }
 
-TEST(PopulateUserInfo, MissingEnabledPropertyIsNotRejected)
+TEST(PopulateUserInfo, RemoteDisabledLockedUserIsNotRejected)
+{
+    persistent_data::UserSession session =
+        makeSession(persistent_data::SessionType::MutualTLS);
+    EXPECT_EQ(populateUserInfo(session, makeUserInfo(false, true, true)),
+              UserInfoResult::Ok);
+}
+
+TEST(PopulateUserInfo, MissingAccountStatePropertiesIsNotRejected)
 {
     dbus::utility::DBusPropertiesMap map = makeUserInfo(true, false);
-    map.erase(map.begin() + 4, map.end());
+    std::erase_if(map, [](const auto& property) {
+        return property.first == "UserEnabled" ||
+               property.first == "UserLockedForFailedAttempt";
+    });
     persistent_data::UserSession session =
         makeSession(persistent_data::SessionType::MutualTLS);
     EXPECT_EQ(populateUserInfo(session, map), UserInfoResult::Ok);
+}
+
+TEST(PopulateUserInfo, EnabledPropertyWithoutLockedPropertyIsEnforced)
+{
+    for (bool enabled : {false, true})
+    {
+        dbus::utility::DBusPropertiesMap map = makeUserInfo(enabled, false);
+        std::erase_if(map, [](const auto& property) {
+            return property.first == "UserLockedForFailedAttempt";
+        });
+        persistent_data::UserSession session =
+            makeSession(persistent_data::SessionType::MutualTLS);
+        EXPECT_EQ(populateUserInfo(session, map),
+                  enabled ? UserInfoResult::Ok
+                          : UserInfoResult::AccountDisabled);
+    }
+}
+
+TEST(PopulateUserInfo, LockedPropertyWithoutEnabledPropertyIsEnforced)
+{
+    for (bool locked : {false, true})
+    {
+        dbus::utility::DBusPropertiesMap map = makeUserInfo(true, locked);
+        std::erase_if(map, [](const auto& property) {
+            return property.first == "UserEnabled";
+        });
+        persistent_data::UserSession session =
+            makeSession(persistent_data::SessionType::MutualTLS);
+        EXPECT_EQ(populateUserInfo(session, map),
+                  locked ? UserInfoResult::AccountDisabled
+                         : UserInfoResult::Ok);
+    }
 }
 
 TEST(AfterGetUserInfo, DisabledUserGets401)

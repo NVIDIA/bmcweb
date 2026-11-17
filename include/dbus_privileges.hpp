@@ -31,7 +31,7 @@ enum class UserInfoResult
     Ok,
     // User info could not be read or was malformed.
     Error,
-    // The account is disabled, or locked for a new mTLS login.
+    // The account is disabled, or locked and the request uses mTLS.
     AccountDisabled,
 };
 
@@ -76,8 +76,9 @@ inline UserInfoResult populateUserInfo(
                            session.username);
         return UserInfoResult::AccountDisabled;
     }
-    // Sessions opened before a lockout are allowed to survive, so only mTLS
-    // logins, which have no other credential check, are refused when locked.
+    // Token and cookie sessions opened before a lockout are allowed to survive.
+    // mTLS has no other credential check, so every mTLS request is refused
+    // while the account is locked.
     if (!remoteUser &&
         session.sessionType == persistent_data::SessionType::MutualTLS &&
         userLocked && *userLocked)
