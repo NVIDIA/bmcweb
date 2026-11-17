@@ -329,7 +329,8 @@ inline void handleSecureBootDatabaseResetKeys(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::internalError(aResp->res);
+                    messages::operationNotAllowed(aResp->res);
+                    aResp->res.setHeader(boost::beast::http::field::allow, "");
                     return;
                 }
                 createPendingRequest(std::move(payload), aResp);
@@ -453,7 +454,9 @@ inline void handleCertificateCollectionPost(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::internalError(aResp->res);
+                    messages::operationNotAllowed(aResp->res);
+                    aResp->res.setHeader(boost::beast::http::field::allow,
+                                         "GET");
                     return;
                 }
                 createPendingRequest(std::move(payload), aResp);
@@ -638,7 +641,9 @@ inline void handleCertificateDelete(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::internalError(aResp->res);
+                    messages::resourceCannotBeDeleted(aResp->res);
+                    aResp->res.setHeader(boost::beast::http::field::allow,
+                                         "GET");
                     return;
                 }
                 createPendingRequest(std::move(payload), aResp);
@@ -773,7 +778,9 @@ inline void handleSignatureCollectionPost(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::insufficientPrivilege(aResp->res);
+                    messages::operationNotAllowed(aResp->res);
+                    aResp->res.setHeader(boost::beast::http::field::allow,
+                                         "GET");
                     return;
                 }
                 createPendingRequest(std::move(payload), aResp);
@@ -935,7 +942,9 @@ inline void handleSignatureDelete(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::internalError(aResp->res);
+                    messages::resourceCannotBeDeleted(aResp->res);
+                    aResp->res.setHeader(boost::beast::http::field::allow,
+                                         "GET");
                     return;
                 }
                 createPendingRequest(std::move(payload), aResp);
