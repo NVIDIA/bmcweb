@@ -179,6 +179,8 @@ class RelatedItemCacheCollector
     RelatedItemCacheCollector(const RelatedItemCacheCollector&) = delete;
     RelatedItemCacheCollector& operator=(const RelatedItemCacheCollector&) =
         delete;
+    RelatedItemCacheCollector(RelatedItemCacheCollector&&) = delete;
+    RelatedItemCacheCollector& operator=(RelatedItemCacheCollector&&) = delete;
 
   private:
     std::shared_ptr<bmcweb::AsyncResp> asyncResp;
@@ -308,8 +310,7 @@ inline void getRelatedNetworkAdapterData(
 }
 
 inline void addFabricSwitchRelatedItems(
-    nlohmann::json& itemsArray,
-    const std::vector<std::string>& fabricPaths,
+    nlohmann::json& itemsArray, const std::vector<std::string>& fabricPaths,
     const std::vector<std::string>& switchPaths)
 {
     for (const std::string& fabricPath : fabricPaths)

@@ -4,7 +4,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <chrono>
 #include <string>
 #include <vector>
 
@@ -89,16 +88,13 @@ TEST(AddFabricSwitchRelatedItems, AddsEveryFabricSwitchCombination)
 
     addFabricSwitchRelatedItems(items, fabricPaths, switchPaths);
 
-    EXPECT_EQ(items,
-              nlohmann::json::array(
-                  {{{"@odata.id",
-                     "/redfish/v1/Fabrics/HGX/Switches/Switch0"}},
-                   {{"@odata.id",
-                     "/redfish/v1/Fabrics/HGX/Switches/Switch1"}},
-                   {{"@odata.id",
-                     "/redfish/v1/Fabrics/NVLink/Switches/Switch0"}},
-                   {{"@odata.id",
-                     "/redfish/v1/Fabrics/NVLink/Switches/Switch1"}}}));
+    EXPECT_EQ(
+        items,
+        nlohmann::json::array(
+            {{{"@odata.id", "/redfish/v1/Fabrics/HGX/Switches/Switch0"}},
+             {{"@odata.id", "/redfish/v1/Fabrics/HGX/Switches/Switch1"}},
+             {{"@odata.id", "/redfish/v1/Fabrics/NVLink/Switches/Switch0"}},
+             {{"@odata.id", "/redfish/v1/Fabrics/NVLink/Switches/Switch1"}}}));
 }
 
 TEST(AddFabricSwitchRelatedItems, EmptyInputDoesNotChangeRelatedItems)
@@ -109,8 +105,7 @@ TEST(AddFabricSwitchRelatedItems, EmptyInputDoesNotChangeRelatedItems)
     addFabricSwitchRelatedItems(items, {}, {});
 
     EXPECT_EQ(items,
-              nlohmann::json::array(
-                  {{{"@odata.id", "/redfish/v1/existing"}}}));
+              nlohmann::json::array({{{"@odata.id", "/redfish/v1/existing"}}}));
 }
 
 } // namespace
