@@ -576,6 +576,28 @@ inline void getFwWriteProtectedStatus(
 }
 
 /**
+ * @brief Checks if the IsActive property of a slot matches the slot type.
+ *
+ * @param properties Properties of the xyz.openbmc_project.Software.Slot object.
+ * @param slotType "ActiveFirmwareSlot" or "InactiveFirmwareSlot".
+ *
+ * @return false only when IsActive is present and does not match slotType.
+ */
+inline bool slotMatchesType(const dbus::utility::DBusPropertiesMap& properties,
+                            const std::string& slotType)
+{
+    for (const auto& [key, val] : properties)
+    {
+        const bool* isActive = std::get_if<bool>(&val);
+        if (key == "IsActive" && isActive != nullptr)
+        {
+            return *isActive == (slotType == "ActiveFirmwareSlot");
+        }
+    }
+    return true;
+}
+
+/**
  * @brief Fills the firmware slot information from the slot properties.
  *
  * @param asyncResp Async response object that will be populated with slot
@@ -596,8 +618,17 @@ inline void afterGetSlotProperties(
         BMCWEB_LOG_ERROR("error msg = {}", ec.message());
         return;
     }
-    nlohmann::json& oemSlot =
-        asyncResp->res.jsonValue["Oem"]["Nvidia"][slotType];
+    if (!slotMatchesType(properties, slotType))
+    {
+        return;
+    }
+    nlohmann::json& oemNvidia = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+    if (oemNvidia.contains(slotType))
+    {
+        // Another endpoint already reported this slot type.
+        return;
+    }
+    nlohmann::json& oemSlot = oemNvidia[slotType];
     for (const auto& [key, val] : properties)
     {
         if (key == "SlotId")
@@ -780,8 +811,10 @@ inline void getFWSlotInformation(
             {
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaSoftwareInventory.v1_2_0.NvidiaSoftwareInventory";
-                populateSlotInfo(asyncResp, objPaths.front(),
-                                 "ActiveFirmwareSlot");
+                for (const std::string& objPath : objPaths)
+                {
+                    populateSlotInfo(asyncResp, objPath, "ActiveFirmwareSlot");
+                }
             }
 
             dbus::utility::getProperty<std::vector<std::string>>(
@@ -798,8 +831,11 @@ inline void getFWSlotInformation(
 
                     if (!innerObjPaths.empty())
                     {
-                        populateSlotInfo(asyncResp, innerObjPaths.front(),
-                                         "InactiveFirmwareSlot");
+                        for (const std::string& objPath : innerObjPaths)
+                        {
+                            populateSlotInfo(asyncResp, objPath,
+                                             "InactiveFirmwareSlot");
+                        }
                     }
                 });
         });

@@ -47,6 +47,7 @@ srcfiles_unittest = files(
     'redfish-core/include/utils/dbus_fd_download_utils_test.cpp',
     'redfish-core/include/utils/dbus_utils.cpp',
     'redfish-core/include/utils/error_code_test.cpp',
+    'redfish-core/include/utils/fw_utils_test.cpp',
     'redfish-core/include/utils/hex_utils_test.cpp',
     'redfish-core/include/utils/ip_utils_test.cpp',
     'redfish-core/include/utils/json_utils_test.cpp',
