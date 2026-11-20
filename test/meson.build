@@ -100,6 +100,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/pcie_test.cpp',
     'redfish-core/lib/power_subsystem_test.cpp',
     'redfish-core/lib/processor_test.cpp',
+    'redfish-core/lib/redfish_v1_test.cpp',
     'redfish-core/lib/service_root_test.cpp',
     'redfish-core/lib/shmem_utils_test.cpp',
     'redfish-core/lib/system_test.cpp',

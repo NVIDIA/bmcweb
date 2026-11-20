@@ -89,11 +89,43 @@ inline void redfish401(const crow::Request& req,
                                         "Invalid username or password");
 }
 
+// Fallback requests can be forwarded to a satellite, so require
+// ConfigureManager for anything other than GET or HEAD.
+inline bool fallbackRequestAllowed(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (req.method() == boost::beast::http::verb::get ||
+        req.method() == boost::beast::http::verb::head)
+    {
+        return true;
+    }
+    if (req.session == nullptr)
+    {
+        return true;
+    }
+    const std::vector<redfish::Privileges> required(
+        redfish::privileges::privilegeSetConfigureManager.begin(),
+        redfish::privileges::privilegeSetConfigureManager.end());
+    if (redfish::isOperationAllowedWithPrivileges(
+            required, redfish::getUserPrivileges(*req.session)))
+    {
+        return true;
+    }
+    messages::insufficientPrivilege(asyncResp->res);
+    return false;
+}
+
 inline void redfish404(App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& path)
 {
     asyncResp->res.addHeader(boost::beast::http::field::allow, "");
+
+    if (!fallbackRequestAllowed(req, asyncResp))
+    {
+        return;
+    }
 
     // If we fall to this route, we didn't have a more specific route, so return
     // 404
@@ -115,6 +147,11 @@ inline void redfish405(App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& path)
 {
+    if (!fallbackRequestAllowed(req, asyncResp))
+    {
+        return;
+    }
+
     // If we fall to this route, we didn't have a more specific route, so return
     // 405
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
