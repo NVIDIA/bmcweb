@@ -1283,8 +1283,7 @@ inline void afterVerifyUserExists(
                  retval == PAM_CONV_ERR)
         {
             // If password is invalid (including PAM conversation overflow)
-            messages::propertyValueFormatError(asyncResp->res, "null",
-                                               "Password");
+            messages::propertyValueError(asyncResp->res, "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
         }
         else if (retval != PAM_SUCCESS)
@@ -2013,7 +2012,7 @@ inline void processAfterCreateUser(
         dbus::utility::async_method_call(
             asyncResp,
             // ast-grep-ignore: long-lambda
-            [asyncResp, password](const boost::system::error_code& ec3) {
+            [asyncResp](const boost::system::error_code& ec3) {
                 if (ec3)
                 {
                     messages::internalError(asyncResp->res);
@@ -2021,8 +2020,7 @@ inline void processAfterCreateUser(
                 }
 
                 // If password is invalid
-                messages::propertyValueFormatError(asyncResp->res, "null",
-                                                   "Password");
+                messages::propertyValueError(asyncResp->res, "Password");
             },
             "xyz.openbmc_project.User.Manager", userPath,
             "xyz.openbmc_project.Object.Delete", "Delete");

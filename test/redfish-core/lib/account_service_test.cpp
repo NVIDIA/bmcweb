@@ -1,4 +1,5 @@
 #include "account_service.hpp"
+#include "error_messages.hpp"
 #include "http_response.hpp"
 
 #include <boost/beast/http/status.hpp>
@@ -51,6 +52,21 @@ TEST(Conversion, NegativeToUint64)
     EXPECT_EQ(passwordExpirationToUint64("2024-10-17T00:00"), std::nullopt);
 
     EXPECT_EQ(passwordExpirationToUint64("ABC"), std::nullopt);
+}
+
+TEST(PropertyValueError, DoesNotExposeWriteOnlyPassword)
+{
+    crow::Response res;
+
+    messages::propertyValueError(res, "Password");
+
+    EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
+    const json& message = res.jsonValue["Password@Message.ExtendedInfo"][0];
+    EXPECT_EQ(message["MessageId"], "Base.1.19.PropertyValueError");
+    EXPECT_EQ(message["Message"],
+              "The value provided for the property Password is not valid.");
+    EXPECT_EQ(message["MessageArgs"], json::array({"Password"}));
+    EXPECT_EQ(res.jsonValue.dump().find("null"), std::string::npos);
 }
 
 TEST(Conversion, PositiveToJson)
