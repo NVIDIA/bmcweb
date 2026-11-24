@@ -191,37 +191,6 @@ inline void enableTLSAuth()
     }
 }
 
-/**
- * Function shutdowns the BMC.
- *
- * @param[in] asyncResp - Shared pointer for completing asynchronous calls
- */
-inline void doBMCGracefulShutdown(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    const char* processName = "xyz.openbmc_project.State.BMC";
-    const char* objectPath = "/xyz/openbmc_project/state/bmc0";
-    const char* interfaceName = "xyz.openbmc_project.State.BMC";
-    const std::string& propertyValue =
-        "xyz.openbmc_project.State.BMC.Transition.PowerOff";
-    const char* destProperty = "RequestedBMCTransition";
-
-    // Create the D-Bus variant for D-Bus call.
-    dbus::utility::setProperty(
-        processName, objectPath, interfaceName, destProperty, propertyValue,
-        [asyncResp](const boost::system::error_code& ec) {
-            // Use "Set" method to set the property value.
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("[Set] Bad D-Bus request error: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            messages::success(asyncResp->res);
-        });
-}
-
 // convert sync command input request data to raw datain
 inline std::optional<uint32_t> formatSyncDataIn(std::vector<std::string>& data)
 {
@@ -799,8 +768,7 @@ inline void getIsCommandShellEnable(
 
 inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
 {
-    if (resetType == "GracefulRestart" || resetType == "ForceRestart" ||
-        resetType == "GracefulShutdown")
+    if (resetType == "GracefulRestart" || resetType == "ForceRestart")
     {
         if constexpr (BMCWEB_REDFISH_DBUS_LOG)
         {

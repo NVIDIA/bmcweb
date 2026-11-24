@@ -199,8 +199,7 @@ inline void handleManagerResetAction(
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         sendRestartEvent(req, resetType);
-        if (resetType == "GracefulRestart" || resetType == "ForceRestart" ||
-            resetType == "GracefulShutdown")
+        if (resetType == "GracefulRestart" || resetType == "ForceRestart")
         {
             // Send an event for Manager Reset
             NvEvent event = redfish::EventUtil::createEventRebootReason(
@@ -223,14 +222,6 @@ inline void handleManagerResetAction(
         doBMCForceRestart(asyncResp);
         return;
     }
-    // NVIDIA code starts here
-    if (resetType == "GracefulShutdown")
-    {
-        BMCWEB_LOG_DEBUG("Proceeding with {}", resetType);
-        doBMCGracefulShutdown(asyncResp);
-        return;
-    }
-    // NVIDIA code ends here
     BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
     messages::actionParameterNotSupported(asyncResp->res, resetType,
                                           "ResetType");
@@ -379,9 +370,6 @@ inline void handleManagerResetActionInfo(
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("GracefulRestart");
     allowableValues.emplace_back("ForceRestart");
-    // NVIDIA code starts here
-    allowableValues.emplace_back("GracefulShutdown");
-    // NVIDIA code ends here
     parameter["AllowableValues"] = std::move(allowableValues);
 
     nlohmann::json::array_t parameters;
