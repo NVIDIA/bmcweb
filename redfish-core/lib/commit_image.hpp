@@ -34,10 +34,12 @@
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/message.hpp>
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -63,6 +65,8 @@ static constexpr std::string_view bmcInventoryInterface =
     "xyz.openbmc_project.Inventory.Item.BMC";
 static constexpr std::string_view chassisInventoryInterface =
     "xyz.openbmc_project.Inventory.Item.Chassis";
+static constexpr std::string_view cpuInventoryInterface =
+    "xyz.openbmc_project.Inventory.Item.Cpu";
 
 /**
  * @brief Structure to hold the result of a single commit operation
@@ -272,7 +276,8 @@ struct CommitImageValueEntry
 
 /**
  * @brief Formats ImageCopy error messages into JSON based on error code
- * Message body varies based on the error code from NSM ImageCopy interface
+ * Message body varies based on the error code reported by the ImageCopy
+ * provider. NSM ImageCopy error codes define the default message mapping.
  *
  * @param[in] objectPaths The vector of object paths (last element is used)
  * @param[in] errorCode The error code string from ImageCopy interface
@@ -733,6 +738,7 @@ inline void handleInventoryEndpointInterfaces(
     // Check what interfaces this inventory endpoint implements
     bool isBmcPath = false;
     bool isChassisPath = false;
+    bool isCpuPath = false;
 
     for (const auto& [service, interfaces] : objInfo)
     {
@@ -746,6 +752,10 @@ inline void handleInventoryEndpointInterfaces(
             if (intf == chassisInventoryInterface)
             {
                 isChassisPath = true;
+            }
+            if (intf == cpuInventoryInterface)
+            {
+                isCpuPath = true;
             }
         }
         if (isBmcPath)
@@ -769,8 +779,8 @@ inline void handleInventoryEndpointInterfaces(
 
     // Query associated_chassis/associated_ROT for this inventory path
     std::string associatedChassisPath =
-        isBmcPath ? endpoint + "/associated_ROT"
-                  : endpoint + "/associated_chassis";
+        (isBmcPath || isCpuPath) ? endpoint + "/associated_ROT"
+                                 : endpoint + "/associated_chassis";
 
     state->pendingOps++;
 
@@ -995,15 +1005,16 @@ class ImageCopyStatusMonitor :
     public std::enable_shared_from_this<ImageCopyStatusMonitor>
 {
   public:
-    // Timeout for image copy operation (matches NSM async infra timeout)
+    // Timeout for ImageCopy request processing, using the NSM async
+    // infrastructure timeout as the baseline.
     static constexpr std::chrono::seconds monitorTimeout{60};
 
     ImageCopyStatusMonitor(
         const std::shared_ptr<CommitImageAggregationContext>& ctx,
         const std::string& chassis, const std::string& dbusPath,
-        const std::vector<std::string>& paths) :
+        const std::vector<std::string>& paths, const std::string& service) :
         aggregationCtx(ctx), chassisName(chassis), chassisDBusPath(dbusPath),
-        objectPaths(paths),
+        objectPaths(paths), serviceName(service),
         timeoutTimer(crow::connections::systemBus->get_io_context())
     {}
 
@@ -1037,6 +1048,7 @@ class ImageCopyStatusMonitor :
     {
         std::string matchRule = sdbusplus::bus::match::rules::propertiesChanged(
             chassisDBusPath, std::string(imageCopyInterface));
+        matchRule += sdbusplus::bus::match::rules::sender(serviceName);
 
         match = std::make_unique<sdbusplus::bus::match_t>(
             *crow::connections::systemBus, matchRule,
@@ -1070,7 +1082,7 @@ class ImageCopyStatusMonitor :
             self->aggregationCtx->reportResult(
                 self->objectPaths, false, "Base.1.16.0.OperationTimeout",
                 "Critical", "Image copy operation timed out after 60 seconds",
-                "Retry the operation. If the problem persists, check NSM service logs.");
+                "Retry the operation. If the problem persists, check the image copy provider logs.");
         });
     }
 
@@ -1091,13 +1103,20 @@ class ImageCopyStatusMonitor :
     void queryStatus()
     {
         dbus::utility::getProperty<std::string>(
-            "xyz.openbmc_project.NSM", chassisDBusPath,
-            std::string(imageCopyInterface), "ImageCopyRequestStatus",
+            serviceName, chassisDBusPath, std::string(imageCopyInterface),
+            "ImageCopyRequestStatus",
             [self = shared_from_this(),
              ctx = aggregationCtx](const boost::system::error_code& ec,
                                    const std::string& status) {
                 if (ec)
                 {
+                    if (self->completed)
+                    {
+                        return;
+                    }
+                    self->completed = true;
+                    self->timeoutTimer.cancel();
+                    self->destroyMatch();
                     BMCWEB_LOG_ERROR(
                         "D-Bus call failed to query ImageCopyRequestStatus for chassis {} object paths {}: {}",
                         self->chassisName, join(self->objectPaths, ", "),
@@ -1192,7 +1211,7 @@ class ImageCopyStatusMonitor :
             ctx->reportResult(
                 objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
                 "Image copy returned unexpected status: " + status,
-                "Check NSM service logs for details.");
+                "Check the image copy provider logs for details.");
         }
     }
 
@@ -1202,8 +1221,8 @@ class ImageCopyStatusMonitor :
     void readErrorCode()
     {
         dbus::utility::getProperty<std::string>(
-            "xyz.openbmc_project.NSM", chassisDBusPath,
-            std::string(imageCopyInterface), "ErrorCode",
+            serviceName, chassisDBusPath, std::string(imageCopyInterface),
+            "ErrorCode",
             [self = shared_from_this(),
              ctx = aggregationCtx](const boost::system::error_code& ec,
                                    const std::string& errorCode) {
@@ -1216,7 +1235,7 @@ class ImageCopyStatusMonitor :
                     ctx->reportResult(
                         self->objectPaths, false, "Base.1.16.0.GeneralError",
                         "Critical", "Image copy failed. Error: " + ec.message(),
-                        "Verify NSM service is running and try again.");
+                        "Verify the image copy provider is running and try again.");
                     return;
                 }
 
@@ -1261,6 +1280,7 @@ class ImageCopyStatusMonitor :
     std::string chassisName;
     std::string chassisDBusPath;
     std::vector<std::string> objectPaths;
+    std::string serviceName;
     std::unique_ptr<sdbusplus::bus::match_t> match;
     boost::asio::steady_timer timeoutTimer;
     bool completed = false;
@@ -1280,9 +1300,10 @@ class ImageCopyStatusMonitor :
  *
  * @return None.
  */
-inline void initiateImageCopy(
+inline void initiateImageCopyFromService(
     const std::shared_ptr<CommitImageAggregationContext>& aggregationCtx,
-    const ChassisObjectSoftwarePath& chassisObjectSoftwarePath)
+    const ChassisObjectSoftwarePath& chassisObjectSoftwarePath,
+    const std::string& serviceName)
 {
     std::string chassisDBusPath = chassisObjectSoftwarePath.chassisDbusPath;
     std::string chassisName = chassisObjectSoftwarePath.chassisName;
@@ -1298,7 +1319,7 @@ inline void initiateImageCopy(
 
     // Create status monitor
     auto monitor = std::make_shared<ImageCopyStatusMonitor>(
-        aggregationCtx, chassisName, chassisDBusPath, objectPaths);
+        aggregationCtx, chassisName, chassisDBusPath, objectPaths, serviceName);
 
     dbus::utility::async_method_call(
         [self = aggregationCtx, chassisName, objectPaths,
@@ -1306,13 +1327,13 @@ inline void initiateImageCopy(
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "D-Bus call RequestImageCopy for chassis {} object paths {} failed: {}",
+                    "RequestImageCopy failed for chassis {} object paths {}: {}",
                     chassisName, join(objectPaths, ", "), ec.message());
                 self->reportResult(
                     objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
                     "Failed to initiate image copy operation. Error: " +
                         ec.message(),
-                    "Verify NSM service is running and try again.");
+                    "Verify the image copy provider is running and try again.");
                 return;
             }
 
@@ -1323,7 +1344,48 @@ inline void initiateImageCopy(
             // Start monitoring the status property
             monitor->startMonitoring();
         },
-        "xyz.openbmc_project.NSM", chassisDBusPath,
-        std::string(imageCopyInterface), "RequestImageCopy", objectPathsVector);
+        serviceName, chassisDBusPath, std::string(imageCopyInterface),
+        "RequestImageCopy", objectPathsVector);
+}
+
+inline void initiateImageCopy(
+    const std::shared_ptr<CommitImageAggregationContext>& aggregationCtx,
+    const ChassisObjectSoftwarePath& chassisObjectSoftwarePath)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {imageCopyInterface};
+    dbus::utility::getDbusObject(
+        chassisObjectSoftwarePath.chassisDbusPath, interfaces,
+        [aggregationCtx, chassisObjectSoftwarePath](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& providers) {
+            const auto& objectPaths = chassisObjectSoftwarePath.objectPaths;
+            if (ec || providers.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "ImageCopy provider not found for chassis {} object paths {}: {}",
+                    chassisObjectSoftwarePath.chassisName,
+                    join(objectPaths, ", "), ec.message());
+                aggregationCtx->reportResult(
+                    objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
+                    "No image copy provider was found.",
+                    "Verify the image copy provider is running and try again.");
+                return;
+            }
+            if (providers.size() != 1)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Expected one ImageCopy provider for chassis {}, found {}",
+                    chassisObjectSoftwarePath.chassisName, providers.size());
+                aggregationCtx->reportResult(
+                    objectPaths, false, "Base.1.16.0.GeneralError", "Critical",
+                    "Multiple image copy providers were found.",
+                    "Ensure exactly one image copy provider is configured for the chassis.");
+                return;
+            }
+
+            initiateImageCopyFromService(aggregationCtx,
+                                         chassisObjectSoftwarePath,
+                                         providers.front().first);
+        });
 }
 } // namespace redfish

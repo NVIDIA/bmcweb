@@ -55,6 +55,7 @@ static constexpr auto securityConfigInterface =
     "xyz.openbmc_project.Software.SecurityConfig";
 static constexpr auto minSecVersionConfigInterface =
     "xyz.openbmc_project.Software.MinSecVersionConfig";
+static constexpr auto imageCopyStateInterface = "com.nvidia.ImageCopyState";
 
 static constexpr std::array<std::string_view, 7> propertyInterfaces = {
     securitySigningInterface,     softwareBuildTypeInterface,
@@ -521,7 +522,7 @@ inline void handleNvidiaRoTImageSlot(
         });
 }
 
-static constexpr std::array<std::string_view, 7>
+static constexpr std::array<std::string_view, 8>
     erotChassisInventoryInterfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder",
         securitySigningInterface,
@@ -529,7 +530,8 @@ static constexpr std::array<std::string_view, 7>
         softwareSigningInterface,
         softwareStateInterface,
         softwareSlotInterface,
-        securityVersionInterface};
+        securityVersionInterface,
+        imageCopyStateInterface};
 
 /**
  * @brief Check inventory subtree for RoT protected component objects

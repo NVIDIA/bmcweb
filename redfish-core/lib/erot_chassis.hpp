@@ -52,6 +52,7 @@
 #include <utils/time_utils.hpp>
 
 #include <algorithm>
+#include <vector>
 
 namespace redfish
 {
@@ -614,6 +615,12 @@ inline void populateRotChassisTrustedComponentsAndRotLinks(
 inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& chassisId, bool isCpuEROT)
 {
+    // A std::array<std::string_view> reaches GetSubTree as only its first
+    // element. The vector is the container this async call serializes as `as`.
+    static const std::vector<std::string> inventoryInterfaces(
+        firmware_info::erotChassisInventoryInterfaces.begin(),
+        firmware_info::erotChassisInventoryInterfaces.end());
+
     dbus::utility::async_method_call(
         [asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
@@ -787,7 +794,8 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             redfish::chassis_utils::getChassisReplaceable(
                                 asyncResp, connectionName.first, path);
                         }
-                        else if (interface == "com.nvidia.ImageCopyState")
+                        else if (interface ==
+                                 firmware_info::imageCopyStateInterface)
                         {
                             nvidia_chassis_utils::getBackgroundCopyStatus(
                                 asyncResp, connectionName.first, objPath);
@@ -825,8 +833,7 @@ inline void getEROTChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        firmware_info::erotChassisInventoryInterfaces);
+        "/xyz/openbmc_project/inventory", 0, inventoryInterfaces);
 }
 
 /**
